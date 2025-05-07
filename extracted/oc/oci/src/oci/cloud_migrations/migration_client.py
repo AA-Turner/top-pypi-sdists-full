@@ -151,7 +151,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/cancel_work_request.py.html>`__ to see an example of how to use cancel_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/cancel_work_request.py.html>`__ to see an example of how to use cancel_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -266,7 +266,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/change_migration_compartment.py.html>`__ to see an example of how to use change_migration_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/change_migration_compartment.py.html>`__ to see an example of how to use change_migration_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationId']
@@ -386,7 +386,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/change_migration_plan_compartment.py.html>`__ to see an example of how to use change_migration_plan_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/change_migration_plan_compartment.py.html>`__ to see an example of how to use change_migration_plan_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationPlanId']
@@ -506,7 +506,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/change_replication_schedule_compartment.py.html>`__ to see an example of how to use change_replication_schedule_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/change_replication_schedule_compartment.py.html>`__ to see an example of how to use change_replication_schedule_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['replicationScheduleId']
@@ -616,7 +616,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/create_migration.py.html>`__ to see an example of how to use create_migration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/create_migration.py.html>`__ to see an example of how to use create_migration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -714,7 +714,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/create_migration_asset.py.html>`__ to see an example of how to use create_migration_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/create_migration_asset.py.html>`__ to see an example of how to use create_migration_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -812,7 +812,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/create_migration_plan.py.html>`__ to see an example of how to use create_migration_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/create_migration_plan.py.html>`__ to see an example of how to use create_migration_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -910,7 +910,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/create_replication_schedule.py.html>`__ to see an example of how to use create_replication_schedule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/create_replication_schedule.py.html>`__ to see an example of how to use create_replication_schedule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1008,7 +1008,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/create_target_asset.py.html>`__ to see an example of how to use create_target_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/create_target_asset.py.html>`__ to see an example of how to use create_target_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1106,7 +1106,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/delete_migration.py.html>`__ to see an example of how to use delete_migration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/delete_migration.py.html>`__ to see an example of how to use delete_migration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationId']
@@ -1211,7 +1211,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/delete_migration_asset.py.html>`__ to see an example of how to use delete_migration_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/delete_migration_asset.py.html>`__ to see an example of how to use delete_migration_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationAssetId']
@@ -1316,7 +1316,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/delete_migration_plan.py.html>`__ to see an example of how to use delete_migration_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/delete_migration_plan.py.html>`__ to see an example of how to use delete_migration_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationPlanId']
@@ -1421,7 +1421,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/delete_replication_schedule.py.html>`__ to see an example of how to use delete_replication_schedule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/delete_replication_schedule.py.html>`__ to see an example of how to use delete_replication_schedule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['replicationScheduleId']
@@ -1526,7 +1526,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/delete_target_asset.py.html>`__ to see an example of how to use delete_target_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/delete_target_asset.py.html>`__ to see an example of how to use delete_target_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['targetAssetId']
@@ -1638,7 +1638,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/execute_migration_plan.py.html>`__ to see an example of how to use execute_migration_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/execute_migration_plan.py.html>`__ to see an example of how to use execute_migration_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationPlanId']
@@ -1739,7 +1739,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/export_migration_plan.py.html>`__ to see an example of how to use export_migration_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/export_migration_plan.py.html>`__ to see an example of how to use export_migration_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationPlanId']
@@ -1837,7 +1837,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/get_migration.py.html>`__ to see an example of how to use get_migration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/get_migration.py.html>`__ to see an example of how to use get_migration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationId']
@@ -1935,7 +1935,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/get_migration_asset.py.html>`__ to see an example of how to use get_migration_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/get_migration_asset.py.html>`__ to see an example of how to use get_migration_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationAssetId']
@@ -2033,7 +2033,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/get_migration_plan.py.html>`__ to see an example of how to use get_migration_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/get_migration_plan.py.html>`__ to see an example of how to use get_migration_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationPlanId']
@@ -2131,7 +2131,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/get_replication_progress.py.html>`__ to see an example of how to use get_replication_progress API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/get_replication_progress.py.html>`__ to see an example of how to use get_replication_progress API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationAssetId']
@@ -2229,7 +2229,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/get_replication_schedule.py.html>`__ to see an example of how to use get_replication_schedule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/get_replication_schedule.py.html>`__ to see an example of how to use get_replication_schedule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['replicationScheduleId']
@@ -2327,7 +2327,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/get_target_asset.py.html>`__ to see an example of how to use get_target_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/get_target_asset.py.html>`__ to see an example of how to use get_target_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['targetAssetId']
@@ -2425,7 +2425,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2547,7 +2547,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/import_migration_plan.py.html>`__ to see an example of how to use import_migration_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/import_migration_plan.py.html>`__ to see an example of how to use import_migration_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationPlanId']
@@ -2699,7 +2699,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/list_available_shapes.py.html>`__ to see an example of how to use list_available_shapes API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/list_available_shapes.py.html>`__ to see an example of how to use list_available_shapes API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationPlanId']
@@ -2860,7 +2860,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/list_migration_assets.py.html>`__ to see an example of how to use list_migration_assets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/list_migration_assets.py.html>`__ to see an example of how to use list_migration_assets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3019,7 +3019,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/list_migration_plans.py.html>`__ to see an example of how to use list_migration_plans API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/list_migration_plans.py.html>`__ to see an example of how to use list_migration_plans API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3177,7 +3177,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/list_migrations.py.html>`__ to see an example of how to use list_migrations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/list_migrations.py.html>`__ to see an example of how to use list_migrations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3333,7 +3333,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/list_replication_schedules.py.html>`__ to see an example of how to use list_replication_schedules API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/list_replication_schedules.py.html>`__ to see an example of how to use list_replication_schedules API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3489,7 +3489,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/list_target_assets.py.html>`__ to see an example of how to use list_target_assets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/list_target_assets.py.html>`__ to see an example of how to use list_target_assets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3634,7 +3634,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -3776,7 +3776,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -3934,7 +3934,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -4086,7 +4086,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/refresh_migration.py.html>`__ to see an example of how to use refresh_migration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/refresh_migration.py.html>`__ to see an example of how to use refresh_migration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationId']
@@ -4201,7 +4201,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/refresh_migration_asset.py.html>`__ to see an example of how to use refresh_migration_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/refresh_migration_asset.py.html>`__ to see an example of how to use refresh_migration_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationAssetId']
@@ -4316,7 +4316,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/refresh_migration_plan.py.html>`__ to see an example of how to use refresh_migration_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/refresh_migration_plan.py.html>`__ to see an example of how to use refresh_migration_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationPlanId']
@@ -4431,7 +4431,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/start_asset_replication.py.html>`__ to see an example of how to use start_asset_replication API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/start_asset_replication.py.html>`__ to see an example of how to use start_asset_replication API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationAssetId']
@@ -4546,7 +4546,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/start_migration_replication.py.html>`__ to see an example of how to use start_migration_replication API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/start_migration_replication.py.html>`__ to see an example of how to use start_migration_replication API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationId']
@@ -4657,7 +4657,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/update_migration.py.html>`__ to see an example of how to use update_migration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/update_migration.py.html>`__ to see an example of how to use update_migration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationId']
@@ -4769,7 +4769,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/update_migration_asset.py.html>`__ to see an example of how to use update_migration_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/update_migration_asset.py.html>`__ to see an example of how to use update_migration_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationAssetId']
@@ -4888,7 +4888,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/update_migration_plan.py.html>`__ to see an example of how to use update_migration_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/update_migration_plan.py.html>`__ to see an example of how to use update_migration_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['migrationPlanId']
@@ -5008,7 +5008,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/update_replication_schedule.py.html>`__ to see an example of how to use update_replication_schedule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/update_replication_schedule.py.html>`__ to see an example of how to use update_replication_schedule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['replicationScheduleId']
@@ -5128,7 +5128,7 @@ class MigrationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/cloudmigrations/update_target_asset.py.html>`__ to see an example of how to use update_target_asset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/cloudmigrations/update_target_asset.py.html>`__ to see an example of how to use update_target_asset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['targetAssetId']

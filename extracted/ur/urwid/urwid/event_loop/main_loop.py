@@ -172,7 +172,8 @@ class MainLoop:
     def _set_widget(self, widget: Widget) -> None:
         warnings.warn(
             f"method `{self.__class__.__name__}._set_widget` is deprecated, "
-            f"please use `{self.__class__.__name__}.widget` property",
+            f"please use `{self.__class__.__name__}.widget` property."
+            "API will be removed in version 4.0.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -193,7 +194,8 @@ class MainLoop:
     def _set_pop_ups(self, pop_ups: bool) -> None:
         warnings.warn(
             f"method `{self.__class__.__name__}._set_pop_ups` is deprecated, "
-            f"please use `{self.__class__.__name__}.pop_ups` property",
+            f"please use `{self.__class__.__name__}.pop_ups` property."
+            "API will be removed in version 4.0.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -460,9 +462,7 @@ class MainLoop:
         widget.mouse_event((15, 5), 'mouse press', 1, 5, 4, focus=True)
         >>> ml._update([], [])
         """
-        keys = self.input_filter(keys, raw)
-
-        if keys:
+        if keys := self.input_filter(keys, raw):
             self.process_input(keys)
             if "window resize" in keys:
                 self.screen_size = None
@@ -493,19 +493,14 @@ class MainLoop:
                 else:
                     self.screen.set_input_timeouts(None)
                 keys, raw = self.screen.get_input(True)
-                if not keys and next_alarm:
-                    sec = next_alarm[0] - time.time()
-                    if sec <= 0:
-                        break
+                if not keys and next_alarm and next_alarm[0] - time.time() <= 0:
+                    break
 
-            keys = self.input_filter(keys, raw)
-
-            if keys:
+            if keys := self.input_filter(keys, raw):
                 self.process_input(keys)
 
             while next_alarm:
-                sec = next_alarm[0] - time.time()
-                if sec > 0:
+                if (next_alarm[0] - time.time()) > 0:
                     break
                 _tm, _tie_break, callback = next_alarm
                 callback()
@@ -563,12 +558,12 @@ class MainLoop:
 
             if isinstance(key, str):
                 if self._topmost_widget.selectable():
-                    handled_key = self._topmost_widget.keypress(self.screen_size, key)
-                    if not handled_key:
+                    if handled_key := self._topmost_widget.keypress(self.screen_size, key):
+                        key = handled_key  # noqa: PLW2901
+
+                    else:
                         something_handled = True
                         continue
-
-                    key = handled_key  # noqa: PLW2901
 
             elif is_mouse_event(key):
                 event, button, col, row = key

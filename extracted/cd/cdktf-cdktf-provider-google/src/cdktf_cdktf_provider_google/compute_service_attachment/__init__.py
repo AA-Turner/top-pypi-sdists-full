@@ -1,7 +1,7 @@
 r'''
 # `google_compute_service_attachment`
 
-Refer to the Terraform Registry for docs: [`google_compute_service_attachment`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment).
+Refer to the Terraform Registry for docs: [`google_compute_service_attachment`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeServiceAttachment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeServiceAttachment.ComputeServiceAttachment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment google_compute_service_attachment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment google_compute_service_attachment}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class ComputeServiceAttachment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment google_compute_service_attachment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment google_compute_service_attachment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param connection_preference: The connection preference to use for this service attachment. Valid values include "ACCEPT_AUTOMATIC", "ACCEPT_MANUAL". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#connection_preference ComputeServiceAttachment#connection_preference}
-        :param enable_proxy_protocol: If true, enable the proxy protocol which is for supplying client TCP/IP address data in TCP connections that traverse proxies on their way to destination servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#enable_proxy_protocol ComputeServiceAttachment#enable_proxy_protocol}
-        :param name: Name of the resource. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#name ComputeServiceAttachment#name}
-        :param nat_subnets: An array of subnets that is provided for NAT in this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#nat_subnets ComputeServiceAttachment#nat_subnets}
-        :param target_service: The URL of a service serving the endpoint identified by this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#target_service ComputeServiceAttachment#target_service}
-        :param consumer_accept_lists: consumer_accept_lists block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#consumer_accept_lists ComputeServiceAttachment#consumer_accept_lists}
-        :param consumer_reject_lists: An array of projects that are not allowed to connect to this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#consumer_reject_lists ComputeServiceAttachment#consumer_reject_lists}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#description ComputeServiceAttachment#description}
-        :param domain_names: If specified, the domain name will be used during the integration between the PSC connected endpoints and the Cloud DNS. For example, this is a valid domain name: "p.mycompany.com.". Current max number of domain names supported is 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#domain_names ComputeServiceAttachment#domain_names}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#id ComputeServiceAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#project ComputeServiceAttachment#project}.
-        :param propagated_connection_limit: The number of consumer spokes that connected Private Service Connect endpoints can be propagated to through Network Connectivity Center. This limit lets the service producer limit how many propagated Private Service Connect connections can be established to this service attachment from a single consumer. If the connection preference of the service attachment is ACCEPT_MANUAL, the limit applies to each project or network that is listed in the consumer accept list. If the connection preference of the service attachment is ACCEPT_AUTOMATIC, the limit applies to each project that contains a connected endpoint. If unspecified, the default propagated connection limit is 250. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#propagated_connection_limit ComputeServiceAttachment#propagated_connection_limit}
-        :param reconcile_connections: This flag determines whether a consumer accept/reject list change can reconcile the statuses of existing ACCEPTED or REJECTED PSC endpoints. If false, connection policy update will only affect existing PENDING PSC endpoints. Existing ACCEPTED/REJECTED endpoints will remain untouched regardless how the connection policy is modified . If true, update will affect both PENDING and ACCEPTED/REJECTED PSC endpoints. For example, an ACCEPTED PSC endpoint will be moved to REJECTED if its project is added to the reject list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#reconcile_connections ComputeServiceAttachment#reconcile_connections}
-        :param region: URL of the region where the resource resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#region ComputeServiceAttachment#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#timeouts ComputeServiceAttachment#timeouts}
+        :param connection_preference: The connection preference to use for this service attachment. Valid values include "ACCEPT_AUTOMATIC", "ACCEPT_MANUAL". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#connection_preference ComputeServiceAttachment#connection_preference}
+        :param enable_proxy_protocol: If true, enable the proxy protocol which is for supplying client TCP/IP address data in TCP connections that traverse proxies on their way to destination servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#enable_proxy_protocol ComputeServiceAttachment#enable_proxy_protocol}
+        :param name: Name of the resource. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#name ComputeServiceAttachment#name}
+        :param nat_subnets: An array of subnets that is provided for NAT in this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#nat_subnets ComputeServiceAttachment#nat_subnets}
+        :param target_service: The URL of a service serving the endpoint identified by this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#target_service ComputeServiceAttachment#target_service}
+        :param consumer_accept_lists: consumer_accept_lists block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#consumer_accept_lists ComputeServiceAttachment#consumer_accept_lists}
+        :param consumer_reject_lists: An array of projects that are not allowed to connect to this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#consumer_reject_lists ComputeServiceAttachment#consumer_reject_lists}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#description ComputeServiceAttachment#description}
+        :param domain_names: If specified, the domain name will be used during the integration between the PSC connected endpoints and the Cloud DNS. For example, this is a valid domain name: "p.mycompany.com.". Current max number of domain names supported is 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#domain_names ComputeServiceAttachment#domain_names}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#id ComputeServiceAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#project ComputeServiceAttachment#project}.
+        :param propagated_connection_limit: The number of consumer spokes that connected Private Service Connect endpoints can be propagated to through Network Connectivity Center. This limit lets the service producer limit how many propagated Private Service Connect connections can be established to this service attachment from a single consumer. If the connection preference of the service attachment is ACCEPT_MANUAL, the limit applies to each project or network that is listed in the consumer accept list. If the connection preference of the service attachment is ACCEPT_AUTOMATIC, the limit applies to each project that contains a connected endpoint. If unspecified, the default propagated connection limit is 250. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#propagated_connection_limit ComputeServiceAttachment#propagated_connection_limit}
+        :param reconcile_connections: This flag determines whether a consumer accept/reject list change can reconcile the statuses of existing ACCEPTED or REJECTED PSC endpoints. If false, connection policy update will only affect existing PENDING PSC endpoints. Existing ACCEPTED/REJECTED endpoints will remain untouched regardless how the connection policy is modified . If true, update will affect both PENDING and ACCEPTED/REJECTED PSC endpoints. For example, an ACCEPTED PSC endpoint will be moved to REJECTED if its project is added to the reject list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#reconcile_connections ComputeServiceAttachment#reconcile_connections}
+        :param region: URL of the region where the resource resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#region ComputeServiceAttachment#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#timeouts ComputeServiceAttachment#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class ComputeServiceAttachment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeServiceAttachment to import.
-        :param import_from_id: The id of the existing ComputeServiceAttachment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeServiceAttachment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeServiceAttachment to import is found.
         '''
         if __debug__:
@@ -178,9 +178,9 @@ class ComputeServiceAttachment(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#create ComputeServiceAttachment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#delete ComputeServiceAttachment#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#update ComputeServiceAttachment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#create ComputeServiceAttachment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#delete ComputeServiceAttachment#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#update ComputeServiceAttachment#update}.
         '''
         value = ComputeServiceAttachmentTimeouts(
             create=create, delete=delete, update=update
@@ -581,21 +581,21 @@ class ComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param connection_preference: The connection preference to use for this service attachment. Valid values include "ACCEPT_AUTOMATIC", "ACCEPT_MANUAL". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#connection_preference ComputeServiceAttachment#connection_preference}
-        :param enable_proxy_protocol: If true, enable the proxy protocol which is for supplying client TCP/IP address data in TCP connections that traverse proxies on their way to destination servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#enable_proxy_protocol ComputeServiceAttachment#enable_proxy_protocol}
-        :param name: Name of the resource. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#name ComputeServiceAttachment#name}
-        :param nat_subnets: An array of subnets that is provided for NAT in this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#nat_subnets ComputeServiceAttachment#nat_subnets}
-        :param target_service: The URL of a service serving the endpoint identified by this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#target_service ComputeServiceAttachment#target_service}
-        :param consumer_accept_lists: consumer_accept_lists block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#consumer_accept_lists ComputeServiceAttachment#consumer_accept_lists}
-        :param consumer_reject_lists: An array of projects that are not allowed to connect to this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#consumer_reject_lists ComputeServiceAttachment#consumer_reject_lists}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#description ComputeServiceAttachment#description}
-        :param domain_names: If specified, the domain name will be used during the integration between the PSC connected endpoints and the Cloud DNS. For example, this is a valid domain name: "p.mycompany.com.". Current max number of domain names supported is 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#domain_names ComputeServiceAttachment#domain_names}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#id ComputeServiceAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#project ComputeServiceAttachment#project}.
-        :param propagated_connection_limit: The number of consumer spokes that connected Private Service Connect endpoints can be propagated to through Network Connectivity Center. This limit lets the service producer limit how many propagated Private Service Connect connections can be established to this service attachment from a single consumer. If the connection preference of the service attachment is ACCEPT_MANUAL, the limit applies to each project or network that is listed in the consumer accept list. If the connection preference of the service attachment is ACCEPT_AUTOMATIC, the limit applies to each project that contains a connected endpoint. If unspecified, the default propagated connection limit is 250. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#propagated_connection_limit ComputeServiceAttachment#propagated_connection_limit}
-        :param reconcile_connections: This flag determines whether a consumer accept/reject list change can reconcile the statuses of existing ACCEPTED or REJECTED PSC endpoints. If false, connection policy update will only affect existing PENDING PSC endpoints. Existing ACCEPTED/REJECTED endpoints will remain untouched regardless how the connection policy is modified . If true, update will affect both PENDING and ACCEPTED/REJECTED PSC endpoints. For example, an ACCEPTED PSC endpoint will be moved to REJECTED if its project is added to the reject list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#reconcile_connections ComputeServiceAttachment#reconcile_connections}
-        :param region: URL of the region where the resource resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#region ComputeServiceAttachment#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#timeouts ComputeServiceAttachment#timeouts}
+        :param connection_preference: The connection preference to use for this service attachment. Valid values include "ACCEPT_AUTOMATIC", "ACCEPT_MANUAL". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#connection_preference ComputeServiceAttachment#connection_preference}
+        :param enable_proxy_protocol: If true, enable the proxy protocol which is for supplying client TCP/IP address data in TCP connections that traverse proxies on their way to destination servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#enable_proxy_protocol ComputeServiceAttachment#enable_proxy_protocol}
+        :param name: Name of the resource. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#name ComputeServiceAttachment#name}
+        :param nat_subnets: An array of subnets that is provided for NAT in this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#nat_subnets ComputeServiceAttachment#nat_subnets}
+        :param target_service: The URL of a service serving the endpoint identified by this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#target_service ComputeServiceAttachment#target_service}
+        :param consumer_accept_lists: consumer_accept_lists block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#consumer_accept_lists ComputeServiceAttachment#consumer_accept_lists}
+        :param consumer_reject_lists: An array of projects that are not allowed to connect to this service attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#consumer_reject_lists ComputeServiceAttachment#consumer_reject_lists}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#description ComputeServiceAttachment#description}
+        :param domain_names: If specified, the domain name will be used during the integration between the PSC connected endpoints and the Cloud DNS. For example, this is a valid domain name: "p.mycompany.com.". Current max number of domain names supported is 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#domain_names ComputeServiceAttachment#domain_names}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#id ComputeServiceAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#project ComputeServiceAttachment#project}.
+        :param propagated_connection_limit: The number of consumer spokes that connected Private Service Connect endpoints can be propagated to through Network Connectivity Center. This limit lets the service producer limit how many propagated Private Service Connect connections can be established to this service attachment from a single consumer. If the connection preference of the service attachment is ACCEPT_MANUAL, the limit applies to each project or network that is listed in the consumer accept list. If the connection preference of the service attachment is ACCEPT_AUTOMATIC, the limit applies to each project that contains a connected endpoint. If unspecified, the default propagated connection limit is 250. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#propagated_connection_limit ComputeServiceAttachment#propagated_connection_limit}
+        :param reconcile_connections: This flag determines whether a consumer accept/reject list change can reconcile the statuses of existing ACCEPTED or REJECTED PSC endpoints. If false, connection policy update will only affect existing PENDING PSC endpoints. Existing ACCEPTED/REJECTED endpoints will remain untouched regardless how the connection policy is modified . If true, update will affect both PENDING and ACCEPTED/REJECTED PSC endpoints. For example, an ACCEPTED PSC endpoint will be moved to REJECTED if its project is added to the reject list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#reconcile_connections ComputeServiceAttachment#reconcile_connections}
+        :param region: URL of the region where the resource resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#region ComputeServiceAttachment#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#timeouts ComputeServiceAttachment#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -735,7 +735,7 @@ class ComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def connection_preference(self) -> builtins.str:
         '''The connection preference to use for this service attachment. Valid values include "ACCEPT_AUTOMATIC", "ACCEPT_MANUAL".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#connection_preference ComputeServiceAttachment#connection_preference}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#connection_preference ComputeServiceAttachment#connection_preference}
         '''
         result = self._values.get("connection_preference")
         assert result is not None, "Required property 'connection_preference' is missing"
@@ -747,7 +747,7 @@ class ComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''If true, enable the proxy protocol which is for supplying client TCP/IP address data in TCP connections that traverse proxies on their way to destination servers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#enable_proxy_protocol ComputeServiceAttachment#enable_proxy_protocol}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#enable_proxy_protocol ComputeServiceAttachment#enable_proxy_protocol}
         '''
         result = self._values.get("enable_proxy_protocol")
         assert result is not None, "Required property 'enable_proxy_protocol' is missing"
@@ -764,7 +764,7 @@ class ComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         following characters must be a dash, lowercase letter, or digit,
         except the last character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#name ComputeServiceAttachment#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#name ComputeServiceAttachment#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -774,7 +774,7 @@ class ComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def nat_subnets(self) -> typing.List[builtins.str]:
         '''An array of subnets that is provided for NAT in this service attachment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#nat_subnets ComputeServiceAttachment#nat_subnets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#nat_subnets ComputeServiceAttachment#nat_subnets}
         '''
         result = self._values.get("nat_subnets")
         assert result is not None, "Required property 'nat_subnets' is missing"
@@ -784,7 +784,7 @@ class ComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target_service(self) -> builtins.str:
         '''The URL of a service serving the endpoint identified by this service attachment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#target_service ComputeServiceAttachment#target_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#target_service ComputeServiceAttachment#target_service}
         '''
         result = self._values.get("target_service")
         assert result is not None, "Required property 'target_service' is missing"
@@ -796,7 +796,7 @@ class ComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeServiceAttachmentConsumerAcceptLists"]]]:
         '''consumer_accept_lists block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#consumer_accept_lists ComputeServiceAttachment#consumer_accept_lists}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#consumer_accept_lists ComputeServiceAttachment#consumer_accept_lists}
         '''
         result = self._values.get("consumer_accept_lists")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeServiceAttachmentConsumerAcceptLists"]]], result)
@@ -805,7 +805,7 @@ class ComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def consumer_reject_lists(self) -> typing.Optional[typing.List[builtins.str]]:
         '''An array of projects that are not allowed to connect to this service attachment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#consumer_reject_lists ComputeServiceAttachment#consumer_reject_lists}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#consumer_reject_lists ComputeServiceAttachment#consumer_reject_lists}
         '''
         result = self._values.get("consumer_reject_lists")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -814,7 +814,7 @@ class ComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#description ComputeServiceAttachment#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#description ComputeServiceAttachment#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -827,14 +827,14 @@ class ComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         valid domain name: "p.mycompany.com.". Current max number of domain names
         supported is 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#domain_names ComputeServiceAttachment#domain_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#domain_names ComputeServiceAttachment#domain_names}
         '''
         result = self._values.get("domain_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#id ComputeServiceAttachment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#id ComputeServiceAttachment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -844,7 +844,7 @@ class ComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#project ComputeServiceAttachment#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#project ComputeServiceAttachment#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -859,7 +859,7 @@ class ComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If unspecified, the default propagated connection limit is 250.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#propagated_connection_limit ComputeServiceAttachment#propagated_connection_limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#propagated_connection_limit ComputeServiceAttachment#propagated_connection_limit}
         '''
         result = self._values.get("propagated_connection_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -873,7 +873,7 @@ class ComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         If false, connection policy update will only affect existing PENDING PSC endpoints. Existing ACCEPTED/REJECTED endpoints will remain untouched regardless how the connection policy is modified .
         If true, update will affect both PENDING and ACCEPTED/REJECTED PSC endpoints. For example, an ACCEPTED PSC endpoint will be moved to REJECTED if its project is added to the reject list.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#reconcile_connections ComputeServiceAttachment#reconcile_connections}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#reconcile_connections ComputeServiceAttachment#reconcile_connections}
         '''
         result = self._values.get("reconcile_connections")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -882,7 +882,7 @@ class ComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''URL of the region where the resource resides.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#region ComputeServiceAttachment#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#region ComputeServiceAttachment#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -891,7 +891,7 @@ class ComputeServiceAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeServiceAttachmentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#timeouts ComputeServiceAttachment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#timeouts ComputeServiceAttachment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeServiceAttachmentTimeouts"], result)
@@ -1092,9 +1092,9 @@ class ComputeServiceAttachmentConsumerAcceptLists:
         project_id_or_num: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param connection_limit: The number of consumer forwarding rules the consumer project can create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#connection_limit ComputeServiceAttachment#connection_limit}
-        :param network_url: The network that is allowed to connect to this service attachment. Only one of project_id_or_num and network_url may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#network_url ComputeServiceAttachment#network_url}
-        :param project_id_or_num: A project that is allowed to connect to this service attachment. Only one of project_id_or_num and network_url may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#project_id_or_num ComputeServiceAttachment#project_id_or_num}
+        :param connection_limit: The number of consumer forwarding rules the consumer project can create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#connection_limit ComputeServiceAttachment#connection_limit}
+        :param network_url: The network that is allowed to connect to this service attachment. Only one of project_id_or_num and network_url may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#network_url ComputeServiceAttachment#network_url}
+        :param project_id_or_num: A project that is allowed to connect to this service attachment. Only one of project_id_or_num and network_url may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#project_id_or_num ComputeServiceAttachment#project_id_or_num}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__23b9530e27975b6b40af1e0c65ab2d6d8339d1f69996e3ecb0010d31ab81867f)
@@ -1113,7 +1113,7 @@ class ComputeServiceAttachmentConsumerAcceptLists:
     def connection_limit(self) -> jsii.Number:
         '''The number of consumer forwarding rules the consumer project can create.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#connection_limit ComputeServiceAttachment#connection_limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#connection_limit ComputeServiceAttachment#connection_limit}
         '''
         result = self._values.get("connection_limit")
         assert result is not None, "Required property 'connection_limit' is missing"
@@ -1123,7 +1123,7 @@ class ComputeServiceAttachmentConsumerAcceptLists:
     def network_url(self) -> typing.Optional[builtins.str]:
         '''The network that is allowed to connect to this service attachment. Only one of project_id_or_num and network_url may be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#network_url ComputeServiceAttachment#network_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#network_url ComputeServiceAttachment#network_url}
         '''
         result = self._values.get("network_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1132,7 +1132,7 @@ class ComputeServiceAttachmentConsumerAcceptLists:
     def project_id_or_num(self) -> typing.Optional[builtins.str]:
         '''A project that is allowed to connect to this service attachment. Only one of project_id_or_num and network_url may be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#project_id_or_num ComputeServiceAttachment#project_id_or_num}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#project_id_or_num ComputeServiceAttachment#project_id_or_num}
         '''
         result = self._values.get("project_id_or_num")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1359,9 +1359,9 @@ class ComputeServiceAttachmentTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#create ComputeServiceAttachment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#delete ComputeServiceAttachment#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#update ComputeServiceAttachment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#create ComputeServiceAttachment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#delete ComputeServiceAttachment#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#update ComputeServiceAttachment#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__629008a49e23151c175437f81d0f6d9b5a9a22f23f804773e72706c094ecd8a9)
@@ -1378,19 +1378,19 @@ class ComputeServiceAttachmentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#create ComputeServiceAttachment#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#create ComputeServiceAttachment#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#delete ComputeServiceAttachment#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#delete ComputeServiceAttachment#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_service_attachment#update ComputeServiceAttachment#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_service_attachment#update ComputeServiceAttachment#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

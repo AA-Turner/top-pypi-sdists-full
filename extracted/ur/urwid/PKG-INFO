@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: urwid
-Version: 2.6.16
+Version: 3.0.0
 Summary: A full-featured console (xterm et al.) user interface library
 Home-page: https://urwid.org/
 Author-email: Ian Ward <ian@excess.org>
@@ -23,8 +23,6 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Widget Sets
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -36,7 +34,6 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >3.7
 Description-Content-Type: text/x-rst
 License-File: COPYING
-Requires-Dist: typing-extensions
 Requires-Dist: wcwidth
 Provides-Extra: curses
 Requires-Dist: windows-curses; sys_platform == "win32" and extra == "curses"
@@ -55,6 +52,9 @@ Provides-Extra: serial
 Requires-Dist: pyserial; extra == "serial"
 Provides-Extra: lcd
 Requires-Dist: pyserial; extra == "lcd"
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
 
 Urwid
 =====
@@ -143,8 +143,6 @@ To test code in all Python versions:
 Supported Python versions
 =========================
 
-- 3.7
-- 3.8
 - 3.9
 - 3.10
 - 3.11

@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-zstd"
-version = "1.5.6.8.20250506"
+version = "1.5.7.0.20250507"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for zstd"
@@ -20,7 +20,7 @@ It can be used by type-checking tools like
 [Pyre](https://pyre-check.org/),
 PyCharm, etc. to check code that uses `zstd`. This version of
 `types-zstd` aims to provide accurate annotations for
-`zstd==1.5.6.8`.
+`zstd==1.5.7.0`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -34,7 +34,7 @@ mypy 1.15.0,
 pyright 1.1.400,
 and pytype 2024.10.11.
 It was generated from typeshed commit
-[`4265ee7c72f476e7156949e55784fd82b40e6953`](https://github.com/python/typeshed/commit/4265ee7c72f476e7156949e55784fd82b40e6953).
+[`41eb1a6731aae4b429781704b09e9d0cc12379d0`](https://github.com/python/typeshed/commit/41eb1a6731aae4b429781704b09e9d0cc12379d0).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

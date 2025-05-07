@@ -1567,7 +1567,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int], CFGBase):  # pylin
                     block = func.get_block(func.addr)
                 except SimTranslationError:
                     block = None
-                if block is not None and block.instructions == 1:
+                if block is not None and block.instructions == 1 and len(block.capstone.insns) == 1:
                     insn = block.capstone.insns[0]
                     if block.bytes == b"\xff\xe0":
                         func.info["jmp_rax"] = True
@@ -1921,7 +1921,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int], CFGBase):  # pylin
                     if cfg_node is None:
                         continue
                     func_addr = cfg_node.function_address
-                    if func_addr not in tested_func_addrs:
+                    if func_addr not in tested_func_addrs and self.kb.functions.contains_addr(func_addr):
                         func = self.kb.functions.get_by_addr(func_addr)
                         if not security_check_cookie_found and is_function_security_check_cookie(
                             func, self.project, security_cookie_addr

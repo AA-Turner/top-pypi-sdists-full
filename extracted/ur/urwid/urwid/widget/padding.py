@@ -215,24 +215,6 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
         self._align_type, self._align_amount = normalize_align(align, PaddingError)
         self._invalidate()
 
-    def _get_align(self) -> Literal["left", "center", "right"] | tuple[Literal["relative"], int]:
-        warnings.warn(
-            f"Method `{self.__class__.__name__}._get_align` is deprecated, "
-            f"please use property `{self.__class__.__name__}.align`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.align
-
-    def _set_align(self, align: Literal["left", "center", "right"] | tuple[Literal["relative"], int]) -> None:
-        warnings.warn(
-            f"Method `{self.__class__.__name__}._set_align` is deprecated, "
-            f"please use property `{self.__class__.__name__}.align`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.align = align
-
     @property
     def width(
         self,
@@ -260,24 +242,6 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
         """
         self._width_type, self._width_amount = normalize_width(width, PaddingError)
         self._invalidate()
-
-    def _get_width(self) -> Literal["clip", "pack"] | int | tuple[Literal["relative"], int]:
-        warnings.warn(
-            f"Method `{self.__class__.__name__}._get_width` is deprecated, "
-            f"please use property `{self.__class__.__name__}.width`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.width
-
-    def _set_width(self, width: Literal["clip", "pack"] | int | tuple[Literal["relative"], int]) -> None:
-        warnings.warn(
-            f"Method `{self.__class__.__name__}._set_width` is deprecated, "
-            f"please use property `{self.__class__.__name__}.width`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.width = width
 
     def pack(
         self,
@@ -339,9 +303,9 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
                     PaddingWarning,
                     stacklevel=3,
                 )
-            canv = self._original_widget.render((maxcol,) + size[1:], focus)
+            canv = self._original_widget.render((maxcol, *size[1:]), focus)
         elif self._width_type == WHSettings.GIVEN:
-            canv = self._original_widget.render((self._width_amount,) + size[1:], focus)
+            canv = self._original_widget.render((self._width_amount, *size[1:]), focus)
         else:
             canv = self._original_widget.render((), focus)
 
@@ -439,7 +403,7 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
         """Pass keypress to self._original_widget."""
         left, right = self.padding_values(size, True)
         if size:
-            maxvals = (size[0] - left - right,) + size[1:]
+            maxvals = (size[0] - left - right, *size[1:])
             return self._original_widget.keypress(maxvals, key)
         return self._original_widget.keypress((), key)
 
@@ -450,18 +414,17 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
 
         left, right = self.padding_values(size, True)
         if size:
-            maxvals = (size[0] - left - right,) + size[1:]
+            maxvals = (size[0] - left - right, *size[1:])
             if maxvals[0] == 0:
                 return None
         else:
             maxvals = ()
 
-        coords = self._original_widget.get_cursor_coords(maxvals)
-        if coords is None:
-            return None
+        if (coords := self._original_widget.get_cursor_coords(maxvals)) is not None:
+            x, y = coords
+            return x + left, y
 
-        x, y = coords
-        return x + left, y
+        return None
 
     def move_cursor_to_coords(
         self,
@@ -479,7 +442,7 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
         left, right = self.padding_values(size, True)
         if size:
             maxcol = size[0]
-            maxvals = (maxcol - left - right,) + size[1:]
+            maxvals = (maxcol - left - right, *size[1:])
         else:
             maxcol = self.pack((), True)[0]
             maxvals = ()
@@ -511,7 +474,7 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
             maxcol = size[0]
             if col < left or col >= maxcol - right:
                 return False
-            maxvals = (maxcol - left - right,) + size[1:]
+            maxvals = (maxcol - left - right, *size[1:])
         else:
             maxvals = ()
 
@@ -524,7 +487,7 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
 
         left, right = self.padding_values(size, True)
         if size:
-            maxvals = (size[0] - left - right,) + size[1:]
+            maxvals = (size[0] - left - right, *size[1:])
         else:
             maxvals = ()
 

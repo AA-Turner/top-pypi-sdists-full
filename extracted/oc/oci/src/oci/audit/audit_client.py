@@ -143,7 +143,7 @@ class AuditClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/audit/get_configuration.py.html>`__ to see an example of how to use get_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/audit/get_configuration.py.html>`__ to see an example of how to use get_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -260,7 +260,7 @@ class AuditClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/audit/list_events.py.html>`__ to see an example of how to use list_events API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/audit/list_events.py.html>`__ to see an example of how to use list_events API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'startTime', 'endTime']
@@ -355,7 +355,7 @@ class AuditClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/audit/update_configuration.py.html>`__ to see an example of how to use update_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/audit/update_configuration.py.html>`__ to see an example of how to use update_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']

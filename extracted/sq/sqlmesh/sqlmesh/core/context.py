@@ -116,8 +116,9 @@ from sqlmesh.core.test import (
 )
 from sqlmesh.core.user import User
 from sqlmesh.utils import UniqueKeyDict, Verbosity
+from sqlmesh.utils.concurrency import concurrent_apply_to_values
 from sqlmesh.utils.dag import DAG
-from sqlmesh.utils.date import TimeLike, now_ds, to_timestamp, format_tz_datetime
+from sqlmesh.utils.date import TimeLike, now_ds, to_timestamp, format_tz_datetime, now_timestamp
 from sqlmesh.utils.errors import (
     CircuitBreakerError,
     ConfigError,
@@ -1568,9 +1569,9 @@ class GenericContext(BaseContext, t.Generic[C]):
         self,
         source: str,
         target: str,
-        on: t.List[str] | exp.Condition | None = None,
-        skip_columns: t.List[str] | None = None,
-        model_or_snapshot: t.Optional[ModelOrSnapshot] = None,
+        on: t.Optional[t.List[str] | exp.Condition] = None,
+        skip_columns: t.Optional[t.List[str]] = None,
+        select_models: t.Optional[t.Collection[str]] = None,
         where: t.Optional[str | exp.Condition] = None,
         limit: int = 20,
         show: bool = True,
@@ -1578,7 +1579,7 @@ class GenericContext(BaseContext, t.Generic[C]):
         decimals: int = 3,
         skip_grain_check: bool = False,
         temp_schema: t.Optional[str] = None,
-    ) -> TableDiff:
+    ) -> t.List[TableDiff]:
         """Show a diff between two tables.
 
         Args:
@@ -1587,7 +1588,7 @@ class GenericContext(BaseContext, t.Generic[C]):
             on: The join condition, table aliases must be "s" and "t" for source and target.
                 If omitted, the table's grain will be used.
             skip_columns: The columns to skip when computing the table diff.
-            model_or_snapshot: The model or snapshot to use when environments are passed in.
+            select_models: The models or snapshots to use when environments are passed in.
             where: An optional where statement to filter results.
             limit: The limit of the sample dataframe.
             show: Show the table diff output in the console.
@@ -1597,53 +1598,191 @@ class GenericContext(BaseContext, t.Generic[C]):
             temp_schema: The schema to use for temporary tables.
 
         Returns:
-            The TableDiff object containing schema and summary differences.
+            The list of TableDiff objects containing schema and summary differences.
         """
-        source_alias, target_alias = source, target
 
-        adapter = self.engine_adapter
+        table_diffs: t.List[TableDiff] = []
 
-        if model_or_snapshot:
-            model = self.get_model(model_or_snapshot, raise_if_missing=True)
-            adapter = self._get_engine_adapter(model.gateway)
+        # Diffs multiple or a single model across two environments
+        if select_models:
             source_env = self.state_reader.get_environment(source)
             target_env = self.state_reader.get_environment(target)
-
             if not source_env:
                 raise SQLMeshError(f"Could not find environment '{source}'")
             if not target_env:
-                raise SQLMeshError(f"Could not find environment '{target}')")
+                raise SQLMeshError(f"Could not find environment '{target}'")
+            criteria = ", ".join(f"'{c}'" for c in select_models)
+            try:
+                selected_models = self._new_selector().expand_model_selections(select_models)
+                if not selected_models:
+                    self.console.log_status_update(
+                        f"No models matched the selection criteria: {criteria}"
+                    )
+            except Exception as e:
+                raise SQLMeshError(e)
 
-            # Compare the virtual layer instead of the physical layer because the virtual layer is guaranteed to point
-            # to the correct/active snapshot for the model in the specified environment, taking into account things like dev previews
-            source = next(
-                snapshot for snapshot in source_env.snapshots if snapshot.name == model.fqn
-            ).qualified_view_name.for_environment(source_env.naming_info, adapter.dialect)
+            models_to_diff: t.List[
+                t.Tuple[Model, EngineAdapter, str, str, t.Optional[t.List[str] | exp.Condition]]
+            ] = []
+            models_without_grain: t.List[Model] = []
+            source_snapshots_to_name = {
+                snapshot.name: snapshot for snapshot in source_env.snapshots
+            }
+            target_snapshots_to_name = {
+                snapshot.name: snapshot for snapshot in target_env.snapshots
+            }
 
-            target = next(
-                snapshot for snapshot in target_env.snapshots if snapshot.name == model.fqn
-            ).qualified_view_name.for_environment(target_env.naming_info, adapter.dialect)
+            for model_fqn in selected_models:
+                model = self._models[model_fqn]
+                adapter = self._get_engine_adapter(model.gateway)
+                source_snapshot = source_snapshots_to_name.get(model.fqn)
+                target_snapshot = target_snapshots_to_name.get(model.fqn)
 
-            source_alias = source_env.name
-            target_alias = target_env.name
-
-            if not on:
-                on = []
-                for expr in [ref.expression for ref in model.all_references if ref.unique]:
-                    if isinstance(expr, exp.Tuple):
-                        on.extend(
-                            [key.this.sql(dialect=adapter.dialect) for key in expr.expressions]
+                if target_snapshot and source_snapshot:
+                    if (
+                        source_snapshot.fingerprint.data_hash
+                        != target_snapshot.fingerprint.data_hash
+                    ):
+                        # Compare the virtual layer instead of the physical layer because the virtual layer is guaranteed to point
+                        # to the correct/active snapshot for the model in the specified environment, taking into account things like dev previews
+                        source = source_snapshot.qualified_view_name.for_environment(
+                            source_env.naming_info, adapter.dialect
                         )
-                    else:
-                        # Handle a single Column or Paren expression
-                        on.append(expr.this.sql(dialect=adapter.dialect))
+                        target = target_snapshot.qualified_view_name.for_environment(
+                            target_env.naming_info, adapter.dialect
+                        )
+                        model_on = on or model.on
+                        models_to_diff.append((model, adapter, source, target, model_on))
+                        if not model_on:
+                            models_without_grain.append(model)
 
+            if models_to_diff:
+                self.console.show_table_diff_details(
+                    [model[0].name for model in models_to_diff],
+                )
+                if models_without_grain:
+                    model_names = "\n".join(
+                        f"─ {model.name} \n  at '{model._path}'" for model in models_without_grain
+                    )
+                    raise SQLMeshError(
+                        f"SQLMesh doesn't know how to join the tables for the following models:\n{model_names}\n"
+                        "\nPlease specify the `grain` in each model definition. Must be unique and not null."
+                    )
+
+                self.console.start_table_diff_progress(len(models_to_diff))
+                try:
+                    tasks_num = min(len(models_to_diff), self.concurrent_tasks)
+                    table_diffs = concurrent_apply_to_values(
+                        list(models_to_diff),
+                        lambda model_info: self._model_diff(
+                            model=model_info[0],
+                            adapter=model_info[1],
+                            source=model_info[2],
+                            target=model_info[3],
+                            on=model_info[4],
+                            source_alias=source_env.name,
+                            target_alias=target_env.name,
+                            limit=limit,
+                            decimals=decimals,
+                            skip_columns=skip_columns,
+                            where=where,
+                            show=show,
+                            temp_schema=temp_schema,
+                            skip_grain_check=skip_grain_check,
+                        ),
+                        tasks_num=tasks_num,
+                    )
+                    self.console.stop_table_diff_progress(success=True)
+                except:
+                    self.console.stop_table_diff_progress(success=False)
+                    raise
+            elif selected_models:
+                self.console.log_status_update(
+                    f"No models contain differences with the selection criteria: {criteria}"
+                )
+
+        else:
+            table_diffs = [
+                self._table_diff(
+                    source=source,
+                    target=target,
+                    source_alias=source,
+                    target_alias=target,
+                    limit=limit,
+                    decimals=decimals,
+                    adapter=self.engine_adapter,
+                    on=on,
+                    skip_columns=skip_columns,
+                    where=where,
+                )
+            ]
+
+        if show:
+            self.console.show_table_diff(table_diffs, show_sample, skip_grain_check, temp_schema)
+
+        return table_diffs
+
+    def _model_diff(
+        self,
+        model: Model,
+        adapter: EngineAdapter,
+        source: str,
+        target: str,
+        source_alias: str,
+        target_alias: str,
+        limit: int,
+        decimals: int,
+        on: t.Optional[t.List[str] | exp.Condition] = None,
+        skip_columns: t.Optional[t.List[str]] = None,
+        where: t.Optional[str | exp.Condition] = None,
+        show: bool = True,
+        temp_schema: t.Optional[str] = None,
+        skip_grain_check: bool = False,
+    ) -> TableDiff:
+        self.console.start_table_diff_model_progress(model.name)
+
+        table_diff = self._table_diff(
+            on=on,
+            skip_columns=skip_columns,
+            where=where,
+            limit=limit,
+            decimals=decimals,
+            model=model,
+            adapter=adapter,
+            source=source,
+            target=target,
+            source_alias=source_alias,
+            target_alias=target_alias,
+        )
+
+        if show:
+            # Trigger row_diff in parallel execution so it's available for ordered display later
+            table_diff.row_diff(temp_schema=temp_schema, skip_grain_check=skip_grain_check)
+
+        self.console.update_table_diff_progress(model.name)
+
+        return table_diff
+
+    def _table_diff(
+        self,
+        source: str,
+        target: str,
+        source_alias: str,
+        target_alias: str,
+        limit: int,
+        decimals: int,
+        adapter: EngineAdapter,
+        on: t.Optional[t.List[str] | exp.Condition] = None,
+        model: t.Optional[Model] = None,
+        skip_columns: t.Optional[t.List[str]] = None,
+        where: t.Optional[str | exp.Condition] = None,
+    ) -> TableDiff:
         if not on:
             raise SQLMeshError(
                 "SQLMesh doesn't know how to join the two tables. Specify the `grains` in each model definition or pass join column names in separate `-o` flags."
             )
 
-        table_diff = TableDiff(
+        return TableDiff(
             adapter=adapter.with_log_level(logger.getEffectiveLevel()),
             source=source,
             target=target,
@@ -1652,20 +1791,11 @@ class GenericContext(BaseContext, t.Generic[C]):
             where=where,
             source_alias=source_alias,
             target_alias=target_alias,
-            model_name=model.name if model_or_snapshot else None,
-            model_dialect=model.dialect if model_or_snapshot else None,
             limit=limit,
             decimals=decimals,
+            model_name=model.name if model else None,
+            model_dialect=model.dialect if model else None,
         )
-        if show:
-            self.console.show_table_diff_summary(table_diff)
-            self.console.show_schema_diff(table_diff.schema_diff())
-            self.console.show_row_diff(
-                table_diff.row_diff(temp_schema=temp_schema, skip_grain_check=skip_grain_check),
-                show_sample=show_sample,
-                skip_grain_check=skip_grain_check,
-            )
-        return table_diff
 
     @python_api_analytics
     def get_dag(
@@ -2135,25 +2265,45 @@ class GenericContext(BaseContext, t.Generic[C]):
         )
 
     @python_api_analytics
-    def table_name(self, model_name: str, dev: bool) -> str:
-        """Returns the name of the pysical table for the given model name.
+    def table_name(
+        self, model_name: str, environment: t.Optional[str] = None, prod: bool = False
+    ) -> str:
+        """Returns the name of the pysical table for the given model name in the target environment.
 
         Args:
             model_name: The name of the model.
-            dev: Whether to use the deployability index for the table name.
+            environment: The environment to source the model version from.
+            prod: If True, return the name of the physical table that will be used in production for the model version
+                promoted in the target environment.
 
         Returns:
             The name of the physical table.
         """
-        deployability_index = (
-            DeployabilityIndex.create(self.snapshots.values())
-            if dev
-            else DeployabilityIndex.all_deployable()
+        environment = environment or self.config.default_target_environment
+        fqn = self._node_or_snapshot_to_fqn(model_name)
+        target_env = self.state_reader.get_environment(environment)
+        if not target_env:
+            raise SQLMeshError(f"Environment '{environment}' was not found.")
+
+        snapshot_info = None
+        for s in target_env.snapshots:
+            if s.name == fqn:
+                snapshot_info = s
+                break
+        if not snapshot_info:
+            raise SQLMeshError(
+                f"Model '{model_name}' was not found in environment '{environment}'."
+            )
+
+        if target_env.name == c.PROD or prod:
+            return snapshot_info.table_name()
+
+        snapshots = self.state_reader.get_snapshots(target_env.snapshots)
+        deployability_index = DeployabilityIndex.create(snapshots)
+
+        return snapshot_info.table_name(
+            is_deployable=deployability_index.is_deployable(snapshot_info.snapshot_id)
         )
-        snapshot = self.get_snapshot(model_name)
-        if not snapshot:
-            raise SQLMeshError(f"Model '{model_name}' was not found.")
-        return snapshot.table_name(is_deployable=deployability_index.is_deployable(snapshot))
 
     def clear_caches(self) -> None:
         for path in self.configs:
@@ -2350,11 +2500,14 @@ class GenericContext(BaseContext, t.Generic[C]):
         )
 
     def _run_janitor(self, ignore_ttl: bool = False) -> None:
-        # Clean up expired environments by removing their views and schemas
-        self._cleanup_environments()
+        current_ts = now_timestamp()
 
-        # Identify and delete expired snapshots
-        cleanup_targets = self.state_sync.delete_expired_snapshots(ignore_ttl=ignore_ttl)
+        # Clean up expired environments by removing their views and schemas
+        self._cleanup_environments(current_ts=current_ts)
+
+        cleanup_targets = self.state_sync.get_expired_snapshots(
+            ignore_ttl=ignore_ttl, current_ts=current_ts
+        )
 
         # Remove the expired snapshots tables
         self.snapshot_evaluator.cleanup(
@@ -2362,10 +2515,15 @@ class GenericContext(BaseContext, t.Generic[C]):
             on_complete=self.console.update_cleanup_progress,
         )
 
+        # Delete the expired snapshot records from the state sync
+        self.state_sync.delete_expired_snapshots(ignore_ttl=ignore_ttl, current_ts=current_ts)
+
         self.state_sync.compact_intervals()
 
-    def _cleanup_environments(self) -> None:
-        expired_environments = self.state_sync.delete_expired_environments()
+    def _cleanup_environments(self, current_ts: t.Optional[int] = None) -> None:
+        current_ts = current_ts or now_timestamp()
+
+        expired_environments = self.state_sync.get_expired_environments(current_ts=current_ts)
 
         cleanup_expired_views(
             default_adapter=self.engine_adapter,
@@ -2374,6 +2532,8 @@ class GenericContext(BaseContext, t.Generic[C]):
             warn_on_delete_failure=self.config.janitor.warn_on_delete_failure,
             console=self.console,
         )
+
+        self.state_sync.delete_expired_environments(current_ts=current_ts)
 
     def _try_connection(self, connection_name: str, validator: t.Callable[[], None]) -> None:
         connection_name = connection_name.capitalize()

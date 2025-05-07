@@ -1,7 +1,7 @@
 r'''
 # `data_google_compute_forwarding_rule`
 
-Refer to the Terraform Registry for docs: [`data_google_compute_forwarding_rule`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_forwarding_rule).
+Refer to the Terraform Registry for docs: [`data_google_compute_forwarding_rule`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_forwarding_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleComputeForwardingRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleComputeForwardingRule.DataGoogleComputeForwardingRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_forwarding_rule google_compute_forwarding_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_forwarding_rule google_compute_forwarding_rule}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataGoogleComputeForwardingRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_forwarding_rule google_compute_forwarding_rule} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_forwarding_rule google_compute_forwarding_rule} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the resource; provided by the client when the resource is created. The name must be 1-63 characters long, and comply with `RFC1035 <https://www.ietf.org/rfc/rfc1035.txt>`_. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. For Private Service Connect forwarding rules that forward traffic to Google APIs, the forwarding rule name must be a 1-20 characters string with lowercase letters and numbers and must start with a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_forwarding_rule#name DataGoogleComputeForwardingRule#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_forwarding_rule#id DataGoogleComputeForwardingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_forwarding_rule#project DataGoogleComputeForwardingRule#project}.
-        :param region: A reference to the region where the regional forwarding rule resides. This field is not applicable to global forwarding rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_forwarding_rule#region DataGoogleComputeForwardingRule#region}
+        :param name: Name of the resource; provided by the client when the resource is created. The name must be 1-63 characters long, and comply with `RFC1035 <https://www.ietf.org/rfc/rfc1035.txt>`_. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. For Private Service Connect forwarding rules that forward traffic to Google APIs, the forwarding rule name must be a 1-20 characters string with lowercase letters and numbers and must start with a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_forwarding_rule#name DataGoogleComputeForwardingRule#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_forwarding_rule#id DataGoogleComputeForwardingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_forwarding_rule#project DataGoogleComputeForwardingRule#project}.
+        :param region: A reference to the region where the regional forwarding rule resides. This field is not applicable to global forwarding rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_forwarding_rule#region DataGoogleComputeForwardingRule#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataGoogleComputeForwardingRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleComputeForwardingRule to import.
-        :param import_from_id: The id of the existing DataGoogleComputeForwardingRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_forwarding_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleComputeForwardingRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_forwarding_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleComputeForwardingRule to import is found.
         '''
         if __debug__:
@@ -425,10 +425,10 @@ class DataGoogleComputeForwardingRuleConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the resource; provided by the client when the resource is created. The name must be 1-63 characters long, and comply with `RFC1035 <https://www.ietf.org/rfc/rfc1035.txt>`_. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. For Private Service Connect forwarding rules that forward traffic to Google APIs, the forwarding rule name must be a 1-20 characters string with lowercase letters and numbers and must start with a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_forwarding_rule#name DataGoogleComputeForwardingRule#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_forwarding_rule#id DataGoogleComputeForwardingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_forwarding_rule#project DataGoogleComputeForwardingRule#project}.
-        :param region: A reference to the region where the regional forwarding rule resides. This field is not applicable to global forwarding rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_forwarding_rule#region DataGoogleComputeForwardingRule#region}
+        :param name: Name of the resource; provided by the client when the resource is created. The name must be 1-63 characters long, and comply with `RFC1035 <https://www.ietf.org/rfc/rfc1035.txt>`_. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. For Private Service Connect forwarding rules that forward traffic to Google APIs, the forwarding rule name must be a 1-20 characters string with lowercase letters and numbers and must start with a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_forwarding_rule#name DataGoogleComputeForwardingRule#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_forwarding_rule#id DataGoogleComputeForwardingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_forwarding_rule#project DataGoogleComputeForwardingRule#project}.
+        :param region: A reference to the region where the regional forwarding rule resides. This field is not applicable to global forwarding rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_forwarding_rule#region DataGoogleComputeForwardingRule#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -551,7 +551,7 @@ class DataGoogleComputeForwardingRuleConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         APIs, the forwarding rule name must be a 1-20 characters string with
         lowercase letters and numbers and must start with a letter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_forwarding_rule#name DataGoogleComputeForwardingRule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_forwarding_rule#name DataGoogleComputeForwardingRule#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -559,7 +559,7 @@ class DataGoogleComputeForwardingRuleConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_forwarding_rule#id DataGoogleComputeForwardingRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_forwarding_rule#id DataGoogleComputeForwardingRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -569,7 +569,7 @@ class DataGoogleComputeForwardingRuleConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_forwarding_rule#project DataGoogleComputeForwardingRule#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_forwarding_rule#project DataGoogleComputeForwardingRule#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -579,7 +579,7 @@ class DataGoogleComputeForwardingRuleConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
         This field is not applicable to global forwarding rules.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_forwarding_rule#region DataGoogleComputeForwardingRule#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_forwarding_rule#region DataGoogleComputeForwardingRule#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)

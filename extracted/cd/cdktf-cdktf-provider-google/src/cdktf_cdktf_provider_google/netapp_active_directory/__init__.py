@@ -1,7 +1,7 @@
 r'''
 # `google_netapp_active_directory`
 
-Refer to the Terraform Registry for docs: [`google_netapp_active_directory`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory).
+Refer to the Terraform Registry for docs: [`google_netapp_active_directory`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetappActiveDirectory(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.netappActiveDirectory.NetappActiveDirectory",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory google_netapp_active_directory}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory google_netapp_active_directory}.'''
 
     def __init__(
         self,
@@ -82,33 +82,33 @@ class NetappActiveDirectory(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory google_netapp_active_directory} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory google_netapp_active_directory} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param dns: Comma separated list of DNS server IP addresses for the Active Directory domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#dns NetappActiveDirectory#dns}
-        :param domain: Fully qualified domain name for the Active Directory domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#domain NetappActiveDirectory#domain}
-        :param location: Name of the region for the policy to apply to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#location NetappActiveDirectory#location}
-        :param name: The resource name of the Active Directory pool. Needs to be unique per location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#name NetappActiveDirectory#name}
-        :param net_bios_prefix: NetBIOS name prefix of the server to be created. A five-character random ID is generated automatically, for example, -6f9a, and appended to the prefix. The full UNC share path will have the following format: '\\NetBIOS_PREFIX-ABCD.DOMAIN_NAME\\SHARE_NAME' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#net_bios_prefix NetappActiveDirectory#net_bios_prefix}
-        :param password: Password for specified username. Note - Manual changes done to the password will not be detected. Terraform will not re-apply the password, unless you use a new password in Terraform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#password NetappActiveDirectory#password}
-        :param username: Username for the Active Directory account with permissions to create the compute account within the specified organizational unit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#username NetappActiveDirectory#username}
-        :param administrators: Domain user accounts to be added to the local Administrators group of the SMB service. Comma-separated list of domain users or groups. The Domain Admin group is automatically added when the service joins your domain as a hidden group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#administrators NetappActiveDirectory#administrators}
-        :param aes_encryption: Enables AES-128 and AES-256 encryption for Kerberos-based communication with Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#aes_encryption NetappActiveDirectory#aes_encryption}
-        :param backup_operators: Domain user/group accounts to be added to the Backup Operators group of the SMB service. The Backup Operators group allows members to backup and restore files regardless of whether they have read or write access to the files. Comma-separated list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#backup_operators NetappActiveDirectory#backup_operators}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#description NetappActiveDirectory#description}
-        :param encrypt_dc_connections: If enabled, traffic between the SMB server to Domain Controller (DC) will be encrypted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#encrypt_dc_connections NetappActiveDirectory#encrypt_dc_connections}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#id NetappActiveDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kdc_hostname: Hostname of the Active Directory server used as Kerberos Key Distribution Center. Only required for volumes using kerberized NFSv4.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#kdc_hostname NetappActiveDirectory#kdc_hostname}
-        :param kdc_ip: IP address of the Active Directory server used as Kerberos Key Distribution Center. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#kdc_ip NetappActiveDirectory#kdc_ip}
-        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#labels NetappActiveDirectory#labels}
-        :param ldap_signing: Specifies whether or not the LDAP traffic needs to be signed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#ldap_signing NetappActiveDirectory#ldap_signing}
-        :param nfs_users_with_ldap: Local UNIX users on clients without valid user information in Active Directory are blocked from access to LDAP enabled volumes. This option can be used to temporarily switch such volumes to AUTH_SYS authentication (user ID + 1-16 groups). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#nfs_users_with_ldap NetappActiveDirectory#nfs_users_with_ldap}
-        :param organizational_unit: Name of the Organizational Unit where you intend to create the computer account for NetApp Volumes. Defaults to 'CN=Computers' if left empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#organizational_unit NetappActiveDirectory#organizational_unit}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#project NetappActiveDirectory#project}.
-        :param security_operators: Domain accounts that require elevated privileges such as 'SeSecurityPrivilege' to manage security logs. Comma-separated list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#security_operators NetappActiveDirectory#security_operators}
-        :param site: Specifies an Active Directory site to manage domain controller selection. Use when Active Directory domain controllers in multiple regions are configured. Defaults to 'Default-First-Site-Name' if left empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#site NetappActiveDirectory#site}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#timeouts NetappActiveDirectory#timeouts}
+        :param dns: Comma separated list of DNS server IP addresses for the Active Directory domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#dns NetappActiveDirectory#dns}
+        :param domain: Fully qualified domain name for the Active Directory domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#domain NetappActiveDirectory#domain}
+        :param location: Name of the region for the policy to apply to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#location NetappActiveDirectory#location}
+        :param name: The resource name of the Active Directory pool. Needs to be unique per location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#name NetappActiveDirectory#name}
+        :param net_bios_prefix: NetBIOS name prefix of the server to be created. A five-character random ID is generated automatically, for example, -6f9a, and appended to the prefix. The full UNC share path will have the following format: '\\NetBIOS_PREFIX-ABCD.DOMAIN_NAME\\SHARE_NAME' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#net_bios_prefix NetappActiveDirectory#net_bios_prefix}
+        :param password: Password for specified username. Note - Manual changes done to the password will not be detected. Terraform will not re-apply the password, unless you use a new password in Terraform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#password NetappActiveDirectory#password}
+        :param username: Username for the Active Directory account with permissions to create the compute account within the specified organizational unit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#username NetappActiveDirectory#username}
+        :param administrators: Domain user accounts to be added to the local Administrators group of the SMB service. Comma-separated list of domain users or groups. The Domain Admin group is automatically added when the service joins your domain as a hidden group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#administrators NetappActiveDirectory#administrators}
+        :param aes_encryption: Enables AES-128 and AES-256 encryption for Kerberos-based communication with Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#aes_encryption NetappActiveDirectory#aes_encryption}
+        :param backup_operators: Domain user/group accounts to be added to the Backup Operators group of the SMB service. The Backup Operators group allows members to backup and restore files regardless of whether they have read or write access to the files. Comma-separated list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#backup_operators NetappActiveDirectory#backup_operators}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#description NetappActiveDirectory#description}
+        :param encrypt_dc_connections: If enabled, traffic between the SMB server to Domain Controller (DC) will be encrypted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#encrypt_dc_connections NetappActiveDirectory#encrypt_dc_connections}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#id NetappActiveDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kdc_hostname: Hostname of the Active Directory server used as Kerberos Key Distribution Center. Only required for volumes using kerberized NFSv4.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#kdc_hostname NetappActiveDirectory#kdc_hostname}
+        :param kdc_ip: IP address of the Active Directory server used as Kerberos Key Distribution Center. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#kdc_ip NetappActiveDirectory#kdc_ip}
+        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#labels NetappActiveDirectory#labels}
+        :param ldap_signing: Specifies whether or not the LDAP traffic needs to be signed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#ldap_signing NetappActiveDirectory#ldap_signing}
+        :param nfs_users_with_ldap: Local UNIX users on clients without valid user information in Active Directory are blocked from access to LDAP enabled volumes. This option can be used to temporarily switch such volumes to AUTH_SYS authentication (user ID + 1-16 groups). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#nfs_users_with_ldap NetappActiveDirectory#nfs_users_with_ldap}
+        :param organizational_unit: Name of the Organizational Unit where you intend to create the computer account for NetApp Volumes. Defaults to 'CN=Computers' if left empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#organizational_unit NetappActiveDirectory#organizational_unit}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#project NetappActiveDirectory#project}.
+        :param security_operators: Domain accounts that require elevated privileges such as 'SeSecurityPrivilege' to manage security logs. Comma-separated list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#security_operators NetappActiveDirectory#security_operators}
+        :param site: Specifies an Active Directory site to manage domain controller selection. Use when Active Directory domain controllers in multiple regions are configured. Defaults to 'Default-First-Site-Name' if left empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#site NetappActiveDirectory#site}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#timeouts NetappActiveDirectory#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -169,7 +169,7 @@ class NetappActiveDirectory(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetappActiveDirectory to import.
-        :param import_from_id: The id of the existing NetappActiveDirectory that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetappActiveDirectory that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetappActiveDirectory to import is found.
         '''
         if __debug__:
@@ -189,9 +189,9 @@ class NetappActiveDirectory(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#create NetappActiveDirectory#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#delete NetappActiveDirectory#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#update NetappActiveDirectory#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#create NetappActiveDirectory#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#delete NetappActiveDirectory#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#update NetappActiveDirectory#update}.
         '''
         value = NetappActiveDirectoryTimeouts(
             create=create, delete=delete, update=update
@@ -795,29 +795,29 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param dns: Comma separated list of DNS server IP addresses for the Active Directory domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#dns NetappActiveDirectory#dns}
-        :param domain: Fully qualified domain name for the Active Directory domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#domain NetappActiveDirectory#domain}
-        :param location: Name of the region for the policy to apply to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#location NetappActiveDirectory#location}
-        :param name: The resource name of the Active Directory pool. Needs to be unique per location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#name NetappActiveDirectory#name}
-        :param net_bios_prefix: NetBIOS name prefix of the server to be created. A five-character random ID is generated automatically, for example, -6f9a, and appended to the prefix. The full UNC share path will have the following format: '\\NetBIOS_PREFIX-ABCD.DOMAIN_NAME\\SHARE_NAME' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#net_bios_prefix NetappActiveDirectory#net_bios_prefix}
-        :param password: Password for specified username. Note - Manual changes done to the password will not be detected. Terraform will not re-apply the password, unless you use a new password in Terraform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#password NetappActiveDirectory#password}
-        :param username: Username for the Active Directory account with permissions to create the compute account within the specified organizational unit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#username NetappActiveDirectory#username}
-        :param administrators: Domain user accounts to be added to the local Administrators group of the SMB service. Comma-separated list of domain users or groups. The Domain Admin group is automatically added when the service joins your domain as a hidden group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#administrators NetappActiveDirectory#administrators}
-        :param aes_encryption: Enables AES-128 and AES-256 encryption for Kerberos-based communication with Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#aes_encryption NetappActiveDirectory#aes_encryption}
-        :param backup_operators: Domain user/group accounts to be added to the Backup Operators group of the SMB service. The Backup Operators group allows members to backup and restore files regardless of whether they have read or write access to the files. Comma-separated list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#backup_operators NetappActiveDirectory#backup_operators}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#description NetappActiveDirectory#description}
-        :param encrypt_dc_connections: If enabled, traffic between the SMB server to Domain Controller (DC) will be encrypted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#encrypt_dc_connections NetappActiveDirectory#encrypt_dc_connections}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#id NetappActiveDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kdc_hostname: Hostname of the Active Directory server used as Kerberos Key Distribution Center. Only required for volumes using kerberized NFSv4.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#kdc_hostname NetappActiveDirectory#kdc_hostname}
-        :param kdc_ip: IP address of the Active Directory server used as Kerberos Key Distribution Center. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#kdc_ip NetappActiveDirectory#kdc_ip}
-        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#labels NetappActiveDirectory#labels}
-        :param ldap_signing: Specifies whether or not the LDAP traffic needs to be signed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#ldap_signing NetappActiveDirectory#ldap_signing}
-        :param nfs_users_with_ldap: Local UNIX users on clients without valid user information in Active Directory are blocked from access to LDAP enabled volumes. This option can be used to temporarily switch such volumes to AUTH_SYS authentication (user ID + 1-16 groups). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#nfs_users_with_ldap NetappActiveDirectory#nfs_users_with_ldap}
-        :param organizational_unit: Name of the Organizational Unit where you intend to create the computer account for NetApp Volumes. Defaults to 'CN=Computers' if left empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#organizational_unit NetappActiveDirectory#organizational_unit}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#project NetappActiveDirectory#project}.
-        :param security_operators: Domain accounts that require elevated privileges such as 'SeSecurityPrivilege' to manage security logs. Comma-separated list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#security_operators NetappActiveDirectory#security_operators}
-        :param site: Specifies an Active Directory site to manage domain controller selection. Use when Active Directory domain controllers in multiple regions are configured. Defaults to 'Default-First-Site-Name' if left empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#site NetappActiveDirectory#site}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#timeouts NetappActiveDirectory#timeouts}
+        :param dns: Comma separated list of DNS server IP addresses for the Active Directory domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#dns NetappActiveDirectory#dns}
+        :param domain: Fully qualified domain name for the Active Directory domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#domain NetappActiveDirectory#domain}
+        :param location: Name of the region for the policy to apply to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#location NetappActiveDirectory#location}
+        :param name: The resource name of the Active Directory pool. Needs to be unique per location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#name NetappActiveDirectory#name}
+        :param net_bios_prefix: NetBIOS name prefix of the server to be created. A five-character random ID is generated automatically, for example, -6f9a, and appended to the prefix. The full UNC share path will have the following format: '\\NetBIOS_PREFIX-ABCD.DOMAIN_NAME\\SHARE_NAME' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#net_bios_prefix NetappActiveDirectory#net_bios_prefix}
+        :param password: Password for specified username. Note - Manual changes done to the password will not be detected. Terraform will not re-apply the password, unless you use a new password in Terraform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#password NetappActiveDirectory#password}
+        :param username: Username for the Active Directory account with permissions to create the compute account within the specified organizational unit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#username NetappActiveDirectory#username}
+        :param administrators: Domain user accounts to be added to the local Administrators group of the SMB service. Comma-separated list of domain users or groups. The Domain Admin group is automatically added when the service joins your domain as a hidden group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#administrators NetappActiveDirectory#administrators}
+        :param aes_encryption: Enables AES-128 and AES-256 encryption for Kerberos-based communication with Active Directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#aes_encryption NetappActiveDirectory#aes_encryption}
+        :param backup_operators: Domain user/group accounts to be added to the Backup Operators group of the SMB service. The Backup Operators group allows members to backup and restore files regardless of whether they have read or write access to the files. Comma-separated list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#backup_operators NetappActiveDirectory#backup_operators}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#description NetappActiveDirectory#description}
+        :param encrypt_dc_connections: If enabled, traffic between the SMB server to Domain Controller (DC) will be encrypted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#encrypt_dc_connections NetappActiveDirectory#encrypt_dc_connections}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#id NetappActiveDirectory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kdc_hostname: Hostname of the Active Directory server used as Kerberos Key Distribution Center. Only required for volumes using kerberized NFSv4.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#kdc_hostname NetappActiveDirectory#kdc_hostname}
+        :param kdc_ip: IP address of the Active Directory server used as Kerberos Key Distribution Center. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#kdc_ip NetappActiveDirectory#kdc_ip}
+        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#labels NetappActiveDirectory#labels}
+        :param ldap_signing: Specifies whether or not the LDAP traffic needs to be signed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#ldap_signing NetappActiveDirectory#ldap_signing}
+        :param nfs_users_with_ldap: Local UNIX users on clients without valid user information in Active Directory are blocked from access to LDAP enabled volumes. This option can be used to temporarily switch such volumes to AUTH_SYS authentication (user ID + 1-16 groups). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#nfs_users_with_ldap NetappActiveDirectory#nfs_users_with_ldap}
+        :param organizational_unit: Name of the Organizational Unit where you intend to create the computer account for NetApp Volumes. Defaults to 'CN=Computers' if left empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#organizational_unit NetappActiveDirectory#organizational_unit}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#project NetappActiveDirectory#project}.
+        :param security_operators: Domain accounts that require elevated privileges such as 'SeSecurityPrivilege' to manage security logs. Comma-separated list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#security_operators NetappActiveDirectory#security_operators}
+        :param site: Specifies an Active Directory site to manage domain controller selection. Use when Active Directory domain controllers in multiple regions are configured. Defaults to 'Default-First-Site-Name' if left empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#site NetappActiveDirectory#site}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#timeouts NetappActiveDirectory#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -979,7 +979,7 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dns(self) -> builtins.str:
         '''Comma separated list of DNS server IP addresses for the Active Directory domain.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#dns NetappActiveDirectory#dns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#dns NetappActiveDirectory#dns}
         '''
         result = self._values.get("dns")
         assert result is not None, "Required property 'dns' is missing"
@@ -989,7 +989,7 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def domain(self) -> builtins.str:
         '''Fully qualified domain name for the Active Directory domain.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#domain NetappActiveDirectory#domain}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#domain NetappActiveDirectory#domain}
         '''
         result = self._values.get("domain")
         assert result is not None, "Required property 'domain' is missing"
@@ -999,7 +999,7 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Name of the region for the policy to apply to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#location NetappActiveDirectory#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#location NetappActiveDirectory#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1009,7 +1009,7 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The resource name of the Active Directory pool. Needs to be unique per location.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#name NetappActiveDirectory#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#name NetappActiveDirectory#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1022,7 +1022,7 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         A five-character random ID is generated automatically, for example, -6f9a, and appended to the prefix. The full UNC share path will have the following format:
         '\\NetBIOS_PREFIX-ABCD.DOMAIN_NAME\\SHARE_NAME'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#net_bios_prefix NetappActiveDirectory#net_bios_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#net_bios_prefix NetappActiveDirectory#net_bios_prefix}
         '''
         result = self._values.get("net_bios_prefix")
         assert result is not None, "Required property 'net_bios_prefix' is missing"
@@ -1034,7 +1034,7 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Note - Manual changes done to the password will not be detected. Terraform will not re-apply the password, unless you use a new password in Terraform.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#password NetappActiveDirectory#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#password NetappActiveDirectory#password}
         '''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
@@ -1044,7 +1044,7 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def username(self) -> builtins.str:
         '''Username for the Active Directory account with permissions to create the compute account within the specified organizational unit.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#username NetappActiveDirectory#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#username NetappActiveDirectory#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -1056,7 +1056,7 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Comma-separated list of domain users or groups. The Domain Admin group is automatically added when the service joins your domain as a hidden group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#administrators NetappActiveDirectory#administrators}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#administrators NetappActiveDirectory#administrators}
         '''
         result = self._values.get("administrators")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1067,7 +1067,7 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enables AES-128 and AES-256 encryption for Kerberos-based communication with Active Directory.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#aes_encryption NetappActiveDirectory#aes_encryption}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#aes_encryption NetappActiveDirectory#aes_encryption}
         '''
         result = self._values.get("aes_encryption")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1078,7 +1078,7 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The Backup Operators group allows members to backup and restore files regardless of whether they have read or write access to the files. Comma-separated list.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#backup_operators NetappActiveDirectory#backup_operators}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#backup_operators NetappActiveDirectory#backup_operators}
         '''
         result = self._values.get("backup_operators")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1087,7 +1087,7 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#description NetappActiveDirectory#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#description NetappActiveDirectory#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1098,14 +1098,14 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If enabled, traffic between the SMB server to Domain Controller (DC) will be encrypted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#encrypt_dc_connections NetappActiveDirectory#encrypt_dc_connections}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#encrypt_dc_connections NetappActiveDirectory#encrypt_dc_connections}
         '''
         result = self._values.get("encrypt_dc_connections")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#id NetappActiveDirectory#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#id NetappActiveDirectory#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1117,7 +1117,7 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def kdc_hostname(self) -> typing.Optional[builtins.str]:
         '''Hostname of the Active Directory server used as Kerberos Key Distribution Center. Only required for volumes using kerberized NFSv4.1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#kdc_hostname NetappActiveDirectory#kdc_hostname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#kdc_hostname NetappActiveDirectory#kdc_hostname}
         '''
         result = self._values.get("kdc_hostname")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1126,7 +1126,7 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def kdc_ip(self) -> typing.Optional[builtins.str]:
         '''IP address of the Active Directory server used as Kerberos Key Distribution Center.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#kdc_ip NetappActiveDirectory#kdc_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#kdc_ip NetappActiveDirectory#kdc_ip}
         '''
         result = self._values.get("kdc_ip")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1138,7 +1138,7 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#labels NetappActiveDirectory#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#labels NetappActiveDirectory#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1149,7 +1149,7 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Specifies whether or not the LDAP traffic needs to be signed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#ldap_signing NetappActiveDirectory#ldap_signing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#ldap_signing NetappActiveDirectory#ldap_signing}
         '''
         result = self._values.get("ldap_signing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1162,7 +1162,7 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This option can be used to temporarily switch such volumes to AUTH_SYS authentication (user ID + 1-16 groups).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#nfs_users_with_ldap NetappActiveDirectory#nfs_users_with_ldap}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#nfs_users_with_ldap NetappActiveDirectory#nfs_users_with_ldap}
         '''
         result = self._values.get("nfs_users_with_ldap")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1173,14 +1173,14 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Defaults to 'CN=Computers' if left empty.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#organizational_unit NetappActiveDirectory#organizational_unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#organizational_unit NetappActiveDirectory#organizational_unit}
         '''
         result = self._values.get("organizational_unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#project NetappActiveDirectory#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#project NetappActiveDirectory#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1188,7 +1188,7 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def security_operators(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Domain accounts that require elevated privileges such as 'SeSecurityPrivilege' to manage security logs. Comma-separated list.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#security_operators NetappActiveDirectory#security_operators}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#security_operators NetappActiveDirectory#security_operators}
         '''
         result = self._values.get("security_operators")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1199,7 +1199,7 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Use when Active Directory domain controllers in multiple regions are configured. Defaults to 'Default-First-Site-Name' if left empty.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#site NetappActiveDirectory#site}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#site NetappActiveDirectory#site}
         '''
         result = self._values.get("site")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1208,7 +1208,7 @@ class NetappActiveDirectoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["NetappActiveDirectoryTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#timeouts NetappActiveDirectory#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#timeouts NetappActiveDirectory#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NetappActiveDirectoryTimeouts"], result)
@@ -1239,9 +1239,9 @@ class NetappActiveDirectoryTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#create NetappActiveDirectory#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#delete NetappActiveDirectory#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#update NetappActiveDirectory#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#create NetappActiveDirectory#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#delete NetappActiveDirectory#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#update NetappActiveDirectory#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c53d5643aa0a8251a5cd252e361ca8c6d826f2b2b1f960fa781ec18995b5dc11)
@@ -1258,19 +1258,19 @@ class NetappActiveDirectoryTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#create NetappActiveDirectory#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#create NetappActiveDirectory#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#delete NetappActiveDirectory#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#delete NetappActiveDirectory#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_active_directory#update NetappActiveDirectory#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_active_directory#update NetappActiveDirectory#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

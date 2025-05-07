@@ -1,7 +1,7 @@
 r'''
 # `google_managed_kafka_cluster`
 
-Refer to the Terraform Registry for docs: [`google_managed_kafka_cluster`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster).
+Refer to the Terraform Registry for docs: [`google_managed_kafka_cluster`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ManagedKafkaCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.managedKafkaCluster.ManagedKafkaCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster google_managed_kafka_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster google_managed_kafka_cluster}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class ManagedKafkaCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster google_managed_kafka_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster google_managed_kafka_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param capacity_config: capacity_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#capacity_config ManagedKafkaCluster#capacity_config}
-        :param cluster_id: The ID to use for the cluster, which will become the final component of the cluster's name. The ID must be 1-63 characters long, and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' to comply with RFC 1035. This value is structured like: 'my-cluster-id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#cluster_id ManagedKafkaCluster#cluster_id}
-        :param gcp_config: gcp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#gcp_config ManagedKafkaCluster#gcp_config}
-        :param location: ID of the location of the Kafka resource. See https://cloud.google.com/managed-kafka/docs/locations for a list of supported locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#location ManagedKafkaCluster#location}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#id ManagedKafkaCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: List of label KEY=VALUE pairs to add. Keys must start with a lowercase character and contain only hyphens (-), underscores ( ), lowercase characters, and numbers. Values must contain only hyphens (-), underscores ( ), lowercase characters, and numbers. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#labels ManagedKafkaCluster#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#project ManagedKafkaCluster#project}.
-        :param rebalance_config: rebalance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#rebalance_config ManagedKafkaCluster#rebalance_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#timeouts ManagedKafkaCluster#timeouts}
+        :param capacity_config: capacity_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#capacity_config ManagedKafkaCluster#capacity_config}
+        :param cluster_id: The ID to use for the cluster, which will become the final component of the cluster's name. The ID must be 1-63 characters long, and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' to comply with RFC 1035. This value is structured like: 'my-cluster-id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#cluster_id ManagedKafkaCluster#cluster_id}
+        :param gcp_config: gcp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#gcp_config ManagedKafkaCluster#gcp_config}
+        :param location: ID of the location of the Kafka resource. See https://cloud.google.com/managed-kafka/docs/locations for a list of supported locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#location ManagedKafkaCluster#location}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#id ManagedKafkaCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: List of label KEY=VALUE pairs to add. Keys must start with a lowercase character and contain only hyphens (-), underscores ( ), lowercase characters, and numbers. Values must contain only hyphens (-), underscores ( ), lowercase characters, and numbers. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#labels ManagedKafkaCluster#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#project ManagedKafkaCluster#project}.
+        :param rebalance_config: rebalance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#rebalance_config ManagedKafkaCluster#rebalance_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#timeouts ManagedKafkaCluster#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class ManagedKafkaCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ManagedKafkaCluster to import.
-        :param import_from_id: The id of the existing ManagedKafkaCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ManagedKafkaCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ManagedKafkaCluster to import is found.
         '''
         if __debug__:
@@ -146,8 +146,8 @@ class ManagedKafkaCluster(
         vcpu_count: builtins.str,
     ) -> None:
         '''
-        :param memory_bytes: The memory to provision for the cluster in bytes. The value must be between 1 GiB and 8 GiB per vCPU. Ex. 1024Mi, 4Gi. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#memory_bytes ManagedKafkaCluster#memory_bytes}
-        :param vcpu_count: The number of vCPUs to provision for the cluster. The minimum is 3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#vcpu_count ManagedKafkaCluster#vcpu_count}
+        :param memory_bytes: The memory to provision for the cluster in bytes. The value must be between 1 GiB and 8 GiB per vCPU. Ex. 1024Mi, 4Gi. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#memory_bytes ManagedKafkaCluster#memory_bytes}
+        :param vcpu_count: The number of vCPUs to provision for the cluster. The minimum is 3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#vcpu_count ManagedKafkaCluster#vcpu_count}
         '''
         value = ManagedKafkaClusterCapacityConfig(
             memory_bytes=memory_bytes, vcpu_count=vcpu_count
@@ -163,8 +163,8 @@ class ManagedKafkaCluster(
         kms_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#access_config ManagedKafkaCluster#access_config}
-        :param kms_key: The Cloud KMS Key name to use for encryption. The key must be located in the same region as the cluster and cannot be changed. Must be in the format 'projects/PROJECT_ID/locations/LOCATION/keyRings/KEY_RING/cryptoKeys/KEY'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#kms_key ManagedKafkaCluster#kms_key}
+        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#access_config ManagedKafkaCluster#access_config}
+        :param kms_key: The Cloud KMS Key name to use for encryption. The key must be located in the same region as the cluster and cannot be changed. Must be in the format 'projects/PROJECT_ID/locations/LOCATION/keyRings/KEY_RING/cryptoKeys/KEY'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#kms_key ManagedKafkaCluster#kms_key}
         '''
         value = ManagedKafkaClusterGcpConfig(
             access_config=access_config, kms_key=kms_key
@@ -179,7 +179,7 @@ class ManagedKafkaCluster(
         mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param mode: The rebalance behavior for the cluster. When not specified, defaults to 'NO_REBALANCE'. Possible values: 'MODE_UNSPECIFIED', 'NO_REBALANCE', 'AUTO_REBALANCE_ON_SCALE_UP'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#mode ManagedKafkaCluster#mode}
+        :param mode: The rebalance behavior for the cluster. When not specified, defaults to 'NO_REBALANCE'. Possible values: 'MODE_UNSPECIFIED', 'NO_REBALANCE', 'AUTO_REBALANCE_ON_SCALE_UP'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#mode ManagedKafkaCluster#mode}
         '''
         value = ManagedKafkaClusterRebalanceConfig(mode=mode)
 
@@ -194,9 +194,9 @@ class ManagedKafkaCluster(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#create ManagedKafkaCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#delete ManagedKafkaCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#update ManagedKafkaCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#create ManagedKafkaCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#delete ManagedKafkaCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#update ManagedKafkaCluster#update}.
         '''
         value = ManagedKafkaClusterTimeouts(
             create=create, delete=delete, update=update
@@ -409,8 +409,8 @@ class ManagedKafkaCluster(
 class ManagedKafkaClusterCapacityConfig:
     def __init__(self, *, memory_bytes: builtins.str, vcpu_count: builtins.str) -> None:
         '''
-        :param memory_bytes: The memory to provision for the cluster in bytes. The value must be between 1 GiB and 8 GiB per vCPU. Ex. 1024Mi, 4Gi. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#memory_bytes ManagedKafkaCluster#memory_bytes}
-        :param vcpu_count: The number of vCPUs to provision for the cluster. The minimum is 3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#vcpu_count ManagedKafkaCluster#vcpu_count}
+        :param memory_bytes: The memory to provision for the cluster in bytes. The value must be between 1 GiB and 8 GiB per vCPU. Ex. 1024Mi, 4Gi. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#memory_bytes ManagedKafkaCluster#memory_bytes}
+        :param vcpu_count: The number of vCPUs to provision for the cluster. The minimum is 3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#vcpu_count ManagedKafkaCluster#vcpu_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__86133390f27f41c1bc02323db97b2c1d56a6052201758a7b6198a67ef03faad3)
@@ -427,7 +427,7 @@ class ManagedKafkaClusterCapacityConfig:
 
         The value must be between 1 GiB and 8 GiB per vCPU. Ex. 1024Mi, 4Gi.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#memory_bytes ManagedKafkaCluster#memory_bytes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#memory_bytes ManagedKafkaCluster#memory_bytes}
         '''
         result = self._values.get("memory_bytes")
         assert result is not None, "Required property 'memory_bytes' is missing"
@@ -437,7 +437,7 @@ class ManagedKafkaClusterCapacityConfig:
     def vcpu_count(self) -> builtins.str:
         '''The number of vCPUs to provision for the cluster. The minimum is 3.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#vcpu_count ManagedKafkaCluster#vcpu_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#vcpu_count ManagedKafkaCluster#vcpu_count}
         '''
         result = self._values.get("vcpu_count")
         assert result is not None, "Required property 'vcpu_count' is missing"
@@ -576,15 +576,15 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param capacity_config: capacity_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#capacity_config ManagedKafkaCluster#capacity_config}
-        :param cluster_id: The ID to use for the cluster, which will become the final component of the cluster's name. The ID must be 1-63 characters long, and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' to comply with RFC 1035. This value is structured like: 'my-cluster-id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#cluster_id ManagedKafkaCluster#cluster_id}
-        :param gcp_config: gcp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#gcp_config ManagedKafkaCluster#gcp_config}
-        :param location: ID of the location of the Kafka resource. See https://cloud.google.com/managed-kafka/docs/locations for a list of supported locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#location ManagedKafkaCluster#location}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#id ManagedKafkaCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: List of label KEY=VALUE pairs to add. Keys must start with a lowercase character and contain only hyphens (-), underscores ( ), lowercase characters, and numbers. Values must contain only hyphens (-), underscores ( ), lowercase characters, and numbers. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#labels ManagedKafkaCluster#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#project ManagedKafkaCluster#project}.
-        :param rebalance_config: rebalance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#rebalance_config ManagedKafkaCluster#rebalance_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#timeouts ManagedKafkaCluster#timeouts}
+        :param capacity_config: capacity_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#capacity_config ManagedKafkaCluster#capacity_config}
+        :param cluster_id: The ID to use for the cluster, which will become the final component of the cluster's name. The ID must be 1-63 characters long, and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' to comply with RFC 1035. This value is structured like: 'my-cluster-id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#cluster_id ManagedKafkaCluster#cluster_id}
+        :param gcp_config: gcp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#gcp_config ManagedKafkaCluster#gcp_config}
+        :param location: ID of the location of the Kafka resource. See https://cloud.google.com/managed-kafka/docs/locations for a list of supported locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#location ManagedKafkaCluster#location}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#id ManagedKafkaCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: List of label KEY=VALUE pairs to add. Keys must start with a lowercase character and contain only hyphens (-), underscores ( ), lowercase characters, and numbers. Values must contain only hyphens (-), underscores ( ), lowercase characters, and numbers. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#labels ManagedKafkaCluster#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#project ManagedKafkaCluster#project}.
+        :param rebalance_config: rebalance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#rebalance_config ManagedKafkaCluster#rebalance_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#timeouts ManagedKafkaCluster#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -713,7 +713,7 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def capacity_config(self) -> ManagedKafkaClusterCapacityConfig:
         '''capacity_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#capacity_config ManagedKafkaCluster#capacity_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#capacity_config ManagedKafkaCluster#capacity_config}
         '''
         result = self._values.get("capacity_config")
         assert result is not None, "Required property 'capacity_config' is missing"
@@ -725,7 +725,7 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The ID must be 1-63 characters long, and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' to comply with RFC 1035. This value is structured like: 'my-cluster-id'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#cluster_id ManagedKafkaCluster#cluster_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#cluster_id ManagedKafkaCluster#cluster_id}
         '''
         result = self._values.get("cluster_id")
         assert result is not None, "Required property 'cluster_id' is missing"
@@ -735,7 +735,7 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def gcp_config(self) -> "ManagedKafkaClusterGcpConfig":
         '''gcp_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#gcp_config ManagedKafkaCluster#gcp_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#gcp_config ManagedKafkaCluster#gcp_config}
         '''
         result = self._values.get("gcp_config")
         assert result is not None, "Required property 'gcp_config' is missing"
@@ -745,7 +745,7 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''ID of the location of the Kafka resource. See https://cloud.google.com/managed-kafka/docs/locations for a list of supported locations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#location ManagedKafkaCluster#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#location ManagedKafkaCluster#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -753,7 +753,7 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#id ManagedKafkaCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#id ManagedKafkaCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -770,14 +770,14 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#labels ManagedKafkaCluster#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#labels ManagedKafkaCluster#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#project ManagedKafkaCluster#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#project ManagedKafkaCluster#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -785,7 +785,7 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def rebalance_config(self) -> typing.Optional["ManagedKafkaClusterRebalanceConfig"]:
         '''rebalance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#rebalance_config ManagedKafkaCluster#rebalance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#rebalance_config ManagedKafkaCluster#rebalance_config}
         '''
         result = self._values.get("rebalance_config")
         return typing.cast(typing.Optional["ManagedKafkaClusterRebalanceConfig"], result)
@@ -794,7 +794,7 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ManagedKafkaClusterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#timeouts ManagedKafkaCluster#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#timeouts ManagedKafkaCluster#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ManagedKafkaClusterTimeouts"], result)
@@ -824,8 +824,8 @@ class ManagedKafkaClusterGcpConfig:
         kms_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#access_config ManagedKafkaCluster#access_config}
-        :param kms_key: The Cloud KMS Key name to use for encryption. The key must be located in the same region as the cluster and cannot be changed. Must be in the format 'projects/PROJECT_ID/locations/LOCATION/keyRings/KEY_RING/cryptoKeys/KEY'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#kms_key ManagedKafkaCluster#kms_key}
+        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#access_config ManagedKafkaCluster#access_config}
+        :param kms_key: The Cloud KMS Key name to use for encryption. The key must be located in the same region as the cluster and cannot be changed. Must be in the format 'projects/PROJECT_ID/locations/LOCATION/keyRings/KEY_RING/cryptoKeys/KEY'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#kms_key ManagedKafkaCluster#kms_key}
         '''
         if isinstance(access_config, dict):
             access_config = ManagedKafkaClusterGcpConfigAccessConfig(**access_config)
@@ -843,7 +843,7 @@ class ManagedKafkaClusterGcpConfig:
     def access_config(self) -> "ManagedKafkaClusterGcpConfigAccessConfig":
         '''access_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#access_config ManagedKafkaCluster#access_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#access_config ManagedKafkaCluster#access_config}
         '''
         result = self._values.get("access_config")
         assert result is not None, "Required property 'access_config' is missing"
@@ -855,7 +855,7 @@ class ManagedKafkaClusterGcpConfig:
 
         The key must be located in the same region as the cluster and cannot be changed. Must be in the format 'projects/PROJECT_ID/locations/LOCATION/keyRings/KEY_RING/cryptoKeys/KEY'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#kms_key ManagedKafkaCluster#kms_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#kms_key ManagedKafkaCluster#kms_key}
         '''
         result = self._values.get("kms_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -884,7 +884,7 @@ class ManagedKafkaClusterGcpConfigAccessConfig:
         network_configs: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ManagedKafkaClusterGcpConfigAccessConfigNetworkConfigs", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param network_configs: network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#network_configs ManagedKafkaCluster#network_configs}
+        :param network_configs: network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#network_configs ManagedKafkaCluster#network_configs}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a9111cf8e82a2d05ed732106173d0b2d27bb6602f16feb7ac3f96dac5a484df5)
@@ -899,7 +899,7 @@ class ManagedKafkaClusterGcpConfigAccessConfig:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ManagedKafkaClusterGcpConfigAccessConfigNetworkConfigs"]]:
         '''network_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#network_configs ManagedKafkaCluster#network_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#network_configs ManagedKafkaCluster#network_configs}
         '''
         result = self._values.get("network_configs")
         assert result is not None, "Required property 'network_configs' is missing"
@@ -925,7 +925,7 @@ class ManagedKafkaClusterGcpConfigAccessConfig:
 class ManagedKafkaClusterGcpConfigAccessConfigNetworkConfigs:
     def __init__(self, *, subnet: builtins.str) -> None:
         '''
-        :param subnet: Name of the VPC subnet from which the cluster is accessible. Both broker and bootstrap server IP addresses and DNS entries are automatically created in the subnet. There can only be one subnet per network, and the subnet must be located in the same region as the cluster. The project may differ. The name of the subnet must be in the format 'projects/PROJECT_ID/regions/REGION/subnetworks/SUBNET'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#subnet ManagedKafkaCluster#subnet}
+        :param subnet: Name of the VPC subnet from which the cluster is accessible. Both broker and bootstrap server IP addresses and DNS entries are automatically created in the subnet. There can only be one subnet per network, and the subnet must be located in the same region as the cluster. The project may differ. The name of the subnet must be in the format 'projects/PROJECT_ID/regions/REGION/subnetworks/SUBNET'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#subnet ManagedKafkaCluster#subnet}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3d69a1317283cb612b1d05b06d8713b9a1150a7822e8ae5249efd84f2cc1aab4)
@@ -940,7 +940,7 @@ class ManagedKafkaClusterGcpConfigAccessConfigNetworkConfigs:
 
         Both broker and bootstrap server IP addresses and DNS entries are automatically created in the subnet. There can only be one subnet per network, and the subnet must be located in the same region as the cluster. The project may differ. The name of the subnet must be in the format 'projects/PROJECT_ID/regions/REGION/subnetworks/SUBNET'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#subnet ManagedKafkaCluster#subnet}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#subnet ManagedKafkaCluster#subnet}
         '''
         result = self._values.get("subnet")
         assert result is not None, "Required property 'subnet' is missing"
@@ -1204,7 +1204,7 @@ class ManagedKafkaClusterGcpConfigOutputReference(
         network_configs: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ManagedKafkaClusterGcpConfigAccessConfigNetworkConfigs, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param network_configs: network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#network_configs ManagedKafkaCluster#network_configs}
+        :param network_configs: network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#network_configs ManagedKafkaCluster#network_configs}
         '''
         value = ManagedKafkaClusterGcpConfigAccessConfig(
             network_configs=network_configs
@@ -1269,7 +1269,7 @@ class ManagedKafkaClusterGcpConfigOutputReference(
 class ManagedKafkaClusterRebalanceConfig:
     def __init__(self, *, mode: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param mode: The rebalance behavior for the cluster. When not specified, defaults to 'NO_REBALANCE'. Possible values: 'MODE_UNSPECIFIED', 'NO_REBALANCE', 'AUTO_REBALANCE_ON_SCALE_UP'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#mode ManagedKafkaCluster#mode}
+        :param mode: The rebalance behavior for the cluster. When not specified, defaults to 'NO_REBALANCE'. Possible values: 'MODE_UNSPECIFIED', 'NO_REBALANCE', 'AUTO_REBALANCE_ON_SCALE_UP'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#mode ManagedKafkaCluster#mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__64b250199e7e42e99035beb596f0c6a2780adc3686da4d443b46e2de82113292)
@@ -1282,7 +1282,7 @@ class ManagedKafkaClusterRebalanceConfig:
     def mode(self) -> typing.Optional[builtins.str]:
         '''The rebalance behavior for the cluster. When not specified, defaults to 'NO_REBALANCE'. Possible values: 'MODE_UNSPECIFIED', 'NO_REBALANCE', 'AUTO_REBALANCE_ON_SCALE_UP'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#mode ManagedKafkaCluster#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#mode ManagedKafkaCluster#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1370,9 +1370,9 @@ class ManagedKafkaClusterTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#create ManagedKafkaCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#delete ManagedKafkaCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#update ManagedKafkaCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#create ManagedKafkaCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#delete ManagedKafkaCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#update ManagedKafkaCluster#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a08c41710b680901c9ba4c017ab221290759c8b25bce30fa92f28740356bb93)
@@ -1389,19 +1389,19 @@ class ManagedKafkaClusterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#create ManagedKafkaCluster#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#create ManagedKafkaCluster#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#delete ManagedKafkaCluster#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#delete ManagedKafkaCluster#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/managed_kafka_cluster#update ManagedKafkaCluster#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/managed_kafka_cluster#update ManagedKafkaCluster#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

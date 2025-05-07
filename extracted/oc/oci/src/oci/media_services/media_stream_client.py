@@ -151,7 +151,7 @@ class MediaStreamClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/mediaservices/generate_playlist.py.html>`__ to see an example of how to use generate_playlist API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/mediaservices/generate_playlist.py.html>`__ to see an example of how to use generate_playlist API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['streamPackagingConfigId', 'mediaAssetId']
@@ -247,7 +247,7 @@ class MediaStreamClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/mediaservices/generate_session_token.py.html>`__ to see an example of how to use generate_session_token API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/mediaservices/generate_session_token.py.html>`__ to see an example of how to use generate_session_token API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []

@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: facebook_business
-Version: 22.0.4
+Version: 22.0.5
 Summary: Facebook Business SDK
 Home-page: https://github.com/facebook/facebook-python-business-sdk
-Download-URL: https://github.com/facebook/facebook-python-business-sdk/tarball/22.0.4
+Download-URL: https://github.com/facebook/facebook-python-business-sdk/tarball/22.0.5
 Author: Facebook
 Author-email: shuotian@meta.com
 License: LICENSE.txt

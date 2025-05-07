@@ -1,7 +1,7 @@
 r'''
 # `google_privileged_access_manager_entitlement`
 
-Refer to the Terraform Registry for docs: [`google_privileged_access_manager_entitlement`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement).
+Refer to the Terraform Registry for docs: [`google_privileged_access_manager_entitlement`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class PrivilegedAccessManagerEntitlement(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.privilegedAccessManagerEntitlement.PrivilegedAccessManagerEntitlement",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement google_privileged_access_manager_entitlement}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement google_privileged_access_manager_entitlement}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class PrivilegedAccessManagerEntitlement(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement google_privileged_access_manager_entitlement} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement google_privileged_access_manager_entitlement} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param eligible_users: eligible_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#eligible_users PrivilegedAccessManagerEntitlement#eligible_users}
-        :param entitlement_id: The ID to use for this Entitlement. This will become the last part of the resource name. This value should be 4-63 characters, and valid characters are "[a-z]", "[0-9]", and "-". The first character should be from [a-z]. This value should be unique among all other Entitlements under the specified 'parent'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#entitlement_id PrivilegedAccessManagerEntitlement#entitlement_id}
-        :param location: The region of the Entitlement resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#location PrivilegedAccessManagerEntitlement#location}
-        :param max_request_duration: The maximum amount of time for which access would be granted for a request. A requester can choose to ask for access for less than this duration but never more. Format: calculate the time in seconds and concatenate it with 's' i.e. 2 hours = "7200s", 45 minutes = "2700s" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#max_request_duration PrivilegedAccessManagerEntitlement#max_request_duration}
-        :param parent: Format: projects/{project-id|project-number} or organizations/{organization-number} or folders/{folder-number}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#parent PrivilegedAccessManagerEntitlement#parent}
-        :param privileged_access: privileged_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#privileged_access PrivilegedAccessManagerEntitlement#privileged_access}
-        :param requester_justification_config: requester_justification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#requester_justification_config PrivilegedAccessManagerEntitlement#requester_justification_config}
-        :param additional_notification_targets: additional_notification_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#additional_notification_targets PrivilegedAccessManagerEntitlement#additional_notification_targets}
-        :param approval_workflow: approval_workflow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#approval_workflow PrivilegedAccessManagerEntitlement#approval_workflow}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#id PrivilegedAccessManagerEntitlement#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#timeouts PrivilegedAccessManagerEntitlement#timeouts}
+        :param eligible_users: eligible_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#eligible_users PrivilegedAccessManagerEntitlement#eligible_users}
+        :param entitlement_id: The ID to use for this Entitlement. This will become the last part of the resource name. This value should be 4-63 characters, and valid characters are "[a-z]", "[0-9]", and "-". The first character should be from [a-z]. This value should be unique among all other Entitlements under the specified 'parent'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#entitlement_id PrivilegedAccessManagerEntitlement#entitlement_id}
+        :param location: The region of the Entitlement resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#location PrivilegedAccessManagerEntitlement#location}
+        :param max_request_duration: The maximum amount of time for which access would be granted for a request. A requester can choose to ask for access for less than this duration but never more. Format: calculate the time in seconds and concatenate it with 's' i.e. 2 hours = "7200s", 45 minutes = "2700s" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#max_request_duration PrivilegedAccessManagerEntitlement#max_request_duration}
+        :param parent: Format: projects/{project-id|project-number} or organizations/{organization-number} or folders/{folder-number}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#parent PrivilegedAccessManagerEntitlement#parent}
+        :param privileged_access: privileged_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#privileged_access PrivilegedAccessManagerEntitlement#privileged_access}
+        :param requester_justification_config: requester_justification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#requester_justification_config PrivilegedAccessManagerEntitlement#requester_justification_config}
+        :param additional_notification_targets: additional_notification_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#additional_notification_targets PrivilegedAccessManagerEntitlement#additional_notification_targets}
+        :param approval_workflow: approval_workflow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#approval_workflow PrivilegedAccessManagerEntitlement#approval_workflow}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#id PrivilegedAccessManagerEntitlement#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#timeouts PrivilegedAccessManagerEntitlement#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class PrivilegedAccessManagerEntitlement(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the PrivilegedAccessManagerEntitlement to import.
-        :param import_from_id: The id of the existing PrivilegedAccessManagerEntitlement that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing PrivilegedAccessManagerEntitlement that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the PrivilegedAccessManagerEntitlement to import is found.
         '''
         if __debug__:
@@ -152,8 +152,8 @@ class PrivilegedAccessManagerEntitlement(
         requester_email_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param admin_email_recipients: Optional. Additional email addresses to be notified when a principal(requester) is granted access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#admin_email_recipients PrivilegedAccessManagerEntitlement#admin_email_recipients}
-        :param requester_email_recipients: Optional. Additional email address to be notified about an eligible entitlement. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#requester_email_recipients PrivilegedAccessManagerEntitlement#requester_email_recipients}
+        :param admin_email_recipients: Optional. Additional email addresses to be notified when a principal(requester) is granted access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#admin_email_recipients PrivilegedAccessManagerEntitlement#admin_email_recipients}
+        :param requester_email_recipients: Optional. Additional email address to be notified about an eligible entitlement. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#requester_email_recipients PrivilegedAccessManagerEntitlement#requester_email_recipients}
         '''
         value = PrivilegedAccessManagerEntitlementAdditionalNotificationTargets(
             admin_email_recipients=admin_email_recipients,
@@ -169,7 +169,7 @@ class PrivilegedAccessManagerEntitlement(
         manual_approvals: typing.Union["PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovals", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param manual_approvals: manual_approvals block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#manual_approvals PrivilegedAccessManagerEntitlement#manual_approvals}
+        :param manual_approvals: manual_approvals block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#manual_approvals PrivilegedAccessManagerEntitlement#manual_approvals}
         '''
         value = PrivilegedAccessManagerEntitlementApprovalWorkflow(
             manual_approvals=manual_approvals
@@ -197,7 +197,7 @@ class PrivilegedAccessManagerEntitlement(
         gcp_iam_access: typing.Union["PrivilegedAccessManagerEntitlementPrivilegedAccessGcpIamAccess", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param gcp_iam_access: gcp_iam_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#gcp_iam_access PrivilegedAccessManagerEntitlement#gcp_iam_access}
+        :param gcp_iam_access: gcp_iam_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#gcp_iam_access PrivilegedAccessManagerEntitlement#gcp_iam_access}
         '''
         value = PrivilegedAccessManagerEntitlementPrivilegedAccess(
             gcp_iam_access=gcp_iam_access
@@ -213,8 +213,8 @@ class PrivilegedAccessManagerEntitlement(
         unstructured: typing.Optional[typing.Union["PrivilegedAccessManagerEntitlementRequesterJustificationConfigUnstructured", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param not_mandatory: not_mandatory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#not_mandatory PrivilegedAccessManagerEntitlement#not_mandatory}
-        :param unstructured: unstructured block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#unstructured PrivilegedAccessManagerEntitlement#unstructured}
+        :param not_mandatory: not_mandatory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#not_mandatory PrivilegedAccessManagerEntitlement#not_mandatory}
+        :param unstructured: unstructured block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#unstructured PrivilegedAccessManagerEntitlement#unstructured}
         '''
         value = PrivilegedAccessManagerEntitlementRequesterJustificationConfig(
             not_mandatory=not_mandatory, unstructured=unstructured
@@ -231,9 +231,9 @@ class PrivilegedAccessManagerEntitlement(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#create PrivilegedAccessManagerEntitlement#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#delete PrivilegedAccessManagerEntitlement#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#update PrivilegedAccessManagerEntitlement#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#create PrivilegedAccessManagerEntitlement#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#delete PrivilegedAccessManagerEntitlement#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#update PrivilegedAccessManagerEntitlement#update}.
         '''
         value = PrivilegedAccessManagerEntitlementTimeouts(
             create=create, delete=delete, update=update
@@ -477,8 +477,8 @@ class PrivilegedAccessManagerEntitlementAdditionalNotificationTargets:
         requester_email_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param admin_email_recipients: Optional. Additional email addresses to be notified when a principal(requester) is granted access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#admin_email_recipients PrivilegedAccessManagerEntitlement#admin_email_recipients}
-        :param requester_email_recipients: Optional. Additional email address to be notified about an eligible entitlement. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#requester_email_recipients PrivilegedAccessManagerEntitlement#requester_email_recipients}
+        :param admin_email_recipients: Optional. Additional email addresses to be notified when a principal(requester) is granted access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#admin_email_recipients PrivilegedAccessManagerEntitlement#admin_email_recipients}
+        :param requester_email_recipients: Optional. Additional email address to be notified about an eligible entitlement. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#requester_email_recipients PrivilegedAccessManagerEntitlement#requester_email_recipients}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__17540d90177c5de99cbd0a8672ce255c9986b90c90979e1611426e26a128200a)
@@ -494,7 +494,7 @@ class PrivilegedAccessManagerEntitlementAdditionalNotificationTargets:
     def admin_email_recipients(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Optional. Additional email addresses to be notified when a principal(requester) is granted access.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#admin_email_recipients PrivilegedAccessManagerEntitlement#admin_email_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#admin_email_recipients PrivilegedAccessManagerEntitlement#admin_email_recipients}
         '''
         result = self._values.get("admin_email_recipients")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -503,7 +503,7 @@ class PrivilegedAccessManagerEntitlementAdditionalNotificationTargets:
     def requester_email_recipients(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Optional. Additional email address to be notified about an eligible entitlement.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#requester_email_recipients PrivilegedAccessManagerEntitlement#requester_email_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#requester_email_recipients PrivilegedAccessManagerEntitlement#requester_email_recipients}
         '''
         result = self._values.get("requester_email_recipients")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -616,7 +616,7 @@ class PrivilegedAccessManagerEntitlementApprovalWorkflow:
         manual_approvals: typing.Union["PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovals", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param manual_approvals: manual_approvals block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#manual_approvals PrivilegedAccessManagerEntitlement#manual_approvals}
+        :param manual_approvals: manual_approvals block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#manual_approvals PrivilegedAccessManagerEntitlement#manual_approvals}
         '''
         if isinstance(manual_approvals, dict):
             manual_approvals = PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovals(**manual_approvals)
@@ -633,7 +633,7 @@ class PrivilegedAccessManagerEntitlementApprovalWorkflow:
     ) -> "PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovals":
         '''manual_approvals block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#manual_approvals PrivilegedAccessManagerEntitlement#manual_approvals}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#manual_approvals PrivilegedAccessManagerEntitlement#manual_approvals}
         '''
         result = self._values.get("manual_approvals")
         assert result is not None, "Required property 'manual_approvals' is missing"
@@ -667,8 +667,8 @@ class PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovals:
         require_approver_justification: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#steps PrivilegedAccessManagerEntitlement#steps}
-        :param require_approver_justification: Optional. Do the approvers need to provide a justification for their actions? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#require_approver_justification PrivilegedAccessManagerEntitlement#require_approver_justification}
+        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#steps PrivilegedAccessManagerEntitlement#steps}
+        :param require_approver_justification: Optional. Do the approvers need to provide a justification for their actions? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#require_approver_justification PrivilegedAccessManagerEntitlement#require_approver_justification}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1b06642ab46ec0286b2611176bd42053df4a7ba3ab45a6dfea65ce627b5ceff1)
@@ -686,7 +686,7 @@ class PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovals:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovalsSteps"]]:
         '''steps block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#steps PrivilegedAccessManagerEntitlement#steps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#steps PrivilegedAccessManagerEntitlement#steps}
         '''
         result = self._values.get("steps")
         assert result is not None, "Required property 'steps' is missing"
@@ -698,7 +698,7 @@ class PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovals:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Optional. Do the approvers need to provide a justification for their actions?
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#require_approver_justification PrivilegedAccessManagerEntitlement#require_approver_justification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#require_approver_justification PrivilegedAccessManagerEntitlement#require_approver_justification}
         '''
         result = self._values.get("require_approver_justification")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -826,9 +826,9 @@ class PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovalsSteps:
         approver_email_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param approvers: approvers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#approvers PrivilegedAccessManagerEntitlement#approvers}
-        :param approvals_needed: How many users from the above list need to approve. If there are not enough distinct users in the list above then the workflow will indefinitely block. Should always be greater than 0. Currently 1 is the only supported value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#approvals_needed PrivilegedAccessManagerEntitlement#approvals_needed}
-        :param approver_email_recipients: Optional. Additional email addresses to be notified when a grant is pending approval. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#approver_email_recipients PrivilegedAccessManagerEntitlement#approver_email_recipients}
+        :param approvers: approvers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#approvers PrivilegedAccessManagerEntitlement#approvers}
+        :param approvals_needed: How many users from the above list need to approve. If there are not enough distinct users in the list above then the workflow will indefinitely block. Should always be greater than 0. Currently 1 is the only supported value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#approvals_needed PrivilegedAccessManagerEntitlement#approvals_needed}
+        :param approver_email_recipients: Optional. Additional email addresses to be notified when a grant is pending approval. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#approver_email_recipients PrivilegedAccessManagerEntitlement#approver_email_recipients}
         '''
         if isinstance(approvers, dict):
             approvers = PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovalsStepsApprovers(**approvers)
@@ -851,7 +851,7 @@ class PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovalsSteps:
     ) -> "PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovalsStepsApprovers":
         '''approvers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#approvers PrivilegedAccessManagerEntitlement#approvers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#approvers PrivilegedAccessManagerEntitlement#approvers}
         '''
         result = self._values.get("approvers")
         assert result is not None, "Required property 'approvers' is missing"
@@ -865,7 +865,7 @@ class PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovalsSteps:
         will indefinitely block. Should always be greater than 0. Currently 1 is the only
         supported value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#approvals_needed PrivilegedAccessManagerEntitlement#approvals_needed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#approvals_needed PrivilegedAccessManagerEntitlement#approvals_needed}
         '''
         result = self._values.get("approvals_needed")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -874,7 +874,7 @@ class PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovalsSteps:
     def approver_email_recipients(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Optional. Additional email addresses to be notified when a grant is pending approval.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#approver_email_recipients PrivilegedAccessManagerEntitlement#approver_email_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#approver_email_recipients PrivilegedAccessManagerEntitlement#approver_email_recipients}
         '''
         result = self._values.get("approver_email_recipients")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -899,7 +899,7 @@ class PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovalsSteps:
 class PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovalsStepsApprovers:
     def __init__(self, *, principals: typing.Sequence[builtins.str]) -> None:
         '''
-        :param principals: Users who are being allowed for the operation. Each entry should be a valid v1 IAM Principal Identifier. Format for these is documented at: https://cloud.google.com/iam/docs/principal-identifiers#v1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#principals PrivilegedAccessManagerEntitlement#principals}
+        :param principals: Users who are being allowed for the operation. Each entry should be a valid v1 IAM Principal Identifier. Format for these is documented at: https://cloud.google.com/iam/docs/principal-identifiers#v1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#principals PrivilegedAccessManagerEntitlement#principals}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__92322a70fd4ac270b2e1c4a75b4102eb618d4d2063217262c8a3becbce3faf6e)
@@ -914,7 +914,7 @@ class PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovalsStepsAppr
 
         Each entry should be a valid v1 IAM Principal Identifier. Format for these is documented at: https://cloud.google.com/iam/docs/principal-identifiers#v1
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#principals PrivilegedAccessManagerEntitlement#principals}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#principals PrivilegedAccessManagerEntitlement#principals}
         '''
         result = self._values.get("principals")
         assert result is not None, "Required property 'principals' is missing"
@@ -1109,7 +1109,7 @@ class PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovalsStepsOutp
     @jsii.member(jsii_name="putApprovers")
     def put_approvers(self, *, principals: typing.Sequence[builtins.str]) -> None:
         '''
-        :param principals: Users who are being allowed for the operation. Each entry should be a valid v1 IAM Principal Identifier. Format for these is documented at: https://cloud.google.com/iam/docs/principal-identifiers#v1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#principals PrivilegedAccessManagerEntitlement#principals}
+        :param principals: Users who are being allowed for the operation. Each entry should be a valid v1 IAM Principal Identifier. Format for these is documented at: https://cloud.google.com/iam/docs/principal-identifiers#v1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#principals PrivilegedAccessManagerEntitlement#principals}
         '''
         value = PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovalsStepsApprovers(
             principals=principals
@@ -1221,8 +1221,8 @@ class PrivilegedAccessManagerEntitlementApprovalWorkflowOutputReference(
         require_approver_justification: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#steps PrivilegedAccessManagerEntitlement#steps}
-        :param require_approver_justification: Optional. Do the approvers need to provide a justification for their actions? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#require_approver_justification PrivilegedAccessManagerEntitlement#require_approver_justification}
+        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#steps PrivilegedAccessManagerEntitlement#steps}
+        :param require_approver_justification: Optional. Do the approvers need to provide a justification for their actions? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#require_approver_justification PrivilegedAccessManagerEntitlement#require_approver_justification}
         '''
         value = PrivilegedAccessManagerEntitlementApprovalWorkflowManualApprovals(
             steps=steps, require_approver_justification=require_approver_justification
@@ -1317,17 +1317,17 @@ class PrivilegedAccessManagerEntitlementConfig(_cdktf_9a9027ec.TerraformMetaArgu
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param eligible_users: eligible_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#eligible_users PrivilegedAccessManagerEntitlement#eligible_users}
-        :param entitlement_id: The ID to use for this Entitlement. This will become the last part of the resource name. This value should be 4-63 characters, and valid characters are "[a-z]", "[0-9]", and "-". The first character should be from [a-z]. This value should be unique among all other Entitlements under the specified 'parent'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#entitlement_id PrivilegedAccessManagerEntitlement#entitlement_id}
-        :param location: The region of the Entitlement resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#location PrivilegedAccessManagerEntitlement#location}
-        :param max_request_duration: The maximum amount of time for which access would be granted for a request. A requester can choose to ask for access for less than this duration but never more. Format: calculate the time in seconds and concatenate it with 's' i.e. 2 hours = "7200s", 45 minutes = "2700s" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#max_request_duration PrivilegedAccessManagerEntitlement#max_request_duration}
-        :param parent: Format: projects/{project-id|project-number} or organizations/{organization-number} or folders/{folder-number}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#parent PrivilegedAccessManagerEntitlement#parent}
-        :param privileged_access: privileged_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#privileged_access PrivilegedAccessManagerEntitlement#privileged_access}
-        :param requester_justification_config: requester_justification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#requester_justification_config PrivilegedAccessManagerEntitlement#requester_justification_config}
-        :param additional_notification_targets: additional_notification_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#additional_notification_targets PrivilegedAccessManagerEntitlement#additional_notification_targets}
-        :param approval_workflow: approval_workflow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#approval_workflow PrivilegedAccessManagerEntitlement#approval_workflow}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#id PrivilegedAccessManagerEntitlement#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#timeouts PrivilegedAccessManagerEntitlement#timeouts}
+        :param eligible_users: eligible_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#eligible_users PrivilegedAccessManagerEntitlement#eligible_users}
+        :param entitlement_id: The ID to use for this Entitlement. This will become the last part of the resource name. This value should be 4-63 characters, and valid characters are "[a-z]", "[0-9]", and "-". The first character should be from [a-z]. This value should be unique among all other Entitlements under the specified 'parent'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#entitlement_id PrivilegedAccessManagerEntitlement#entitlement_id}
+        :param location: The region of the Entitlement resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#location PrivilegedAccessManagerEntitlement#location}
+        :param max_request_duration: The maximum amount of time for which access would be granted for a request. A requester can choose to ask for access for less than this duration but never more. Format: calculate the time in seconds and concatenate it with 's' i.e. 2 hours = "7200s", 45 minutes = "2700s" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#max_request_duration PrivilegedAccessManagerEntitlement#max_request_duration}
+        :param parent: Format: projects/{project-id|project-number} or organizations/{organization-number} or folders/{folder-number}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#parent PrivilegedAccessManagerEntitlement#parent}
+        :param privileged_access: privileged_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#privileged_access PrivilegedAccessManagerEntitlement#privileged_access}
+        :param requester_justification_config: requester_justification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#requester_justification_config PrivilegedAccessManagerEntitlement#requester_justification_config}
+        :param additional_notification_targets: additional_notification_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#additional_notification_targets PrivilegedAccessManagerEntitlement#additional_notification_targets}
+        :param approval_workflow: approval_workflow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#approval_workflow PrivilegedAccessManagerEntitlement#approval_workflow}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#id PrivilegedAccessManagerEntitlement#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#timeouts PrivilegedAccessManagerEntitlement#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1463,7 +1463,7 @@ class PrivilegedAccessManagerEntitlementConfig(_cdktf_9a9027ec.TerraformMetaArgu
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrivilegedAccessManagerEntitlementEligibleUsers"]]:
         '''eligible_users block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#eligible_users PrivilegedAccessManagerEntitlement#eligible_users}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#eligible_users PrivilegedAccessManagerEntitlement#eligible_users}
         '''
         result = self._values.get("eligible_users")
         assert result is not None, "Required property 'eligible_users' is missing"
@@ -1477,7 +1477,7 @@ class PrivilegedAccessManagerEntitlementConfig(_cdktf_9a9027ec.TerraformMetaArgu
         This value should be 4-63 characters, and valid characters are "[a-z]", "[0-9]", and "-". The first character should be from [a-z].
         This value should be unique among all other Entitlements under the specified 'parent'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#entitlement_id PrivilegedAccessManagerEntitlement#entitlement_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#entitlement_id PrivilegedAccessManagerEntitlement#entitlement_id}
         '''
         result = self._values.get("entitlement_id")
         assert result is not None, "Required property 'entitlement_id' is missing"
@@ -1487,7 +1487,7 @@ class PrivilegedAccessManagerEntitlementConfig(_cdktf_9a9027ec.TerraformMetaArgu
     def location(self) -> builtins.str:
         '''The region of the Entitlement resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#location PrivilegedAccessManagerEntitlement#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#location PrivilegedAccessManagerEntitlement#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1500,7 +1500,7 @@ class PrivilegedAccessManagerEntitlementConfig(_cdktf_9a9027ec.TerraformMetaArgu
         A requester can choose to ask for access for less than this duration but never more.
         Format: calculate the time in seconds and concatenate it with 's' i.e. 2 hours = "7200s", 45 minutes = "2700s"
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#max_request_duration PrivilegedAccessManagerEntitlement#max_request_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#max_request_duration PrivilegedAccessManagerEntitlement#max_request_duration}
         '''
         result = self._values.get("max_request_duration")
         assert result is not None, "Required property 'max_request_duration' is missing"
@@ -1510,7 +1510,7 @@ class PrivilegedAccessManagerEntitlementConfig(_cdktf_9a9027ec.TerraformMetaArgu
     def parent(self) -> builtins.str:
         '''Format: projects/{project-id|project-number} or organizations/{organization-number} or folders/{folder-number}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#parent PrivilegedAccessManagerEntitlement#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#parent PrivilegedAccessManagerEntitlement#parent}
         '''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
@@ -1520,7 +1520,7 @@ class PrivilegedAccessManagerEntitlementConfig(_cdktf_9a9027ec.TerraformMetaArgu
     def privileged_access(self) -> "PrivilegedAccessManagerEntitlementPrivilegedAccess":
         '''privileged_access block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#privileged_access PrivilegedAccessManagerEntitlement#privileged_access}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#privileged_access PrivilegedAccessManagerEntitlement#privileged_access}
         '''
         result = self._values.get("privileged_access")
         assert result is not None, "Required property 'privileged_access' is missing"
@@ -1532,7 +1532,7 @@ class PrivilegedAccessManagerEntitlementConfig(_cdktf_9a9027ec.TerraformMetaArgu
     ) -> "PrivilegedAccessManagerEntitlementRequesterJustificationConfig":
         '''requester_justification_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#requester_justification_config PrivilegedAccessManagerEntitlement#requester_justification_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#requester_justification_config PrivilegedAccessManagerEntitlement#requester_justification_config}
         '''
         result = self._values.get("requester_justification_config")
         assert result is not None, "Required property 'requester_justification_config' is missing"
@@ -1544,7 +1544,7 @@ class PrivilegedAccessManagerEntitlementConfig(_cdktf_9a9027ec.TerraformMetaArgu
     ) -> typing.Optional[PrivilegedAccessManagerEntitlementAdditionalNotificationTargets]:
         '''additional_notification_targets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#additional_notification_targets PrivilegedAccessManagerEntitlement#additional_notification_targets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#additional_notification_targets PrivilegedAccessManagerEntitlement#additional_notification_targets}
         '''
         result = self._values.get("additional_notification_targets")
         return typing.cast(typing.Optional[PrivilegedAccessManagerEntitlementAdditionalNotificationTargets], result)
@@ -1555,14 +1555,14 @@ class PrivilegedAccessManagerEntitlementConfig(_cdktf_9a9027ec.TerraformMetaArgu
     ) -> typing.Optional[PrivilegedAccessManagerEntitlementApprovalWorkflow]:
         '''approval_workflow block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#approval_workflow PrivilegedAccessManagerEntitlement#approval_workflow}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#approval_workflow PrivilegedAccessManagerEntitlement#approval_workflow}
         '''
         result = self._values.get("approval_workflow")
         return typing.cast(typing.Optional[PrivilegedAccessManagerEntitlementApprovalWorkflow], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#id PrivilegedAccessManagerEntitlement#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#id PrivilegedAccessManagerEntitlement#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1574,7 +1574,7 @@ class PrivilegedAccessManagerEntitlementConfig(_cdktf_9a9027ec.TerraformMetaArgu
     def timeouts(self) -> typing.Optional["PrivilegedAccessManagerEntitlementTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#timeouts PrivilegedAccessManagerEntitlement#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#timeouts PrivilegedAccessManagerEntitlement#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["PrivilegedAccessManagerEntitlementTimeouts"], result)
@@ -1599,7 +1599,7 @@ class PrivilegedAccessManagerEntitlementConfig(_cdktf_9a9027ec.TerraformMetaArgu
 class PrivilegedAccessManagerEntitlementEligibleUsers:
     def __init__(self, *, principals: typing.Sequence[builtins.str]) -> None:
         '''
-        :param principals: Users who are being allowed for the operation. Each entry should be a valid v1 IAM Principal Identifier. Format for these is documented at "https://cloud.google.com/iam/docs/principal-identifiers#v1" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#principals PrivilegedAccessManagerEntitlement#principals}
+        :param principals: Users who are being allowed for the operation. Each entry should be a valid v1 IAM Principal Identifier. Format for these is documented at "https://cloud.google.com/iam/docs/principal-identifiers#v1" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#principals PrivilegedAccessManagerEntitlement#principals}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ecd229aca6e88b027d88d28f4f6bb10e5fd425a0b93a5f47698cc42b31f0d410)
@@ -1614,7 +1614,7 @@ class PrivilegedAccessManagerEntitlementEligibleUsers:
 
         Each entry should be a valid v1 IAM Principal Identifier. Format for these is documented at "https://cloud.google.com/iam/docs/principal-identifiers#v1"
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#principals PrivilegedAccessManagerEntitlement#principals}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#principals PrivilegedAccessManagerEntitlement#principals}
         '''
         result = self._values.get("principals")
         assert result is not None, "Required property 'principals' is missing"
@@ -1798,7 +1798,7 @@ class PrivilegedAccessManagerEntitlementPrivilegedAccess:
         gcp_iam_access: typing.Union["PrivilegedAccessManagerEntitlementPrivilegedAccessGcpIamAccess", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param gcp_iam_access: gcp_iam_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#gcp_iam_access PrivilegedAccessManagerEntitlement#gcp_iam_access}
+        :param gcp_iam_access: gcp_iam_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#gcp_iam_access PrivilegedAccessManagerEntitlement#gcp_iam_access}
         '''
         if isinstance(gcp_iam_access, dict):
             gcp_iam_access = PrivilegedAccessManagerEntitlementPrivilegedAccessGcpIamAccess(**gcp_iam_access)
@@ -1815,7 +1815,7 @@ class PrivilegedAccessManagerEntitlementPrivilegedAccess:
     ) -> "PrivilegedAccessManagerEntitlementPrivilegedAccessGcpIamAccess":
         '''gcp_iam_access block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#gcp_iam_access PrivilegedAccessManagerEntitlement#gcp_iam_access}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#gcp_iam_access PrivilegedAccessManagerEntitlement#gcp_iam_access}
         '''
         result = self._values.get("gcp_iam_access")
         assert result is not None, "Required property 'gcp_iam_access' is missing"
@@ -1851,9 +1851,9 @@ class PrivilegedAccessManagerEntitlementPrivilegedAccessGcpIamAccess:
         role_bindings: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["PrivilegedAccessManagerEntitlementPrivilegedAccessGcpIamAccessRoleBindings", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param resource: Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#resource PrivilegedAccessManagerEntitlement#resource}
-        :param resource_type: The type of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#resource_type PrivilegedAccessManagerEntitlement#resource_type}
-        :param role_bindings: role_bindings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#role_bindings PrivilegedAccessManagerEntitlement#role_bindings}
+        :param resource: Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#resource PrivilegedAccessManagerEntitlement#resource}
+        :param resource_type: The type of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#resource_type PrivilegedAccessManagerEntitlement#resource_type}
+        :param role_bindings: role_bindings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#role_bindings PrivilegedAccessManagerEntitlement#role_bindings}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6e7a53949e67fa5c73c27097ff8230af8292df9170bbc1fe3f0e5f1dff0ac370)
@@ -1870,7 +1870,7 @@ class PrivilegedAccessManagerEntitlementPrivilegedAccessGcpIamAccess:
     def resource(self) -> builtins.str:
         '''Name of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#resource PrivilegedAccessManagerEntitlement#resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#resource PrivilegedAccessManagerEntitlement#resource}
         '''
         result = self._values.get("resource")
         assert result is not None, "Required property 'resource' is missing"
@@ -1880,7 +1880,7 @@ class PrivilegedAccessManagerEntitlementPrivilegedAccessGcpIamAccess:
     def resource_type(self) -> builtins.str:
         '''The type of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#resource_type PrivilegedAccessManagerEntitlement#resource_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#resource_type PrivilegedAccessManagerEntitlement#resource_type}
         '''
         result = self._values.get("resource_type")
         assert result is not None, "Required property 'resource_type' is missing"
@@ -1892,7 +1892,7 @@ class PrivilegedAccessManagerEntitlementPrivilegedAccessGcpIamAccess:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrivilegedAccessManagerEntitlementPrivilegedAccessGcpIamAccessRoleBindings"]]:
         '''role_bindings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#role_bindings PrivilegedAccessManagerEntitlement#role_bindings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#role_bindings PrivilegedAccessManagerEntitlement#role_bindings}
         '''
         result = self._values.get("role_bindings")
         assert result is not None, "Required property 'role_bindings' is missing"
@@ -2022,8 +2022,8 @@ class PrivilegedAccessManagerEntitlementPrivilegedAccessGcpIamAccessRoleBindings
         condition_expression: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param role: IAM role to be granted. https://cloud.google.com/iam/docs/roles-overview. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#role PrivilegedAccessManagerEntitlement#role}
-        :param condition_expression: The expression field of the IAM condition to be associated with the role. If specified, a user with an active grant for this entitlement would be able to access the resource only if this condition evaluates to true for their request. https://cloud.google.com/iam/docs/conditions-overview#attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#condition_expression PrivilegedAccessManagerEntitlement#condition_expression}
+        :param role: IAM role to be granted. https://cloud.google.com/iam/docs/roles-overview. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#role PrivilegedAccessManagerEntitlement#role}
+        :param condition_expression: The expression field of the IAM condition to be associated with the role. If specified, a user with an active grant for this entitlement would be able to access the resource only if this condition evaluates to true for their request. https://cloud.google.com/iam/docs/conditions-overview#attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#condition_expression PrivilegedAccessManagerEntitlement#condition_expression}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__34ec2165f126deb08e42528c5d5bc16862028dc9ff13ff4395bb8f89179126cb)
@@ -2039,7 +2039,7 @@ class PrivilegedAccessManagerEntitlementPrivilegedAccessGcpIamAccessRoleBindings
     def role(self) -> builtins.str:
         '''IAM role to be granted. https://cloud.google.com/iam/docs/roles-overview.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#role PrivilegedAccessManagerEntitlement#role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#role PrivilegedAccessManagerEntitlement#role}
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
@@ -2052,7 +2052,7 @@ class PrivilegedAccessManagerEntitlementPrivilegedAccessGcpIamAccessRoleBindings
         If specified, a user with an active grant for this entitlement would be able to access the resource only if this condition evaluates to true for their request.
         https://cloud.google.com/iam/docs/conditions-overview#attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#condition_expression PrivilegedAccessManagerEntitlement#condition_expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#condition_expression PrivilegedAccessManagerEntitlement#condition_expression}
         '''
         result = self._values.get("condition_expression")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2273,9 +2273,9 @@ class PrivilegedAccessManagerEntitlementPrivilegedAccessOutputReference(
         role_bindings: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[PrivilegedAccessManagerEntitlementPrivilegedAccessGcpIamAccessRoleBindings, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param resource: Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#resource PrivilegedAccessManagerEntitlement#resource}
-        :param resource_type: The type of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#resource_type PrivilegedAccessManagerEntitlement#resource_type}
-        :param role_bindings: role_bindings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#role_bindings PrivilegedAccessManagerEntitlement#role_bindings}
+        :param resource: Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#resource PrivilegedAccessManagerEntitlement#resource}
+        :param resource_type: The type of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#resource_type PrivilegedAccessManagerEntitlement#resource_type}
+        :param role_bindings: role_bindings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#role_bindings PrivilegedAccessManagerEntitlement#role_bindings}
         '''
         value = PrivilegedAccessManagerEntitlementPrivilegedAccessGcpIamAccess(
             resource=resource, resource_type=resource_type, role_bindings=role_bindings
@@ -2328,8 +2328,8 @@ class PrivilegedAccessManagerEntitlementRequesterJustificationConfig:
         unstructured: typing.Optional[typing.Union["PrivilegedAccessManagerEntitlementRequesterJustificationConfigUnstructured", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param not_mandatory: not_mandatory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#not_mandatory PrivilegedAccessManagerEntitlement#not_mandatory}
-        :param unstructured: unstructured block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#unstructured PrivilegedAccessManagerEntitlement#unstructured}
+        :param not_mandatory: not_mandatory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#not_mandatory PrivilegedAccessManagerEntitlement#not_mandatory}
+        :param unstructured: unstructured block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#unstructured PrivilegedAccessManagerEntitlement#unstructured}
         '''
         if isinstance(not_mandatory, dict):
             not_mandatory = PrivilegedAccessManagerEntitlementRequesterJustificationConfigNotMandatory(**not_mandatory)
@@ -2351,7 +2351,7 @@ class PrivilegedAccessManagerEntitlementRequesterJustificationConfig:
     ) -> typing.Optional["PrivilegedAccessManagerEntitlementRequesterJustificationConfigNotMandatory"]:
         '''not_mandatory block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#not_mandatory PrivilegedAccessManagerEntitlement#not_mandatory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#not_mandatory PrivilegedAccessManagerEntitlement#not_mandatory}
         '''
         result = self._values.get("not_mandatory")
         return typing.cast(typing.Optional["PrivilegedAccessManagerEntitlementRequesterJustificationConfigNotMandatory"], result)
@@ -2362,7 +2362,7 @@ class PrivilegedAccessManagerEntitlementRequesterJustificationConfig:
     ) -> typing.Optional["PrivilegedAccessManagerEntitlementRequesterJustificationConfigUnstructured"]:
         '''unstructured block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#unstructured PrivilegedAccessManagerEntitlement#unstructured}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#unstructured PrivilegedAccessManagerEntitlement#unstructured}
         '''
         result = self._values.get("unstructured")
         return typing.cast(typing.Optional["PrivilegedAccessManagerEntitlementRequesterJustificationConfigUnstructured"], result)
@@ -2597,9 +2597,9 @@ class PrivilegedAccessManagerEntitlementTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#create PrivilegedAccessManagerEntitlement#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#delete PrivilegedAccessManagerEntitlement#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#update PrivilegedAccessManagerEntitlement#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#create PrivilegedAccessManagerEntitlement#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#delete PrivilegedAccessManagerEntitlement#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#update PrivilegedAccessManagerEntitlement#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b7ffe7056ee73adf18ab4cac181981128c072b9eea2218130cd15cce49a3681)
@@ -2616,19 +2616,19 @@ class PrivilegedAccessManagerEntitlementTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#create PrivilegedAccessManagerEntitlement#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#create PrivilegedAccessManagerEntitlement#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#delete PrivilegedAccessManagerEntitlement#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#delete PrivilegedAccessManagerEntitlement#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privileged_access_manager_entitlement#update PrivilegedAccessManagerEntitlement#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privileged_access_manager_entitlement#update PrivilegedAccessManagerEntitlement#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `data_google_kms_key_rings`
 
-Refer to the Terraform Registry for docs: [`data_google_kms_key_rings`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_key_rings).
+Refer to the Terraform Registry for docs: [`data_google_kms_key_rings`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_key_rings).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleKmsKeyRings(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleKmsKeyRings.DataGoogleKmsKeyRings",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_key_rings google_kms_key_rings}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_key_rings google_kms_key_rings}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataGoogleKmsKeyRings(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_key_rings google_kms_key_rings} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_key_rings google_kms_key_rings} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The canonical id for the location. For example: "us-east1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_key_rings#location DataGoogleKmsKeyRings#location}
-        :param filter: The filter argument is used to add a filter query parameter that limits which keys are retrieved by the data source: ?filter={{filter}}. Example values:. - "name:my-key-" will retrieve key rings that contain "my-key-" anywhere in their name. Note: names take the form projects/{{project}}/locations/{{location}}/keyRings/{{keyRing}}. - "name=projects/my-project/locations/global/keyRings/my-key-ring" will only retrieve a key ring with that exact name. `See the documentation about using filters <https://cloud.google.com/kms/docs/sorting-and-filtering>`_ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_key_rings#filter DataGoogleKmsKeyRings#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_key_rings#id DataGoogleKmsKeyRings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Project ID of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_key_rings#project DataGoogleKmsKeyRings#project}
+        :param location: The canonical id for the location. For example: "us-east1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_key_rings#location DataGoogleKmsKeyRings#location}
+        :param filter: The filter argument is used to add a filter query parameter that limits which keys are retrieved by the data source: ?filter={{filter}}. Example values:. - "name:my-key-" will retrieve key rings that contain "my-key-" anywhere in their name. Note: names take the form projects/{{project}}/locations/{{location}}/keyRings/{{keyRing}}. - "name=projects/my-project/locations/global/keyRings/my-key-ring" will only retrieve a key ring with that exact name. `See the documentation about using filters <https://cloud.google.com/kms/docs/sorting-and-filtering>`_ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_key_rings#filter DataGoogleKmsKeyRings#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_key_rings#id DataGoogleKmsKeyRings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Project ID of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_key_rings#project DataGoogleKmsKeyRings#project}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataGoogleKmsKeyRings(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleKmsKeyRings to import.
-        :param import_from_id: The id of the existing DataGoogleKmsKeyRings that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_key_rings#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleKmsKeyRings that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_key_rings#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleKmsKeyRings to import is found.
         '''
         if __debug__:
@@ -263,10 +263,10 @@ class DataGoogleKmsKeyRingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The canonical id for the location. For example: "us-east1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_key_rings#location DataGoogleKmsKeyRings#location}
-        :param filter: The filter argument is used to add a filter query parameter that limits which keys are retrieved by the data source: ?filter={{filter}}. Example values:. - "name:my-key-" will retrieve key rings that contain "my-key-" anywhere in their name. Note: names take the form projects/{{project}}/locations/{{location}}/keyRings/{{keyRing}}. - "name=projects/my-project/locations/global/keyRings/my-key-ring" will only retrieve a key ring with that exact name. `See the documentation about using filters <https://cloud.google.com/kms/docs/sorting-and-filtering>`_ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_key_rings#filter DataGoogleKmsKeyRings#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_key_rings#id DataGoogleKmsKeyRings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Project ID of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_key_rings#project DataGoogleKmsKeyRings#project}
+        :param location: The canonical id for the location. For example: "us-east1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_key_rings#location DataGoogleKmsKeyRings#location}
+        :param filter: The filter argument is used to add a filter query parameter that limits which keys are retrieved by the data source: ?filter={{filter}}. Example values:. - "name:my-key-" will retrieve key rings that contain "my-key-" anywhere in their name. Note: names take the form projects/{{project}}/locations/{{location}}/keyRings/{{keyRing}}. - "name=projects/my-project/locations/global/keyRings/my-key-ring" will only retrieve a key ring with that exact name. `See the documentation about using filters <https://cloud.google.com/kms/docs/sorting-and-filtering>`_ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_key_rings#filter DataGoogleKmsKeyRings#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_key_rings#id DataGoogleKmsKeyRings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Project ID of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_key_rings#project DataGoogleKmsKeyRings#project}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -375,7 +375,7 @@ class DataGoogleKmsKeyRingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The canonical id for the location. For example: "us-east1".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_key_rings#location DataGoogleKmsKeyRings#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_key_rings#location DataGoogleKmsKeyRings#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -390,14 +390,14 @@ class DataGoogleKmsKeyRingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         `See the documentation about using filters <https://cloud.google.com/kms/docs/sorting-and-filtering>`_
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_key_rings#filter DataGoogleKmsKeyRings#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_key_rings#filter DataGoogleKmsKeyRings#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_key_rings#id DataGoogleKmsKeyRings#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_key_rings#id DataGoogleKmsKeyRings#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -409,7 +409,7 @@ class DataGoogleKmsKeyRingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''Project ID of the project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_key_rings#project DataGoogleKmsKeyRings#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_key_rings#project DataGoogleKmsKeyRings#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)

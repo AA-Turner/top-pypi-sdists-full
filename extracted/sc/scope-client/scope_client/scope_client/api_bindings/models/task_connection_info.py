@@ -17,6 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List
 from scope_client.api_bindings.models.task_validation_api_key import TaskValidationAPIKey
@@ -27,9 +28,11 @@ class TaskConnectionInfo(BaseModel):
     """
     TaskConnectionInfo
     """ # noqa: E501
+    created_at: datetime = Field(description="Time of record creation.")
+    updated_at: datetime = Field(description="Time of last record update.")
     validation_key: TaskValidationAPIKey = Field(description="The information for the API key with validation permissions for the task.")
     api_host: StrictStr = Field(description="Host for the task.")
-    __properties: ClassVar[List[str]] = ["validation_key", "api_host"]
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "validation_key", "api_host"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -85,6 +88,8 @@ class TaskConnectionInfo(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
+            "created_at": obj.get("created_at"),
+            "updated_at": obj.get("updated_at"),
             "validation_key": TaskValidationAPIKey.from_dict(obj["validation_key"]) if obj.get("validation_key") is not None else None,
             "api_host": obj.get("api_host")
         })

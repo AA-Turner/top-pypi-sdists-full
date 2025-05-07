@@ -164,14 +164,14 @@ class EventClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/delete_event_content.py.html>`__ to see an example of how to use delete_event_content API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/delete_event_content.py.html>`__ to see an example of how to use delete_event_content API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId', 'eventId', 'compartmentId']
         resource_path = "/managedInstances/{managedInstanceId}/events/{eventId}/content"
         method = "DELETE"
         operation_name = "delete_event_content"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/EventContent/DeleteEventContent"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -277,14 +277,14 @@ class EventClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/get_event.py.html>`__ to see an example of how to use get_event API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/get_event.py.html>`__ to see an example of how to use get_event API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId', 'eventId', 'compartmentId']
         resource_path = "/managedInstances/{managedInstanceId}/events/{eventId}"
         method = "GET"
         operation_name = "get_event"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/Event/GetEvent"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -387,7 +387,7 @@ class EventClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/get_event_content.py.html>`__ to see an example of how to use get_event_content API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/get_event_content.py.html>`__ to see an example of how to use get_event_content API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId', 'eventId', 'compartmentId']
@@ -502,14 +502,14 @@ class EventClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/get_event_report.py.html>`__ to see an example of how to use get_event_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/get_event_report.py.html>`__ to see an example of how to use get_event_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId', 'compartmentId']
         resource_path = "/managedInstances/{managedInstanceId}/events/report"
         method = "GET"
         operation_name = "get_event_report"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/EventReport/GetEventReport"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -644,14 +644,14 @@ class EventClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_events.py.html>`__ to see an example of how to use list_events API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_events.py.html>`__ to see an example of how to use list_events API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId', 'compartmentId']
         resource_path = "/managedInstances/{managedInstanceId}/events"
         method = "GET"
         operation_name = "list_events"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/EventCollection/ListEvents"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -811,14 +811,14 @@ class EventClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_related_events.py.html>`__ to see an example of how to use list_related_events API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_related_events.py.html>`__ to see an example of how to use list_related_events API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['eventFingerprint', 'compartmentId']
         resource_path = "/relatedEvents"
         method = "GET"
         operation_name = "list_related_events"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/RelatedEventCollection/ListRelatedEvents"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -945,14 +945,14 @@ class EventClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/update_event.py.html>`__ to see an example of how to use update_event API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/update_event.py.html>`__ to see an example of how to use update_event API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId', 'eventId', 'compartmentId']
         resource_path = "/managedInstances/{managedInstanceId}/events/{eventId}"
         method = "PUT"
         operation_name = "update_event"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/Event/UpdateEvent"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1073,14 +1073,14 @@ class EventClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/upload_event_content.py.html>`__ to see an example of how to use upload_event_content API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/upload_event_content.py.html>`__ to see an example of how to use upload_event_content API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId', 'eventId', 'compartmentId']
         resource_path = "/managedInstances/{managedInstanceId}/events/{eventId}/content/actions/upload"
         method = "POST"
         operation_name = "upload_event_content"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/EventContent/UploadEventContent"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [

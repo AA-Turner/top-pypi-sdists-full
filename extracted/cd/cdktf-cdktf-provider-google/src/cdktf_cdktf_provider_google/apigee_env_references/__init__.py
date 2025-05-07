@@ -1,7 +1,7 @@
 r'''
 # `google_apigee_env_references`
 
-Refer to the Terraform Registry for docs: [`google_apigee_env_references`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references).
+Refer to the Terraform Registry for docs: [`google_apigee_env_references`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApigeeEnvReferences(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.apigeeEnvReferences.ApigeeEnvReferences",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references google_apigee_env_references}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references google_apigee_env_references}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class ApigeeEnvReferences(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references google_apigee_env_references} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references google_apigee_env_references} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param env_id: The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#env_id ApigeeEnvReferences#env_id}
-        :param name: Required. The resource id of this reference. Values must match the regular expression [\\w\\s-.]+. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#name ApigeeEnvReferences#name}
-        :param refers: Required. The id of the resource to which this reference refers. Must be the id of a resource that exists in the parent environment and is of the given resourceType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#refers ApigeeEnvReferences#refers}
-        :param resource_type: The type of resource referred to by this reference. Valid values are 'KeyStore' or 'TrustStore'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#resource_type ApigeeEnvReferences#resource_type}
-        :param description: Optional. A human-readable description of this reference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#description ApigeeEnvReferences#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#id ApigeeEnvReferences#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#timeouts ApigeeEnvReferences#timeouts}
+        :param env_id: The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#env_id ApigeeEnvReferences#env_id}
+        :param name: Required. The resource id of this reference. Values must match the regular expression [\\w\\s-.]+. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#name ApigeeEnvReferences#name}
+        :param refers: Required. The id of the resource to which this reference refers. Must be the id of a resource that exists in the parent environment and is of the given resourceType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#refers ApigeeEnvReferences#refers}
+        :param resource_type: The type of resource referred to by this reference. Valid values are 'KeyStore' or 'TrustStore'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#resource_type ApigeeEnvReferences#resource_type}
+        :param description: Optional. A human-readable description of this reference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#description ApigeeEnvReferences#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#id ApigeeEnvReferences#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#timeouts ApigeeEnvReferences#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class ApigeeEnvReferences(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApigeeEnvReferences to import.
-        :param import_from_id: The id of the existing ApigeeEnvReferences that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApigeeEnvReferences that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApigeeEnvReferences to import is found.
         '''
         if __debug__:
@@ -141,9 +141,9 @@ class ApigeeEnvReferences(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#create ApigeeEnvReferences#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#delete ApigeeEnvReferences#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#update ApigeeEnvReferences#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#create ApigeeEnvReferences#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#delete ApigeeEnvReferences#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#update ApigeeEnvReferences#update}.
         '''
         value = ApigeeEnvReferencesTimeouts(
             create=create, delete=delete, update=update
@@ -338,13 +338,13 @@ class ApigeeEnvReferencesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param env_id: The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#env_id ApigeeEnvReferences#env_id}
-        :param name: Required. The resource id of this reference. Values must match the regular expression [\\w\\s-.]+. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#name ApigeeEnvReferences#name}
-        :param refers: Required. The id of the resource to which this reference refers. Must be the id of a resource that exists in the parent environment and is of the given resourceType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#refers ApigeeEnvReferences#refers}
-        :param resource_type: The type of resource referred to by this reference. Valid values are 'KeyStore' or 'TrustStore'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#resource_type ApigeeEnvReferences#resource_type}
-        :param description: Optional. A human-readable description of this reference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#description ApigeeEnvReferences#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#id ApigeeEnvReferences#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#timeouts ApigeeEnvReferences#timeouts}
+        :param env_id: The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#env_id ApigeeEnvReferences#env_id}
+        :param name: Required. The resource id of this reference. Values must match the regular expression [\\w\\s-.]+. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#name ApigeeEnvReferences#name}
+        :param refers: Required. The id of the resource to which this reference refers. Must be the id of a resource that exists in the parent environment and is of the given resourceType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#refers ApigeeEnvReferences#refers}
+        :param resource_type: The type of resource referred to by this reference. Valid values are 'KeyStore' or 'TrustStore'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#resource_type ApigeeEnvReferences#resource_type}
+        :param description: Optional. A human-readable description of this reference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#description ApigeeEnvReferences#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#id ApigeeEnvReferences#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#timeouts ApigeeEnvReferences#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -461,7 +461,7 @@ class ApigeeEnvReferencesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def env_id(self) -> builtins.str:
         '''The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#env_id ApigeeEnvReferences#env_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#env_id ApigeeEnvReferences#env_id}
         '''
         result = self._values.get("env_id")
         assert result is not None, "Required property 'env_id' is missing"
@@ -471,7 +471,7 @@ class ApigeeEnvReferencesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Required. The resource id of this reference. Values must match the regular expression [\\w\\s-.]+.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#name ApigeeEnvReferences#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#name ApigeeEnvReferences#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -483,7 +483,7 @@ class ApigeeEnvReferencesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The id of the resource to which this reference refers. Must be the id of a resource that exists in the parent environment and is of the given resourceType.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#refers ApigeeEnvReferences#refers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#refers ApigeeEnvReferences#refers}
         '''
         result = self._values.get("refers")
         assert result is not None, "Required property 'refers' is missing"
@@ -493,7 +493,7 @@ class ApigeeEnvReferencesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def resource_type(self) -> builtins.str:
         '''The type of resource referred to by this reference. Valid values are 'KeyStore' or 'TrustStore'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#resource_type ApigeeEnvReferences#resource_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#resource_type ApigeeEnvReferences#resource_type}
         '''
         result = self._values.get("resource_type")
         assert result is not None, "Required property 'resource_type' is missing"
@@ -503,14 +503,14 @@ class ApigeeEnvReferencesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Optional. A human-readable description of this reference.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#description ApigeeEnvReferences#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#description ApigeeEnvReferences#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#id ApigeeEnvReferences#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#id ApigeeEnvReferences#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -522,7 +522,7 @@ class ApigeeEnvReferencesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApigeeEnvReferencesTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#timeouts ApigeeEnvReferences#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#timeouts ApigeeEnvReferences#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApigeeEnvReferencesTimeouts"], result)
@@ -553,9 +553,9 @@ class ApigeeEnvReferencesTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#create ApigeeEnvReferences#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#delete ApigeeEnvReferences#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#update ApigeeEnvReferences#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#create ApigeeEnvReferences#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#delete ApigeeEnvReferences#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#update ApigeeEnvReferences#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8c99b1070a4c5b81884174d8502a423d35676add1ee661171427cb46ccce7966)
@@ -572,19 +572,19 @@ class ApigeeEnvReferencesTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#create ApigeeEnvReferences#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#create ApigeeEnvReferences#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#delete ApigeeEnvReferences#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#delete ApigeeEnvReferences#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_env_references#update ApigeeEnvReferences#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_env_references#update ApigeeEnvReferences#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

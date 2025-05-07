@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai
-Version: 0.1.9
+Version: 0.1.10
 Summary: Agent Framework / shim to use Pydantic with LLMs
 Project-URL: Homepage, https://ai.pydantic.dev
 Project-URL: Source, https://github.com/pydantic/pydantic-ai
@@ -28,9 +28,9 @@ Classifier: Topic :: Internet
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
-Requires-Dist: pydantic-ai-slim[anthropic,bedrock,cli,cohere,evals,groq,mcp,mistral,openai,vertexai]==0.1.9
+Requires-Dist: pydantic-ai-slim[anthropic,bedrock,cli,cohere,evals,groq,mcp,mistral,openai,vertexai]==0.1.10
 Provides-Extra: examples
-Requires-Dist: pydantic-ai-examples==0.1.9; extra == 'examples'
+Requires-Dist: pydantic-ai-examples==0.1.10; extra == 'examples'
 Provides-Extra: logfire
 Requires-Dist: logfire>=3.11.0; extra == 'logfire'
 Description-Content-Type: text/markdown

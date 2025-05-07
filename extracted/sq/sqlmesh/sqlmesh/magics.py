@@ -687,6 +687,12 @@ class SQLMeshMagics(Magics):
         help="The number of decimal places to keep when comparing floating point columns. Default: 3",
     )
     @argument(
+        "--select-model",
+        type=str,
+        nargs="*",
+        help="Specify one or more models to data diff. Use wildcards to diff multiple models. Ex: '*' (all models with applied plan diffs), 'demo.model+' (this and downstream models), 'git:feature_branch' (models with direct modifications in this branch only)",
+    )
+    @argument(
         "--skip-grain-check",
         action="store_true",
         help="Disable the check for a primary key (grain) that is missing or is not unique.",
@@ -700,12 +706,13 @@ class SQLMeshMagics(Magics):
         """
         args = parse_argstring(self.table_diff, line)
         source, target = args.source_to_target.split(":")
+        select_models = {args.model} if args.model else args.select_model or None
         context.table_diff(
             source=source,
             target=target,
             on=args.on,
             skip_columns=args.skip_columns,
-            model_or_snapshot=args.model,
+            select_models=select_models,
             where=args.where,
             limit=args.limit,
             show_sample=args.show_sample,
@@ -721,16 +728,23 @@ class SQLMeshMagics(Magics):
         help="The name of the model to get the table name for.",
     )
     @argument(
-        "--dev",
+        "--environment",
+        type=str,
+        help="The environment to source the model version from.",
+    )
+    @argument(
+        "--prod",
         action="store_true",
-        help="Print the name of the snapshot table used for previews in development environments.",
+        help="If set, return the name of the physical table that will be used in production for the model version promoted in the target environment.",
     )
     @line_magic
     @pass_sqlmesh_context
     def table_name(self, context: Context, line: str) -> None:
         """Prints the name of the physical table for the given model."""
         args = parse_argstring(self.table_name, line)
-        context.console.log_status_update(context.table_name(args.model_name, args.dev))
+        context.console.log_status_update(
+            context.table_name(args.model_name, args.environment, args.prod)
+        )
 
     @magic_arguments()
     @argument(

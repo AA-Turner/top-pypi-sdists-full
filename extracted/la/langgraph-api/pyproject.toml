@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langgraph-api"
-version = "0.2.11"
+version = "0.2.15"
 description = ""
 authors = [
     "Nuno Campos <nuno@langchain.dev>",

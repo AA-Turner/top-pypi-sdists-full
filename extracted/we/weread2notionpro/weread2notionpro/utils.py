@@ -314,7 +314,6 @@ def upload_image(github_url, svg_filename):
             "Accept": "application/json"
         }
         response = requests.post(upload_url, files=files, data=data, headers=headers)
-
     if response.status_code == 200:
         print("File uploaded successfully.")
         return response.json().get("svgUrl")

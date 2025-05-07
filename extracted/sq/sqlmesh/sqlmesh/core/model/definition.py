@@ -1319,12 +1319,14 @@ class SqlModel(_Model):
             result.extend(self.render_pre_statements())
             result.append(self.render_query() or self.query)
             result.extend(self.render_post_statements())
-            result.extend(self.render_on_virtual_update())
+            if virtual_update := self.render_on_virtual_update():
+                result.append(d.VirtualUpdateStatement(expressions=virtual_update))
         else:
             result.extend(self.pre_statements)
             result.append(self.query)
             result.extend(self.post_statements)
-            result.extend(self.on_virtual_update)
+            if self.on_virtual_update:
+                result.append(d.VirtualUpdateStatement(expressions=self.on_virtual_update))
 
         return result
 
@@ -1964,7 +1966,13 @@ def load_sql_based_models(
         if not rendered_blueprints:
             raise_config_error("Failed to render blueprints property", path)
 
-        blueprints = t.cast(t.List, rendered_blueprints)[0]
+        # Help mypy see that rendered_blueprints can't be None
+        assert rendered_blueprints
+
+        if len(rendered_blueprints) > 1:
+            rendered_blueprints = [exp.Tuple(expressions=rendered_blueprints)]
+
+        blueprints = rendered_blueprints[0]
 
     return create_models_from_blueprints(
         gateway=gateway,

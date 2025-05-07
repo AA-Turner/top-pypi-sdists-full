@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, TypeAlias
 
 from pydantic import BaseModel, Field
 
@@ -82,7 +82,7 @@ class DragAction(CLAAction):
 # RESPONSE ACTION from agent
 class ResponseAction(CLAAction):
     type: Literal["response"] = "response"
-    text: str # The final textual response from the agent
+    text: str  # The final textual response from the agent
 
 
 # SCREENSHOT ACTION
@@ -118,7 +118,7 @@ CLA = Annotated[
 ]
 
 
-CLAKey = Literal[
+CLAKey: TypeAlias = Literal[
     # Control keys
     "backspace",
     "tab",

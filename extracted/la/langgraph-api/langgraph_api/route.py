@@ -9,16 +9,25 @@ from starlette._utils import is_async_callable
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware import Middleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse
 from starlette.routing import Route, compile_path, get_name
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from langgraph_api.serde import json_dumpb
 from langgraph_api.utils import get_auth_ctx, with_user
 
+SchemaType = (
+    jsonschema_rs.Draft4Validator
+    | jsonschema_rs.Draft6Validator
+    | jsonschema_rs.Draft7Validator
+    | jsonschema_rs.Draft201909Validator
+    | jsonschema_rs.Draft202012Validator
+    | None
+)
+
 
 def api_request_response(
-    func: typing.Callable[[Request], typing.Awaitable[Response] | Response],
+    func: typing.Callable[[Request], typing.Awaitable[ASGIApp] | ASGIApp],
 ) -> ASGIApp:
     """
     Takes a function or coroutine `func(request) -> response`,
@@ -30,9 +39,11 @@ def api_request_response(
 
         async def app(scope: Scope, receive: Receive, send: Send) -> None:
             if is_async_callable(func):
-                response = await func(request)
+                response: ASGIApp = await func(request)
             else:
-                response = await run_in_threadpool(func, request)
+                response = await run_in_threadpool(
+                    typing.cast(typing.Callable[[Request], ASGIApp], func), request
+                )
             await response(scope, receive, send)
 
         await wrap_app_handling_exceptions(app, request)(scope, receive, send)
@@ -45,9 +56,7 @@ class ApiResponse(JSONResponse):
         return json_dumpb(content)
 
 
-def _json_loads(
-    content: bytearray, schema: jsonschema_rs.Draft4Validator | None
-) -> typing.Any:
+def _json_loads(content: bytearray, schema: SchemaType) -> typing.Any:
     json = orjson.loads(content)
     if schema is not None:
         schema.validate(json)
@@ -55,7 +64,7 @@ def _json_loads(
 
 
 class ApiRequest(Request):
-    async def body(self) -> typing.Coroutine[typing.Any, typing.Any, bytearray]:
+    async def body(self) -> bytearray:
         if not hasattr(self, "_body"):
             chunks = bytearray()
             async for chunk in self.stream():
@@ -63,7 +72,7 @@ class ApiRequest(Request):
             self._body = chunks
         return self._body
 
-    async def json(self, schema: jsonschema_rs.Draft4Validator | None) -> typing.Any:
+    async def json(self, schema: SchemaType = None) -> typing.Any:
         if not hasattr(self, "_json"):
             body = await self.body()
             self._json = await run_in_threadpool(_json_loads, body, schema)

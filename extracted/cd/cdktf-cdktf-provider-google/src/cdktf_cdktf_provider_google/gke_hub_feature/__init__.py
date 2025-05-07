@@ -1,7 +1,7 @@
 r'''
 # `google_gke_hub_feature`
 
-Refer to the Terraform Registry for docs: [`google_gke_hub_feature`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature).
+Refer to the Terraform Registry for docs: [`google_gke_hub_feature`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GkeHubFeature(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.gkeHubFeature.GkeHubFeature",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature google_gke_hub_feature}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature google_gke_hub_feature}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class GkeHubFeature(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature google_gke_hub_feature} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature google_gke_hub_feature} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#location GkeHubFeature#location}
-        :param fleet_default_member_config: fleet_default_member_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#fleet_default_member_config GkeHubFeature#fleet_default_member_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#id GkeHubFeature#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: GCP labels for this Feature. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#labels GkeHubFeature#labels}
-        :param name: The full, unique name of this Feature resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#name GkeHubFeature#name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#project GkeHubFeature#project}.
-        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#spec GkeHubFeature#spec}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#timeouts GkeHubFeature#timeouts}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#location GkeHubFeature#location}
+        :param fleet_default_member_config: fleet_default_member_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#fleet_default_member_config GkeHubFeature#fleet_default_member_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#id GkeHubFeature#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: GCP labels for this Feature. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#labels GkeHubFeature#labels}
+        :param name: The full, unique name of this Feature resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#name GkeHubFeature#name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#project GkeHubFeature#project}.
+        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#spec GkeHubFeature#spec}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#timeouts GkeHubFeature#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class GkeHubFeature(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GkeHubFeature to import.
-        :param import_from_id: The id of the existing GkeHubFeature that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GkeHubFeature that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GkeHubFeature to import is found.
         '''
         if __debug__:
@@ -144,9 +144,9 @@ class GkeHubFeature(
         policycontroller: typing.Optional[typing.Union["GkeHubFeatureFleetDefaultMemberConfigPolicycontroller", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param configmanagement: configmanagement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#configmanagement GkeHubFeature#configmanagement}
-        :param mesh: mesh block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#mesh GkeHubFeature#mesh}
-        :param policycontroller: policycontroller block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#policycontroller GkeHubFeature#policycontroller}
+        :param configmanagement: configmanagement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#configmanagement GkeHubFeature#configmanagement}
+        :param mesh: mesh block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#mesh GkeHubFeature#mesh}
+        :param policycontroller: policycontroller block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#policycontroller GkeHubFeature#policycontroller}
         '''
         value = GkeHubFeatureFleetDefaultMemberConfig(
             configmanagement=configmanagement,
@@ -165,9 +165,9 @@ class GkeHubFeature(
         multiclusteringress: typing.Optional[typing.Union["GkeHubFeatureSpecMulticlusteringress", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param clusterupgrade: clusterupgrade block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#clusterupgrade GkeHubFeature#clusterupgrade}
-        :param fleetobservability: fleetobservability block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#fleetobservability GkeHubFeature#fleetobservability}
-        :param multiclusteringress: multiclusteringress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#multiclusteringress GkeHubFeature#multiclusteringress}
+        :param clusterupgrade: clusterupgrade block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#clusterupgrade GkeHubFeature#clusterupgrade}
+        :param fleetobservability: fleetobservability block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#fleetobservability GkeHubFeature#fleetobservability}
+        :param multiclusteringress: multiclusteringress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#multiclusteringress GkeHubFeature#multiclusteringress}
         '''
         value = GkeHubFeatureSpec(
             clusterupgrade=clusterupgrade,
@@ -186,9 +186,9 @@ class GkeHubFeature(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#create GkeHubFeature#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#delete GkeHubFeature#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#update GkeHubFeature#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#create GkeHubFeature#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#delete GkeHubFeature#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#update GkeHubFeature#update}.
         '''
         value = GkeHubFeatureTimeouts(create=create, delete=delete, update=update)
 
@@ -443,14 +443,14 @@ class GkeHubFeatureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#location GkeHubFeature#location}
-        :param fleet_default_member_config: fleet_default_member_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#fleet_default_member_config GkeHubFeature#fleet_default_member_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#id GkeHubFeature#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: GCP labels for this Feature. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#labels GkeHubFeature#labels}
-        :param name: The full, unique name of this Feature resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#name GkeHubFeature#name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#project GkeHubFeature#project}.
-        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#spec GkeHubFeature#spec}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#timeouts GkeHubFeature#timeouts}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#location GkeHubFeature#location}
+        :param fleet_default_member_config: fleet_default_member_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#fleet_default_member_config GkeHubFeature#fleet_default_member_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#id GkeHubFeature#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: GCP labels for this Feature. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#labels GkeHubFeature#labels}
+        :param name: The full, unique name of this Feature resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#name GkeHubFeature#name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#project GkeHubFeature#project}.
+        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#spec GkeHubFeature#spec}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#timeouts GkeHubFeature#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -577,7 +577,7 @@ class GkeHubFeatureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#location GkeHubFeature#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#location GkeHubFeature#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -589,14 +589,14 @@ class GkeHubFeatureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GkeHubFeatureFleetDefaultMemberConfig"]:
         '''fleet_default_member_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#fleet_default_member_config GkeHubFeature#fleet_default_member_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#fleet_default_member_config GkeHubFeature#fleet_default_member_config}
         '''
         result = self._values.get("fleet_default_member_config")
         return typing.cast(typing.Optional["GkeHubFeatureFleetDefaultMemberConfig"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#id GkeHubFeature#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#id GkeHubFeature#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -611,7 +611,7 @@ class GkeHubFeatureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#labels GkeHubFeature#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#labels GkeHubFeature#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -620,14 +620,14 @@ class GkeHubFeatureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''The full, unique name of this Feature resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#name GkeHubFeature#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#name GkeHubFeature#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#project GkeHubFeature#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#project GkeHubFeature#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -635,7 +635,7 @@ class GkeHubFeatureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def spec(self) -> typing.Optional["GkeHubFeatureSpec"]:
         '''spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#spec GkeHubFeature#spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#spec GkeHubFeature#spec}
         '''
         result = self._values.get("spec")
         return typing.cast(typing.Optional["GkeHubFeatureSpec"], result)
@@ -644,7 +644,7 @@ class GkeHubFeatureConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GkeHubFeatureTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#timeouts GkeHubFeature#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#timeouts GkeHubFeature#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GkeHubFeatureTimeouts"], result)
@@ -679,9 +679,9 @@ class GkeHubFeatureFleetDefaultMemberConfig:
         policycontroller: typing.Optional[typing.Union["GkeHubFeatureFleetDefaultMemberConfigPolicycontroller", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param configmanagement: configmanagement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#configmanagement GkeHubFeature#configmanagement}
-        :param mesh: mesh block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#mesh GkeHubFeature#mesh}
-        :param policycontroller: policycontroller block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#policycontroller GkeHubFeature#policycontroller}
+        :param configmanagement: configmanagement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#configmanagement GkeHubFeature#configmanagement}
+        :param mesh: mesh block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#mesh GkeHubFeature#mesh}
+        :param policycontroller: policycontroller block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#policycontroller GkeHubFeature#policycontroller}
         '''
         if isinstance(configmanagement, dict):
             configmanagement = GkeHubFeatureFleetDefaultMemberConfigConfigmanagement(**configmanagement)
@@ -708,7 +708,7 @@ class GkeHubFeatureFleetDefaultMemberConfig:
     ) -> typing.Optional["GkeHubFeatureFleetDefaultMemberConfigConfigmanagement"]:
         '''configmanagement block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#configmanagement GkeHubFeature#configmanagement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#configmanagement GkeHubFeature#configmanagement}
         '''
         result = self._values.get("configmanagement")
         return typing.cast(typing.Optional["GkeHubFeatureFleetDefaultMemberConfigConfigmanagement"], result)
@@ -717,7 +717,7 @@ class GkeHubFeatureFleetDefaultMemberConfig:
     def mesh(self) -> typing.Optional["GkeHubFeatureFleetDefaultMemberConfigMesh"]:
         '''mesh block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#mesh GkeHubFeature#mesh}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#mesh GkeHubFeature#mesh}
         '''
         result = self._values.get("mesh")
         return typing.cast(typing.Optional["GkeHubFeatureFleetDefaultMemberConfigMesh"], result)
@@ -728,7 +728,7 @@ class GkeHubFeatureFleetDefaultMemberConfig:
     ) -> typing.Optional["GkeHubFeatureFleetDefaultMemberConfigPolicycontroller"]:
         '''policycontroller block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#policycontroller GkeHubFeature#policycontroller}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#policycontroller GkeHubFeature#policycontroller}
         '''
         result = self._values.get("policycontroller")
         return typing.cast(typing.Optional["GkeHubFeatureFleetDefaultMemberConfigPolicycontroller"], result)
@@ -763,9 +763,9 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagement:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param config_sync: config_sync block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#config_sync GkeHubFeature#config_sync}
-        :param management: Set this field to MANAGEMENT_AUTOMATIC to enable Config Sync auto-upgrades, and set this field to MANAGEMENT_MANUAL or MANAGEMENT_UNSPECIFIED to disable Config Sync auto-upgrades. Possible values: ["MANAGEMENT_UNSPECIFIED", "MANAGEMENT_AUTOMATIC", "MANAGEMENT_MANUAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#management GkeHubFeature#management}
-        :param version: Version of Config Sync installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
+        :param config_sync: config_sync block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#config_sync GkeHubFeature#config_sync}
+        :param management: Set this field to MANAGEMENT_AUTOMATIC to enable Config Sync auto-upgrades, and set this field to MANAGEMENT_MANUAL or MANAGEMENT_UNSPECIFIED to disable Config Sync auto-upgrades. Possible values: ["MANAGEMENT_UNSPECIFIED", "MANAGEMENT_AUTOMATIC", "MANAGEMENT_MANUAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#management GkeHubFeature#management}
+        :param version: Version of Config Sync installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
         '''
         if isinstance(config_sync, dict):
             config_sync = GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSync(**config_sync)
@@ -788,7 +788,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagement:
     ) -> typing.Optional["GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSync"]:
         '''config_sync block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#config_sync GkeHubFeature#config_sync}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#config_sync GkeHubFeature#config_sync}
         '''
         result = self._values.get("config_sync")
         return typing.cast(typing.Optional["GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSync"], result)
@@ -799,7 +799,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagement:
 
         Possible values: ["MANAGEMENT_UNSPECIFIED", "MANAGEMENT_AUTOMATIC", "MANAGEMENT_MANUAL"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#management GkeHubFeature#management}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#management GkeHubFeature#management}
         '''
         result = self._values.get("management")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -808,7 +808,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagement:
     def version(self) -> typing.Optional[builtins.str]:
         '''Version of Config Sync installed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -849,12 +849,12 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSync:
         source_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Enables the installation of ConfigSync. If set to true, ConfigSync resources will be created and the other ConfigSync fields will be applied if exist. If set to false, all other ConfigSync fields will be ignored, ConfigSync resources will be deleted. If omitted, ConfigSync resources will be managed depends on the presence of the git or oci field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#enabled GkeHubFeature#enabled}
-        :param git: git block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#git GkeHubFeature#git}
-        :param metrics_gcp_service_account_email: The Email of the Google Cloud Service Account (GSA) used for exporting Config Sync metrics to Cloud Monitoring. The GSA should have the Monitoring Metric Writer(roles/monitoring.metricWriter) IAM role. The Kubernetes ServiceAccount 'default' in the namespace 'config-management-monitoring' should be bound to the GSA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#metrics_gcp_service_account_email GkeHubFeature#metrics_gcp_service_account_email}
-        :param oci: oci block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#oci GkeHubFeature#oci}
-        :param prevent_drift: Set to true to enable the Config Sync admission webhook to prevent drifts. If set to 'false', disables the Config Sync admission webhook and does not prevent drifts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#prevent_drift GkeHubFeature#prevent_drift}
-        :param source_format: Specifies whether the Config Sync Repo is in hierarchical or unstructured mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#source_format GkeHubFeature#source_format}
+        :param enabled: Enables the installation of ConfigSync. If set to true, ConfigSync resources will be created and the other ConfigSync fields will be applied if exist. If set to false, all other ConfigSync fields will be ignored, ConfigSync resources will be deleted. If omitted, ConfigSync resources will be managed depends on the presence of the git or oci field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#enabled GkeHubFeature#enabled}
+        :param git: git block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#git GkeHubFeature#git}
+        :param metrics_gcp_service_account_email: The Email of the Google Cloud Service Account (GSA) used for exporting Config Sync metrics to Cloud Monitoring. The GSA should have the Monitoring Metric Writer(roles/monitoring.metricWriter) IAM role. The Kubernetes ServiceAccount 'default' in the namespace 'config-management-monitoring' should be bound to the GSA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#metrics_gcp_service_account_email GkeHubFeature#metrics_gcp_service_account_email}
+        :param oci: oci block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#oci GkeHubFeature#oci}
+        :param prevent_drift: Set to true to enable the Config Sync admission webhook to prevent drifts. If set to 'false', disables the Config Sync admission webhook and does not prevent drifts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#prevent_drift GkeHubFeature#prevent_drift}
+        :param source_format: Specifies whether the Config Sync Repo is in hierarchical or unstructured mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#source_format GkeHubFeature#source_format}
         '''
         if isinstance(git, dict):
             git = GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncGit(**git)
@@ -890,7 +890,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSync:
 
         If set to true, ConfigSync resources will be created and the other ConfigSync fields will be applied if exist. If set to false, all other ConfigSync fields will be ignored, ConfigSync resources will be deleted. If omitted, ConfigSync resources will be managed depends on the presence of the git or oci field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#enabled GkeHubFeature#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#enabled GkeHubFeature#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -901,7 +901,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSync:
     ) -> typing.Optional["GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncGit"]:
         '''git block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#git GkeHubFeature#git}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#git GkeHubFeature#git}
         '''
         result = self._values.get("git")
         return typing.cast(typing.Optional["GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncGit"], result)
@@ -912,7 +912,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSync:
 
         The GSA should have the Monitoring Metric Writer(roles/monitoring.metricWriter) IAM role. The Kubernetes ServiceAccount 'default' in the namespace 'config-management-monitoring' should be bound to the GSA.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#metrics_gcp_service_account_email GkeHubFeature#metrics_gcp_service_account_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#metrics_gcp_service_account_email GkeHubFeature#metrics_gcp_service_account_email}
         '''
         result = self._values.get("metrics_gcp_service_account_email")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -923,7 +923,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSync:
     ) -> typing.Optional["GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncOci"]:
         '''oci block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#oci GkeHubFeature#oci}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#oci GkeHubFeature#oci}
         '''
         result = self._values.get("oci")
         return typing.cast(typing.Optional["GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncOci"], result)
@@ -936,7 +936,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSync:
 
         If set to 'false', disables the Config Sync admission webhook and does not prevent drifts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#prevent_drift GkeHubFeature#prevent_drift}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#prevent_drift GkeHubFeature#prevent_drift}
         '''
         result = self._values.get("prevent_drift")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -945,7 +945,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSync:
     def source_format(self) -> typing.Optional[builtins.str]:
         '''Specifies whether the Config Sync Repo is in hierarchical or unstructured mode.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#source_format GkeHubFeature#source_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#source_format GkeHubFeature#source_format}
         '''
         result = self._values.get("source_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -990,14 +990,14 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncGit:
         sync_wait_secs: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param secret_type: Type of secret configured for access to the Git repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#secret_type GkeHubFeature#secret_type}
-        :param gcp_service_account_email: The Google Cloud Service Account Email used for auth when secretType is gcpServiceAccount. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#gcp_service_account_email GkeHubFeature#gcp_service_account_email}
-        :param https_proxy: URL for the HTTPS Proxy to be used when communicating with the Git repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#https_proxy GkeHubFeature#https_proxy}
-        :param policy_dir: The path within the Git repository that represents the top level of the repo to sync. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#policy_dir GkeHubFeature#policy_dir}
-        :param sync_branch: The branch of the repository to sync from. Default: master. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#sync_branch GkeHubFeature#sync_branch}
-        :param sync_repo: The URL of the Git repository to use as the source of truth. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#sync_repo GkeHubFeature#sync_repo}
-        :param sync_rev: Git revision (tag or hash) to check out. Default HEAD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#sync_rev GkeHubFeature#sync_rev}
-        :param sync_wait_secs: Period in seconds between consecutive syncs. Default: 15. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#sync_wait_secs GkeHubFeature#sync_wait_secs}
+        :param secret_type: Type of secret configured for access to the Git repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#secret_type GkeHubFeature#secret_type}
+        :param gcp_service_account_email: The Google Cloud Service Account Email used for auth when secretType is gcpServiceAccount. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#gcp_service_account_email GkeHubFeature#gcp_service_account_email}
+        :param https_proxy: URL for the HTTPS Proxy to be used when communicating with the Git repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#https_proxy GkeHubFeature#https_proxy}
+        :param policy_dir: The path within the Git repository that represents the top level of the repo to sync. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#policy_dir GkeHubFeature#policy_dir}
+        :param sync_branch: The branch of the repository to sync from. Default: master. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#sync_branch GkeHubFeature#sync_branch}
+        :param sync_repo: The URL of the Git repository to use as the source of truth. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#sync_repo GkeHubFeature#sync_repo}
+        :param sync_rev: Git revision (tag or hash) to check out. Default HEAD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#sync_rev GkeHubFeature#sync_rev}
+        :param sync_wait_secs: Period in seconds between consecutive syncs. Default: 15. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#sync_wait_secs GkeHubFeature#sync_wait_secs}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__25c84c552a77e21b661dc33c9bf0f36cf74727c9adf91b4d2601ab26a2c27556)
@@ -1031,7 +1031,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncGit:
     def secret_type(self) -> builtins.str:
         '''Type of secret configured for access to the Git repo.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#secret_type GkeHubFeature#secret_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#secret_type GkeHubFeature#secret_type}
         '''
         result = self._values.get("secret_type")
         assert result is not None, "Required property 'secret_type' is missing"
@@ -1041,7 +1041,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncGit:
     def gcp_service_account_email(self) -> typing.Optional[builtins.str]:
         '''The Google Cloud Service Account Email used for auth when secretType is gcpServiceAccount.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#gcp_service_account_email GkeHubFeature#gcp_service_account_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#gcp_service_account_email GkeHubFeature#gcp_service_account_email}
         '''
         result = self._values.get("gcp_service_account_email")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1050,7 +1050,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncGit:
     def https_proxy(self) -> typing.Optional[builtins.str]:
         '''URL for the HTTPS Proxy to be used when communicating with the Git repo.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#https_proxy GkeHubFeature#https_proxy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#https_proxy GkeHubFeature#https_proxy}
         '''
         result = self._values.get("https_proxy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1059,7 +1059,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncGit:
     def policy_dir(self) -> typing.Optional[builtins.str]:
         '''The path within the Git repository that represents the top level of the repo to sync.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#policy_dir GkeHubFeature#policy_dir}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#policy_dir GkeHubFeature#policy_dir}
         '''
         result = self._values.get("policy_dir")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1068,7 +1068,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncGit:
     def sync_branch(self) -> typing.Optional[builtins.str]:
         '''The branch of the repository to sync from. Default: master.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#sync_branch GkeHubFeature#sync_branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#sync_branch GkeHubFeature#sync_branch}
         '''
         result = self._values.get("sync_branch")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1077,7 +1077,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncGit:
     def sync_repo(self) -> typing.Optional[builtins.str]:
         '''The URL of the Git repository to use as the source of truth.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#sync_repo GkeHubFeature#sync_repo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#sync_repo GkeHubFeature#sync_repo}
         '''
         result = self._values.get("sync_repo")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1086,7 +1086,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncGit:
     def sync_rev(self) -> typing.Optional[builtins.str]:
         '''Git revision (tag or hash) to check out. Default HEAD.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#sync_rev GkeHubFeature#sync_rev}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#sync_rev GkeHubFeature#sync_rev}
         '''
         result = self._values.get("sync_rev")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1095,7 +1095,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncGit:
     def sync_wait_secs(self) -> typing.Optional[builtins.str]:
         '''Period in seconds between consecutive syncs. Default: 15.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#sync_wait_secs GkeHubFeature#sync_wait_secs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#sync_wait_secs GkeHubFeature#sync_wait_secs}
         '''
         result = self._values.get("sync_wait_secs")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1338,12 +1338,12 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncOci:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param secret_type: Type of secret configured for access to the Git repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#secret_type GkeHubFeature#secret_type}
-        :param gcp_service_account_email: The Google Cloud Service Account Email used for auth when secretType is gcpServiceAccount. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#gcp_service_account_email GkeHubFeature#gcp_service_account_email}
-        :param policy_dir: The absolute path of the directory that contains the local resources. Default: the root directory of the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#policy_dir GkeHubFeature#policy_dir}
-        :param sync_repo: The OCI image repository URL for the package to sync from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#sync_repo GkeHubFeature#sync_repo}
-        :param sync_wait_secs: Period in seconds between consecutive syncs. Default: 15. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#sync_wait_secs GkeHubFeature#sync_wait_secs}
-        :param version: Version of Config Sync installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
+        :param secret_type: Type of secret configured for access to the Git repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#secret_type GkeHubFeature#secret_type}
+        :param gcp_service_account_email: The Google Cloud Service Account Email used for auth when secretType is gcpServiceAccount. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#gcp_service_account_email GkeHubFeature#gcp_service_account_email}
+        :param policy_dir: The absolute path of the directory that contains the local resources. Default: the root directory of the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#policy_dir GkeHubFeature#policy_dir}
+        :param sync_repo: The OCI image repository URL for the package to sync from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#sync_repo GkeHubFeature#sync_repo}
+        :param sync_wait_secs: Period in seconds between consecutive syncs. Default: 15. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#sync_wait_secs GkeHubFeature#sync_wait_secs}
+        :param version: Version of Config Sync installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fce9168f80bcbf2ed6498d161e113a23c96a174d7f2ebd50d3fd19c0bc5180d0)
@@ -1371,7 +1371,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncOci:
     def secret_type(self) -> builtins.str:
         '''Type of secret configured for access to the Git repo.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#secret_type GkeHubFeature#secret_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#secret_type GkeHubFeature#secret_type}
         '''
         result = self._values.get("secret_type")
         assert result is not None, "Required property 'secret_type' is missing"
@@ -1381,7 +1381,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncOci:
     def gcp_service_account_email(self) -> typing.Optional[builtins.str]:
         '''The Google Cloud Service Account Email used for auth when secretType is gcpServiceAccount.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#gcp_service_account_email GkeHubFeature#gcp_service_account_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#gcp_service_account_email GkeHubFeature#gcp_service_account_email}
         '''
         result = self._values.get("gcp_service_account_email")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1390,7 +1390,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncOci:
     def policy_dir(self) -> typing.Optional[builtins.str]:
         '''The absolute path of the directory that contains the local resources. Default: the root directory of the image.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#policy_dir GkeHubFeature#policy_dir}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#policy_dir GkeHubFeature#policy_dir}
         '''
         result = self._values.get("policy_dir")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1399,7 +1399,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncOci:
     def sync_repo(self) -> typing.Optional[builtins.str]:
         '''The OCI image repository URL for the package to sync from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#sync_repo GkeHubFeature#sync_repo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#sync_repo GkeHubFeature#sync_repo}
         '''
         result = self._values.get("sync_repo")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1408,7 +1408,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncOci:
     def sync_wait_secs(self) -> typing.Optional[builtins.str]:
         '''Period in seconds between consecutive syncs. Default: 15.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#sync_wait_secs GkeHubFeature#sync_wait_secs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#sync_wait_secs GkeHubFeature#sync_wait_secs}
         '''
         result = self._values.get("sync_wait_secs")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1417,7 +1417,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncOci:
     def version(self) -> typing.Optional[builtins.str]:
         '''Version of Config Sync installed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1628,14 +1628,14 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncOutputRefer
         sync_wait_secs: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param secret_type: Type of secret configured for access to the Git repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#secret_type GkeHubFeature#secret_type}
-        :param gcp_service_account_email: The Google Cloud Service Account Email used for auth when secretType is gcpServiceAccount. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#gcp_service_account_email GkeHubFeature#gcp_service_account_email}
-        :param https_proxy: URL for the HTTPS Proxy to be used when communicating with the Git repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#https_proxy GkeHubFeature#https_proxy}
-        :param policy_dir: The path within the Git repository that represents the top level of the repo to sync. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#policy_dir GkeHubFeature#policy_dir}
-        :param sync_branch: The branch of the repository to sync from. Default: master. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#sync_branch GkeHubFeature#sync_branch}
-        :param sync_repo: The URL of the Git repository to use as the source of truth. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#sync_repo GkeHubFeature#sync_repo}
-        :param sync_rev: Git revision (tag or hash) to check out. Default HEAD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#sync_rev GkeHubFeature#sync_rev}
-        :param sync_wait_secs: Period in seconds between consecutive syncs. Default: 15. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#sync_wait_secs GkeHubFeature#sync_wait_secs}
+        :param secret_type: Type of secret configured for access to the Git repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#secret_type GkeHubFeature#secret_type}
+        :param gcp_service_account_email: The Google Cloud Service Account Email used for auth when secretType is gcpServiceAccount. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#gcp_service_account_email GkeHubFeature#gcp_service_account_email}
+        :param https_proxy: URL for the HTTPS Proxy to be used when communicating with the Git repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#https_proxy GkeHubFeature#https_proxy}
+        :param policy_dir: The path within the Git repository that represents the top level of the repo to sync. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#policy_dir GkeHubFeature#policy_dir}
+        :param sync_branch: The branch of the repository to sync from. Default: master. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#sync_branch GkeHubFeature#sync_branch}
+        :param sync_repo: The URL of the Git repository to use as the source of truth. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#sync_repo GkeHubFeature#sync_repo}
+        :param sync_rev: Git revision (tag or hash) to check out. Default HEAD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#sync_rev GkeHubFeature#sync_rev}
+        :param sync_wait_secs: Period in seconds between consecutive syncs. Default: 15. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#sync_wait_secs GkeHubFeature#sync_wait_secs}
         '''
         value = GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncGit(
             secret_type=secret_type,
@@ -1662,12 +1662,12 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncOutputRefer
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param secret_type: Type of secret configured for access to the Git repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#secret_type GkeHubFeature#secret_type}
-        :param gcp_service_account_email: The Google Cloud Service Account Email used for auth when secretType is gcpServiceAccount. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#gcp_service_account_email GkeHubFeature#gcp_service_account_email}
-        :param policy_dir: The absolute path of the directory that contains the local resources. Default: the root directory of the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#policy_dir GkeHubFeature#policy_dir}
-        :param sync_repo: The OCI image repository URL for the package to sync from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#sync_repo GkeHubFeature#sync_repo}
-        :param sync_wait_secs: Period in seconds between consecutive syncs. Default: 15. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#sync_wait_secs GkeHubFeature#sync_wait_secs}
-        :param version: Version of Config Sync installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
+        :param secret_type: Type of secret configured for access to the Git repo. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#secret_type GkeHubFeature#secret_type}
+        :param gcp_service_account_email: The Google Cloud Service Account Email used for auth when secretType is gcpServiceAccount. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#gcp_service_account_email GkeHubFeature#gcp_service_account_email}
+        :param policy_dir: The absolute path of the directory that contains the local resources. Default: the root directory of the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#policy_dir GkeHubFeature#policy_dir}
+        :param sync_repo: The OCI image repository URL for the package to sync from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#sync_repo GkeHubFeature#sync_repo}
+        :param sync_wait_secs: Period in seconds between consecutive syncs. Default: 15. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#sync_wait_secs GkeHubFeature#sync_wait_secs}
+        :param version: Version of Config Sync installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
         '''
         value = GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSyncOci(
             secret_type=secret_type,
@@ -1860,12 +1860,12 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementOutputReference(
         source_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Enables the installation of ConfigSync. If set to true, ConfigSync resources will be created and the other ConfigSync fields will be applied if exist. If set to false, all other ConfigSync fields will be ignored, ConfigSync resources will be deleted. If omitted, ConfigSync resources will be managed depends on the presence of the git or oci field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#enabled GkeHubFeature#enabled}
-        :param git: git block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#git GkeHubFeature#git}
-        :param metrics_gcp_service_account_email: The Email of the Google Cloud Service Account (GSA) used for exporting Config Sync metrics to Cloud Monitoring. The GSA should have the Monitoring Metric Writer(roles/monitoring.metricWriter) IAM role. The Kubernetes ServiceAccount 'default' in the namespace 'config-management-monitoring' should be bound to the GSA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#metrics_gcp_service_account_email GkeHubFeature#metrics_gcp_service_account_email}
-        :param oci: oci block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#oci GkeHubFeature#oci}
-        :param prevent_drift: Set to true to enable the Config Sync admission webhook to prevent drifts. If set to 'false', disables the Config Sync admission webhook and does not prevent drifts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#prevent_drift GkeHubFeature#prevent_drift}
-        :param source_format: Specifies whether the Config Sync Repo is in hierarchical or unstructured mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#source_format GkeHubFeature#source_format}
+        :param enabled: Enables the installation of ConfigSync. If set to true, ConfigSync resources will be created and the other ConfigSync fields will be applied if exist. If set to false, all other ConfigSync fields will be ignored, ConfigSync resources will be deleted. If omitted, ConfigSync resources will be managed depends on the presence of the git or oci field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#enabled GkeHubFeature#enabled}
+        :param git: git block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#git GkeHubFeature#git}
+        :param metrics_gcp_service_account_email: The Email of the Google Cloud Service Account (GSA) used for exporting Config Sync metrics to Cloud Monitoring. The GSA should have the Monitoring Metric Writer(roles/monitoring.metricWriter) IAM role. The Kubernetes ServiceAccount 'default' in the namespace 'config-management-monitoring' should be bound to the GSA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#metrics_gcp_service_account_email GkeHubFeature#metrics_gcp_service_account_email}
+        :param oci: oci block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#oci GkeHubFeature#oci}
+        :param prevent_drift: Set to true to enable the Config Sync admission webhook to prevent drifts. If set to 'false', disables the Config Sync admission webhook and does not prevent drifts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#prevent_drift GkeHubFeature#prevent_drift}
+        :param source_format: Specifies whether the Config Sync Repo is in hierarchical or unstructured mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#source_format GkeHubFeature#source_format}
         '''
         value = GkeHubFeatureFleetDefaultMemberConfigConfigmanagementConfigSync(
             enabled=enabled,
@@ -1964,7 +1964,7 @@ class GkeHubFeatureFleetDefaultMemberConfigConfigmanagementOutputReference(
 class GkeHubFeatureFleetDefaultMemberConfigMesh:
     def __init__(self, *, management: builtins.str) -> None:
         '''
-        :param management: Whether to automatically manage Service Mesh Possible values: ["MANAGEMENT_UNSPECIFIED", "MANAGEMENT_AUTOMATIC", "MANAGEMENT_MANUAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#management GkeHubFeature#management}
+        :param management: Whether to automatically manage Service Mesh Possible values: ["MANAGEMENT_UNSPECIFIED", "MANAGEMENT_AUTOMATIC", "MANAGEMENT_MANUAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#management GkeHubFeature#management}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f70aa677d42337c252333b2bb6e9e543e1628acdd851dcfa2b3198a55dcb8e09)
@@ -1977,7 +1977,7 @@ class GkeHubFeatureFleetDefaultMemberConfigMesh:
     def management(self) -> builtins.str:
         '''Whether to automatically manage Service Mesh Possible values: ["MANAGEMENT_UNSPECIFIED", "MANAGEMENT_AUTOMATIC", "MANAGEMENT_MANUAL"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#management GkeHubFeature#management}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#management GkeHubFeature#management}
         '''
         result = self._values.get("management")
         assert result is not None, "Required property 'management' is missing"
@@ -2079,9 +2079,9 @@ class GkeHubFeatureFleetDefaultMemberConfigOutputReference(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param config_sync: config_sync block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#config_sync GkeHubFeature#config_sync}
-        :param management: Set this field to MANAGEMENT_AUTOMATIC to enable Config Sync auto-upgrades, and set this field to MANAGEMENT_MANUAL or MANAGEMENT_UNSPECIFIED to disable Config Sync auto-upgrades. Possible values: ["MANAGEMENT_UNSPECIFIED", "MANAGEMENT_AUTOMATIC", "MANAGEMENT_MANUAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#management GkeHubFeature#management}
-        :param version: Version of Config Sync installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
+        :param config_sync: config_sync block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#config_sync GkeHubFeature#config_sync}
+        :param management: Set this field to MANAGEMENT_AUTOMATIC to enable Config Sync auto-upgrades, and set this field to MANAGEMENT_MANUAL or MANAGEMENT_UNSPECIFIED to disable Config Sync auto-upgrades. Possible values: ["MANAGEMENT_UNSPECIFIED", "MANAGEMENT_AUTOMATIC", "MANAGEMENT_MANUAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#management GkeHubFeature#management}
+        :param version: Version of Config Sync installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
         '''
         value = GkeHubFeatureFleetDefaultMemberConfigConfigmanagement(
             config_sync=config_sync, management=management, version=version
@@ -2092,7 +2092,7 @@ class GkeHubFeatureFleetDefaultMemberConfigOutputReference(
     @jsii.member(jsii_name="putMesh")
     def put_mesh(self, *, management: builtins.str) -> None:
         '''
-        :param management: Whether to automatically manage Service Mesh Possible values: ["MANAGEMENT_UNSPECIFIED", "MANAGEMENT_AUTOMATIC", "MANAGEMENT_MANUAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#management GkeHubFeature#management}
+        :param management: Whether to automatically manage Service Mesh Possible values: ["MANAGEMENT_UNSPECIFIED", "MANAGEMENT_AUTOMATIC", "MANAGEMENT_MANUAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#management GkeHubFeature#management}
         '''
         value = GkeHubFeatureFleetDefaultMemberConfigMesh(management=management)
 
@@ -2106,8 +2106,8 @@ class GkeHubFeatureFleetDefaultMemberConfigOutputReference(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param policy_controller_hub_config: policy_controller_hub_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#policy_controller_hub_config GkeHubFeature#policy_controller_hub_config}
-        :param version: Configures the version of Policy Controller. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
+        :param policy_controller_hub_config: policy_controller_hub_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#policy_controller_hub_config GkeHubFeature#policy_controller_hub_config}
+        :param version: Configures the version of Policy Controller. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
         '''
         value = GkeHubFeatureFleetDefaultMemberConfigPolicycontroller(
             policy_controller_hub_config=policy_controller_hub_config, version=version
@@ -2197,8 +2197,8 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontroller:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param policy_controller_hub_config: policy_controller_hub_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#policy_controller_hub_config GkeHubFeature#policy_controller_hub_config}
-        :param version: Configures the version of Policy Controller. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
+        :param policy_controller_hub_config: policy_controller_hub_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#policy_controller_hub_config GkeHubFeature#policy_controller_hub_config}
+        :param version: Configures the version of Policy Controller. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
         '''
         if isinstance(policy_controller_hub_config, dict):
             policy_controller_hub_config = GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfig(**policy_controller_hub_config)
@@ -2218,7 +2218,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontroller:
     ) -> "GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfig":
         '''policy_controller_hub_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#policy_controller_hub_config GkeHubFeature#policy_controller_hub_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#policy_controller_hub_config GkeHubFeature#policy_controller_hub_config}
         '''
         result = self._values.get("policy_controller_hub_config")
         assert result is not None, "Required property 'policy_controller_hub_config' is missing"
@@ -2228,7 +2228,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontroller:
     def version(self) -> typing.Optional[builtins.str]:
         '''Configures the version of Policy Controller.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2281,16 +2281,16 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerOutputReference(
         referential_rules_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param install_spec: Configures the mode of the Policy Controller installation Possible values: ["INSTALL_SPEC_UNSPECIFIED", "INSTALL_SPEC_NOT_INSTALLED", "INSTALL_SPEC_ENABLED", "INSTALL_SPEC_SUSPENDED", "INSTALL_SPEC_DETACHED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#install_spec GkeHubFeature#install_spec}
-        :param audit_interval_seconds: Interval for Policy Controller Audit scans (in seconds). When set to 0, this disables audit functionality altogether. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#audit_interval_seconds GkeHubFeature#audit_interval_seconds}
-        :param constraint_violation_limit: The maximum number of audit violations to be stored in a constraint. If not set, the internal default of 20 will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#constraint_violation_limit GkeHubFeature#constraint_violation_limit}
-        :param deployment_configs: deployment_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#deployment_configs GkeHubFeature#deployment_configs}
-        :param exemptable_namespaces: The set of namespaces that are excluded from Policy Controller checks. Namespaces do not need to currently exist on the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#exemptable_namespaces GkeHubFeature#exemptable_namespaces}
-        :param log_denies_enabled: Logs all denies and dry run failures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#log_denies_enabled GkeHubFeature#log_denies_enabled}
-        :param monitoring: monitoring block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#monitoring GkeHubFeature#monitoring}
-        :param mutation_enabled: Enables the ability to mutate resources using Policy Controller. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#mutation_enabled GkeHubFeature#mutation_enabled}
-        :param policy_content: policy_content block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#policy_content GkeHubFeature#policy_content}
-        :param referential_rules_enabled: Enables the ability to use Constraint Templates that reference to objects other than the object currently being evaluated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#referential_rules_enabled GkeHubFeature#referential_rules_enabled}
+        :param install_spec: Configures the mode of the Policy Controller installation Possible values: ["INSTALL_SPEC_UNSPECIFIED", "INSTALL_SPEC_NOT_INSTALLED", "INSTALL_SPEC_ENABLED", "INSTALL_SPEC_SUSPENDED", "INSTALL_SPEC_DETACHED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#install_spec GkeHubFeature#install_spec}
+        :param audit_interval_seconds: Interval for Policy Controller Audit scans (in seconds). When set to 0, this disables audit functionality altogether. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#audit_interval_seconds GkeHubFeature#audit_interval_seconds}
+        :param constraint_violation_limit: The maximum number of audit violations to be stored in a constraint. If not set, the internal default of 20 will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#constraint_violation_limit GkeHubFeature#constraint_violation_limit}
+        :param deployment_configs: deployment_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#deployment_configs GkeHubFeature#deployment_configs}
+        :param exemptable_namespaces: The set of namespaces that are excluded from Policy Controller checks. Namespaces do not need to currently exist on the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#exemptable_namespaces GkeHubFeature#exemptable_namespaces}
+        :param log_denies_enabled: Logs all denies and dry run failures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#log_denies_enabled GkeHubFeature#log_denies_enabled}
+        :param monitoring: monitoring block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#monitoring GkeHubFeature#monitoring}
+        :param mutation_enabled: Enables the ability to mutate resources using Policy Controller. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#mutation_enabled GkeHubFeature#mutation_enabled}
+        :param policy_content: policy_content block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#policy_content GkeHubFeature#policy_content}
+        :param referential_rules_enabled: Enables the ability to use Constraint Templates that reference to objects other than the object currently being evaluated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#referential_rules_enabled GkeHubFeature#referential_rules_enabled}
         '''
         value = GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfig(
             install_spec=install_spec,
@@ -2392,16 +2392,16 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
         referential_rules_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param install_spec: Configures the mode of the Policy Controller installation Possible values: ["INSTALL_SPEC_UNSPECIFIED", "INSTALL_SPEC_NOT_INSTALLED", "INSTALL_SPEC_ENABLED", "INSTALL_SPEC_SUSPENDED", "INSTALL_SPEC_DETACHED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#install_spec GkeHubFeature#install_spec}
-        :param audit_interval_seconds: Interval for Policy Controller Audit scans (in seconds). When set to 0, this disables audit functionality altogether. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#audit_interval_seconds GkeHubFeature#audit_interval_seconds}
-        :param constraint_violation_limit: The maximum number of audit violations to be stored in a constraint. If not set, the internal default of 20 will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#constraint_violation_limit GkeHubFeature#constraint_violation_limit}
-        :param deployment_configs: deployment_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#deployment_configs GkeHubFeature#deployment_configs}
-        :param exemptable_namespaces: The set of namespaces that are excluded from Policy Controller checks. Namespaces do not need to currently exist on the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#exemptable_namespaces GkeHubFeature#exemptable_namespaces}
-        :param log_denies_enabled: Logs all denies and dry run failures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#log_denies_enabled GkeHubFeature#log_denies_enabled}
-        :param monitoring: monitoring block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#monitoring GkeHubFeature#monitoring}
-        :param mutation_enabled: Enables the ability to mutate resources using Policy Controller. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#mutation_enabled GkeHubFeature#mutation_enabled}
-        :param policy_content: policy_content block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#policy_content GkeHubFeature#policy_content}
-        :param referential_rules_enabled: Enables the ability to use Constraint Templates that reference to objects other than the object currently being evaluated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#referential_rules_enabled GkeHubFeature#referential_rules_enabled}
+        :param install_spec: Configures the mode of the Policy Controller installation Possible values: ["INSTALL_SPEC_UNSPECIFIED", "INSTALL_SPEC_NOT_INSTALLED", "INSTALL_SPEC_ENABLED", "INSTALL_SPEC_SUSPENDED", "INSTALL_SPEC_DETACHED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#install_spec GkeHubFeature#install_spec}
+        :param audit_interval_seconds: Interval for Policy Controller Audit scans (in seconds). When set to 0, this disables audit functionality altogether. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#audit_interval_seconds GkeHubFeature#audit_interval_seconds}
+        :param constraint_violation_limit: The maximum number of audit violations to be stored in a constraint. If not set, the internal default of 20 will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#constraint_violation_limit GkeHubFeature#constraint_violation_limit}
+        :param deployment_configs: deployment_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#deployment_configs GkeHubFeature#deployment_configs}
+        :param exemptable_namespaces: The set of namespaces that are excluded from Policy Controller checks. Namespaces do not need to currently exist on the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#exemptable_namespaces GkeHubFeature#exemptable_namespaces}
+        :param log_denies_enabled: Logs all denies and dry run failures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#log_denies_enabled GkeHubFeature#log_denies_enabled}
+        :param monitoring: monitoring block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#monitoring GkeHubFeature#monitoring}
+        :param mutation_enabled: Enables the ability to mutate resources using Policy Controller. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#mutation_enabled GkeHubFeature#mutation_enabled}
+        :param policy_content: policy_content block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#policy_content GkeHubFeature#policy_content}
+        :param referential_rules_enabled: Enables the ability to use Constraint Templates that reference to objects other than the object currently being evaluated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#referential_rules_enabled GkeHubFeature#referential_rules_enabled}
         '''
         if isinstance(monitoring, dict):
             monitoring = GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigMonitoring(**monitoring)
@@ -2445,7 +2445,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     def install_spec(self) -> builtins.str:
         '''Configures the mode of the Policy Controller installation Possible values: ["INSTALL_SPEC_UNSPECIFIED", "INSTALL_SPEC_NOT_INSTALLED", "INSTALL_SPEC_ENABLED", "INSTALL_SPEC_SUSPENDED", "INSTALL_SPEC_DETACHED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#install_spec GkeHubFeature#install_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#install_spec GkeHubFeature#install_spec}
         '''
         result = self._values.get("install_spec")
         assert result is not None, "Required property 'install_spec' is missing"
@@ -2455,7 +2455,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     def audit_interval_seconds(self) -> typing.Optional[jsii.Number]:
         '''Interval for Policy Controller Audit scans (in seconds). When set to 0, this disables audit functionality altogether.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#audit_interval_seconds GkeHubFeature#audit_interval_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#audit_interval_seconds GkeHubFeature#audit_interval_seconds}
         '''
         result = self._values.get("audit_interval_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2466,7 +2466,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
 
         If not set, the internal default of 20 will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#constraint_violation_limit GkeHubFeature#constraint_violation_limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#constraint_violation_limit GkeHubFeature#constraint_violation_limit}
         '''
         result = self._values.get("constraint_violation_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2477,7 +2477,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigs"]]]:
         '''deployment_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#deployment_configs GkeHubFeature#deployment_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#deployment_configs GkeHubFeature#deployment_configs}
         '''
         result = self._values.get("deployment_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigs"]]], result)
@@ -2488,7 +2488,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
 
         Namespaces do not need to currently exist on the cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#exemptable_namespaces GkeHubFeature#exemptable_namespaces}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#exemptable_namespaces GkeHubFeature#exemptable_namespaces}
         '''
         result = self._values.get("exemptable_namespaces")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2499,7 +2499,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Logs all denies and dry run failures.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#log_denies_enabled GkeHubFeature#log_denies_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#log_denies_enabled GkeHubFeature#log_denies_enabled}
         '''
         result = self._values.get("log_denies_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2510,7 +2510,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     ) -> typing.Optional["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigMonitoring"]:
         '''monitoring block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#monitoring GkeHubFeature#monitoring}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#monitoring GkeHubFeature#monitoring}
         '''
         result = self._values.get("monitoring")
         return typing.cast(typing.Optional["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigMonitoring"], result)
@@ -2521,7 +2521,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enables the ability to mutate resources using Policy Controller.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#mutation_enabled GkeHubFeature#mutation_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#mutation_enabled GkeHubFeature#mutation_enabled}
         '''
         result = self._values.get("mutation_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2532,7 +2532,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     ) -> typing.Optional["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigPolicyContent"]:
         '''policy_content block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#policy_content GkeHubFeature#policy_content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#policy_content GkeHubFeature#policy_content}
         '''
         result = self._values.get("policy_content")
         return typing.cast(typing.Optional["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigPolicyContent"], result)
@@ -2543,7 +2543,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enables the ability to use Constraint Templates that reference to objects other than the object currently being evaluated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#referential_rules_enabled GkeHubFeature#referential_rules_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#referential_rules_enabled GkeHubFeature#referential_rules_enabled}
         '''
         result = self._values.get("referential_rules_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2582,11 +2582,11 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
         replica_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param component: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#component GkeHubFeature#component}.
-        :param container_resources: container_resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#container_resources GkeHubFeature#container_resources}
-        :param pod_affinity: Pod affinity configuration. Possible values: ["AFFINITY_UNSPECIFIED", "NO_AFFINITY", "ANTI_AFFINITY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#pod_affinity GkeHubFeature#pod_affinity}
-        :param pod_toleration: pod_toleration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#pod_toleration GkeHubFeature#pod_toleration}
-        :param replica_count: Pod replica count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#replica_count GkeHubFeature#replica_count}
+        :param component: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#component GkeHubFeature#component}.
+        :param container_resources: container_resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#container_resources GkeHubFeature#container_resources}
+        :param pod_affinity: Pod affinity configuration. Possible values: ["AFFINITY_UNSPECIFIED", "NO_AFFINITY", "ANTI_AFFINITY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#pod_affinity GkeHubFeature#pod_affinity}
+        :param pod_toleration: pod_toleration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#pod_toleration GkeHubFeature#pod_toleration}
+        :param replica_count: Pod replica count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#replica_count GkeHubFeature#replica_count}
         '''
         if isinstance(container_resources, dict):
             container_resources = GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigsContainerResources(**container_resources)
@@ -2611,7 +2611,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
 
     @builtins.property
     def component(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#component GkeHubFeature#component}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#component GkeHubFeature#component}.'''
         result = self._values.get("component")
         assert result is not None, "Required property 'component' is missing"
         return typing.cast(builtins.str, result)
@@ -2622,7 +2622,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     ) -> typing.Optional["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigsContainerResources"]:
         '''container_resources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#container_resources GkeHubFeature#container_resources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#container_resources GkeHubFeature#container_resources}
         '''
         result = self._values.get("container_resources")
         return typing.cast(typing.Optional["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigsContainerResources"], result)
@@ -2631,7 +2631,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     def pod_affinity(self) -> typing.Optional[builtins.str]:
         '''Pod affinity configuration. Possible values: ["AFFINITY_UNSPECIFIED", "NO_AFFINITY", "ANTI_AFFINITY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#pod_affinity GkeHubFeature#pod_affinity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#pod_affinity GkeHubFeature#pod_affinity}
         '''
         result = self._values.get("pod_affinity")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2642,7 +2642,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigsPodToleration"]]]:
         '''pod_toleration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#pod_toleration GkeHubFeature#pod_toleration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#pod_toleration GkeHubFeature#pod_toleration}
         '''
         result = self._values.get("pod_toleration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigsPodToleration"]]], result)
@@ -2651,7 +2651,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     def replica_count(self) -> typing.Optional[jsii.Number]:
         '''Pod replica count.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#replica_count GkeHubFeature#replica_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#replica_count GkeHubFeature#replica_count}
         '''
         result = self._values.get("replica_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2681,8 +2681,8 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
         requests: typing.Optional[typing.Union["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigsContainerResourcesRequests", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#limits GkeHubFeature#limits}
-        :param requests: requests block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#requests GkeHubFeature#requests}
+        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#limits GkeHubFeature#limits}
+        :param requests: requests block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#requests GkeHubFeature#requests}
         '''
         if isinstance(limits, dict):
             limits = GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigsContainerResourcesLimits(**limits)
@@ -2704,7 +2704,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     ) -> typing.Optional["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigsContainerResourcesLimits"]:
         '''limits block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#limits GkeHubFeature#limits}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#limits GkeHubFeature#limits}
         '''
         result = self._values.get("limits")
         return typing.cast(typing.Optional["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigsContainerResourcesLimits"], result)
@@ -2715,7 +2715,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     ) -> typing.Optional["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigsContainerResourcesRequests"]:
         '''requests block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#requests GkeHubFeature#requests}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#requests GkeHubFeature#requests}
         '''
         result = self._values.get("requests")
         return typing.cast(typing.Optional["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigsContainerResourcesRequests"], result)
@@ -2745,8 +2745,8 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
         memory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu: CPU requirement expressed in Kubernetes resource units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#cpu GkeHubFeature#cpu}
-        :param memory: Memory requirement expressed in Kubernetes resource units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#memory GkeHubFeature#memory}
+        :param cpu: CPU requirement expressed in Kubernetes resource units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#cpu GkeHubFeature#cpu}
+        :param memory: Memory requirement expressed in Kubernetes resource units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#memory GkeHubFeature#memory}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7ea24db54bd9f12c4481fa9360948b13e78f5799ce1cb26225a6021962d0c1e8)
@@ -2762,7 +2762,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     def cpu(self) -> typing.Optional[builtins.str]:
         '''CPU requirement expressed in Kubernetes resource units.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#cpu GkeHubFeature#cpu}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#cpu GkeHubFeature#cpu}
         '''
         result = self._values.get("cpu")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2771,7 +2771,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     def memory(self) -> typing.Optional[builtins.str]:
         '''Memory requirement expressed in Kubernetes resource units.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#memory GkeHubFeature#memory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#memory GkeHubFeature#memory}
         '''
         result = self._values.get("memory")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2896,8 +2896,8 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
         memory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu: CPU requirement expressed in Kubernetes resource units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#cpu GkeHubFeature#cpu}
-        :param memory: Memory requirement expressed in Kubernetes resource units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#memory GkeHubFeature#memory}
+        :param cpu: CPU requirement expressed in Kubernetes resource units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#cpu GkeHubFeature#cpu}
+        :param memory: Memory requirement expressed in Kubernetes resource units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#memory GkeHubFeature#memory}
         '''
         value = GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigsContainerResourcesLimits(
             cpu=cpu, memory=memory
@@ -2913,8 +2913,8 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
         memory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu: CPU requirement expressed in Kubernetes resource units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#cpu GkeHubFeature#cpu}
-        :param memory: Memory requirement expressed in Kubernetes resource units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#memory GkeHubFeature#memory}
+        :param cpu: CPU requirement expressed in Kubernetes resource units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#cpu GkeHubFeature#cpu}
+        :param memory: Memory requirement expressed in Kubernetes resource units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#memory GkeHubFeature#memory}
         '''
         value = GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigsContainerResourcesRequests(
             cpu=cpu, memory=memory
@@ -2989,8 +2989,8 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
         memory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu: CPU requirement expressed in Kubernetes resource units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#cpu GkeHubFeature#cpu}
-        :param memory: Memory requirement expressed in Kubernetes resource units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#memory GkeHubFeature#memory}
+        :param cpu: CPU requirement expressed in Kubernetes resource units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#cpu GkeHubFeature#cpu}
+        :param memory: Memory requirement expressed in Kubernetes resource units. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#memory GkeHubFeature#memory}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b23ff8f0d97dc9ab1f38e7a01eb92488e3e1eb1f58dded23192819c880b5a310)
@@ -3006,7 +3006,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     def cpu(self) -> typing.Optional[builtins.str]:
         '''CPU requirement expressed in Kubernetes resource units.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#cpu GkeHubFeature#cpu}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#cpu GkeHubFeature#cpu}
         '''
         result = self._values.get("cpu")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3015,7 +3015,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     def memory(self) -> typing.Optional[builtins.str]:
         '''Memory requirement expressed in Kubernetes resource units.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#memory GkeHubFeature#memory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#memory GkeHubFeature#memory}
         '''
         result = self._values.get("memory")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3239,8 +3239,8 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
         requests: typing.Optional[typing.Union[GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigsContainerResourcesRequests, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#limits GkeHubFeature#limits}
-        :param requests: requests block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#requests GkeHubFeature#requests}
+        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#limits GkeHubFeature#limits}
+        :param requests: requests block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#requests GkeHubFeature#requests}
         '''
         value = GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigsContainerResources(
             limits=limits, requests=requests
@@ -3394,10 +3394,10 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param effect: Matches a taint effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#effect GkeHubFeature#effect}
-        :param key: Matches a taint key (not necessarily unique). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#key GkeHubFeature#key}
-        :param operator: Matches a taint operator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#operator GkeHubFeature#operator}
-        :param value: Matches a taint value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#value GkeHubFeature#value}
+        :param effect: Matches a taint effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#effect GkeHubFeature#effect}
+        :param key: Matches a taint key (not necessarily unique). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#key GkeHubFeature#key}
+        :param operator: Matches a taint operator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#operator GkeHubFeature#operator}
+        :param value: Matches a taint value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#value GkeHubFeature#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__def2a21811bbb25d985c07e75f6db28bf42e8a0fe9b5762df25e663707ebdacc)
@@ -3419,7 +3419,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     def effect(self) -> typing.Optional[builtins.str]:
         '''Matches a taint effect.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#effect GkeHubFeature#effect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#effect GkeHubFeature#effect}
         '''
         result = self._values.get("effect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3428,7 +3428,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     def key(self) -> typing.Optional[builtins.str]:
         '''Matches a taint key (not necessarily unique).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#key GkeHubFeature#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#key GkeHubFeature#key}
         '''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3437,7 +3437,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     def operator(self) -> typing.Optional[builtins.str]:
         '''Matches a taint operator.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#operator GkeHubFeature#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#operator GkeHubFeature#operator}
         '''
         result = self._values.get("operator")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3446,7 +3446,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     def value(self) -> typing.Optional[builtins.str]:
         '''Matches a taint value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#value GkeHubFeature#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#value GkeHubFeature#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3696,7 +3696,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
         backends: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param backends: Specifies the list of backends Policy Controller will export to. An empty list would effectively disable metrics export. Possible values: ["MONITORING_BACKEND_UNSPECIFIED", "PROMETHEUS", "CLOUD_MONITORING"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#backends GkeHubFeature#backends}
+        :param backends: Specifies the list of backends Policy Controller will export to. An empty list would effectively disable metrics export. Possible values: ["MONITORING_BACKEND_UNSPECIFIED", "PROMETHEUS", "CLOUD_MONITORING"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#backends GkeHubFeature#backends}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6f3c2678ae323eb6ccdc7bbab4a1b3515dd926e679313c04a59cdc7b6ef04140)
@@ -3711,7 +3711,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
 
         An empty list would effectively disable metrics export. Possible values: ["MONITORING_BACKEND_UNSPECIFIED", "PROMETHEUS", "CLOUD_MONITORING"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#backends GkeHubFeature#backends}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#backends GkeHubFeature#backends}
         '''
         result = self._values.get("backends")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3827,7 +3827,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
         backends: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param backends: Specifies the list of backends Policy Controller will export to. An empty list would effectively disable metrics export. Possible values: ["MONITORING_BACKEND_UNSPECIFIED", "PROMETHEUS", "CLOUD_MONITORING"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#backends GkeHubFeature#backends}
+        :param backends: Specifies the list of backends Policy Controller will export to. An empty list would effectively disable metrics export. Possible values: ["MONITORING_BACKEND_UNSPECIFIED", "PROMETHEUS", "CLOUD_MONITORING"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#backends GkeHubFeature#backends}
         '''
         value = GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigMonitoring(
             backends=backends
@@ -3843,8 +3843,8 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
         template_library: typing.Optional[typing.Union["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigPolicyContentTemplateLibrary", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bundles: bundles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#bundles GkeHubFeature#bundles}
-        :param template_library: template_library block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#template_library GkeHubFeature#template_library}
+        :param bundles: bundles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#bundles GkeHubFeature#bundles}
+        :param template_library: template_library block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#template_library GkeHubFeature#template_library}
         '''
         value = GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigPolicyContent(
             bundles=bundles, template_library=template_library
@@ -4101,8 +4101,8 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
         template_library: typing.Optional[typing.Union["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigPolicyContentTemplateLibrary", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bundles: bundles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#bundles GkeHubFeature#bundles}
-        :param template_library: template_library block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#template_library GkeHubFeature#template_library}
+        :param bundles: bundles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#bundles GkeHubFeature#bundles}
+        :param template_library: template_library block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#template_library GkeHubFeature#template_library}
         '''
         if isinstance(template_library, dict):
             template_library = GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigPolicyContentTemplateLibrary(**template_library)
@@ -4122,7 +4122,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigPolicyContentBundles"]]]:
         '''bundles block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#bundles GkeHubFeature#bundles}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#bundles GkeHubFeature#bundles}
         '''
         result = self._values.get("bundles")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigPolicyContentBundles"]]], result)
@@ -4133,7 +4133,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     ) -> typing.Optional["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigPolicyContentTemplateLibrary"]:
         '''template_library block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#template_library GkeHubFeature#template_library}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#template_library GkeHubFeature#template_library}
         '''
         result = self._values.get("template_library")
         return typing.cast(typing.Optional["GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigPolicyContentTemplateLibrary"], result)
@@ -4163,8 +4163,8 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
         exempted_namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param bundle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#bundle GkeHubFeature#bundle}.
-        :param exempted_namespaces: The set of namespaces to be exempted from the bundle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#exempted_namespaces GkeHubFeature#exempted_namespaces}
+        :param bundle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#bundle GkeHubFeature#bundle}.
+        :param exempted_namespaces: The set of namespaces to be exempted from the bundle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#exempted_namespaces GkeHubFeature#exempted_namespaces}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8535feade9e0add025c3920d347bf701d6c7f8fd9cbd844f2f00d36c11c23e01)
@@ -4178,7 +4178,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
 
     @builtins.property
     def bundle(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#bundle GkeHubFeature#bundle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#bundle GkeHubFeature#bundle}.'''
         result = self._values.get("bundle")
         assert result is not None, "Required property 'bundle' is missing"
         return typing.cast(builtins.str, result)
@@ -4187,7 +4187,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     def exempted_namespaces(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The set of namespaces to be exempted from the bundle.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#exempted_namespaces GkeHubFeature#exempted_namespaces}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#exempted_namespaces GkeHubFeature#exempted_namespaces}
         '''
         result = self._values.get("exempted_namespaces")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4419,7 +4419,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
         installation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param installation: Configures the manner in which the template library is installed on the cluster. Possible values: ["INSTALLATION_UNSPECIFIED", "NOT_INSTALLED", "ALL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#installation GkeHubFeature#installation}
+        :param installation: Configures the manner in which the template library is installed on the cluster. Possible values: ["INSTALLATION_UNSPECIFIED", "NOT_INSTALLED", "ALL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#installation GkeHubFeature#installation}
         '''
         value = GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigPolicyContentTemplateLibrary(
             installation=installation
@@ -4489,7 +4489,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
 class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigPolicyContentTemplateLibrary:
     def __init__(self, *, installation: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param installation: Configures the manner in which the template library is installed on the cluster. Possible values: ["INSTALLATION_UNSPECIFIED", "NOT_INSTALLED", "ALL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#installation GkeHubFeature#installation}
+        :param installation: Configures the manner in which the template library is installed on the cluster. Possible values: ["INSTALLATION_UNSPECIFIED", "NOT_INSTALLED", "ALL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#installation GkeHubFeature#installation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__91424fb6f79903b86a9c718fedc7b5a48ad4ac8619b16375574d0e36024eddf9)
@@ -4502,7 +4502,7 @@ class GkeHubFeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubCo
     def installation(self) -> typing.Optional[builtins.str]:
         '''Configures the manner in which the template library is installed on the cluster. Possible values: ["INSTALLATION_UNSPECIFIED", "NOT_INSTALLED", "ALL"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#installation GkeHubFeature#installation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#installation GkeHubFeature#installation}
         '''
         result = self._values.get("installation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4742,9 +4742,9 @@ class GkeHubFeatureSpec:
         multiclusteringress: typing.Optional[typing.Union["GkeHubFeatureSpecMulticlusteringress", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param clusterupgrade: clusterupgrade block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#clusterupgrade GkeHubFeature#clusterupgrade}
-        :param fleetobservability: fleetobservability block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#fleetobservability GkeHubFeature#fleetobservability}
-        :param multiclusteringress: multiclusteringress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#multiclusteringress GkeHubFeature#multiclusteringress}
+        :param clusterupgrade: clusterupgrade block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#clusterupgrade GkeHubFeature#clusterupgrade}
+        :param fleetobservability: fleetobservability block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#fleetobservability GkeHubFeature#fleetobservability}
+        :param multiclusteringress: multiclusteringress block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#multiclusteringress GkeHubFeature#multiclusteringress}
         '''
         if isinstance(clusterupgrade, dict):
             clusterupgrade = GkeHubFeatureSpecClusterupgrade(**clusterupgrade)
@@ -4769,7 +4769,7 @@ class GkeHubFeatureSpec:
     def clusterupgrade(self) -> typing.Optional["GkeHubFeatureSpecClusterupgrade"]:
         '''clusterupgrade block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#clusterupgrade GkeHubFeature#clusterupgrade}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#clusterupgrade GkeHubFeature#clusterupgrade}
         '''
         result = self._values.get("clusterupgrade")
         return typing.cast(typing.Optional["GkeHubFeatureSpecClusterupgrade"], result)
@@ -4780,7 +4780,7 @@ class GkeHubFeatureSpec:
     ) -> typing.Optional["GkeHubFeatureSpecFleetobservability"]:
         '''fleetobservability block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#fleetobservability GkeHubFeature#fleetobservability}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#fleetobservability GkeHubFeature#fleetobservability}
         '''
         result = self._values.get("fleetobservability")
         return typing.cast(typing.Optional["GkeHubFeatureSpecFleetobservability"], result)
@@ -4791,7 +4791,7 @@ class GkeHubFeatureSpec:
     ) -> typing.Optional["GkeHubFeatureSpecMulticlusteringress"]:
         '''multiclusteringress block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#multiclusteringress GkeHubFeature#multiclusteringress}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#multiclusteringress GkeHubFeature#multiclusteringress}
         '''
         result = self._values.get("multiclusteringress")
         return typing.cast(typing.Optional["GkeHubFeatureSpecMulticlusteringress"], result)
@@ -4826,9 +4826,9 @@ class GkeHubFeatureSpecClusterupgrade:
         post_conditions: typing.Optional[typing.Union["GkeHubFeatureSpecClusterupgradePostConditions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param upstream_fleets: Specified if other fleet should be considered as a source of upgrades. Currently, at most one upstream fleet is allowed. The fleet name should be either fleet project number or id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#upstream_fleets GkeHubFeature#upstream_fleets}
-        :param gke_upgrade_overrides: gke_upgrade_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#gke_upgrade_overrides GkeHubFeature#gke_upgrade_overrides}
-        :param post_conditions: post_conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#post_conditions GkeHubFeature#post_conditions}
+        :param upstream_fleets: Specified if other fleet should be considered as a source of upgrades. Currently, at most one upstream fleet is allowed. The fleet name should be either fleet project number or id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#upstream_fleets GkeHubFeature#upstream_fleets}
+        :param gke_upgrade_overrides: gke_upgrade_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#gke_upgrade_overrides GkeHubFeature#gke_upgrade_overrides}
+        :param post_conditions: post_conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#post_conditions GkeHubFeature#post_conditions}
         '''
         if isinstance(post_conditions, dict):
             post_conditions = GkeHubFeatureSpecClusterupgradePostConditions(**post_conditions)
@@ -4851,7 +4851,7 @@ class GkeHubFeatureSpecClusterupgrade:
 
         Currently, at most one upstream fleet is allowed. The fleet name should be either fleet project number or id.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#upstream_fleets GkeHubFeature#upstream_fleets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#upstream_fleets GkeHubFeature#upstream_fleets}
         '''
         result = self._values.get("upstream_fleets")
         assert result is not None, "Required property 'upstream_fleets' is missing"
@@ -4863,7 +4863,7 @@ class GkeHubFeatureSpecClusterupgrade:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeHubFeatureSpecClusterupgradeGkeUpgradeOverrides"]]]:
         '''gke_upgrade_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#gke_upgrade_overrides GkeHubFeature#gke_upgrade_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#gke_upgrade_overrides GkeHubFeature#gke_upgrade_overrides}
         '''
         result = self._values.get("gke_upgrade_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GkeHubFeatureSpecClusterupgradeGkeUpgradeOverrides"]]], result)
@@ -4874,7 +4874,7 @@ class GkeHubFeatureSpecClusterupgrade:
     ) -> typing.Optional["GkeHubFeatureSpecClusterupgradePostConditions"]:
         '''post_conditions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#post_conditions GkeHubFeature#post_conditions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#post_conditions GkeHubFeature#post_conditions}
         '''
         result = self._values.get("post_conditions")
         return typing.cast(typing.Optional["GkeHubFeatureSpecClusterupgradePostConditions"], result)
@@ -4904,8 +4904,8 @@ class GkeHubFeatureSpecClusterupgradeGkeUpgradeOverrides:
         upgrade: typing.Union["GkeHubFeatureSpecClusterupgradeGkeUpgradeOverridesUpgrade", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param post_conditions: post_conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#post_conditions GkeHubFeature#post_conditions}
-        :param upgrade: upgrade block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#upgrade GkeHubFeature#upgrade}
+        :param post_conditions: post_conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#post_conditions GkeHubFeature#post_conditions}
+        :param upgrade: upgrade block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#upgrade GkeHubFeature#upgrade}
         '''
         if isinstance(post_conditions, dict):
             post_conditions = GkeHubFeatureSpecClusterupgradeGkeUpgradeOverridesPostConditions(**post_conditions)
@@ -4926,7 +4926,7 @@ class GkeHubFeatureSpecClusterupgradeGkeUpgradeOverrides:
     ) -> "GkeHubFeatureSpecClusterupgradeGkeUpgradeOverridesPostConditions":
         '''post_conditions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#post_conditions GkeHubFeature#post_conditions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#post_conditions GkeHubFeature#post_conditions}
         '''
         result = self._values.get("post_conditions")
         assert result is not None, "Required property 'post_conditions' is missing"
@@ -4936,7 +4936,7 @@ class GkeHubFeatureSpecClusterupgradeGkeUpgradeOverrides:
     def upgrade(self) -> "GkeHubFeatureSpecClusterupgradeGkeUpgradeOverridesUpgrade":
         '''upgrade block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#upgrade GkeHubFeature#upgrade}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#upgrade GkeHubFeature#upgrade}
         '''
         result = self._values.get("upgrade")
         assert result is not None, "Required property 'upgrade' is missing"
@@ -5076,7 +5076,7 @@ class GkeHubFeatureSpecClusterupgradeGkeUpgradeOverridesOutputReference(
     @jsii.member(jsii_name="putPostConditions")
     def put_post_conditions(self, *, soaking: builtins.str) -> None:
         '''
-        :param soaking: Amount of time to "soak" after a rollout has been finished before marking it COMPLETE. Cannot exceed 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#soaking GkeHubFeature#soaking}
+        :param soaking: Amount of time to "soak" after a rollout has been finished before marking it COMPLETE. Cannot exceed 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#soaking GkeHubFeature#soaking}
         '''
         value = GkeHubFeatureSpecClusterupgradeGkeUpgradeOverridesPostConditions(
             soaking=soaking
@@ -5087,8 +5087,8 @@ class GkeHubFeatureSpecClusterupgradeGkeUpgradeOverridesOutputReference(
     @jsii.member(jsii_name="putUpgrade")
     def put_upgrade(self, *, name: builtins.str, version: builtins.str) -> None:
         '''
-        :param name: Name of the upgrade, e.g., "k8s_control_plane". It should be a valid upgrade name. It must not exceet 99 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#name GkeHubFeature#name}
-        :param version: Version of the upgrade, e.g., "1.22.1-gke.100". It should be a valid version. It must not exceet 99 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
+        :param name: Name of the upgrade, e.g., "k8s_control_plane". It should be a valid upgrade name. It must not exceet 99 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#name GkeHubFeature#name}
+        :param version: Version of the upgrade, e.g., "1.22.1-gke.100". It should be a valid version. It must not exceet 99 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
         '''
         value = GkeHubFeatureSpecClusterupgradeGkeUpgradeOverridesUpgrade(
             name=name, version=version
@@ -5150,7 +5150,7 @@ class GkeHubFeatureSpecClusterupgradeGkeUpgradeOverridesOutputReference(
 class GkeHubFeatureSpecClusterupgradeGkeUpgradeOverridesPostConditions:
     def __init__(self, *, soaking: builtins.str) -> None:
         '''
-        :param soaking: Amount of time to "soak" after a rollout has been finished before marking it COMPLETE. Cannot exceed 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#soaking GkeHubFeature#soaking}
+        :param soaking: Amount of time to "soak" after a rollout has been finished before marking it COMPLETE. Cannot exceed 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#soaking GkeHubFeature#soaking}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__97fc8b63a540e6d759de031766a79559f50aa5a509c1253678c5dea18b3fd699)
@@ -5163,7 +5163,7 @@ class GkeHubFeatureSpecClusterupgradeGkeUpgradeOverridesPostConditions:
     def soaking(self) -> builtins.str:
         '''Amount of time to "soak" after a rollout has been finished before marking it COMPLETE. Cannot exceed 30 days.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#soaking GkeHubFeature#soaking}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#soaking GkeHubFeature#soaking}
         '''
         result = self._values.get("soaking")
         assert result is not None, "Required property 'soaking' is missing"
@@ -5244,8 +5244,8 @@ class GkeHubFeatureSpecClusterupgradeGkeUpgradeOverridesPostConditionsOutputRefe
 class GkeHubFeatureSpecClusterupgradeGkeUpgradeOverridesUpgrade:
     def __init__(self, *, name: builtins.str, version: builtins.str) -> None:
         '''
-        :param name: Name of the upgrade, e.g., "k8s_control_plane". It should be a valid upgrade name. It must not exceet 99 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#name GkeHubFeature#name}
-        :param version: Version of the upgrade, e.g., "1.22.1-gke.100". It should be a valid version. It must not exceet 99 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
+        :param name: Name of the upgrade, e.g., "k8s_control_plane". It should be a valid upgrade name. It must not exceet 99 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#name GkeHubFeature#name}
+        :param version: Version of the upgrade, e.g., "1.22.1-gke.100". It should be a valid version. It must not exceet 99 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__99a482714d0334cfe20337b73af514474962652adf0debfe14f1903a720556a3)
@@ -5260,7 +5260,7 @@ class GkeHubFeatureSpecClusterupgradeGkeUpgradeOverridesUpgrade:
     def name(self) -> builtins.str:
         '''Name of the upgrade, e.g., "k8s_control_plane". It should be a valid upgrade name. It must not exceet 99 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#name GkeHubFeature#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#name GkeHubFeature#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -5270,7 +5270,7 @@ class GkeHubFeatureSpecClusterupgradeGkeUpgradeOverridesUpgrade:
     def version(self) -> builtins.str:
         '''Version of the upgrade, e.g., "1.22.1-gke.100". It should be a valid version. It must not exceet 99 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#version GkeHubFeature#version}
         '''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
@@ -5396,7 +5396,7 @@ class GkeHubFeatureSpecClusterupgradeOutputReference(
     @jsii.member(jsii_name="putPostConditions")
     def put_post_conditions(self, *, soaking: builtins.str) -> None:
         '''
-        :param soaking: Amount of time to "soak" after a rollout has been finished before marking it COMPLETE. Cannot exceed 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#soaking GkeHubFeature#soaking}
+        :param soaking: Amount of time to "soak" after a rollout has been finished before marking it COMPLETE. Cannot exceed 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#soaking GkeHubFeature#soaking}
         '''
         value = GkeHubFeatureSpecClusterupgradePostConditions(soaking=soaking)
 
@@ -5479,7 +5479,7 @@ class GkeHubFeatureSpecClusterupgradeOutputReference(
 class GkeHubFeatureSpecClusterupgradePostConditions:
     def __init__(self, *, soaking: builtins.str) -> None:
         '''
-        :param soaking: Amount of time to "soak" after a rollout has been finished before marking it COMPLETE. Cannot exceed 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#soaking GkeHubFeature#soaking}
+        :param soaking: Amount of time to "soak" after a rollout has been finished before marking it COMPLETE. Cannot exceed 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#soaking GkeHubFeature#soaking}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6ddb0b8cf65ba648cd588f7045003778bb81c6ceabd69aa4983915590eeab864)
@@ -5492,7 +5492,7 @@ class GkeHubFeatureSpecClusterupgradePostConditions:
     def soaking(self) -> builtins.str:
         '''Amount of time to "soak" after a rollout has been finished before marking it COMPLETE. Cannot exceed 30 days.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#soaking GkeHubFeature#soaking}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#soaking GkeHubFeature#soaking}
         '''
         result = self._values.get("soaking")
         assert result is not None, "Required property 'soaking' is missing"
@@ -5577,7 +5577,7 @@ class GkeHubFeatureSpecFleetobservability:
         logging_config: typing.Optional[typing.Union["GkeHubFeatureSpecFleetobservabilityLoggingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#logging_config GkeHubFeature#logging_config}
+        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#logging_config GkeHubFeature#logging_config}
         '''
         if isinstance(logging_config, dict):
             logging_config = GkeHubFeatureSpecFleetobservabilityLoggingConfig(**logging_config)
@@ -5594,7 +5594,7 @@ class GkeHubFeatureSpecFleetobservability:
     ) -> typing.Optional["GkeHubFeatureSpecFleetobservabilityLoggingConfig"]:
         '''logging_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#logging_config GkeHubFeature#logging_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#logging_config GkeHubFeature#logging_config}
         '''
         result = self._values.get("logging_config")
         return typing.cast(typing.Optional["GkeHubFeatureSpecFleetobservabilityLoggingConfig"], result)
@@ -5627,8 +5627,8 @@ class GkeHubFeatureSpecFleetobservabilityLoggingConfig:
         fleet_scope_logs_config: typing.Optional[typing.Union["GkeHubFeatureSpecFleetobservabilityLoggingConfigFleetScopeLogsConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param default_config: default_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#default_config GkeHubFeature#default_config}
-        :param fleet_scope_logs_config: fleet_scope_logs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#fleet_scope_logs_config GkeHubFeature#fleet_scope_logs_config}
+        :param default_config: default_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#default_config GkeHubFeature#default_config}
+        :param fleet_scope_logs_config: fleet_scope_logs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#fleet_scope_logs_config GkeHubFeature#fleet_scope_logs_config}
         '''
         if isinstance(default_config, dict):
             default_config = GkeHubFeatureSpecFleetobservabilityLoggingConfigDefaultConfig(**default_config)
@@ -5650,7 +5650,7 @@ class GkeHubFeatureSpecFleetobservabilityLoggingConfig:
     ) -> typing.Optional["GkeHubFeatureSpecFleetobservabilityLoggingConfigDefaultConfig"]:
         '''default_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#default_config GkeHubFeature#default_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#default_config GkeHubFeature#default_config}
         '''
         result = self._values.get("default_config")
         return typing.cast(typing.Optional["GkeHubFeatureSpecFleetobservabilityLoggingConfigDefaultConfig"], result)
@@ -5661,7 +5661,7 @@ class GkeHubFeatureSpecFleetobservabilityLoggingConfig:
     ) -> typing.Optional["GkeHubFeatureSpecFleetobservabilityLoggingConfigFleetScopeLogsConfig"]:
         '''fleet_scope_logs_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#fleet_scope_logs_config GkeHubFeature#fleet_scope_logs_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#fleet_scope_logs_config GkeHubFeature#fleet_scope_logs_config}
         '''
         result = self._values.get("fleet_scope_logs_config")
         return typing.cast(typing.Optional["GkeHubFeatureSpecFleetobservabilityLoggingConfigFleetScopeLogsConfig"], result)
@@ -5686,7 +5686,7 @@ class GkeHubFeatureSpecFleetobservabilityLoggingConfig:
 class GkeHubFeatureSpecFleetobservabilityLoggingConfigDefaultConfig:
     def __init__(self, *, mode: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param mode: Specified if fleet logging feature is enabled. Possible values: ["MODE_UNSPECIFIED", "COPY", "MOVE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#mode GkeHubFeature#mode}
+        :param mode: Specified if fleet logging feature is enabled. Possible values: ["MODE_UNSPECIFIED", "COPY", "MOVE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#mode GkeHubFeature#mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__684f07004b1ba6f1f8d8210a6d8f55a5b9e71793ea2dd271410e09057bf670ce)
@@ -5699,7 +5699,7 @@ class GkeHubFeatureSpecFleetobservabilityLoggingConfigDefaultConfig:
     def mode(self) -> typing.Optional[builtins.str]:
         '''Specified if fleet logging feature is enabled. Possible values: ["MODE_UNSPECIFIED", "COPY", "MOVE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#mode GkeHubFeature#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#mode GkeHubFeature#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5783,7 +5783,7 @@ class GkeHubFeatureSpecFleetobservabilityLoggingConfigDefaultConfigOutputReferen
 class GkeHubFeatureSpecFleetobservabilityLoggingConfigFleetScopeLogsConfig:
     def __init__(self, *, mode: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param mode: Specified if fleet logging feature is enabled. Possible values: ["MODE_UNSPECIFIED", "COPY", "MOVE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#mode GkeHubFeature#mode}
+        :param mode: Specified if fleet logging feature is enabled. Possible values: ["MODE_UNSPECIFIED", "COPY", "MOVE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#mode GkeHubFeature#mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59cdac985bb9fb598a09f83796f0d95e39afb6c9258d8a3f9b900ff953ba91a5)
@@ -5796,7 +5796,7 @@ class GkeHubFeatureSpecFleetobservabilityLoggingConfigFleetScopeLogsConfig:
     def mode(self) -> typing.Optional[builtins.str]:
         '''Specified if fleet logging feature is enabled. Possible values: ["MODE_UNSPECIFIED", "COPY", "MOVE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#mode GkeHubFeature#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#mode GkeHubFeature#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5895,7 +5895,7 @@ class GkeHubFeatureSpecFleetobservabilityLoggingConfigOutputReference(
     @jsii.member(jsii_name="putDefaultConfig")
     def put_default_config(self, *, mode: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param mode: Specified if fleet logging feature is enabled. Possible values: ["MODE_UNSPECIFIED", "COPY", "MOVE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#mode GkeHubFeature#mode}
+        :param mode: Specified if fleet logging feature is enabled. Possible values: ["MODE_UNSPECIFIED", "COPY", "MOVE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#mode GkeHubFeature#mode}
         '''
         value = GkeHubFeatureSpecFleetobservabilityLoggingConfigDefaultConfig(
             mode=mode
@@ -5910,7 +5910,7 @@ class GkeHubFeatureSpecFleetobservabilityLoggingConfigOutputReference(
         mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param mode: Specified if fleet logging feature is enabled. Possible values: ["MODE_UNSPECIFIED", "COPY", "MOVE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#mode GkeHubFeature#mode}
+        :param mode: Specified if fleet logging feature is enabled. Possible values: ["MODE_UNSPECIFIED", "COPY", "MOVE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#mode GkeHubFeature#mode}
         '''
         value = GkeHubFeatureSpecFleetobservabilityLoggingConfigFleetScopeLogsConfig(
             mode=mode
@@ -6000,8 +6000,8 @@ class GkeHubFeatureSpecFleetobservabilityOutputReference(
         fleet_scope_logs_config: typing.Optional[typing.Union[GkeHubFeatureSpecFleetobservabilityLoggingConfigFleetScopeLogsConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param default_config: default_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#default_config GkeHubFeature#default_config}
-        :param fleet_scope_logs_config: fleet_scope_logs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#fleet_scope_logs_config GkeHubFeature#fleet_scope_logs_config}
+        :param default_config: default_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#default_config GkeHubFeature#default_config}
+        :param fleet_scope_logs_config: fleet_scope_logs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#fleet_scope_logs_config GkeHubFeature#fleet_scope_logs_config}
         '''
         value = GkeHubFeatureSpecFleetobservabilityLoggingConfig(
             default_config=default_config,
@@ -6052,7 +6052,7 @@ class GkeHubFeatureSpecFleetobservabilityOutputReference(
 class GkeHubFeatureSpecMulticlusteringress:
     def __init__(self, *, config_membership: builtins.str) -> None:
         '''
-        :param config_membership: Fully-qualified Membership name which hosts the MultiClusterIngress CRD. Example: 'projects/foo-proj/locations/global/memberships/bar'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#config_membership GkeHubFeature#config_membership}
+        :param config_membership: Fully-qualified Membership name which hosts the MultiClusterIngress CRD. Example: 'projects/foo-proj/locations/global/memberships/bar'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#config_membership GkeHubFeature#config_membership}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b42001b933a09bfedcafd2135e2449a44c8b807f8de748095bcca334fd6e37a1)
@@ -6065,7 +6065,7 @@ class GkeHubFeatureSpecMulticlusteringress:
     def config_membership(self) -> builtins.str:
         '''Fully-qualified Membership name which hosts the MultiClusterIngress CRD. Example: 'projects/foo-proj/locations/global/memberships/bar'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#config_membership GkeHubFeature#config_membership}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#config_membership GkeHubFeature#config_membership}
         '''
         result = self._values.get("config_membership")
         assert result is not None, "Required property 'config_membership' is missing"
@@ -6165,9 +6165,9 @@ class GkeHubFeatureSpecOutputReference(
         post_conditions: typing.Optional[typing.Union[GkeHubFeatureSpecClusterupgradePostConditions, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param upstream_fleets: Specified if other fleet should be considered as a source of upgrades. Currently, at most one upstream fleet is allowed. The fleet name should be either fleet project number or id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#upstream_fleets GkeHubFeature#upstream_fleets}
-        :param gke_upgrade_overrides: gke_upgrade_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#gke_upgrade_overrides GkeHubFeature#gke_upgrade_overrides}
-        :param post_conditions: post_conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#post_conditions GkeHubFeature#post_conditions}
+        :param upstream_fleets: Specified if other fleet should be considered as a source of upgrades. Currently, at most one upstream fleet is allowed. The fleet name should be either fleet project number or id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#upstream_fleets GkeHubFeature#upstream_fleets}
+        :param gke_upgrade_overrides: gke_upgrade_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#gke_upgrade_overrides GkeHubFeature#gke_upgrade_overrides}
+        :param post_conditions: post_conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#post_conditions GkeHubFeature#post_conditions}
         '''
         value = GkeHubFeatureSpecClusterupgrade(
             upstream_fleets=upstream_fleets,
@@ -6184,7 +6184,7 @@ class GkeHubFeatureSpecOutputReference(
         logging_config: typing.Optional[typing.Union[GkeHubFeatureSpecFleetobservabilityLoggingConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#logging_config GkeHubFeature#logging_config}
+        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#logging_config GkeHubFeature#logging_config}
         '''
         value = GkeHubFeatureSpecFleetobservability(logging_config=logging_config)
 
@@ -6193,7 +6193,7 @@ class GkeHubFeatureSpecOutputReference(
     @jsii.member(jsii_name="putMulticlusteringress")
     def put_multiclusteringress(self, *, config_membership: builtins.str) -> None:
         '''
-        :param config_membership: Fully-qualified Membership name which hosts the MultiClusterIngress CRD. Example: 'projects/foo-proj/locations/global/memberships/bar'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#config_membership GkeHubFeature#config_membership}
+        :param config_membership: Fully-qualified Membership name which hosts the MultiClusterIngress CRD. Example: 'projects/foo-proj/locations/global/memberships/bar'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#config_membership GkeHubFeature#config_membership}
         '''
         value = GkeHubFeatureSpecMulticlusteringress(
             config_membership=config_membership
@@ -6562,9 +6562,9 @@ class GkeHubFeatureTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#create GkeHubFeature#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#delete GkeHubFeature#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#update GkeHubFeature#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#create GkeHubFeature#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#delete GkeHubFeature#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#update GkeHubFeature#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bf89b32285c28e02e496862b4900cced96d984060b303179a8af09c5f45a8e83)
@@ -6581,19 +6581,19 @@ class GkeHubFeatureTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#create GkeHubFeature#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#create GkeHubFeature#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#delete GkeHubFeature#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#delete GkeHubFeature#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gke_hub_feature#update GkeHubFeature#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gke_hub_feature#update GkeHubFeature#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

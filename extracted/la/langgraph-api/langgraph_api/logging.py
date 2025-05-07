@@ -1,6 +1,8 @@
+import contextvars
 import logging
 import os
 import threading
+import typing
 
 import structlog
 from starlette.config import Config
@@ -17,6 +19,10 @@ LOG_LEVEL = log_env("LOG_LEVEL", cast=str, default="INFO")
 logging.getLogger().setLevel(LOG_LEVEL.upper())
 logging.getLogger("psycopg").setLevel(logging.WARNING)
 
+worker_config: contextvars.ContextVar[dict[str, typing.Any] | None] = (
+    contextvars.ContextVar("worker_config", default=None)
+)
+
 # custom processors
 
 
@@ -25,6 +31,15 @@ def add_thread_name(
 ) -> EventDict:
     event_dict["thread_name"] = threading.current_thread().name
     return event_dict
+
+
+def set_logging_context(val: dict[str, typing.Any] | None) -> contextvars.Token:
+    if val is None:
+        return worker_config.set(None)
+    current = worker_config.get()
+    if current is None:
+        return worker_config.set(val)
+    return worker_config.set({**current, **val})
 
 
 class AddPrefixedEnvVars:
@@ -39,6 +54,15 @@ class AddPrefixedEnvVars:
         self, logger: logging.Logger, method_name: str, event_dict: EventDict
     ) -> EventDict:
         event_dict.update(self.kv)
+        return event_dict
+
+
+class AddLoggingContext:
+    def __call__(
+        self, logger: logging.Logger, method_name: str, event_dict: EventDict
+    ) -> EventDict:
+        if (ctx := worker_config.get()) is not None:
+            event_dict.update(ctx)
         return event_dict
 
 
@@ -87,6 +111,7 @@ shared_processors = [
     structlog.processors.StackInfoRenderer(),
     structlog.processors.format_exc_info,
     structlog.processors.UnicodeDecoder(),
+    AddLoggingContext(),
 ]
 
 

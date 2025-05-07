@@ -1,7 +1,7 @@
 r'''
 # `google_vertex_ai_featurestore`
 
-Refer to the Terraform Registry for docs: [`google_vertex_ai_featurestore`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore).
+Refer to the Terraform Registry for docs: [`google_vertex_ai_featurestore`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class VertexAiFeaturestore(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.vertexAiFeaturestore.VertexAiFeaturestore",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore google_vertex_ai_featurestore}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore google_vertex_ai_featurestore}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class VertexAiFeaturestore(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore google_vertex_ai_featurestore} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore google_vertex_ai_featurestore} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#encryption_spec VertexAiFeaturestore#encryption_spec}
-        :param force_destroy: If set to true, any EntityTypes and Features for this Featurestore will also be deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#force_destroy VertexAiFeaturestore#force_destroy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#id VertexAiFeaturestore#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: A set of key/value label pairs to assign to this Featurestore. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#labels VertexAiFeaturestore#labels}
-        :param name: The name of the Featurestore. This value may be up to 60 characters, and valid characters are [a-z0-9_]. The first character cannot be a number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#name VertexAiFeaturestore#name}
-        :param online_serving_config: online_serving_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#online_serving_config VertexAiFeaturestore#online_serving_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#project VertexAiFeaturestore#project}.
-        :param region: The region of the dataset. eg us-central1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#region VertexAiFeaturestore#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#timeouts VertexAiFeaturestore#timeouts}
+        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#encryption_spec VertexAiFeaturestore#encryption_spec}
+        :param force_destroy: If set to true, any EntityTypes and Features for this Featurestore will also be deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#force_destroy VertexAiFeaturestore#force_destroy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#id VertexAiFeaturestore#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: A set of key/value label pairs to assign to this Featurestore. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#labels VertexAiFeaturestore#labels}
+        :param name: The name of the Featurestore. This value may be up to 60 characters, and valid characters are [a-z0-9_]. The first character cannot be a number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#name VertexAiFeaturestore#name}
+        :param online_serving_config: online_serving_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#online_serving_config VertexAiFeaturestore#online_serving_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#project VertexAiFeaturestore#project}.
+        :param region: The region of the dataset. eg us-central1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#region VertexAiFeaturestore#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#timeouts VertexAiFeaturestore#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class VertexAiFeaturestore(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the VertexAiFeaturestore to import.
-        :param import_from_id: The id of the existing VertexAiFeaturestore that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing VertexAiFeaturestore that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the VertexAiFeaturestore to import is found.
         '''
         if __debug__:
@@ -141,7 +141,7 @@ class VertexAiFeaturestore(
     @jsii.member(jsii_name="putEncryptionSpec")
     def put_encryption_spec(self, *, kms_key_name: builtins.str) -> None:
         '''
-        :param kms_key_name: The Cloud KMS resource identifier of the customer managed encryption key used to protect a resource. Has the form: projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key. The key needs to be in the same region as where the compute resource is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#kms_key_name VertexAiFeaturestore#kms_key_name}
+        :param kms_key_name: The Cloud KMS resource identifier of the customer managed encryption key used to protect a resource. Has the form: projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key. The key needs to be in the same region as where the compute resource is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#kms_key_name VertexAiFeaturestore#kms_key_name}
         '''
         value = VertexAiFeaturestoreEncryptionSpec(kms_key_name=kms_key_name)
 
@@ -155,8 +155,8 @@ class VertexAiFeaturestore(
         scaling: typing.Optional[typing.Union["VertexAiFeaturestoreOnlineServingConfigScaling", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param fixed_node_count: The number of nodes for each cluster. The number of nodes will not scale automatically but can be scaled manually by providing different values when updating. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#fixed_node_count VertexAiFeaturestore#fixed_node_count}
-        :param scaling: scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#scaling VertexAiFeaturestore#scaling}
+        :param fixed_node_count: The number of nodes for each cluster. The number of nodes will not scale automatically but can be scaled manually by providing different values when updating. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#fixed_node_count VertexAiFeaturestore#fixed_node_count}
+        :param scaling: scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#scaling VertexAiFeaturestore#scaling}
         '''
         value = VertexAiFeaturestoreOnlineServingConfig(
             fixed_node_count=fixed_node_count, scaling=scaling
@@ -173,9 +173,9 @@ class VertexAiFeaturestore(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#create VertexAiFeaturestore#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#delete VertexAiFeaturestore#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#update VertexAiFeaturestore#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#create VertexAiFeaturestore#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#delete VertexAiFeaturestore#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#update VertexAiFeaturestore#update}.
         '''
         value = VertexAiFeaturestoreTimeouts(
             create=create, delete=delete, update=update
@@ -456,15 +456,15 @@ class VertexAiFeaturestoreConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#encryption_spec VertexAiFeaturestore#encryption_spec}
-        :param force_destroy: If set to true, any EntityTypes and Features for this Featurestore will also be deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#force_destroy VertexAiFeaturestore#force_destroy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#id VertexAiFeaturestore#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: A set of key/value label pairs to assign to this Featurestore. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#labels VertexAiFeaturestore#labels}
-        :param name: The name of the Featurestore. This value may be up to 60 characters, and valid characters are [a-z0-9_]. The first character cannot be a number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#name VertexAiFeaturestore#name}
-        :param online_serving_config: online_serving_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#online_serving_config VertexAiFeaturestore#online_serving_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#project VertexAiFeaturestore#project}.
-        :param region: The region of the dataset. eg us-central1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#region VertexAiFeaturestore#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#timeouts VertexAiFeaturestore#timeouts}
+        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#encryption_spec VertexAiFeaturestore#encryption_spec}
+        :param force_destroy: If set to true, any EntityTypes and Features for this Featurestore will also be deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#force_destroy VertexAiFeaturestore#force_destroy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#id VertexAiFeaturestore#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: A set of key/value label pairs to assign to this Featurestore. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#labels VertexAiFeaturestore#labels}
+        :param name: The name of the Featurestore. This value may be up to 60 characters, and valid characters are [a-z0-9_]. The first character cannot be a number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#name VertexAiFeaturestore#name}
+        :param online_serving_config: online_serving_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#online_serving_config VertexAiFeaturestore#online_serving_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#project VertexAiFeaturestore#project}.
+        :param region: The region of the dataset. eg us-central1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#region VertexAiFeaturestore#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#timeouts VertexAiFeaturestore#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -594,7 +594,7 @@ class VertexAiFeaturestoreConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encryption_spec(self) -> typing.Optional["VertexAiFeaturestoreEncryptionSpec"]:
         '''encryption_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#encryption_spec VertexAiFeaturestore#encryption_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#encryption_spec VertexAiFeaturestore#encryption_spec}
         '''
         result = self._values.get("encryption_spec")
         return typing.cast(typing.Optional["VertexAiFeaturestoreEncryptionSpec"], result)
@@ -605,14 +605,14 @@ class VertexAiFeaturestoreConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, any EntityTypes and Features for this Featurestore will also be deleted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#force_destroy VertexAiFeaturestore#force_destroy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#force_destroy VertexAiFeaturestore#force_destroy}
         '''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#id VertexAiFeaturestore#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#id VertexAiFeaturestore#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -627,7 +627,7 @@ class VertexAiFeaturestoreConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#labels VertexAiFeaturestore#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#labels VertexAiFeaturestore#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -638,7 +638,7 @@ class VertexAiFeaturestoreConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This value may be up to 60 characters, and valid characters are [a-z0-9_]. The first character cannot be a number.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#name VertexAiFeaturestore#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#name VertexAiFeaturestore#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -649,14 +649,14 @@ class VertexAiFeaturestoreConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["VertexAiFeaturestoreOnlineServingConfig"]:
         '''online_serving_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#online_serving_config VertexAiFeaturestore#online_serving_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#online_serving_config VertexAiFeaturestore#online_serving_config}
         '''
         result = self._values.get("online_serving_config")
         return typing.cast(typing.Optional["VertexAiFeaturestoreOnlineServingConfig"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#project VertexAiFeaturestore#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#project VertexAiFeaturestore#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -664,7 +664,7 @@ class VertexAiFeaturestoreConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''The region of the dataset. eg us-central1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#region VertexAiFeaturestore#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#region VertexAiFeaturestore#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -673,7 +673,7 @@ class VertexAiFeaturestoreConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["VertexAiFeaturestoreTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#timeouts VertexAiFeaturestore#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#timeouts VertexAiFeaturestore#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["VertexAiFeaturestoreTimeouts"], result)
@@ -698,7 +698,7 @@ class VertexAiFeaturestoreConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class VertexAiFeaturestoreEncryptionSpec:
     def __init__(self, *, kms_key_name: builtins.str) -> None:
         '''
-        :param kms_key_name: The Cloud KMS resource identifier of the customer managed encryption key used to protect a resource. Has the form: projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key. The key needs to be in the same region as where the compute resource is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#kms_key_name VertexAiFeaturestore#kms_key_name}
+        :param kms_key_name: The Cloud KMS resource identifier of the customer managed encryption key used to protect a resource. Has the form: projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key. The key needs to be in the same region as where the compute resource is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#kms_key_name VertexAiFeaturestore#kms_key_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e6d7dd15c4c9c4bab34991480c394daeaf6eb29de9e9dbb00c3b820bbb262465)
@@ -713,7 +713,7 @@ class VertexAiFeaturestoreEncryptionSpec:
 
         Has the form: projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key. The key needs to be in the same region as where the compute resource is created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#kms_key_name VertexAiFeaturestore#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#kms_key_name VertexAiFeaturestore#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         assert result is not None, "Required property 'kms_key_name' is missing"
@@ -797,8 +797,8 @@ class VertexAiFeaturestoreOnlineServingConfig:
         scaling: typing.Optional[typing.Union["VertexAiFeaturestoreOnlineServingConfigScaling", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param fixed_node_count: The number of nodes for each cluster. The number of nodes will not scale automatically but can be scaled manually by providing different values when updating. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#fixed_node_count VertexAiFeaturestore#fixed_node_count}
-        :param scaling: scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#scaling VertexAiFeaturestore#scaling}
+        :param fixed_node_count: The number of nodes for each cluster. The number of nodes will not scale automatically but can be scaled manually by providing different values when updating. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#fixed_node_count VertexAiFeaturestore#fixed_node_count}
+        :param scaling: scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#scaling VertexAiFeaturestore#scaling}
         '''
         if isinstance(scaling, dict):
             scaling = VertexAiFeaturestoreOnlineServingConfigScaling(**scaling)
@@ -818,7 +818,7 @@ class VertexAiFeaturestoreOnlineServingConfig:
 
         The number of nodes will not scale automatically but can be scaled manually by providing different values when updating.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#fixed_node_count VertexAiFeaturestore#fixed_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#fixed_node_count VertexAiFeaturestore#fixed_node_count}
         '''
         result = self._values.get("fixed_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -829,7 +829,7 @@ class VertexAiFeaturestoreOnlineServingConfig:
     ) -> typing.Optional["VertexAiFeaturestoreOnlineServingConfigScaling"]:
         '''scaling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#scaling VertexAiFeaturestore#scaling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#scaling VertexAiFeaturestore#scaling}
         '''
         result = self._values.get("scaling")
         return typing.cast(typing.Optional["VertexAiFeaturestoreOnlineServingConfigScaling"], result)
@@ -874,8 +874,8 @@ class VertexAiFeaturestoreOnlineServingConfigOutputReference(
         min_node_count: jsii.Number,
     ) -> None:
         '''
-        :param max_node_count: The maximum number of nodes to scale up to. Must be greater than minNodeCount, and less than or equal to 10 times of 'minNodeCount'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#max_node_count VertexAiFeaturestore#max_node_count}
-        :param min_node_count: The minimum number of nodes to scale down to. Must be greater than or equal to 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#min_node_count VertexAiFeaturestore#min_node_count}
+        :param max_node_count: The maximum number of nodes to scale up to. Must be greater than minNodeCount, and less than or equal to 10 times of 'minNodeCount'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#max_node_count VertexAiFeaturestore#max_node_count}
+        :param min_node_count: The minimum number of nodes to scale down to. Must be greater than or equal to 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#min_node_count VertexAiFeaturestore#min_node_count}
         '''
         value = VertexAiFeaturestoreOnlineServingConfigScaling(
             max_node_count=max_node_count, min_node_count=min_node_count
@@ -953,8 +953,8 @@ class VertexAiFeaturestoreOnlineServingConfigScaling:
         min_node_count: jsii.Number,
     ) -> None:
         '''
-        :param max_node_count: The maximum number of nodes to scale up to. Must be greater than minNodeCount, and less than or equal to 10 times of 'minNodeCount'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#max_node_count VertexAiFeaturestore#max_node_count}
-        :param min_node_count: The minimum number of nodes to scale down to. Must be greater than or equal to 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#min_node_count VertexAiFeaturestore#min_node_count}
+        :param max_node_count: The maximum number of nodes to scale up to. Must be greater than minNodeCount, and less than or equal to 10 times of 'minNodeCount'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#max_node_count VertexAiFeaturestore#max_node_count}
+        :param min_node_count: The minimum number of nodes to scale down to. Must be greater than or equal to 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#min_node_count VertexAiFeaturestore#min_node_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3649eaa6171cbb8859c46ad9ae9fe14320aa94476410e6877c9556d785598425)
@@ -971,7 +971,7 @@ class VertexAiFeaturestoreOnlineServingConfigScaling:
 
         Must be greater than minNodeCount, and less than or equal to 10 times of 'minNodeCount'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#max_node_count VertexAiFeaturestore#max_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#max_node_count VertexAiFeaturestore#max_node_count}
         '''
         result = self._values.get("max_node_count")
         assert result is not None, "Required property 'max_node_count' is missing"
@@ -981,7 +981,7 @@ class VertexAiFeaturestoreOnlineServingConfigScaling:
     def min_node_count(self) -> jsii.Number:
         '''The minimum number of nodes to scale down to. Must be greater than or equal to 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#min_node_count VertexAiFeaturestore#min_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#min_node_count VertexAiFeaturestore#min_node_count}
         '''
         result = self._values.get("min_node_count")
         assert result is not None, "Required property 'min_node_count' is missing"
@@ -1085,9 +1085,9 @@ class VertexAiFeaturestoreTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#create VertexAiFeaturestore#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#delete VertexAiFeaturestore#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#update VertexAiFeaturestore#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#create VertexAiFeaturestore#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#delete VertexAiFeaturestore#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#update VertexAiFeaturestore#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__98674d512a41467524679133c1d9a8e99fdf16781fc1e00a62dbd59e245769a0)
@@ -1104,19 +1104,19 @@ class VertexAiFeaturestoreTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#create VertexAiFeaturestore#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#create VertexAiFeaturestore#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#delete VertexAiFeaturestore#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#delete VertexAiFeaturestore#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_featurestore#update VertexAiFeaturestore#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_featurestore#update VertexAiFeaturestore#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

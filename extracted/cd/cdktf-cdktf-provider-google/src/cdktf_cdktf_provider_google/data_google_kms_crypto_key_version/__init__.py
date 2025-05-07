@@ -1,7 +1,7 @@
 r'''
 # `data_google_kms_crypto_key_version`
 
-Refer to the Terraform Registry for docs: [`data_google_kms_crypto_key_version`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_crypto_key_version).
+Refer to the Terraform Registry for docs: [`data_google_kms_crypto_key_version`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_crypto_key_version).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleKmsCryptoKeyVersion(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleKmsCryptoKeyVersion.DataGoogleKmsCryptoKeyVersion",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_crypto_key_version google_kms_crypto_key_version}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_crypto_key_version google_kms_crypto_key_version}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataGoogleKmsCryptoKeyVersion(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_crypto_key_version google_kms_crypto_key_version} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_crypto_key_version google_kms_crypto_key_version} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param crypto_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_crypto_key_version#crypto_key DataGoogleKmsCryptoKeyVersion#crypto_key}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_crypto_key_version#id DataGoogleKmsCryptoKeyVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_crypto_key_version#version DataGoogleKmsCryptoKeyVersion#version}.
+        :param crypto_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_crypto_key_version#crypto_key DataGoogleKmsCryptoKeyVersion#crypto_key}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_crypto_key_version#id DataGoogleKmsCryptoKeyVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_crypto_key_version#version DataGoogleKmsCryptoKeyVersion#version}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataGoogleKmsCryptoKeyVersion(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleKmsCryptoKeyVersion to import.
-        :param import_from_id: The id of the existing DataGoogleKmsCryptoKeyVersion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_crypto_key_version#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleKmsCryptoKeyVersion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_crypto_key_version#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleKmsCryptoKeyVersion to import is found.
         '''
         if __debug__:
@@ -257,9 +257,9 @@ class DataGoogleKmsCryptoKeyVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param crypto_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_crypto_key_version#crypto_key DataGoogleKmsCryptoKeyVersion#crypto_key}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_crypto_key_version#id DataGoogleKmsCryptoKeyVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_crypto_key_version#version DataGoogleKmsCryptoKeyVersion#version}.
+        :param crypto_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_crypto_key_version#crypto_key DataGoogleKmsCryptoKeyVersion#crypto_key}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_crypto_key_version#id DataGoogleKmsCryptoKeyVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_crypto_key_version#version DataGoogleKmsCryptoKeyVersion#version}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -363,14 +363,14 @@ class DataGoogleKmsCryptoKeyVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def crypto_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_crypto_key_version#crypto_key DataGoogleKmsCryptoKeyVersion#crypto_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_crypto_key_version#crypto_key DataGoogleKmsCryptoKeyVersion#crypto_key}.'''
         result = self._values.get("crypto_key")
         assert result is not None, "Required property 'crypto_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_crypto_key_version#id DataGoogleKmsCryptoKeyVersion#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_crypto_key_version#id DataGoogleKmsCryptoKeyVersion#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -380,7 +380,7 @@ class DataGoogleKmsCryptoKeyVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def version(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/kms_crypto_key_version#version DataGoogleKmsCryptoKeyVersion#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/kms_crypto_key_version#version DataGoogleKmsCryptoKeyVersion#version}.'''
         result = self._values.get("version")
         return typing.cast(typing.Optional[jsii.Number], result)
 

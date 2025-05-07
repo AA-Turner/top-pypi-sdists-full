@@ -150,7 +150,6 @@ from .widget import (
     BigText,
     BoxAdapter,
     BoxAdapterError,
-    BoxWidget,
     Button,
     CheckBox,
     CheckBoxError,
@@ -161,8 +160,6 @@ from .widget import (
     EditError,
     Filler,
     FillerError,
-    FixedWidget,
-    FlowWidget,
     Frame,
     FrameError,
     GraphVScale,
@@ -242,7 +239,7 @@ except ImportError:
 
 # OS Specific
 if sys.platform != "win32":
-    from .vterm import TermCanvas, TermCharset, Terminal, TermModes, TermScroller
+    from .vterm import TermCanvas, TermCharset, Terminal, TermModes
 
     # ZMQEventLoop cause interpreter crash on windows
     try:

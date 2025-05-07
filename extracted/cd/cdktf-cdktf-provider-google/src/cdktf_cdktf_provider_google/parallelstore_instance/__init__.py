@@ -1,7 +1,7 @@
 r'''
 # `google_parallelstore_instance`
 
-Refer to the Terraform Registry for docs: [`google_parallelstore_instance`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance).
+Refer to the Terraform Registry for docs: [`google_parallelstore_instance`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ParallelstoreInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.parallelstoreInstance.ParallelstoreInstance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance google_parallelstore_instance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance google_parallelstore_instance}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class ParallelstoreInstance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance google_parallelstore_instance} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance google_parallelstore_instance} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param capacity_gib: Required. Immutable. Storage capacity of Parallelstore instance in Gibibytes (GiB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#capacity_gib ParallelstoreInstance#capacity_gib}
-        :param instance_id: The logical name of the Parallelstore instance in the user project with the following restrictions: * Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the customer project/ location Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#instance_id ParallelstoreInstance#instance_id}
-        :param location: Part of 'parent'. See documentation of 'projectsId'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#location ParallelstoreInstance#location}
-        :param deployment_type: Parallelstore Instance deployment type. Possible values: DEPLOYMENT_TYPE_UNSPECIFIED SCRATCH PERSISTENT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#deployment_type ParallelstoreInstance#deployment_type}
-        :param description: The description of the instance. 2048 characters or less. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#description ParallelstoreInstance#description}
-        :param directory_stripe_level: Stripe level for directories. MIN when directory has a small number of files. MAX when directory has a large number of files. Possible values: DIRECTORY_STRIPE_LEVEL_UNSPECIFIED DIRECTORY_STRIPE_LEVEL_MIN DIRECTORY_STRIPE_LEVEL_BALANCED DIRECTORY_STRIPE_LEVEL_MAX Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#directory_stripe_level ParallelstoreInstance#directory_stripe_level}
-        :param file_stripe_level: Stripe level for files. MIN better suited for small size files. MAX higher throughput performance for larger files. Possible values: FILE_STRIPE_LEVEL_UNSPECIFIED FILE_STRIPE_LEVEL_MIN FILE_STRIPE_LEVEL_BALANCED FILE_STRIPE_LEVEL_MAX Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#file_stripe_level ParallelstoreInstance#file_stripe_level}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#id ParallelstoreInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Cloud Labels are a flexible and lightweight mechanism for organizing cloud resources into groups that reflect a customer's organizational needs and deployment strategies. Cloud Labels can be used to filter collections of resources. They can be used to control how resource metrics are aggregated. And they can be used as arguments to policy management rules (e.g. route, firewall, load balancing, etc.). - Label keys must be between 1 and 63 characters long and must conform to the following regular expression: 'a-z{0,62}'. - Label values must be between 0 and 63 characters long and must conform to the regular expression '[a-z0-9_-]{0,63}'. - No more than 64 labels can be associated with a given resource. See https://goo.gl/xmQnxf for more information on and examples of labels. If you plan to use labels in your own code, please note that additional characters may be allowed in the future. Therefore, you are advised to use an internal label representation, such as JSON, which doesn't rely upon specific characters being disallowed. For example, representing labels as the string: 'name + "*" + value' would prove problematic if we were to allow '"*"' in a future release. " **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#labels ParallelstoreInstance#labels}
-        :param network: Immutable. The name of the Google Compute Engine `VPC network <https://cloud.google.com/vpc/docs/vpc>`_ to which the instance is connected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#network ParallelstoreInstance#network}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#project ParallelstoreInstance#project}.
-        :param reserved_ip_range: Immutable. Contains the id of the allocated IP address range associated with the private service access connection for example, "test-default" associated with IP range 10.0.0.0/29. If no range id is provided all ranges will be considered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#reserved_ip_range ParallelstoreInstance#reserved_ip_range}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#timeouts ParallelstoreInstance#timeouts}
+        :param capacity_gib: Required. Immutable. Storage capacity of Parallelstore instance in Gibibytes (GiB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#capacity_gib ParallelstoreInstance#capacity_gib}
+        :param instance_id: The logical name of the Parallelstore instance in the user project with the following restrictions: * Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the customer project/ location Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#instance_id ParallelstoreInstance#instance_id}
+        :param location: Part of 'parent'. See documentation of 'projectsId'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#location ParallelstoreInstance#location}
+        :param deployment_type: Parallelstore Instance deployment type. Possible values: DEPLOYMENT_TYPE_UNSPECIFIED SCRATCH PERSISTENT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#deployment_type ParallelstoreInstance#deployment_type}
+        :param description: The description of the instance. 2048 characters or less. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#description ParallelstoreInstance#description}
+        :param directory_stripe_level: Stripe level for directories. MIN when directory has a small number of files. MAX when directory has a large number of files. Possible values: DIRECTORY_STRIPE_LEVEL_UNSPECIFIED DIRECTORY_STRIPE_LEVEL_MIN DIRECTORY_STRIPE_LEVEL_BALANCED DIRECTORY_STRIPE_LEVEL_MAX Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#directory_stripe_level ParallelstoreInstance#directory_stripe_level}
+        :param file_stripe_level: Stripe level for files. MIN better suited for small size files. MAX higher throughput performance for larger files. Possible values: FILE_STRIPE_LEVEL_UNSPECIFIED FILE_STRIPE_LEVEL_MIN FILE_STRIPE_LEVEL_BALANCED FILE_STRIPE_LEVEL_MAX Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#file_stripe_level ParallelstoreInstance#file_stripe_level}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#id ParallelstoreInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Cloud Labels are a flexible and lightweight mechanism for organizing cloud resources into groups that reflect a customer's organizational needs and deployment strategies. Cloud Labels can be used to filter collections of resources. They can be used to control how resource metrics are aggregated. And they can be used as arguments to policy management rules (e.g. route, firewall, load balancing, etc.). - Label keys must be between 1 and 63 characters long and must conform to the following regular expression: 'a-z{0,62}'. - Label values must be between 0 and 63 characters long and must conform to the regular expression '[a-z0-9_-]{0,63}'. - No more than 64 labels can be associated with a given resource. See https://goo.gl/xmQnxf for more information on and examples of labels. If you plan to use labels in your own code, please note that additional characters may be allowed in the future. Therefore, you are advised to use an internal label representation, such as JSON, which doesn't rely upon specific characters being disallowed. For example, representing labels as the string: 'name + "*" + value' would prove problematic if we were to allow '"*"' in a future release. " **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#labels ParallelstoreInstance#labels}
+        :param network: Immutable. The name of the Google Compute Engine `VPC network <https://cloud.google.com/vpc/docs/vpc>`_ to which the instance is connected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#network ParallelstoreInstance#network}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#project ParallelstoreInstance#project}.
+        :param reserved_ip_range: Immutable. Contains the id of the allocated IP address range associated with the private service access connection for example, "test-default" associated with IP range 10.0.0.0/29. If no range id is provided all ranges will be considered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#reserved_ip_range ParallelstoreInstance#reserved_ip_range}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#timeouts ParallelstoreInstance#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class ParallelstoreInstance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ParallelstoreInstance to import.
-        :param import_from_id: The id of the existing ParallelstoreInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ParallelstoreInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ParallelstoreInstance to import is found.
         '''
         if __debug__:
@@ -159,9 +159,9 @@ class ParallelstoreInstance(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#create ParallelstoreInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#delete ParallelstoreInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#update ParallelstoreInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#create ParallelstoreInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#delete ParallelstoreInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#update ParallelstoreInstance#update}.
         '''
         value = ParallelstoreInstanceTimeouts(
             create=create, delete=delete, update=update
@@ -545,19 +545,19 @@ class ParallelstoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param capacity_gib: Required. Immutable. Storage capacity of Parallelstore instance in Gibibytes (GiB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#capacity_gib ParallelstoreInstance#capacity_gib}
-        :param instance_id: The logical name of the Parallelstore instance in the user project with the following restrictions: * Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the customer project/ location Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#instance_id ParallelstoreInstance#instance_id}
-        :param location: Part of 'parent'. See documentation of 'projectsId'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#location ParallelstoreInstance#location}
-        :param deployment_type: Parallelstore Instance deployment type. Possible values: DEPLOYMENT_TYPE_UNSPECIFIED SCRATCH PERSISTENT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#deployment_type ParallelstoreInstance#deployment_type}
-        :param description: The description of the instance. 2048 characters or less. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#description ParallelstoreInstance#description}
-        :param directory_stripe_level: Stripe level for directories. MIN when directory has a small number of files. MAX when directory has a large number of files. Possible values: DIRECTORY_STRIPE_LEVEL_UNSPECIFIED DIRECTORY_STRIPE_LEVEL_MIN DIRECTORY_STRIPE_LEVEL_BALANCED DIRECTORY_STRIPE_LEVEL_MAX Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#directory_stripe_level ParallelstoreInstance#directory_stripe_level}
-        :param file_stripe_level: Stripe level for files. MIN better suited for small size files. MAX higher throughput performance for larger files. Possible values: FILE_STRIPE_LEVEL_UNSPECIFIED FILE_STRIPE_LEVEL_MIN FILE_STRIPE_LEVEL_BALANCED FILE_STRIPE_LEVEL_MAX Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#file_stripe_level ParallelstoreInstance#file_stripe_level}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#id ParallelstoreInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Cloud Labels are a flexible and lightweight mechanism for organizing cloud resources into groups that reflect a customer's organizational needs and deployment strategies. Cloud Labels can be used to filter collections of resources. They can be used to control how resource metrics are aggregated. And they can be used as arguments to policy management rules (e.g. route, firewall, load balancing, etc.). - Label keys must be between 1 and 63 characters long and must conform to the following regular expression: 'a-z{0,62}'. - Label values must be between 0 and 63 characters long and must conform to the regular expression '[a-z0-9_-]{0,63}'. - No more than 64 labels can be associated with a given resource. See https://goo.gl/xmQnxf for more information on and examples of labels. If you plan to use labels in your own code, please note that additional characters may be allowed in the future. Therefore, you are advised to use an internal label representation, such as JSON, which doesn't rely upon specific characters being disallowed. For example, representing labels as the string: 'name + "*" + value' would prove problematic if we were to allow '"*"' in a future release. " **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#labels ParallelstoreInstance#labels}
-        :param network: Immutable. The name of the Google Compute Engine `VPC network <https://cloud.google.com/vpc/docs/vpc>`_ to which the instance is connected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#network ParallelstoreInstance#network}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#project ParallelstoreInstance#project}.
-        :param reserved_ip_range: Immutable. Contains the id of the allocated IP address range associated with the private service access connection for example, "test-default" associated with IP range 10.0.0.0/29. If no range id is provided all ranges will be considered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#reserved_ip_range ParallelstoreInstance#reserved_ip_range}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#timeouts ParallelstoreInstance#timeouts}
+        :param capacity_gib: Required. Immutable. Storage capacity of Parallelstore instance in Gibibytes (GiB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#capacity_gib ParallelstoreInstance#capacity_gib}
+        :param instance_id: The logical name of the Parallelstore instance in the user project with the following restrictions: * Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the customer project/ location Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#instance_id ParallelstoreInstance#instance_id}
+        :param location: Part of 'parent'. See documentation of 'projectsId'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#location ParallelstoreInstance#location}
+        :param deployment_type: Parallelstore Instance deployment type. Possible values: DEPLOYMENT_TYPE_UNSPECIFIED SCRATCH PERSISTENT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#deployment_type ParallelstoreInstance#deployment_type}
+        :param description: The description of the instance. 2048 characters or less. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#description ParallelstoreInstance#description}
+        :param directory_stripe_level: Stripe level for directories. MIN when directory has a small number of files. MAX when directory has a large number of files. Possible values: DIRECTORY_STRIPE_LEVEL_UNSPECIFIED DIRECTORY_STRIPE_LEVEL_MIN DIRECTORY_STRIPE_LEVEL_BALANCED DIRECTORY_STRIPE_LEVEL_MAX Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#directory_stripe_level ParallelstoreInstance#directory_stripe_level}
+        :param file_stripe_level: Stripe level for files. MIN better suited for small size files. MAX higher throughput performance for larger files. Possible values: FILE_STRIPE_LEVEL_UNSPECIFIED FILE_STRIPE_LEVEL_MIN FILE_STRIPE_LEVEL_BALANCED FILE_STRIPE_LEVEL_MAX Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#file_stripe_level ParallelstoreInstance#file_stripe_level}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#id ParallelstoreInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Cloud Labels are a flexible and lightweight mechanism for organizing cloud resources into groups that reflect a customer's organizational needs and deployment strategies. Cloud Labels can be used to filter collections of resources. They can be used to control how resource metrics are aggregated. And they can be used as arguments to policy management rules (e.g. route, firewall, load balancing, etc.). - Label keys must be between 1 and 63 characters long and must conform to the following regular expression: 'a-z{0,62}'. - Label values must be between 0 and 63 characters long and must conform to the regular expression '[a-z0-9_-]{0,63}'. - No more than 64 labels can be associated with a given resource. See https://goo.gl/xmQnxf for more information on and examples of labels. If you plan to use labels in your own code, please note that additional characters may be allowed in the future. Therefore, you are advised to use an internal label representation, such as JSON, which doesn't rely upon specific characters being disallowed. For example, representing labels as the string: 'name + "*" + value' would prove problematic if we were to allow '"*"' in a future release. " **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#labels ParallelstoreInstance#labels}
+        :param network: Immutable. The name of the Google Compute Engine `VPC network <https://cloud.google.com/vpc/docs/vpc>`_ to which the instance is connected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#network ParallelstoreInstance#network}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#project ParallelstoreInstance#project}.
+        :param reserved_ip_range: Immutable. Contains the id of the allocated IP address range associated with the private service access connection for example, "test-default" associated with IP range 10.0.0.0/29. If no range id is provided all ranges will be considered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#reserved_ip_range ParallelstoreInstance#reserved_ip_range}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#timeouts ParallelstoreInstance#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -693,7 +693,7 @@ class ParallelstoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def capacity_gib(self) -> builtins.str:
         '''Required. Immutable. Storage capacity of Parallelstore instance in Gibibytes (GiB).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#capacity_gib ParallelstoreInstance#capacity_gib}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#capacity_gib ParallelstoreInstance#capacity_gib}
         '''
         result = self._values.get("capacity_gib")
         assert result is not None, "Required property 'capacity_gib' is missing"
@@ -709,7 +709,7 @@ class ParallelstoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
           - Must end with a number or a letter.
           - Must be unique within the customer project/ location
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#instance_id ParallelstoreInstance#instance_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#instance_id ParallelstoreInstance#instance_id}
         '''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
@@ -719,7 +719,7 @@ class ParallelstoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Part of 'parent'. See documentation of 'projectsId'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#location ParallelstoreInstance#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#location ParallelstoreInstance#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -729,7 +729,7 @@ class ParallelstoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def deployment_type(self) -> typing.Optional[builtins.str]:
         '''Parallelstore Instance deployment type.   Possible values:   DEPLOYMENT_TYPE_UNSPECIFIED   SCRATCH   PERSISTENT.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#deployment_type ParallelstoreInstance#deployment_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#deployment_type ParallelstoreInstance#deployment_type}
         '''
         result = self._values.get("deployment_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -738,7 +738,7 @@ class ParallelstoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the instance. 2048 characters or less.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#description ParallelstoreInstance#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#description ParallelstoreInstance#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -755,7 +755,7 @@ class ParallelstoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         DIRECTORY_STRIPE_LEVEL_BALANCED
         DIRECTORY_STRIPE_LEVEL_MAX
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#directory_stripe_level ParallelstoreInstance#directory_stripe_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#directory_stripe_level ParallelstoreInstance#directory_stripe_level}
         '''
         result = self._values.get("directory_stripe_level")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -772,14 +772,14 @@ class ParallelstoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         FILE_STRIPE_LEVEL_BALANCED
         FILE_STRIPE_LEVEL_MAX
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#file_stripe_level ParallelstoreInstance#file_stripe_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#file_stripe_level ParallelstoreInstance#file_stripe_level}
         '''
         result = self._values.get("file_stripe_level")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#id ParallelstoreInstance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#id ParallelstoreInstance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -814,7 +814,7 @@ class ParallelstoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#labels ParallelstoreInstance#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#labels ParallelstoreInstance#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -823,14 +823,14 @@ class ParallelstoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network(self) -> typing.Optional[builtins.str]:
         '''Immutable. The name of the Google Compute Engine `VPC network <https://cloud.google.com/vpc/docs/vpc>`_ to which the instance is connected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#network ParallelstoreInstance#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#network ParallelstoreInstance#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#project ParallelstoreInstance#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#project ParallelstoreInstance#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -843,7 +843,7 @@ class ParallelstoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         associated with IP range 10.0.0.0/29. If no range id is provided all ranges will
         be considered.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#reserved_ip_range ParallelstoreInstance#reserved_ip_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#reserved_ip_range ParallelstoreInstance#reserved_ip_range}
         '''
         result = self._values.get("reserved_ip_range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -852,7 +852,7 @@ class ParallelstoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ParallelstoreInstanceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#timeouts ParallelstoreInstance#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#timeouts ParallelstoreInstance#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ParallelstoreInstanceTimeouts"], result)
@@ -883,9 +883,9 @@ class ParallelstoreInstanceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#create ParallelstoreInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#delete ParallelstoreInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#update ParallelstoreInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#create ParallelstoreInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#delete ParallelstoreInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#update ParallelstoreInstance#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b306f90bf29f5eddf66049963492ade1d2d60455189b08d209ae647f5654a1b)
@@ -902,19 +902,19 @@ class ParallelstoreInstanceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#create ParallelstoreInstance#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#create ParallelstoreInstance#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#delete ParallelstoreInstance#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#delete ParallelstoreInstance#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parallelstore_instance#update ParallelstoreInstance#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parallelstore_instance#update ParallelstoreInstance#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

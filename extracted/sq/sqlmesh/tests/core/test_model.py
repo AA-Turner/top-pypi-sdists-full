@@ -1642,6 +1642,43 @@ def test_render_definition_partitioned_by():
     )
 
 
+def test_render_definition_with_virtual_update_statements():
+    # model has virtual update statements
+    model = load_sql_based_model(
+        d.parse(
+            f"""
+        MODEL (
+            name db.table,
+            kind FULL
+        );
+
+        select 1 as a;
+
+        ON_VIRTUAL_UPDATE_BEGIN;
+        GRANT SELECT ON VIEW @this_model TO ROLE role_name
+        ON_VIRTUAL_UPDATE_END;
+        """
+        )
+    )
+
+    assert model.on_virtual_update == [
+        exp.Grant(
+            privileges=[exp.GrantPrivilege(this=exp.Var(this="SELECT"))],
+            kind="VIEW",
+            securable=exp.Table(this=d.MacroVar(this="this_model")),
+            principals=[
+                exp.GrantPrincipal(this=exp.Identifier(this="role_name", quoted=False), kind="ROLE")
+            ],
+        )
+    ]
+    assert (
+        model.render_definition()[-1].sql(pretty=True)
+        == """ON_VIRTUAL_UPDATE_BEGIN;
+GRANT SELECT ON VIEW @this_model TO ROLE role_name;
+ON_VIRTUAL_UPDATE_END;"""
+    )
+
+
 def test_cron():
     daily = _Node(name="x", cron="@daily")
     assert to_datetime(daily.cron_prev("2020-01-01")) == to_datetime("2019-12-31")
@@ -8456,10 +8493,10 @@ def entrypoint(evaluator):
     )
 
 
-def test_dynamic_blueprinting(tmp_path: Path) -> None:
+def test_dynamic_blueprinting_using_custom_macro(tmp_path: Path) -> None:
     init_example_project(tmp_path, dialect="duckdb", template=ProjectTemplate.EMPTY)
 
-    dynamic_template_sql = tmp_path / "models/dynamic_template.sql"
+    dynamic_template_sql = tmp_path / "models/dynamic_template_custom_macro.sql"
     dynamic_template_sql.parent.mkdir(parents=True, exist_ok=True)
     dynamic_template_sql.write_text(
         """
@@ -8477,7 +8514,7 @@ def test_dynamic_blueprinting(tmp_path: Path) -> None:
         """
     )
 
-    dynamic_template_py = tmp_path / "models/dynamic_template.py"
+    dynamic_template_py = tmp_path / "models/dynamic_template_custom_macro.py"
     dynamic_template_py.parent.mkdir(parents=True, exist_ok=True)
     dynamic_template_py.write_text(
         """
@@ -8517,6 +8554,53 @@ def gen_blueprints(evaluator):
     assert '"memory"."customer2"."some_table"' in ctx.models
     assert '"memory"."customer1"."some_other_table"' in ctx.models
     assert '"memory"."customer2"."some_other_table"' in ctx.models
+
+
+def test_dynamic_blueprinting_using_each(tmp_path: Path) -> None:
+    init_example_project(tmp_path, dialect="duckdb", template=ProjectTemplate.EMPTY)
+
+    dynamic_template_sql = tmp_path / "models/dynamic_template_each.sql"
+    dynamic_template_sql.parent.mkdir(parents=True, exist_ok=True)
+    dynamic_template_sql.write_text(
+        """
+        MODEL (
+          name @customer.some_table,
+          kind FULL,
+          blueprints @EACH(@values, x -> (customer := schema_@x)),
+        );
+
+        SELECT
+          1 AS c
+        """
+    )
+
+    dynamic_template_py = tmp_path / "models/dynamic_template_each.py"
+    dynamic_template_py.parent.mkdir(parents=True, exist_ok=True)
+    dynamic_template_py.write_text(
+        """
+from sqlmesh import model
+
+@model(
+    "@{customer}.some_other_table",
+    kind="FULL",
+    blueprints="@EACH(@values, x -> (customer := schema_@x))",
+    is_sql=True,
+)
+def entrypoint(evaluator):
+    return "SELECT 1 AS c"
+"""
+    )
+
+    model_defaults = ModelDefaultsConfig(dialect="duckdb")
+    variables = {"values": ["customer1", "customer2"]}
+    config = Config(model_defaults=model_defaults, variables=variables)
+    ctx = Context(config=config, paths=tmp_path)
+
+    assert len(ctx.models) == 4
+    assert '"memory"."schema_customer1"."some_table"' in ctx.models
+    assert '"memory"."schema_customer2"."some_table"' in ctx.models
+    assert '"memory"."schema_customer1"."some_other_table"' in ctx.models
+    assert '"memory"."schema_customer2"."some_other_table"' in ctx.models
 
 
 def test_single_blueprint(tmp_path: Path) -> None:
@@ -8659,6 +8743,55 @@ def test_blueprint_variable_precedence_sql(tmp_path: Path, assert_exp_eq: t.Call
           NULL AS "bp_name_var_macro_func",
           "m2" AS "bp_name_blueprint_var_macro_func"
         """,
+    )
+
+
+def test_blueprint_variable_jinja(tmp_path: Path, assert_exp_eq: t.Callable) -> None:
+    init_example_project(tmp_path, dialect="duckdb", template=ProjectTemplate.EMPTY)
+
+    blueprint_variables = tmp_path / "models/blueprint_variables.sql"
+    blueprint_variables.parent.mkdir(parents=True, exist_ok=True)
+    blueprint_variables.write_text(
+        """
+        MODEL (
+          name s.@{bp_name},
+          blueprints (
+            (bp_name := m1, var1 := 'v1', var2 := v2),
+            (bp_name := m2, var1 := 'v3'),
+          ),
+        );
+
+        @DEF(bp_name, override);
+
+        JINJA_QUERY_BEGIN;
+        SELECT
+            {{ blueprint_var('var1') }} AS var1,
+            '{{ blueprint_var('var2') }}' AS var2,
+            '{{ blueprint_var('var2', 'var2_default') }}' AS var2_default,
+            '{{ blueprint_var('bp_name') }}' AS bp_name
+        FROM s.{{ blueprint_var('bp_name') }}_source;
+        JINJA_END;
+        """
+    )
+    ctx = Context(
+        config=Config(
+            model_defaults=ModelDefaultsConfig(dialect="duckdb"),
+            variables={"var2": "1"},
+        ),
+        paths=tmp_path,
+    )
+    assert len(ctx.models) == 2
+
+    m1 = ctx.get_model("s.m1", raise_if_missing=True)
+    m2 = ctx.get_model("s.m2", raise_if_missing=True)
+
+    assert_exp_eq(
+        m1.render_query(),
+        """SELECT 'v1' AS "var1", 'v2' AS "var2", 'v2' AS "var2_default", 'm1' AS "bp_name" FROM "memory"."s"."m1_source" AS "m1_source" """,
+    )
+    assert_exp_eq(
+        m2.render_query(),
+        """SELECT 'v3' AS "var1", 'None' AS "var2", 'var2_default' AS "var2_default", 'm2' AS "bp_name" FROM "memory"."s"."m2_source" AS "m2_source" """,
     )
 
 
@@ -9246,6 +9379,7 @@ def test_python_env_references_are_unequal_but_point_to_same_definition(tmp_path
 
     db_path = str(tmp_path / "db.db")
     db_connection = DuckDBConnectionConfig(database=db_path)
+
     config = Config(
         gateways={"duckdb": GatewayConfig(connection=db_connection)},
         model_defaults=ModelDefaultsConfig(dialect="duckdb"),
@@ -9361,3 +9495,95 @@ def f():
 
     with pytest.raises(SQLMeshError, match=r"duplicate definitions found"):
         Context(paths=tmp_path, config=config)
+
+
+def test_semicolon_is_not_included_in_model_state(tmp_path, assert_exp_eq):
+    init_example_project(tmp_path, dialect="duckdb", template=ProjectTemplate.EMPTY)
+
+    db_connection = DuckDBConnectionConfig(database=str(tmp_path / "db.db"))
+    config = Config(
+        gateways={"duckdb": GatewayConfig(connection=db_connection)},
+        model_defaults=ModelDefaultsConfig(dialect="duckdb"),
+    )
+
+    model_file = tmp_path / "models" / "model_with_semicolon.sql"
+    model_file.write_text(
+        """
+        MODEL (
+          name sqlmesh_example.incremental_model_with_semicolon,
+          kind INCREMENTAL_BY_TIME_RANGE (
+            time_column event_date
+          ),
+          start '2020-01-01',
+          cron '@daily',
+          grain (id, event_date)
+        );
+
+        SELECT
+          1 AS id,
+          1 AS item_id,
+          CAST('2020-01-01' AS DATE) AS event_date
+        ;
+
+        --Just a comment
+        """
+    )
+
+    ctx = Context(paths=tmp_path, config=config)
+    model = ctx.get_model("sqlmesh_example.incremental_model_with_semicolon")
+
+    assert not model.pre_statements
+    assert not model.post_statements
+
+    assert_exp_eq(
+        model.render_query(),
+        'SELECT 1 AS "id", 1 AS "item_id", CAST(\'2020-01-01\' AS DATE) AS "event_date"',
+    )
+    ctx.format()
+
+    assert (
+        model_file.read_text()
+        == """MODEL (
+  name sqlmesh_example.incremental_model_with_semicolon,
+  kind INCREMENTAL_BY_TIME_RANGE (
+    time_column event_date
+  ),
+  start '2020-01-01',
+  cron '@daily',
+  grain (id, event_date)
+);
+
+SELECT
+  1 AS id,
+  1 AS item_id,
+  '2020-01-01'::DATE AS event_date;
+
+/* Just a comment */"""
+    )
+
+    ctx.plan(no_prompts=True, auto_apply=True)
+
+    model_file = tmp_path / "models" / "model_with_semicolon.sql"
+    model_file.write_text(
+        """
+        MODEL (
+          name sqlmesh_example.incremental_model_with_semicolon,
+          kind INCREMENTAL_BY_TIME_RANGE (
+            time_column event_date
+          ),
+          start '2020-01-01',
+          cron '@daily',
+          grain (id, event_date)
+        );
+
+        SELECT
+          1 AS id,
+          1 AS item_id,
+          CAST('2020-01-01' AS DATE) AS event_date
+        """
+    )
+
+    ctx.load()
+    plan = ctx.plan(no_prompts=True, auto_apply=True)
+
+    assert not plan.context_diff.modified_snapshots

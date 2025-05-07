@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tantivy
-Version: 0.22.2
+Version: 0.24.0
 Requires-Dist: nox ; extra == 'dev'
 Provides-Extra: dev
 License-File: LICENSE

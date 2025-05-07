@@ -1,7 +1,7 @@
 r'''
 # `data_google_client_openid_userinfo`
 
-Refer to the Terraform Registry for docs: [`data_google_client_openid_userinfo`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/client_openid_userinfo).
+Refer to the Terraform Registry for docs: [`data_google_client_openid_userinfo`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/client_openid_userinfo).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleClientOpenidUserinfo(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleClientOpenidUserinfo.DataGoogleClientOpenidUserinfo",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/client_openid_userinfo google_client_openid_userinfo}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/client_openid_userinfo google_client_openid_userinfo}.'''
 
     def __init__(
         self,
@@ -59,7 +59,7 @@ class DataGoogleClientOpenidUserinfo(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/client_openid_userinfo google_client_openid_userinfo} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/client_openid_userinfo google_client_openid_userinfo} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
@@ -100,7 +100,7 @@ class DataGoogleClientOpenidUserinfo(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleClientOpenidUserinfo to import.
-        :param import_from_id: The id of the existing DataGoogleClientOpenidUserinfo that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/client_openid_userinfo#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleClientOpenidUserinfo that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/client_openid_userinfo#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleClientOpenidUserinfo to import is found.
         '''
         if __debug__:

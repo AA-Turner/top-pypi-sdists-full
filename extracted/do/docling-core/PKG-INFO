@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: docling-core
-Version: 2.29.0
+Version: 2.30.0
 Summary: A python library to define and validate data types in Docling.
 Home-page: https://github.com/docling-project
 License: MIT

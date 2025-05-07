@@ -1,19 +1,28 @@
 Metadata-Version: 2.4
 Name: whisper_normalizer
-Version: 0.1.4
+Version: 0.1.8
 Summary: A python package for whisper normalizer
 Home-page: https://github.com/kurianbenoy/whisper_normalizer
 Author: kurianbenoy
 Author-email: kurian.bkk@gmail.com
 License: MIT License
+Project-URL: Homepage, https://kurianbenoy.github.io/whisper_normalizer/
+Project-URL: Repository, https://github.com/kurianbenoy/whisper_normalizer
 Keywords: nbdev jupyter notebook openai whisper normalizer
-Classifier: Development Status :: 6 - Mature
+Classifier: Typing :: Typed
 Classifier: Intended Audience :: Developers
-Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
@@ -28,7 +37,6 @@ Requires-Dist: twine; extra == "dev"
 Requires-Dist: ipykernel; extra == "dev"
 Dynamic: author
 Dynamic: author-email
-Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page

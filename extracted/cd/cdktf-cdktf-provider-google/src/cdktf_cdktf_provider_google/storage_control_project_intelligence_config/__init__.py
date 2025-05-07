@@ -1,7 +1,7 @@
 r'''
 # `google_storage_control_project_intelligence_config`
 
-Refer to the Terraform Registry for docs: [`google_storage_control_project_intelligence_config`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config).
+Refer to the Terraform Registry for docs: [`google_storage_control_project_intelligence_config`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class StorageControlProjectIntelligenceConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.storageControlProjectIntelligenceConfig.StorageControlProjectIntelligenceConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config google_storage_control_project_intelligence_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config google_storage_control_project_intelligence_config}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class StorageControlProjectIntelligenceConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config google_storage_control_project_intelligence_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config google_storage_control_project_intelligence_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Identifier of the GCP project. For GCP project, this field can be project name or project number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#name StorageControlProjectIntelligenceConfig#name}
-        :param edition_config: Edition configuration of the Storage Intelligence resource. Valid values are INHERIT, TRIAL, DISABLED and STANDARD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#edition_config StorageControlProjectIntelligenceConfig#edition_config}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#filter StorageControlProjectIntelligenceConfig#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#id StorageControlProjectIntelligenceConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#timeouts StorageControlProjectIntelligenceConfig#timeouts}
+        :param name: Identifier of the GCP project. For GCP project, this field can be project name or project number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#name StorageControlProjectIntelligenceConfig#name}
+        :param edition_config: Edition configuration of the Storage Intelligence resource. Valid values are INHERIT, TRIAL, DISABLED and STANDARD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#edition_config StorageControlProjectIntelligenceConfig#edition_config}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#filter StorageControlProjectIntelligenceConfig#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#id StorageControlProjectIntelligenceConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#timeouts StorageControlProjectIntelligenceConfig#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class StorageControlProjectIntelligenceConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the StorageControlProjectIntelligenceConfig to import.
-        :param import_from_id: The id of the existing StorageControlProjectIntelligenceConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing StorageControlProjectIntelligenceConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the StorageControlProjectIntelligenceConfig to import is found.
         '''
         if __debug__:
@@ -136,10 +136,10 @@ class StorageControlProjectIntelligenceConfig(
         included_cloud_storage_locations: typing.Optional[typing.Union["StorageControlProjectIntelligenceConfigFilterIncludedCloudStorageLocations", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param excluded_cloud_storage_buckets: excluded_cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#excluded_cloud_storage_buckets StorageControlProjectIntelligenceConfig#excluded_cloud_storage_buckets}
-        :param excluded_cloud_storage_locations: excluded_cloud_storage_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#excluded_cloud_storage_locations StorageControlProjectIntelligenceConfig#excluded_cloud_storage_locations}
-        :param included_cloud_storage_buckets: included_cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#included_cloud_storage_buckets StorageControlProjectIntelligenceConfig#included_cloud_storage_buckets}
-        :param included_cloud_storage_locations: included_cloud_storage_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#included_cloud_storage_locations StorageControlProjectIntelligenceConfig#included_cloud_storage_locations}
+        :param excluded_cloud_storage_buckets: excluded_cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#excluded_cloud_storage_buckets StorageControlProjectIntelligenceConfig#excluded_cloud_storage_buckets}
+        :param excluded_cloud_storage_locations: excluded_cloud_storage_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#excluded_cloud_storage_locations StorageControlProjectIntelligenceConfig#excluded_cloud_storage_locations}
+        :param included_cloud_storage_buckets: included_cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#included_cloud_storage_buckets StorageControlProjectIntelligenceConfig#included_cloud_storage_buckets}
+        :param included_cloud_storage_locations: included_cloud_storage_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#included_cloud_storage_locations StorageControlProjectIntelligenceConfig#included_cloud_storage_locations}
         '''
         value = StorageControlProjectIntelligenceConfigFilter(
             excluded_cloud_storage_buckets=excluded_cloud_storage_buckets,
@@ -159,9 +159,9 @@ class StorageControlProjectIntelligenceConfig(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#create StorageControlProjectIntelligenceConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#delete StorageControlProjectIntelligenceConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#update StorageControlProjectIntelligenceConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#create StorageControlProjectIntelligenceConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#delete StorageControlProjectIntelligenceConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#update StorageControlProjectIntelligenceConfig#update}.
         '''
         value = StorageControlProjectIntelligenceConfigTimeouts(
             create=create, delete=delete, update=update
@@ -338,11 +338,11 @@ class StorageControlProjectIntelligenceConfigConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Identifier of the GCP project. For GCP project, this field can be project name or project number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#name StorageControlProjectIntelligenceConfig#name}
-        :param edition_config: Edition configuration of the Storage Intelligence resource. Valid values are INHERIT, TRIAL, DISABLED and STANDARD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#edition_config StorageControlProjectIntelligenceConfig#edition_config}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#filter StorageControlProjectIntelligenceConfig#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#id StorageControlProjectIntelligenceConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#timeouts StorageControlProjectIntelligenceConfig#timeouts}
+        :param name: Identifier of the GCP project. For GCP project, this field can be project name or project number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#name StorageControlProjectIntelligenceConfig#name}
+        :param edition_config: Edition configuration of the Storage Intelligence resource. Valid values are INHERIT, TRIAL, DISABLED and STANDARD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#edition_config StorageControlProjectIntelligenceConfig#edition_config}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#filter StorageControlProjectIntelligenceConfig#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#id StorageControlProjectIntelligenceConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#timeouts StorageControlProjectIntelligenceConfig#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -458,7 +458,7 @@ class StorageControlProjectIntelligenceConfigConfig(
     def name(self) -> builtins.str:
         '''Identifier of the GCP project. For GCP project, this field can be project name or project number.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#name StorageControlProjectIntelligenceConfig#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#name StorageControlProjectIntelligenceConfig#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -468,7 +468,7 @@ class StorageControlProjectIntelligenceConfigConfig(
     def edition_config(self) -> typing.Optional[builtins.str]:
         '''Edition configuration of the Storage Intelligence resource. Valid values are INHERIT, TRIAL, DISABLED and STANDARD.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#edition_config StorageControlProjectIntelligenceConfig#edition_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#edition_config StorageControlProjectIntelligenceConfig#edition_config}
         '''
         result = self._values.get("edition_config")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -479,14 +479,14 @@ class StorageControlProjectIntelligenceConfigConfig(
     ) -> typing.Optional["StorageControlProjectIntelligenceConfigFilter"]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#filter StorageControlProjectIntelligenceConfig#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#filter StorageControlProjectIntelligenceConfig#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional["StorageControlProjectIntelligenceConfigFilter"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#id StorageControlProjectIntelligenceConfig#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#id StorageControlProjectIntelligenceConfig#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -500,7 +500,7 @@ class StorageControlProjectIntelligenceConfigConfig(
     ) -> typing.Optional["StorageControlProjectIntelligenceConfigTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#timeouts StorageControlProjectIntelligenceConfig#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#timeouts StorageControlProjectIntelligenceConfig#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["StorageControlProjectIntelligenceConfigTimeouts"], result)
@@ -688,10 +688,10 @@ class StorageControlProjectIntelligenceConfigFilter:
         included_cloud_storage_locations: typing.Optional[typing.Union["StorageControlProjectIntelligenceConfigFilterIncludedCloudStorageLocations", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param excluded_cloud_storage_buckets: excluded_cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#excluded_cloud_storage_buckets StorageControlProjectIntelligenceConfig#excluded_cloud_storage_buckets}
-        :param excluded_cloud_storage_locations: excluded_cloud_storage_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#excluded_cloud_storage_locations StorageControlProjectIntelligenceConfig#excluded_cloud_storage_locations}
-        :param included_cloud_storage_buckets: included_cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#included_cloud_storage_buckets StorageControlProjectIntelligenceConfig#included_cloud_storage_buckets}
-        :param included_cloud_storage_locations: included_cloud_storage_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#included_cloud_storage_locations StorageControlProjectIntelligenceConfig#included_cloud_storage_locations}
+        :param excluded_cloud_storage_buckets: excluded_cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#excluded_cloud_storage_buckets StorageControlProjectIntelligenceConfig#excluded_cloud_storage_buckets}
+        :param excluded_cloud_storage_locations: excluded_cloud_storage_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#excluded_cloud_storage_locations StorageControlProjectIntelligenceConfig#excluded_cloud_storage_locations}
+        :param included_cloud_storage_buckets: included_cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#included_cloud_storage_buckets StorageControlProjectIntelligenceConfig#included_cloud_storage_buckets}
+        :param included_cloud_storage_locations: included_cloud_storage_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#included_cloud_storage_locations StorageControlProjectIntelligenceConfig#included_cloud_storage_locations}
         '''
         if isinstance(excluded_cloud_storage_buckets, dict):
             excluded_cloud_storage_buckets = StorageControlProjectIntelligenceConfigFilterExcludedCloudStorageBuckets(**excluded_cloud_storage_buckets)
@@ -723,7 +723,7 @@ class StorageControlProjectIntelligenceConfigFilter:
     ) -> typing.Optional["StorageControlProjectIntelligenceConfigFilterExcludedCloudStorageBuckets"]:
         '''excluded_cloud_storage_buckets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#excluded_cloud_storage_buckets StorageControlProjectIntelligenceConfig#excluded_cloud_storage_buckets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#excluded_cloud_storage_buckets StorageControlProjectIntelligenceConfig#excluded_cloud_storage_buckets}
         '''
         result = self._values.get("excluded_cloud_storage_buckets")
         return typing.cast(typing.Optional["StorageControlProjectIntelligenceConfigFilterExcludedCloudStorageBuckets"], result)
@@ -734,7 +734,7 @@ class StorageControlProjectIntelligenceConfigFilter:
     ) -> typing.Optional["StorageControlProjectIntelligenceConfigFilterExcludedCloudStorageLocations"]:
         '''excluded_cloud_storage_locations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#excluded_cloud_storage_locations StorageControlProjectIntelligenceConfig#excluded_cloud_storage_locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#excluded_cloud_storage_locations StorageControlProjectIntelligenceConfig#excluded_cloud_storage_locations}
         '''
         result = self._values.get("excluded_cloud_storage_locations")
         return typing.cast(typing.Optional["StorageControlProjectIntelligenceConfigFilterExcludedCloudStorageLocations"], result)
@@ -745,7 +745,7 @@ class StorageControlProjectIntelligenceConfigFilter:
     ) -> typing.Optional["StorageControlProjectIntelligenceConfigFilterIncludedCloudStorageBuckets"]:
         '''included_cloud_storage_buckets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#included_cloud_storage_buckets StorageControlProjectIntelligenceConfig#included_cloud_storage_buckets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#included_cloud_storage_buckets StorageControlProjectIntelligenceConfig#included_cloud_storage_buckets}
         '''
         result = self._values.get("included_cloud_storage_buckets")
         return typing.cast(typing.Optional["StorageControlProjectIntelligenceConfigFilterIncludedCloudStorageBuckets"], result)
@@ -756,7 +756,7 @@ class StorageControlProjectIntelligenceConfigFilter:
     ) -> typing.Optional["StorageControlProjectIntelligenceConfigFilterIncludedCloudStorageLocations"]:
         '''included_cloud_storage_locations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#included_cloud_storage_locations StorageControlProjectIntelligenceConfig#included_cloud_storage_locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#included_cloud_storage_locations StorageControlProjectIntelligenceConfig#included_cloud_storage_locations}
         '''
         result = self._values.get("included_cloud_storage_locations")
         return typing.cast(typing.Optional["StorageControlProjectIntelligenceConfigFilterIncludedCloudStorageLocations"], result)
@@ -781,7 +781,7 @@ class StorageControlProjectIntelligenceConfigFilter:
 class StorageControlProjectIntelligenceConfigFilterExcludedCloudStorageBuckets:
     def __init__(self, *, bucket_id_regexes: typing.Sequence[builtins.str]) -> None:
         '''
-        :param bucket_id_regexes: List of bucket id regexes to exclude in the storage intelligence plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#bucket_id_regexes StorageControlProjectIntelligenceConfig#bucket_id_regexes}
+        :param bucket_id_regexes: List of bucket id regexes to exclude in the storage intelligence plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#bucket_id_regexes StorageControlProjectIntelligenceConfig#bucket_id_regexes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9d46e1a8bc69eea2c4034a2d592a9beac82fdabf0b217a1de1216b1165d8e1cb)
@@ -794,7 +794,7 @@ class StorageControlProjectIntelligenceConfigFilterExcludedCloudStorageBuckets:
     def bucket_id_regexes(self) -> typing.List[builtins.str]:
         '''List of bucket id regexes to exclude in the storage intelligence plan.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#bucket_id_regexes StorageControlProjectIntelligenceConfig#bucket_id_regexes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#bucket_id_regexes StorageControlProjectIntelligenceConfig#bucket_id_regexes}
         '''
         result = self._values.get("bucket_id_regexes")
         assert result is not None, "Required property 'bucket_id_regexes' is missing"
@@ -875,7 +875,7 @@ class StorageControlProjectIntelligenceConfigFilterExcludedCloudStorageBucketsOu
 class StorageControlProjectIntelligenceConfigFilterExcludedCloudStorageLocations:
     def __init__(self, *, locations: typing.Sequence[builtins.str]) -> None:
         '''
-        :param locations: List of locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#locations StorageControlProjectIntelligenceConfig#locations}
+        :param locations: List of locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#locations StorageControlProjectIntelligenceConfig#locations}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b0a027f3153fba5a3c891dfed098b60694235820f305d188a6d7317c3cadd79c)
@@ -888,7 +888,7 @@ class StorageControlProjectIntelligenceConfigFilterExcludedCloudStorageLocations
     def locations(self) -> typing.List[builtins.str]:
         '''List of locations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#locations StorageControlProjectIntelligenceConfig#locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#locations StorageControlProjectIntelligenceConfig#locations}
         '''
         result = self._values.get("locations")
         assert result is not None, "Required property 'locations' is missing"
@@ -969,7 +969,7 @@ class StorageControlProjectIntelligenceConfigFilterExcludedCloudStorageLocations
 class StorageControlProjectIntelligenceConfigFilterIncludedCloudStorageBuckets:
     def __init__(self, *, bucket_id_regexes: typing.Sequence[builtins.str]) -> None:
         '''
-        :param bucket_id_regexes: List of bucket id regexes to exclude in the storage intelligence plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#bucket_id_regexes StorageControlProjectIntelligenceConfig#bucket_id_regexes}
+        :param bucket_id_regexes: List of bucket id regexes to exclude in the storage intelligence plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#bucket_id_regexes StorageControlProjectIntelligenceConfig#bucket_id_regexes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__398bdc3f682d5013a5cfbafc081367cc0c614545571703c85668625279a64d87)
@@ -982,7 +982,7 @@ class StorageControlProjectIntelligenceConfigFilterIncludedCloudStorageBuckets:
     def bucket_id_regexes(self) -> typing.List[builtins.str]:
         '''List of bucket id regexes to exclude in the storage intelligence plan.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#bucket_id_regexes StorageControlProjectIntelligenceConfig#bucket_id_regexes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#bucket_id_regexes StorageControlProjectIntelligenceConfig#bucket_id_regexes}
         '''
         result = self._values.get("bucket_id_regexes")
         assert result is not None, "Required property 'bucket_id_regexes' is missing"
@@ -1063,7 +1063,7 @@ class StorageControlProjectIntelligenceConfigFilterIncludedCloudStorageBucketsOu
 class StorageControlProjectIntelligenceConfigFilterIncludedCloudStorageLocations:
     def __init__(self, *, locations: typing.Sequence[builtins.str]) -> None:
         '''
-        :param locations: List of locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#locations StorageControlProjectIntelligenceConfig#locations}
+        :param locations: List of locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#locations StorageControlProjectIntelligenceConfig#locations}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__75db50f40a74d0caf018185bec1db6ccf393125b474648f87b72303b0edad62c)
@@ -1076,7 +1076,7 @@ class StorageControlProjectIntelligenceConfigFilterIncludedCloudStorageLocations
     def locations(self) -> typing.List[builtins.str]:
         '''List of locations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#locations StorageControlProjectIntelligenceConfig#locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#locations StorageControlProjectIntelligenceConfig#locations}
         '''
         result = self._values.get("locations")
         assert result is not None, "Required property 'locations' is missing"
@@ -1176,7 +1176,7 @@ class StorageControlProjectIntelligenceConfigFilterOutputReference(
         bucket_id_regexes: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param bucket_id_regexes: List of bucket id regexes to exclude in the storage intelligence plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#bucket_id_regexes StorageControlProjectIntelligenceConfig#bucket_id_regexes}
+        :param bucket_id_regexes: List of bucket id regexes to exclude in the storage intelligence plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#bucket_id_regexes StorageControlProjectIntelligenceConfig#bucket_id_regexes}
         '''
         value = StorageControlProjectIntelligenceConfigFilterExcludedCloudStorageBuckets(
             bucket_id_regexes=bucket_id_regexes
@@ -1191,7 +1191,7 @@ class StorageControlProjectIntelligenceConfigFilterOutputReference(
         locations: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param locations: List of locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#locations StorageControlProjectIntelligenceConfig#locations}
+        :param locations: List of locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#locations StorageControlProjectIntelligenceConfig#locations}
         '''
         value = StorageControlProjectIntelligenceConfigFilterExcludedCloudStorageLocations(
             locations=locations
@@ -1206,7 +1206,7 @@ class StorageControlProjectIntelligenceConfigFilterOutputReference(
         bucket_id_regexes: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param bucket_id_regexes: List of bucket id regexes to exclude in the storage intelligence plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#bucket_id_regexes StorageControlProjectIntelligenceConfig#bucket_id_regexes}
+        :param bucket_id_regexes: List of bucket id regexes to exclude in the storage intelligence plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#bucket_id_regexes StorageControlProjectIntelligenceConfig#bucket_id_regexes}
         '''
         value = StorageControlProjectIntelligenceConfigFilterIncludedCloudStorageBuckets(
             bucket_id_regexes=bucket_id_regexes
@@ -1221,7 +1221,7 @@ class StorageControlProjectIntelligenceConfigFilterOutputReference(
         locations: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param locations: List of locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#locations StorageControlProjectIntelligenceConfig#locations}
+        :param locations: List of locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#locations StorageControlProjectIntelligenceConfig#locations}
         '''
         value = StorageControlProjectIntelligenceConfigFilterIncludedCloudStorageLocations(
             locations=locations
@@ -1333,9 +1333,9 @@ class StorageControlProjectIntelligenceConfigTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#create StorageControlProjectIntelligenceConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#delete StorageControlProjectIntelligenceConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#update StorageControlProjectIntelligenceConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#create StorageControlProjectIntelligenceConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#delete StorageControlProjectIntelligenceConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#update StorageControlProjectIntelligenceConfig#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__72a2e0411dc83606022fedfe2894040edbda29d0d04aae50c0c35fe1bbda1e7f)
@@ -1352,19 +1352,19 @@ class StorageControlProjectIntelligenceConfigTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#create StorageControlProjectIntelligenceConfig#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#create StorageControlProjectIntelligenceConfig#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#delete StorageControlProjectIntelligenceConfig#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#delete StorageControlProjectIntelligenceConfig#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_control_project_intelligence_config#update StorageControlProjectIntelligenceConfig#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_control_project_intelligence_config#update StorageControlProjectIntelligenceConfig#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

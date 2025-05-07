@@ -1,7 +1,7 @@
 r'''
 # `google_binary_authorization_attestor_iam_policy`
 
-Refer to the Terraform Registry for docs: [`google_binary_authorization_attestor_iam_policy`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor_iam_policy).
+Refer to the Terraform Registry for docs: [`google_binary_authorization_attestor_iam_policy`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/binary_authorization_attestor_iam_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BinaryAuthorizationAttestorIamPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.binaryAuthorizationAttestorIamPolicy.BinaryAuthorizationAttestorIamPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor_iam_policy google_binary_authorization_attestor_iam_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/binary_authorization_attestor_iam_policy google_binary_authorization_attestor_iam_policy}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class BinaryAuthorizationAttestorIamPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor_iam_policy google_binary_authorization_attestor_iam_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/binary_authorization_attestor_iam_policy google_binary_authorization_attestor_iam_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param attestor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor_iam_policy#attestor BinaryAuthorizationAttestorIamPolicy#attestor}.
-        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor_iam_policy#policy_data BinaryAuthorizationAttestorIamPolicy#policy_data}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor_iam_policy#id BinaryAuthorizationAttestorIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor_iam_policy#project BinaryAuthorizationAttestorIamPolicy#project}.
+        :param attestor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/binary_authorization_attestor_iam_policy#attestor BinaryAuthorizationAttestorIamPolicy#attestor}.
+        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/binary_authorization_attestor_iam_policy#policy_data BinaryAuthorizationAttestorIamPolicy#policy_data}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/binary_authorization_attestor_iam_policy#id BinaryAuthorizationAttestorIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/binary_authorization_attestor_iam_policy#project BinaryAuthorizationAttestorIamPolicy#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class BinaryAuthorizationAttestorIamPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BinaryAuthorizationAttestorIamPolicy to import.
-        :param import_from_id: The id of the existing BinaryAuthorizationAttestorIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor_iam_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BinaryAuthorizationAttestorIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/binary_authorization_attestor_iam_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BinaryAuthorizationAttestorIamPolicy to import is found.
         '''
         if __debug__:
@@ -261,10 +261,10 @@ class BinaryAuthorizationAttestorIamPolicyConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param attestor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor_iam_policy#attestor BinaryAuthorizationAttestorIamPolicy#attestor}.
-        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor_iam_policy#policy_data BinaryAuthorizationAttestorIamPolicy#policy_data}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor_iam_policy#id BinaryAuthorizationAttestorIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor_iam_policy#project BinaryAuthorizationAttestorIamPolicy#project}.
+        :param attestor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/binary_authorization_attestor_iam_policy#attestor BinaryAuthorizationAttestorIamPolicy#attestor}.
+        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/binary_authorization_attestor_iam_policy#policy_data BinaryAuthorizationAttestorIamPolicy#policy_data}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/binary_authorization_attestor_iam_policy#id BinaryAuthorizationAttestorIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/binary_authorization_attestor_iam_policy#project BinaryAuthorizationAttestorIamPolicy#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -370,21 +370,21 @@ class BinaryAuthorizationAttestorIamPolicyConfig(
 
     @builtins.property
     def attestor(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor_iam_policy#attestor BinaryAuthorizationAttestorIamPolicy#attestor}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/binary_authorization_attestor_iam_policy#attestor BinaryAuthorizationAttestorIamPolicy#attestor}.'''
         result = self._values.get("attestor")
         assert result is not None, "Required property 'attestor' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def policy_data(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor_iam_policy#policy_data BinaryAuthorizationAttestorIamPolicy#policy_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/binary_authorization_attestor_iam_policy#policy_data BinaryAuthorizationAttestorIamPolicy#policy_data}.'''
         result = self._values.get("policy_data")
         assert result is not None, "Required property 'policy_data' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor_iam_policy#id BinaryAuthorizationAttestorIamPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/binary_authorization_attestor_iam_policy#id BinaryAuthorizationAttestorIamPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -394,7 +394,7 @@ class BinaryAuthorizationAttestorIamPolicyConfig(
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/binary_authorization_attestor_iam_policy#project BinaryAuthorizationAttestorIamPolicy#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/binary_authorization_attestor_iam_policy#project BinaryAuthorizationAttestorIamPolicy#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

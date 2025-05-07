@@ -1,7 +1,7 @@
 r'''
 # `google_network_management_connectivity_test`
 
-Refer to the Terraform Registry for docs: [`google_network_management_connectivity_test`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test).
+Refer to the Terraform Registry for docs: [`google_network_management_connectivity_test`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetworkManagementConnectivityTest(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.networkManagementConnectivityTest.NetworkManagementConnectivityTest",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test google_network_management_connectivity_test}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test google_network_management_connectivity_test}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class NetworkManagementConnectivityTest(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test google_network_management_connectivity_test} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test google_network_management_connectivity_test} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#destination NetworkManagementConnectivityTest#destination}
-        :param name: Unique name for the connectivity test. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#name NetworkManagementConnectivityTest#name}
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#source NetworkManagementConnectivityTest#source}
-        :param bypass_firewall_checks: Whether the analysis should skip firewall checking. Default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#bypass_firewall_checks NetworkManagementConnectivityTest#bypass_firewall_checks}
-        :param description: The user-supplied description of the Connectivity Test. Maximum of 512 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#description NetworkManagementConnectivityTest#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#id NetworkManagementConnectivityTest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Resource labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#labels NetworkManagementConnectivityTest#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#project NetworkManagementConnectivityTest#project}.
-        :param protocol: IP Protocol of the test. When not provided, "TCP" is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#protocol NetworkManagementConnectivityTest#protocol}
-        :param related_projects: Other projects that may be relevant for reachability analysis. This is applicable to scenarios where a test can cross project boundaries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#related_projects NetworkManagementConnectivityTest#related_projects}
-        :param round_trip: Whether run analysis for the return path from destination to source. Default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#round_trip NetworkManagementConnectivityTest#round_trip}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#timeouts NetworkManagementConnectivityTest#timeouts}
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#destination NetworkManagementConnectivityTest#destination}
+        :param name: Unique name for the connectivity test. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#name NetworkManagementConnectivityTest#name}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#source NetworkManagementConnectivityTest#source}
+        :param bypass_firewall_checks: Whether the analysis should skip firewall checking. Default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#bypass_firewall_checks NetworkManagementConnectivityTest#bypass_firewall_checks}
+        :param description: The user-supplied description of the Connectivity Test. Maximum of 512 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#description NetworkManagementConnectivityTest#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#id NetworkManagementConnectivityTest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Resource labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#labels NetworkManagementConnectivityTest#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#project NetworkManagementConnectivityTest#project}.
+        :param protocol: IP Protocol of the test. When not provided, "TCP" is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#protocol NetworkManagementConnectivityTest#protocol}
+        :param related_projects: Other projects that may be relevant for reachability analysis. This is applicable to scenarios where a test can cross project boundaries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#related_projects NetworkManagementConnectivityTest#related_projects}
+        :param round_trip: Whether run analysis for the return path from destination to source. Default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#round_trip NetworkManagementConnectivityTest#round_trip}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#timeouts NetworkManagementConnectivityTest#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class NetworkManagementConnectivityTest(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetworkManagementConnectivityTest to import.
-        :param import_from_id: The id of the existing NetworkManagementConnectivityTest that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetworkManagementConnectivityTest that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetworkManagementConnectivityTest to import is found.
         '''
         if __debug__:
@@ -164,17 +164,17 @@ class NetworkManagementConnectivityTest(
         redis_instance: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cloud_sql_instance: A Cloud SQL instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#cloud_sql_instance NetworkManagementConnectivityTest#cloud_sql_instance}
-        :param forwarding_rule: Forwarding rule URI. Forwarding rules are frontends for load balancers, PSC endpoints, and Protocol Forwarding. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#forwarding_rule NetworkManagementConnectivityTest#forwarding_rule}
-        :param fqdn: A DNS endpoint of Google Kubernetes Engine cluster control plane. Requires gke_master_cluster to be set, can't be used simultaneoulsly with ip_address or network. Applicable only to destination endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#fqdn NetworkManagementConnectivityTest#fqdn}
-        :param gke_master_cluster: A cluster URI for Google Kubernetes Engine cluster control plane. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#gke_master_cluster NetworkManagementConnectivityTest#gke_master_cluster}
-        :param instance: A Compute Engine instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#instance NetworkManagementConnectivityTest#instance}
-        :param ip_address: The IP address of the endpoint, which can be an external or internal IP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#ip_address NetworkManagementConnectivityTest#ip_address}
-        :param network: A VPC network URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#network NetworkManagementConnectivityTest#network}
-        :param port: The IP protocol port of the endpoint. Only applicable when protocol is TCP or UDP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#port NetworkManagementConnectivityTest#port}
-        :param project_id: Project ID where the endpoint is located. The project ID can be derived from the URI if you provide a endpoint or network URI. The following are two cases where you may need to provide the project ID: 1. Only the IP address is specified, and the IP address is within a Google Cloud project. 2. When you are using Shared VPC and the IP address that you provide is from the service project. In this case, the network that the IP address resides in is defined in the host project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#project_id NetworkManagementConnectivityTest#project_id}
-        :param redis_cluster: A Redis Cluster URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#redis_cluster NetworkManagementConnectivityTest#redis_cluster}
-        :param redis_instance: A Redis Instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#redis_instance NetworkManagementConnectivityTest#redis_instance}
+        :param cloud_sql_instance: A Cloud SQL instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#cloud_sql_instance NetworkManagementConnectivityTest#cloud_sql_instance}
+        :param forwarding_rule: Forwarding rule URI. Forwarding rules are frontends for load balancers, PSC endpoints, and Protocol Forwarding. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#forwarding_rule NetworkManagementConnectivityTest#forwarding_rule}
+        :param fqdn: A DNS endpoint of Google Kubernetes Engine cluster control plane. Requires gke_master_cluster to be set, can't be used simultaneoulsly with ip_address or network. Applicable only to destination endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#fqdn NetworkManagementConnectivityTest#fqdn}
+        :param gke_master_cluster: A cluster URI for Google Kubernetes Engine cluster control plane. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#gke_master_cluster NetworkManagementConnectivityTest#gke_master_cluster}
+        :param instance: A Compute Engine instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#instance NetworkManagementConnectivityTest#instance}
+        :param ip_address: The IP address of the endpoint, which can be an external or internal IP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#ip_address NetworkManagementConnectivityTest#ip_address}
+        :param network: A VPC network URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#network NetworkManagementConnectivityTest#network}
+        :param port: The IP protocol port of the endpoint. Only applicable when protocol is TCP or UDP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#port NetworkManagementConnectivityTest#port}
+        :param project_id: Project ID where the endpoint is located. The project ID can be derived from the URI if you provide a endpoint or network URI. The following are two cases where you may need to provide the project ID: 1. Only the IP address is specified, and the IP address is within a Google Cloud project. 2. When you are using Shared VPC and the IP address that you provide is from the service project. In this case, the network that the IP address resides in is defined in the host project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#project_id NetworkManagementConnectivityTest#project_id}
+        :param redis_cluster: A Redis Cluster URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#redis_cluster NetworkManagementConnectivityTest#redis_cluster}
+        :param redis_instance: A Redis Instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#redis_instance NetworkManagementConnectivityTest#redis_instance}
         '''
         value = NetworkManagementConnectivityTestDestination(
             cloud_sql_instance=cloud_sql_instance,
@@ -209,17 +209,17 @@ class NetworkManagementConnectivityTest(
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param app_engine_version: app_engine_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#app_engine_version NetworkManagementConnectivityTest#app_engine_version}
-        :param cloud_function: cloud_function block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#cloud_function NetworkManagementConnectivityTest#cloud_function}
-        :param cloud_run_revision: cloud_run_revision block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#cloud_run_revision NetworkManagementConnectivityTest#cloud_run_revision}
-        :param cloud_sql_instance: A Cloud SQL instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#cloud_sql_instance NetworkManagementConnectivityTest#cloud_sql_instance}
-        :param gke_master_cluster: A cluster URI for Google Kubernetes Engine cluster control plane. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#gke_master_cluster NetworkManagementConnectivityTest#gke_master_cluster}
-        :param instance: A Compute Engine instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#instance NetworkManagementConnectivityTest#instance}
-        :param ip_address: The IP address of the endpoint, which can be an external or internal IP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#ip_address NetworkManagementConnectivityTest#ip_address}
-        :param network: A VPC network URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#network NetworkManagementConnectivityTest#network}
-        :param network_type: Type of the network where the endpoint is located. Possible values: ["GCP_NETWORK", "NON_GCP_NETWORK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#network_type NetworkManagementConnectivityTest#network_type}
-        :param port: The IP protocol port of the endpoint. Only applicable when protocol is TCP or UDP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#port NetworkManagementConnectivityTest#port}
-        :param project_id: Project ID where the endpoint is located. The project ID can be derived from the URI if you provide a endpoint or network URI. The following are two cases where you may need to provide the project ID: 1. Only the IP address is specified, and the IP address is within a Google Cloud project. 2. When you are using Shared VPC and the IP address that you provide is from the service project. In this case, the network that the IP address resides in is defined in the host project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#project_id NetworkManagementConnectivityTest#project_id}
+        :param app_engine_version: app_engine_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#app_engine_version NetworkManagementConnectivityTest#app_engine_version}
+        :param cloud_function: cloud_function block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#cloud_function NetworkManagementConnectivityTest#cloud_function}
+        :param cloud_run_revision: cloud_run_revision block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#cloud_run_revision NetworkManagementConnectivityTest#cloud_run_revision}
+        :param cloud_sql_instance: A Cloud SQL instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#cloud_sql_instance NetworkManagementConnectivityTest#cloud_sql_instance}
+        :param gke_master_cluster: A cluster URI for Google Kubernetes Engine cluster control plane. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#gke_master_cluster NetworkManagementConnectivityTest#gke_master_cluster}
+        :param instance: A Compute Engine instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#instance NetworkManagementConnectivityTest#instance}
+        :param ip_address: The IP address of the endpoint, which can be an external or internal IP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#ip_address NetworkManagementConnectivityTest#ip_address}
+        :param network: A VPC network URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#network NetworkManagementConnectivityTest#network}
+        :param network_type: Type of the network where the endpoint is located. Possible values: ["GCP_NETWORK", "NON_GCP_NETWORK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#network_type NetworkManagementConnectivityTest#network_type}
+        :param port: The IP protocol port of the endpoint. Only applicable when protocol is TCP or UDP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#port NetworkManagementConnectivityTest#port}
+        :param project_id: Project ID where the endpoint is located. The project ID can be derived from the URI if you provide a endpoint or network URI. The following are two cases where you may need to provide the project ID: 1. Only the IP address is specified, and the IP address is within a Google Cloud project. 2. When you are using Shared VPC and the IP address that you provide is from the service project. In this case, the network that the IP address resides in is defined in the host project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#project_id NetworkManagementConnectivityTest#project_id}
         '''
         value = NetworkManagementConnectivityTestSource(
             app_engine_version=app_engine_version,
@@ -246,9 +246,9 @@ class NetworkManagementConnectivityTest(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#create NetworkManagementConnectivityTest#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#delete NetworkManagementConnectivityTest#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#update NetworkManagementConnectivityTest#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#create NetworkManagementConnectivityTest#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#delete NetworkManagementConnectivityTest#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#update NetworkManagementConnectivityTest#update}.
         '''
         value = NetworkManagementConnectivityTestTimeouts(
             create=create, delete=delete, update=update
@@ -578,18 +578,18 @@ class NetworkManagementConnectivityTestConfig(_cdktf_9a9027ec.TerraformMetaArgum
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#destination NetworkManagementConnectivityTest#destination}
-        :param name: Unique name for the connectivity test. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#name NetworkManagementConnectivityTest#name}
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#source NetworkManagementConnectivityTest#source}
-        :param bypass_firewall_checks: Whether the analysis should skip firewall checking. Default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#bypass_firewall_checks NetworkManagementConnectivityTest#bypass_firewall_checks}
-        :param description: The user-supplied description of the Connectivity Test. Maximum of 512 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#description NetworkManagementConnectivityTest#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#id NetworkManagementConnectivityTest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Resource labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#labels NetworkManagementConnectivityTest#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#project NetworkManagementConnectivityTest#project}.
-        :param protocol: IP Protocol of the test. When not provided, "TCP" is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#protocol NetworkManagementConnectivityTest#protocol}
-        :param related_projects: Other projects that may be relevant for reachability analysis. This is applicable to scenarios where a test can cross project boundaries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#related_projects NetworkManagementConnectivityTest#related_projects}
-        :param round_trip: Whether run analysis for the return path from destination to source. Default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#round_trip NetworkManagementConnectivityTest#round_trip}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#timeouts NetworkManagementConnectivityTest#timeouts}
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#destination NetworkManagementConnectivityTest#destination}
+        :param name: Unique name for the connectivity test. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#name NetworkManagementConnectivityTest#name}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#source NetworkManagementConnectivityTest#source}
+        :param bypass_firewall_checks: Whether the analysis should skip firewall checking. Default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#bypass_firewall_checks NetworkManagementConnectivityTest#bypass_firewall_checks}
+        :param description: The user-supplied description of the Connectivity Test. Maximum of 512 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#description NetworkManagementConnectivityTest#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#id NetworkManagementConnectivityTest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Resource labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#labels NetworkManagementConnectivityTest#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#project NetworkManagementConnectivityTest#project}.
+        :param protocol: IP Protocol of the test. When not provided, "TCP" is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#protocol NetworkManagementConnectivityTest#protocol}
+        :param related_projects: Other projects that may be relevant for reachability analysis. This is applicable to scenarios where a test can cross project boundaries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#related_projects NetworkManagementConnectivityTest#related_projects}
+        :param round_trip: Whether run analysis for the return path from destination to source. Default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#round_trip NetworkManagementConnectivityTest#round_trip}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#timeouts NetworkManagementConnectivityTest#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -726,7 +726,7 @@ class NetworkManagementConnectivityTestConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def destination(self) -> "NetworkManagementConnectivityTestDestination":
         '''destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#destination NetworkManagementConnectivityTest#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#destination NetworkManagementConnectivityTest#destination}
         '''
         result = self._values.get("destination")
         assert result is not None, "Required property 'destination' is missing"
@@ -736,7 +736,7 @@ class NetworkManagementConnectivityTestConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def name(self) -> builtins.str:
         '''Unique name for the connectivity test.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#name NetworkManagementConnectivityTest#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#name NetworkManagementConnectivityTest#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -746,7 +746,7 @@ class NetworkManagementConnectivityTestConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def source(self) -> "NetworkManagementConnectivityTestSource":
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#source NetworkManagementConnectivityTest#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#source NetworkManagementConnectivityTest#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -758,7 +758,7 @@ class NetworkManagementConnectivityTestConfig(_cdktf_9a9027ec.TerraformMetaArgum
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the analysis should skip firewall checking. Default value is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#bypass_firewall_checks NetworkManagementConnectivityTest#bypass_firewall_checks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#bypass_firewall_checks NetworkManagementConnectivityTest#bypass_firewall_checks}
         '''
         result = self._values.get("bypass_firewall_checks")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -767,14 +767,14 @@ class NetworkManagementConnectivityTestConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def description(self) -> typing.Optional[builtins.str]:
         '''The user-supplied description of the Connectivity Test. Maximum of 512 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#description NetworkManagementConnectivityTest#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#description NetworkManagementConnectivityTest#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#id NetworkManagementConnectivityTest#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#id NetworkManagementConnectivityTest#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -789,14 +789,14 @@ class NetworkManagementConnectivityTestConfig(_cdktf_9a9027ec.TerraformMetaArgum
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#labels NetworkManagementConnectivityTest#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#labels NetworkManagementConnectivityTest#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#project NetworkManagementConnectivityTest#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#project NetworkManagementConnectivityTest#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -804,7 +804,7 @@ class NetworkManagementConnectivityTestConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def protocol(self) -> typing.Optional[builtins.str]:
         '''IP Protocol of the test. When not provided, "TCP" is assumed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#protocol NetworkManagementConnectivityTest#protocol}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#protocol NetworkManagementConnectivityTest#protocol}
         '''
         result = self._values.get("protocol")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -813,7 +813,7 @@ class NetworkManagementConnectivityTestConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def related_projects(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Other projects that may be relevant for reachability analysis. This is applicable to scenarios where a test can cross project boundaries.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#related_projects NetworkManagementConnectivityTest#related_projects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#related_projects NetworkManagementConnectivityTest#related_projects}
         '''
         result = self._values.get("related_projects")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -824,7 +824,7 @@ class NetworkManagementConnectivityTestConfig(_cdktf_9a9027ec.TerraformMetaArgum
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether run analysis for the return path from destination to source. Default value is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#round_trip NetworkManagementConnectivityTest#round_trip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#round_trip NetworkManagementConnectivityTest#round_trip}
         '''
         result = self._values.get("round_trip")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -833,7 +833,7 @@ class NetworkManagementConnectivityTestConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def timeouts(self) -> typing.Optional["NetworkManagementConnectivityTestTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#timeouts NetworkManagementConnectivityTest#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#timeouts NetworkManagementConnectivityTest#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NetworkManagementConnectivityTestTimeouts"], result)
@@ -884,17 +884,17 @@ class NetworkManagementConnectivityTestDestination:
         redis_instance: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cloud_sql_instance: A Cloud SQL instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#cloud_sql_instance NetworkManagementConnectivityTest#cloud_sql_instance}
-        :param forwarding_rule: Forwarding rule URI. Forwarding rules are frontends for load balancers, PSC endpoints, and Protocol Forwarding. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#forwarding_rule NetworkManagementConnectivityTest#forwarding_rule}
-        :param fqdn: A DNS endpoint of Google Kubernetes Engine cluster control plane. Requires gke_master_cluster to be set, can't be used simultaneoulsly with ip_address or network. Applicable only to destination endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#fqdn NetworkManagementConnectivityTest#fqdn}
-        :param gke_master_cluster: A cluster URI for Google Kubernetes Engine cluster control plane. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#gke_master_cluster NetworkManagementConnectivityTest#gke_master_cluster}
-        :param instance: A Compute Engine instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#instance NetworkManagementConnectivityTest#instance}
-        :param ip_address: The IP address of the endpoint, which can be an external or internal IP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#ip_address NetworkManagementConnectivityTest#ip_address}
-        :param network: A VPC network URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#network NetworkManagementConnectivityTest#network}
-        :param port: The IP protocol port of the endpoint. Only applicable when protocol is TCP or UDP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#port NetworkManagementConnectivityTest#port}
-        :param project_id: Project ID where the endpoint is located. The project ID can be derived from the URI if you provide a endpoint or network URI. The following are two cases where you may need to provide the project ID: 1. Only the IP address is specified, and the IP address is within a Google Cloud project. 2. When you are using Shared VPC and the IP address that you provide is from the service project. In this case, the network that the IP address resides in is defined in the host project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#project_id NetworkManagementConnectivityTest#project_id}
-        :param redis_cluster: A Redis Cluster URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#redis_cluster NetworkManagementConnectivityTest#redis_cluster}
-        :param redis_instance: A Redis Instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#redis_instance NetworkManagementConnectivityTest#redis_instance}
+        :param cloud_sql_instance: A Cloud SQL instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#cloud_sql_instance NetworkManagementConnectivityTest#cloud_sql_instance}
+        :param forwarding_rule: Forwarding rule URI. Forwarding rules are frontends for load balancers, PSC endpoints, and Protocol Forwarding. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#forwarding_rule NetworkManagementConnectivityTest#forwarding_rule}
+        :param fqdn: A DNS endpoint of Google Kubernetes Engine cluster control plane. Requires gke_master_cluster to be set, can't be used simultaneoulsly with ip_address or network. Applicable only to destination endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#fqdn NetworkManagementConnectivityTest#fqdn}
+        :param gke_master_cluster: A cluster URI for Google Kubernetes Engine cluster control plane. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#gke_master_cluster NetworkManagementConnectivityTest#gke_master_cluster}
+        :param instance: A Compute Engine instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#instance NetworkManagementConnectivityTest#instance}
+        :param ip_address: The IP address of the endpoint, which can be an external or internal IP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#ip_address NetworkManagementConnectivityTest#ip_address}
+        :param network: A VPC network URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#network NetworkManagementConnectivityTest#network}
+        :param port: The IP protocol port of the endpoint. Only applicable when protocol is TCP or UDP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#port NetworkManagementConnectivityTest#port}
+        :param project_id: Project ID where the endpoint is located. The project ID can be derived from the URI if you provide a endpoint or network URI. The following are two cases where you may need to provide the project ID: 1. Only the IP address is specified, and the IP address is within a Google Cloud project. 2. When you are using Shared VPC and the IP address that you provide is from the service project. In this case, the network that the IP address resides in is defined in the host project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#project_id NetworkManagementConnectivityTest#project_id}
+        :param redis_cluster: A Redis Cluster URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#redis_cluster NetworkManagementConnectivityTest#redis_cluster}
+        :param redis_instance: A Redis Instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#redis_instance NetworkManagementConnectivityTest#redis_instance}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5d1e8beaa6b24a58d6d898e8fcb08ccf92d06e23e107c48770ee290a4ef291fd)
@@ -937,7 +937,7 @@ class NetworkManagementConnectivityTestDestination:
     def cloud_sql_instance(self) -> typing.Optional[builtins.str]:
         '''A Cloud SQL instance URI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#cloud_sql_instance NetworkManagementConnectivityTest#cloud_sql_instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#cloud_sql_instance NetworkManagementConnectivityTest#cloud_sql_instance}
         '''
         result = self._values.get("cloud_sql_instance")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -946,7 +946,7 @@ class NetworkManagementConnectivityTestDestination:
     def forwarding_rule(self) -> typing.Optional[builtins.str]:
         '''Forwarding rule URI. Forwarding rules are frontends for load balancers, PSC endpoints, and Protocol Forwarding.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#forwarding_rule NetworkManagementConnectivityTest#forwarding_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#forwarding_rule NetworkManagementConnectivityTest#forwarding_rule}
         '''
         result = self._values.get("forwarding_rule")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -958,7 +958,7 @@ class NetworkManagementConnectivityTestDestination:
         Requires gke_master_cluster to be set, can't be used simultaneoulsly with
         ip_address or network. Applicable only to destination endpoint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#fqdn NetworkManagementConnectivityTest#fqdn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#fqdn NetworkManagementConnectivityTest#fqdn}
         '''
         result = self._values.get("fqdn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -967,7 +967,7 @@ class NetworkManagementConnectivityTestDestination:
     def gke_master_cluster(self) -> typing.Optional[builtins.str]:
         '''A cluster URI for Google Kubernetes Engine cluster control plane.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#gke_master_cluster NetworkManagementConnectivityTest#gke_master_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#gke_master_cluster NetworkManagementConnectivityTest#gke_master_cluster}
         '''
         result = self._values.get("gke_master_cluster")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -976,7 +976,7 @@ class NetworkManagementConnectivityTestDestination:
     def instance(self) -> typing.Optional[builtins.str]:
         '''A Compute Engine instance URI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#instance NetworkManagementConnectivityTest#instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#instance NetworkManagementConnectivityTest#instance}
         '''
         result = self._values.get("instance")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -985,7 +985,7 @@ class NetworkManagementConnectivityTestDestination:
     def ip_address(self) -> typing.Optional[builtins.str]:
         '''The IP address of the endpoint, which can be an external or internal IP.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#ip_address NetworkManagementConnectivityTest#ip_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#ip_address NetworkManagementConnectivityTest#ip_address}
         '''
         result = self._values.get("ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -994,7 +994,7 @@ class NetworkManagementConnectivityTestDestination:
     def network(self) -> typing.Optional[builtins.str]:
         '''A VPC network URI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#network NetworkManagementConnectivityTest#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#network NetworkManagementConnectivityTest#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1003,7 +1003,7 @@ class NetworkManagementConnectivityTestDestination:
     def port(self) -> typing.Optional[jsii.Number]:
         '''The IP protocol port of the endpoint. Only applicable when protocol is TCP or UDP.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#port NetworkManagementConnectivityTest#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#port NetworkManagementConnectivityTest#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1022,7 +1022,7 @@ class NetworkManagementConnectivityTestDestination:
            from the service project. In this case, the network that the IP address
            resides in is defined in the host project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#project_id NetworkManagementConnectivityTest#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#project_id NetworkManagementConnectivityTest#project_id}
         '''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1031,7 +1031,7 @@ class NetworkManagementConnectivityTestDestination:
     def redis_cluster(self) -> typing.Optional[builtins.str]:
         '''A Redis Cluster URI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#redis_cluster NetworkManagementConnectivityTest#redis_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#redis_cluster NetworkManagementConnectivityTest#redis_cluster}
         '''
         result = self._values.get("redis_cluster")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1040,7 +1040,7 @@ class NetworkManagementConnectivityTestDestination:
     def redis_instance(self) -> typing.Optional[builtins.str]:
         '''A Redis Instance URI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#redis_instance NetworkManagementConnectivityTest#redis_instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#redis_instance NetworkManagementConnectivityTest#redis_instance}
         '''
         result = self._values.get("redis_instance")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1360,17 +1360,17 @@ class NetworkManagementConnectivityTestSource:
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param app_engine_version: app_engine_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#app_engine_version NetworkManagementConnectivityTest#app_engine_version}
-        :param cloud_function: cloud_function block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#cloud_function NetworkManagementConnectivityTest#cloud_function}
-        :param cloud_run_revision: cloud_run_revision block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#cloud_run_revision NetworkManagementConnectivityTest#cloud_run_revision}
-        :param cloud_sql_instance: A Cloud SQL instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#cloud_sql_instance NetworkManagementConnectivityTest#cloud_sql_instance}
-        :param gke_master_cluster: A cluster URI for Google Kubernetes Engine cluster control plane. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#gke_master_cluster NetworkManagementConnectivityTest#gke_master_cluster}
-        :param instance: A Compute Engine instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#instance NetworkManagementConnectivityTest#instance}
-        :param ip_address: The IP address of the endpoint, which can be an external or internal IP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#ip_address NetworkManagementConnectivityTest#ip_address}
-        :param network: A VPC network URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#network NetworkManagementConnectivityTest#network}
-        :param network_type: Type of the network where the endpoint is located. Possible values: ["GCP_NETWORK", "NON_GCP_NETWORK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#network_type NetworkManagementConnectivityTest#network_type}
-        :param port: The IP protocol port of the endpoint. Only applicable when protocol is TCP or UDP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#port NetworkManagementConnectivityTest#port}
-        :param project_id: Project ID where the endpoint is located. The project ID can be derived from the URI if you provide a endpoint or network URI. The following are two cases where you may need to provide the project ID: 1. Only the IP address is specified, and the IP address is within a Google Cloud project. 2. When you are using Shared VPC and the IP address that you provide is from the service project. In this case, the network that the IP address resides in is defined in the host project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#project_id NetworkManagementConnectivityTest#project_id}
+        :param app_engine_version: app_engine_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#app_engine_version NetworkManagementConnectivityTest#app_engine_version}
+        :param cloud_function: cloud_function block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#cloud_function NetworkManagementConnectivityTest#cloud_function}
+        :param cloud_run_revision: cloud_run_revision block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#cloud_run_revision NetworkManagementConnectivityTest#cloud_run_revision}
+        :param cloud_sql_instance: A Cloud SQL instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#cloud_sql_instance NetworkManagementConnectivityTest#cloud_sql_instance}
+        :param gke_master_cluster: A cluster URI for Google Kubernetes Engine cluster control plane. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#gke_master_cluster NetworkManagementConnectivityTest#gke_master_cluster}
+        :param instance: A Compute Engine instance URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#instance NetworkManagementConnectivityTest#instance}
+        :param ip_address: The IP address of the endpoint, which can be an external or internal IP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#ip_address NetworkManagementConnectivityTest#ip_address}
+        :param network: A VPC network URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#network NetworkManagementConnectivityTest#network}
+        :param network_type: Type of the network where the endpoint is located. Possible values: ["GCP_NETWORK", "NON_GCP_NETWORK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#network_type NetworkManagementConnectivityTest#network_type}
+        :param port: The IP protocol port of the endpoint. Only applicable when protocol is TCP or UDP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#port NetworkManagementConnectivityTest#port}
+        :param project_id: Project ID where the endpoint is located. The project ID can be derived from the URI if you provide a endpoint or network URI. The following are two cases where you may need to provide the project ID: 1. Only the IP address is specified, and the IP address is within a Google Cloud project. 2. When you are using Shared VPC and the IP address that you provide is from the service project. In this case, the network that the IP address resides in is defined in the host project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#project_id NetworkManagementConnectivityTest#project_id}
         '''
         if isinstance(app_engine_version, dict):
             app_engine_version = NetworkManagementConnectivityTestSourceAppEngineVersion(**app_engine_version)
@@ -1421,7 +1421,7 @@ class NetworkManagementConnectivityTestSource:
     ) -> typing.Optional["NetworkManagementConnectivityTestSourceAppEngineVersion"]:
         '''app_engine_version block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#app_engine_version NetworkManagementConnectivityTest#app_engine_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#app_engine_version NetworkManagementConnectivityTest#app_engine_version}
         '''
         result = self._values.get("app_engine_version")
         return typing.cast(typing.Optional["NetworkManagementConnectivityTestSourceAppEngineVersion"], result)
@@ -1432,7 +1432,7 @@ class NetworkManagementConnectivityTestSource:
     ) -> typing.Optional["NetworkManagementConnectivityTestSourceCloudFunction"]:
         '''cloud_function block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#cloud_function NetworkManagementConnectivityTest#cloud_function}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#cloud_function NetworkManagementConnectivityTest#cloud_function}
         '''
         result = self._values.get("cloud_function")
         return typing.cast(typing.Optional["NetworkManagementConnectivityTestSourceCloudFunction"], result)
@@ -1443,7 +1443,7 @@ class NetworkManagementConnectivityTestSource:
     ) -> typing.Optional["NetworkManagementConnectivityTestSourceCloudRunRevision"]:
         '''cloud_run_revision block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#cloud_run_revision NetworkManagementConnectivityTest#cloud_run_revision}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#cloud_run_revision NetworkManagementConnectivityTest#cloud_run_revision}
         '''
         result = self._values.get("cloud_run_revision")
         return typing.cast(typing.Optional["NetworkManagementConnectivityTestSourceCloudRunRevision"], result)
@@ -1452,7 +1452,7 @@ class NetworkManagementConnectivityTestSource:
     def cloud_sql_instance(self) -> typing.Optional[builtins.str]:
         '''A Cloud SQL instance URI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#cloud_sql_instance NetworkManagementConnectivityTest#cloud_sql_instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#cloud_sql_instance NetworkManagementConnectivityTest#cloud_sql_instance}
         '''
         result = self._values.get("cloud_sql_instance")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1461,7 +1461,7 @@ class NetworkManagementConnectivityTestSource:
     def gke_master_cluster(self) -> typing.Optional[builtins.str]:
         '''A cluster URI for Google Kubernetes Engine cluster control plane.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#gke_master_cluster NetworkManagementConnectivityTest#gke_master_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#gke_master_cluster NetworkManagementConnectivityTest#gke_master_cluster}
         '''
         result = self._values.get("gke_master_cluster")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1470,7 +1470,7 @@ class NetworkManagementConnectivityTestSource:
     def instance(self) -> typing.Optional[builtins.str]:
         '''A Compute Engine instance URI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#instance NetworkManagementConnectivityTest#instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#instance NetworkManagementConnectivityTest#instance}
         '''
         result = self._values.get("instance")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1479,7 +1479,7 @@ class NetworkManagementConnectivityTestSource:
     def ip_address(self) -> typing.Optional[builtins.str]:
         '''The IP address of the endpoint, which can be an external or internal IP.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#ip_address NetworkManagementConnectivityTest#ip_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#ip_address NetworkManagementConnectivityTest#ip_address}
         '''
         result = self._values.get("ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1488,7 +1488,7 @@ class NetworkManagementConnectivityTestSource:
     def network(self) -> typing.Optional[builtins.str]:
         '''A VPC network URI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#network NetworkManagementConnectivityTest#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#network NetworkManagementConnectivityTest#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1497,7 +1497,7 @@ class NetworkManagementConnectivityTestSource:
     def network_type(self) -> typing.Optional[builtins.str]:
         '''Type of the network where the endpoint is located. Possible values: ["GCP_NETWORK", "NON_GCP_NETWORK"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#network_type NetworkManagementConnectivityTest#network_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#network_type NetworkManagementConnectivityTest#network_type}
         '''
         result = self._values.get("network_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1506,7 +1506,7 @@ class NetworkManagementConnectivityTestSource:
     def port(self) -> typing.Optional[jsii.Number]:
         '''The IP protocol port of the endpoint. Only applicable when protocol is TCP or UDP.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#port NetworkManagementConnectivityTest#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#port NetworkManagementConnectivityTest#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1525,7 +1525,7 @@ class NetworkManagementConnectivityTestSource:
            from the service project. In this case, the network that the IP address
            resides in is defined in the host project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#project_id NetworkManagementConnectivityTest#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#project_id NetworkManagementConnectivityTest#project_id}
         '''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1550,7 +1550,7 @@ class NetworkManagementConnectivityTestSource:
 class NetworkManagementConnectivityTestSourceAppEngineVersion:
     def __init__(self, *, uri: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param uri: An App Engine service version name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#uri NetworkManagementConnectivityTest#uri}
+        :param uri: An App Engine service version name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#uri NetworkManagementConnectivityTest#uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__732c8aa66107f6a96eafee221d980fa8da12ca5d6aafb45c3f2ad2f04076571c)
@@ -1563,7 +1563,7 @@ class NetworkManagementConnectivityTestSourceAppEngineVersion:
     def uri(self) -> typing.Optional[builtins.str]:
         '''An App Engine service version name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#uri NetworkManagementConnectivityTest#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#uri NetworkManagementConnectivityTest#uri}
         '''
         result = self._values.get("uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1647,7 +1647,7 @@ class NetworkManagementConnectivityTestSourceAppEngineVersionOutputReference(
 class NetworkManagementConnectivityTestSourceCloudFunction:
     def __init__(self, *, uri: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param uri: A Cloud Function name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#uri NetworkManagementConnectivityTest#uri}
+        :param uri: A Cloud Function name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#uri NetworkManagementConnectivityTest#uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3846f81bea45a0614602039717bcc6365062618e6b8bbdb5e9c55916681ba5ce)
@@ -1660,7 +1660,7 @@ class NetworkManagementConnectivityTestSourceCloudFunction:
     def uri(self) -> typing.Optional[builtins.str]:
         '''A Cloud Function name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#uri NetworkManagementConnectivityTest#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#uri NetworkManagementConnectivityTest#uri}
         '''
         result = self._values.get("uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1744,7 +1744,7 @@ class NetworkManagementConnectivityTestSourceCloudFunctionOutputReference(
 class NetworkManagementConnectivityTestSourceCloudRunRevision:
     def __init__(self, *, uri: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param uri: A Cloud Run revision URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#uri NetworkManagementConnectivityTest#uri}
+        :param uri: A Cloud Run revision URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#uri NetworkManagementConnectivityTest#uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9088a0380eb31217b500df8995cd9c4bbdb2ce8155f1af5775288cdd30209dcd)
@@ -1757,7 +1757,7 @@ class NetworkManagementConnectivityTestSourceCloudRunRevision:
     def uri(self) -> typing.Optional[builtins.str]:
         '''A Cloud Run revision URI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#uri NetworkManagementConnectivityTest#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#uri NetworkManagementConnectivityTest#uri}
         '''
         result = self._values.get("uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1860,7 +1860,7 @@ class NetworkManagementConnectivityTestSourceOutputReference(
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: An App Engine service version name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#uri NetworkManagementConnectivityTest#uri}
+        :param uri: An App Engine service version name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#uri NetworkManagementConnectivityTest#uri}
         '''
         value = NetworkManagementConnectivityTestSourceAppEngineVersion(uri=uri)
 
@@ -1869,7 +1869,7 @@ class NetworkManagementConnectivityTestSourceOutputReference(
     @jsii.member(jsii_name="putCloudFunction")
     def put_cloud_function(self, *, uri: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param uri: A Cloud Function name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#uri NetworkManagementConnectivityTest#uri}
+        :param uri: A Cloud Function name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#uri NetworkManagementConnectivityTest#uri}
         '''
         value = NetworkManagementConnectivityTestSourceCloudFunction(uri=uri)
 
@@ -1882,7 +1882,7 @@ class NetworkManagementConnectivityTestSourceOutputReference(
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: A Cloud Run revision URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#uri NetworkManagementConnectivityTest#uri}
+        :param uri: A Cloud Run revision URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#uri NetworkManagementConnectivityTest#uri}
         '''
         value = NetworkManagementConnectivityTestSourceCloudRunRevision(uri=uri)
 
@@ -2142,9 +2142,9 @@ class NetworkManagementConnectivityTestTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#create NetworkManagementConnectivityTest#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#delete NetworkManagementConnectivityTest#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#update NetworkManagementConnectivityTest#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#create NetworkManagementConnectivityTest#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#delete NetworkManagementConnectivityTest#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#update NetworkManagementConnectivityTest#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5679f7128f2e86a1bd9704cdcfc1e04c799d84cef5fcc59e8277c0730a05624d)
@@ -2161,19 +2161,19 @@ class NetworkManagementConnectivityTestTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#create NetworkManagementConnectivityTest#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#create NetworkManagementConnectivityTest#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#delete NetworkManagementConnectivityTest#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#delete NetworkManagementConnectivityTest#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_management_connectivity_test#update NetworkManagementConnectivityTest#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_management_connectivity_test#update NetworkManagementConnectivityTest#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

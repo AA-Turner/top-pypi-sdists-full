@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    version="0.3.3",
+    version="0.4.0",
     packages=find_packages(),
     install_requires=[
         "requests",
@@ -16,6 +16,7 @@ setup(
             "book = weread2notionpro.book:main",
             "weread = weread2notionpro.weread:main",
             "read_time = weread2notionpro.read_time:main",
+            "set_env = weread2notionpro.set_env:main",
         ],
     },
     author="malinkang",

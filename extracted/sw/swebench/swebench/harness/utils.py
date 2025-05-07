@@ -87,14 +87,14 @@ def run_threadpool(func, payloads, max_workers):
             # Wait for each future to complete
             for future in as_completed(futures):
                 try:
-                    # Update progress bar, check if instance ran successfully
+                    # Check if instance ran successfully
                     future.result()
                     succeeded.append(futures[future])
                 except Exception as e:
                     print(f"{type(e)}: {e}")
                     traceback.print_exc()
                     failed.append(futures[future])
-                    continue
+                # Update progress bar
                 pbar.update(1)
                 pbar.set_description(
                     f"{len(succeeded)} ran successfully, {len(failed)} failed"
@@ -122,7 +122,7 @@ def run_sequential(func, args_list):
 
 
 def load_swebench_dataset(
-    name="princeton-nlp/SWE-bench", split="test", instance_ids=None
+    name="SWE-bench/SWE-bench", split="test", instance_ids=None
 ) -> list[SWEbenchInstance]:
     """
     Load SWE-bench dataset from Hugging Face Datasets or local .json/.jsonl file
@@ -131,13 +131,14 @@ def load_swebench_dataset(
     if instance_ids:
         instance_ids = set(instance_ids)
     # Load from local .json/.jsonl file
-    if name.endswith(".json") or name.endswith(".jsonl"):
+    if name.endswith(".json"):
         dataset = json.loads(Path(name).read_text())
-        dataset_ids = {instance[KEY_INSTANCE_ID] for instance in dataset}
+    elif name.endswith(".jsonl"):
+        dataset = [json.loads(line) for line in Path(name).read_text().splitlines()]
     else:
         # Load from Hugging Face Datasets
         if name.lower() in {"swe-bench", "swebench", "swe_bench"}:
-            name = "princeton-nlp/SWE-bench"
+            name = "SWE-bench/SWE-bench"
         elif name.lower() in {
             "swe-bench-lite",
             "swebench-lite",
@@ -145,12 +146,12 @@ def load_swebench_dataset(
             "swe-bench_lite",
             "lite",
         }:
-            name = "princeton-nlp/SWE-bench_Lite"
+            name = "SWE-bench/SWE-bench_Lite"
         if (Path(name) / split / "dataset_info.json").exists():
             dataset = cast(Dataset, load_from_disk(Path(name) / split))
         else:
             dataset = cast(Dataset, load_dataset(name, split=split))
-        dataset_ids = {instance[KEY_INSTANCE_ID] for instance in dataset}
+    dataset_ids = {instance[KEY_INSTANCE_ID] for instance in dataset}
     if instance_ids:
         if instance_ids - dataset_ids:
             raise ValueError(

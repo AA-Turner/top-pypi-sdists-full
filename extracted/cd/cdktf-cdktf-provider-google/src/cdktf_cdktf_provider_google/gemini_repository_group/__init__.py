@@ -1,7 +1,7 @@
 r'''
 # `google_gemini_repository_group`
 
-Refer to the Terraform Registry for docs: [`google_gemini_repository_group`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group).
+Refer to the Terraform Registry for docs: [`google_gemini_repository_group`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GeminiRepositoryGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.geminiRepositoryGroup.GeminiRepositoryGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group google_gemini_repository_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group google_gemini_repository_group}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class GeminiRepositoryGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group google_gemini_repository_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group google_gemini_repository_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param code_repository_index: Required. Id of the Code Repository Index. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#code_repository_index GeminiRepositoryGroup#code_repository_index}
-        :param location: The location of the Code Repository Index, for example 'us-central1'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#location GeminiRepositoryGroup#location}
-        :param repositories: repositories block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#repositories GeminiRepositoryGroup#repositories}
-        :param repository_group_id: Required. Id of the Repository Group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#repository_group_id GeminiRepositoryGroup#repository_group_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#id GeminiRepositoryGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Optional. Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#labels GeminiRepositoryGroup#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#project GeminiRepositoryGroup#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#timeouts GeminiRepositoryGroup#timeouts}
+        :param code_repository_index: Required. Id of the Code Repository Index. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#code_repository_index GeminiRepositoryGroup#code_repository_index}
+        :param location: The location of the Code Repository Index, for example 'us-central1'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#location GeminiRepositoryGroup#location}
+        :param repositories: repositories block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#repositories GeminiRepositoryGroup#repositories}
+        :param repository_group_id: Required. Id of the Repository Group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#repository_group_id GeminiRepositoryGroup#repository_group_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#id GeminiRepositoryGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Optional. Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#labels GeminiRepositoryGroup#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#project GeminiRepositoryGroup#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#timeouts GeminiRepositoryGroup#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class GeminiRepositoryGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GeminiRepositoryGroup to import.
-        :param import_from_id: The id of the existing GeminiRepositoryGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GeminiRepositoryGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GeminiRepositoryGroup to import is found.
         '''
         if __debug__:
@@ -157,9 +157,9 @@ class GeminiRepositoryGroup(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#create GeminiRepositoryGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#delete GeminiRepositoryGroup#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#update GeminiRepositoryGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#create GeminiRepositoryGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#delete GeminiRepositoryGroup#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#update GeminiRepositoryGroup#update}.
         '''
         value = GeminiRepositoryGroupTimeouts(
             create=create, delete=delete, update=update
@@ -399,14 +399,14 @@ class GeminiRepositoryGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param code_repository_index: Required. Id of the Code Repository Index. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#code_repository_index GeminiRepositoryGroup#code_repository_index}
-        :param location: The location of the Code Repository Index, for example 'us-central1'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#location GeminiRepositoryGroup#location}
-        :param repositories: repositories block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#repositories GeminiRepositoryGroup#repositories}
-        :param repository_group_id: Required. Id of the Repository Group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#repository_group_id GeminiRepositoryGroup#repository_group_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#id GeminiRepositoryGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Optional. Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#labels GeminiRepositoryGroup#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#project GeminiRepositoryGroup#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#timeouts GeminiRepositoryGroup#timeouts}
+        :param code_repository_index: Required. Id of the Code Repository Index. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#code_repository_index GeminiRepositoryGroup#code_repository_index}
+        :param location: The location of the Code Repository Index, for example 'us-central1'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#location GeminiRepositoryGroup#location}
+        :param repositories: repositories block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#repositories GeminiRepositoryGroup#repositories}
+        :param repository_group_id: Required. Id of the Repository Group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#repository_group_id GeminiRepositoryGroup#repository_group_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#id GeminiRepositoryGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Optional. Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#labels GeminiRepositoryGroup#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#project GeminiRepositoryGroup#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#timeouts GeminiRepositoryGroup#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -526,7 +526,7 @@ class GeminiRepositoryGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def code_repository_index(self) -> builtins.str:
         '''Required. Id of the Code Repository Index.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#code_repository_index GeminiRepositoryGroup#code_repository_index}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#code_repository_index GeminiRepositoryGroup#code_repository_index}
         '''
         result = self._values.get("code_repository_index")
         assert result is not None, "Required property 'code_repository_index' is missing"
@@ -536,7 +536,7 @@ class GeminiRepositoryGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location of the Code Repository Index, for example 'us-central1'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#location GeminiRepositoryGroup#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#location GeminiRepositoryGroup#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -548,7 +548,7 @@ class GeminiRepositoryGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GeminiRepositoryGroupRepositories"]]:
         '''repositories block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#repositories GeminiRepositoryGroup#repositories}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#repositories GeminiRepositoryGroup#repositories}
         '''
         result = self._values.get("repositories")
         assert result is not None, "Required property 'repositories' is missing"
@@ -558,7 +558,7 @@ class GeminiRepositoryGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def repository_group_id(self) -> builtins.str:
         '''Required. Id of the Repository Group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#repository_group_id GeminiRepositoryGroup#repository_group_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#repository_group_id GeminiRepositoryGroup#repository_group_id}
         '''
         result = self._values.get("repository_group_id")
         assert result is not None, "Required property 'repository_group_id' is missing"
@@ -566,7 +566,7 @@ class GeminiRepositoryGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#id GeminiRepositoryGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#id GeminiRepositoryGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -581,14 +581,14 @@ class GeminiRepositoryGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#labels GeminiRepositoryGroup#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#labels GeminiRepositoryGroup#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#project GeminiRepositoryGroup#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#project GeminiRepositoryGroup#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -596,7 +596,7 @@ class GeminiRepositoryGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GeminiRepositoryGroupTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#timeouts GeminiRepositoryGroup#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#timeouts GeminiRepositoryGroup#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GeminiRepositoryGroupTimeouts"], result)
@@ -621,8 +621,8 @@ class GeminiRepositoryGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class GeminiRepositoryGroupRepositories:
     def __init__(self, *, branch_pattern: builtins.str, resource: builtins.str) -> None:
         '''
-        :param branch_pattern: Required. The Git branch pattern used for indexing in RE2 syntax. See https://github.com/google/re2/wiki/syntax for syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#branch_pattern GeminiRepositoryGroup#branch_pattern}
-        :param resource: Required. The DeveloperConnect repository full resource name, relative resource name or resource URL to be indexed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#resource GeminiRepositoryGroup#resource}
+        :param branch_pattern: Required. The Git branch pattern used for indexing in RE2 syntax. See https://github.com/google/re2/wiki/syntax for syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#branch_pattern GeminiRepositoryGroup#branch_pattern}
+        :param resource: Required. The DeveloperConnect repository full resource name, relative resource name or resource URL to be indexed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#resource GeminiRepositoryGroup#resource}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__327170173589a24ce9af4d18db9684f5dff14b3c207c78790eb3fb214baf87c3)
@@ -637,7 +637,7 @@ class GeminiRepositoryGroupRepositories:
     def branch_pattern(self) -> builtins.str:
         '''Required. The Git branch pattern used for indexing in RE2 syntax. See https://github.com/google/re2/wiki/syntax for syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#branch_pattern GeminiRepositoryGroup#branch_pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#branch_pattern GeminiRepositoryGroup#branch_pattern}
         '''
         result = self._values.get("branch_pattern")
         assert result is not None, "Required property 'branch_pattern' is missing"
@@ -647,7 +647,7 @@ class GeminiRepositoryGroupRepositories:
     def resource(self) -> builtins.str:
         '''Required. The DeveloperConnect repository full resource name, relative resource name or resource URL to be indexed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#resource GeminiRepositoryGroup#resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#resource GeminiRepositoryGroup#resource}
         '''
         result = self._values.get("resource")
         assert result is not None, "Required property 'resource' is missing"
@@ -850,9 +850,9 @@ class GeminiRepositoryGroupTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#create GeminiRepositoryGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#delete GeminiRepositoryGroup#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#update GeminiRepositoryGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#create GeminiRepositoryGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#delete GeminiRepositoryGroup#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#update GeminiRepositoryGroup#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__82c1ad60e4b99c0bd3e9abd27f1c0e537bce071731ed626faad21220c9477662)
@@ -869,19 +869,19 @@ class GeminiRepositoryGroupTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#create GeminiRepositoryGroup#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#create GeminiRepositoryGroup#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#delete GeminiRepositoryGroup#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#delete GeminiRepositoryGroup#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/gemini_repository_group#update GeminiRepositoryGroup#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/gemini_repository_group#update GeminiRepositoryGroup#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

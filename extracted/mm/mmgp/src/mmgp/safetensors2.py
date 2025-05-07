@@ -1,4 +1,4 @@
-# ------------------ Safetensors2 1.1 by DeepBeepMeep (mmgp)------------------
+# ------------------ Safetensors2 1.3 by DeepBeepMeep (mmgp)------------------
 #
 # This module entirely written in Python is a replacement for the safetensor library which requires much less RAM to load models.
 # It can be conveniently used to keep a low RAM consumption when handling  transit data (for instance when quantizing or transferring tensors to reserver RAM)
@@ -450,7 +450,17 @@ class _SafeTensorLoader:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Clean up resources"""        
         self.close()
-        
+
+    def get_tensor(self, name):
+        if self.sft == None:
+            self.__enter__()
+        return self.sft.get_tensor(name)
+
+    def get_slice(self, name):
+        if self.sft == None:
+            self.__enter__()
+        return self.sft.get_slice(name)
+
     def close(self) -> None:
         if self.sft != None:
             self.sft._free_resources()

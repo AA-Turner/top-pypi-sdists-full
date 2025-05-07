@@ -1,7 +1,7 @@
 r'''
 # `data_docker_network`
 
-Refer to the Terraform Registry for docs: [`data_docker_network`](https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/data-sources/network).
+Refer to the Terraform Registry for docs: [`data_docker_network`](https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/data-sources/network).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataDockerNetwork(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-docker.dataDockerNetwork.DataDockerNetwork",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/data-sources/network docker_network}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/data-sources/network docker_network}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class DataDockerNetwork(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/data-sources/network docker_network} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/data-sources/network docker_network} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the Docker network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/data-sources/network#name DataDockerNetwork#name}
+        :param name: The name of the Docker network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/data-sources/network#name DataDockerNetwork#name}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class DataDockerNetwork(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDockerNetwork to import.
-        :param import_from_id: The id of the existing DataDockerNetwork that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/data-sources/network#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDockerNetwork that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/data-sources/network#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDockerNetwork to import is found.
         '''
         if __debug__:
@@ -210,7 +210,7 @@ class DataDockerNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the Docker network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/data-sources/network#name DataDockerNetwork#name}
+        :param name: The name of the Docker network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/data-sources/network#name DataDockerNetwork#name}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -310,7 +310,7 @@ class DataDockerNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the Docker network.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/data-sources/network#name DataDockerNetwork#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/data-sources/network#name DataDockerNetwork#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"

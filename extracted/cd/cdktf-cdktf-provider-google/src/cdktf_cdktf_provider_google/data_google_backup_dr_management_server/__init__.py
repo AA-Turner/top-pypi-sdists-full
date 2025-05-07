@@ -1,7 +1,7 @@
 r'''
 # `data_google_backup_dr_management_server`
 
-Refer to the Terraform Registry for docs: [`data_google_backup_dr_management_server`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/backup_dr_management_server).
+Refer to the Terraform Registry for docs: [`data_google_backup_dr_management_server`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/backup_dr_management_server).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleBackupDrManagementServer(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleBackupDrManagementServer.DataGoogleBackupDrManagementServer",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/backup_dr_management_server google_backup_dr_management_server}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/backup_dr_management_server google_backup_dr_management_server}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataGoogleBackupDrManagementServer(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/backup_dr_management_server google_backup_dr_management_server} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/backup_dr_management_server google_backup_dr_management_server} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location for the management server (management console). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/backup_dr_management_server#location DataGoogleBackupDrManagementServer#location}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/backup_dr_management_server#id DataGoogleBackupDrManagementServer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: The location for the management server (management console). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/backup_dr_management_server#location DataGoogleBackupDrManagementServer#location}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/backup_dr_management_server#id DataGoogleBackupDrManagementServer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataGoogleBackupDrManagementServer(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleBackupDrManagementServer to import.
-        :param import_from_id: The id of the existing DataGoogleBackupDrManagementServer that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/backup_dr_management_server#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleBackupDrManagementServer that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/backup_dr_management_server#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleBackupDrManagementServer to import is found.
         '''
         if __debug__:
@@ -236,8 +236,8 @@ class DataGoogleBackupDrManagementServerConfig(_cdktf_9a9027ec.TerraformMetaArgu
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location for the management server (management console). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/backup_dr_management_server#location DataGoogleBackupDrManagementServer#location}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/backup_dr_management_server#id DataGoogleBackupDrManagementServer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: The location for the management server (management console). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/backup_dr_management_server#location DataGoogleBackupDrManagementServer#location}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/backup_dr_management_server#id DataGoogleBackupDrManagementServer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -340,7 +340,7 @@ class DataGoogleBackupDrManagementServerConfig(_cdktf_9a9027ec.TerraformMetaArgu
     def location(self) -> builtins.str:
         '''The location for the management server (management console).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/backup_dr_management_server#location DataGoogleBackupDrManagementServer#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/backup_dr_management_server#location DataGoogleBackupDrManagementServer#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -348,7 +348,7 @@ class DataGoogleBackupDrManagementServerConfig(_cdktf_9a9027ec.TerraformMetaArgu
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/backup_dr_management_server#id DataGoogleBackupDrManagementServer#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/backup_dr_management_server#id DataGoogleBackupDrManagementServer#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

@@ -1,7 +1,7 @@
 r'''
 # `google_pubsub_lite_subscription`
 
-Refer to the Terraform Registry for docs: [`google_pubsub_lite_subscription`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription).
+Refer to the Terraform Registry for docs: [`google_pubsub_lite_subscription`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class PubsubLiteSubscription(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.pubsubLiteSubscription.PubsubLiteSubscription",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription google_pubsub_lite_subscription}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription google_pubsub_lite_subscription}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class PubsubLiteSubscription(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription google_pubsub_lite_subscription} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription google_pubsub_lite_subscription} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the subscription. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#name PubsubLiteSubscription#name}
-        :param topic: A reference to a Topic resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#topic PubsubLiteSubscription#topic}
-        :param delivery_config: delivery_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#delivery_config PubsubLiteSubscription#delivery_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#id PubsubLiteSubscription#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#project PubsubLiteSubscription#project}.
-        :param region: The region of the pubsub lite topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#region PubsubLiteSubscription#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#timeouts PubsubLiteSubscription#timeouts}
-        :param zone: The zone of the pubsub lite topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#zone PubsubLiteSubscription#zone}
+        :param name: Name of the subscription. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#name PubsubLiteSubscription#name}
+        :param topic: A reference to a Topic resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#topic PubsubLiteSubscription#topic}
+        :param delivery_config: delivery_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#delivery_config PubsubLiteSubscription#delivery_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#id PubsubLiteSubscription#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#project PubsubLiteSubscription#project}.
+        :param region: The region of the pubsub lite topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#region PubsubLiteSubscription#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#timeouts PubsubLiteSubscription#timeouts}
+        :param zone: The zone of the pubsub lite topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#zone PubsubLiteSubscription#zone}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class PubsubLiteSubscription(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the PubsubLiteSubscription to import.
-        :param import_from_id: The id of the existing PubsubLiteSubscription that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing PubsubLiteSubscription that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the PubsubLiteSubscription to import is found.
         '''
         if __debug__:
@@ -138,7 +138,7 @@ class PubsubLiteSubscription(
     @jsii.member(jsii_name="putDeliveryConfig")
     def put_delivery_config(self, *, delivery_requirement: builtins.str) -> None:
         '''
-        :param delivery_requirement: When this subscription should send messages to subscribers relative to messages persistence in storage. Possible values: ["DELIVER_IMMEDIATELY", "DELIVER_AFTER_STORED", "DELIVERY_REQUIREMENT_UNSPECIFIED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#delivery_requirement PubsubLiteSubscription#delivery_requirement}
+        :param delivery_requirement: When this subscription should send messages to subscribers relative to messages persistence in storage. Possible values: ["DELIVER_IMMEDIATELY", "DELIVER_AFTER_STORED", "DELIVERY_REQUIREMENT_UNSPECIFIED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#delivery_requirement PubsubLiteSubscription#delivery_requirement}
         '''
         value = PubsubLiteSubscriptionDeliveryConfig(
             delivery_requirement=delivery_requirement
@@ -155,9 +155,9 @@ class PubsubLiteSubscription(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#create PubsubLiteSubscription#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#delete PubsubLiteSubscription#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#update PubsubLiteSubscription#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#create PubsubLiteSubscription#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#delete PubsubLiteSubscription#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#update PubsubLiteSubscription#update}.
         '''
         value = PubsubLiteSubscriptionTimeouts(
             create=create, delete=delete, update=update
@@ -378,14 +378,14 @@ class PubsubLiteSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the subscription. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#name PubsubLiteSubscription#name}
-        :param topic: A reference to a Topic resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#topic PubsubLiteSubscription#topic}
-        :param delivery_config: delivery_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#delivery_config PubsubLiteSubscription#delivery_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#id PubsubLiteSubscription#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#project PubsubLiteSubscription#project}.
-        :param region: The region of the pubsub lite topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#region PubsubLiteSubscription#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#timeouts PubsubLiteSubscription#timeouts}
-        :param zone: The zone of the pubsub lite topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#zone PubsubLiteSubscription#zone}
+        :param name: Name of the subscription. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#name PubsubLiteSubscription#name}
+        :param topic: A reference to a Topic resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#topic PubsubLiteSubscription#topic}
+        :param delivery_config: delivery_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#delivery_config PubsubLiteSubscription#delivery_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#id PubsubLiteSubscription#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#project PubsubLiteSubscription#project}.
+        :param region: The region of the pubsub lite topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#region PubsubLiteSubscription#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#timeouts PubsubLiteSubscription#timeouts}
+        :param zone: The zone of the pubsub lite topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#zone PubsubLiteSubscription#zone}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -509,7 +509,7 @@ class PubsubLiteSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name of the subscription.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#name PubsubLiteSubscription#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#name PubsubLiteSubscription#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -519,7 +519,7 @@ class PubsubLiteSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def topic(self) -> builtins.str:
         '''A reference to a Topic resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#topic PubsubLiteSubscription#topic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#topic PubsubLiteSubscription#topic}
         '''
         result = self._values.get("topic")
         assert result is not None, "Required property 'topic' is missing"
@@ -531,14 +531,14 @@ class PubsubLiteSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["PubsubLiteSubscriptionDeliveryConfig"]:
         '''delivery_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#delivery_config PubsubLiteSubscription#delivery_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#delivery_config PubsubLiteSubscription#delivery_config}
         '''
         result = self._values.get("delivery_config")
         return typing.cast(typing.Optional["PubsubLiteSubscriptionDeliveryConfig"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#id PubsubLiteSubscription#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#id PubsubLiteSubscription#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -548,7 +548,7 @@ class PubsubLiteSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#project PubsubLiteSubscription#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#project PubsubLiteSubscription#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -556,7 +556,7 @@ class PubsubLiteSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''The region of the pubsub lite topic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#region PubsubLiteSubscription#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#region PubsubLiteSubscription#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -565,7 +565,7 @@ class PubsubLiteSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["PubsubLiteSubscriptionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#timeouts PubsubLiteSubscription#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#timeouts PubsubLiteSubscription#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["PubsubLiteSubscriptionTimeouts"], result)
@@ -574,7 +574,7 @@ class PubsubLiteSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def zone(self) -> typing.Optional[builtins.str]:
         '''The zone of the pubsub lite topic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#zone PubsubLiteSubscription#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#zone PubsubLiteSubscription#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -599,7 +599,7 @@ class PubsubLiteSubscriptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class PubsubLiteSubscriptionDeliveryConfig:
     def __init__(self, *, delivery_requirement: builtins.str) -> None:
         '''
-        :param delivery_requirement: When this subscription should send messages to subscribers relative to messages persistence in storage. Possible values: ["DELIVER_IMMEDIATELY", "DELIVER_AFTER_STORED", "DELIVERY_REQUIREMENT_UNSPECIFIED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#delivery_requirement PubsubLiteSubscription#delivery_requirement}
+        :param delivery_requirement: When this subscription should send messages to subscribers relative to messages persistence in storage. Possible values: ["DELIVER_IMMEDIATELY", "DELIVER_AFTER_STORED", "DELIVERY_REQUIREMENT_UNSPECIFIED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#delivery_requirement PubsubLiteSubscription#delivery_requirement}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__78ba3362997b0034a844d57f4dbf2f97cfc672bcd8886ef93489710a14e325d6)
@@ -612,7 +612,7 @@ class PubsubLiteSubscriptionDeliveryConfig:
     def delivery_requirement(self) -> builtins.str:
         '''When this subscription should send messages to subscribers relative to messages persistence in storage. Possible values: ["DELIVER_IMMEDIATELY", "DELIVER_AFTER_STORED", "DELIVERY_REQUIREMENT_UNSPECIFIED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#delivery_requirement PubsubLiteSubscription#delivery_requirement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#delivery_requirement PubsubLiteSubscription#delivery_requirement}
         '''
         result = self._values.get("delivery_requirement")
         assert result is not None, "Required property 'delivery_requirement' is missing"
@@ -697,9 +697,9 @@ class PubsubLiteSubscriptionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#create PubsubLiteSubscription#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#delete PubsubLiteSubscription#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#update PubsubLiteSubscription#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#create PubsubLiteSubscription#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#delete PubsubLiteSubscription#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#update PubsubLiteSubscription#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c517d4ae66af39d8914f50e2927c30e162867dddbbb6d4e27450adfa880ef0c7)
@@ -716,19 +716,19 @@ class PubsubLiteSubscriptionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#create PubsubLiteSubscription#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#create PubsubLiteSubscription#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#delete PubsubLiteSubscription#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#delete PubsubLiteSubscription#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/pubsub_lite_subscription#update PubsubLiteSubscription#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/pubsub_lite_subscription#update PubsubLiteSubscription#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

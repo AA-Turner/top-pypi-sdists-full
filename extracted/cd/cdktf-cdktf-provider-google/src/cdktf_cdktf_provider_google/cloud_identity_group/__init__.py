@@ -1,7 +1,7 @@
 r'''
 # `google_cloud_identity_group`
 
-Refer to the Terraform Registry for docs: [`google_cloud_identity_group`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group).
+Refer to the Terraform Registry for docs: [`google_cloud_identity_group`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudIdentityGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.cloudIdentityGroup.CloudIdentityGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group google_cloud_identity_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group google_cloud_identity_group}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class CloudIdentityGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group google_cloud_identity_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group google_cloud_identity_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param group_key: group_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#group_key CloudIdentityGroup#group_key}
-        :param labels: One or more label entries that apply to the Group. Currently supported labels contain a key with an empty value. Google Groups are the default type of group and have a label with a key of cloudidentity.googleapis.com/groups.discussion_forum and an empty value. Existing Google Groups can have an additional label with a key of cloudidentity.googleapis.com/groups.security and an empty value added to them. This is an immutable change and the security label cannot be removed once added. Dynamic groups have a label with a key of cloudidentity.googleapis.com/groups.dynamic. Identity-mapped groups for Cloud Search have a label with a key of system/groups/external and an empty value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#labels CloudIdentityGroup#labels}
-        :param parent: The resource name of the entity under which this Group resides in the Cloud Identity resource hierarchy. Must be of the form identitysources/{identity_source_id} for external-identity-mapped groups or customers/{customer_id} for Google Groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#parent CloudIdentityGroup#parent}
-        :param description: An extended description to help users determine the purpose of a Group. Must not be longer than 4,096 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#description CloudIdentityGroup#description}
-        :param display_name: The display name of the Group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#display_name CloudIdentityGroup#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#id CloudIdentityGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initial_group_config: The initial configuration options for creating a Group. See the `API reference <https://cloud.google.com/identity/docs/reference/rest/v1beta1/groups/create#initialgroupconfig>`_ for possible values. Default value: "EMPTY" Possible values: ["INITIAL_GROUP_CONFIG_UNSPECIFIED", "WITH_INITIAL_OWNER", "EMPTY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#initial_group_config CloudIdentityGroup#initial_group_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#timeouts CloudIdentityGroup#timeouts}
+        :param group_key: group_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#group_key CloudIdentityGroup#group_key}
+        :param labels: One or more label entries that apply to the Group. Currently supported labels contain a key with an empty value. Google Groups are the default type of group and have a label with a key of cloudidentity.googleapis.com/groups.discussion_forum and an empty value. Existing Google Groups can have an additional label with a key of cloudidentity.googleapis.com/groups.security and an empty value added to them. This is an immutable change and the security label cannot be removed once added. Dynamic groups have a label with a key of cloudidentity.googleapis.com/groups.dynamic. Identity-mapped groups for Cloud Search have a label with a key of system/groups/external and an empty value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#labels CloudIdentityGroup#labels}
+        :param parent: The resource name of the entity under which this Group resides in the Cloud Identity resource hierarchy. Must be of the form identitysources/{identity_source_id} for external-identity-mapped groups or customers/{customer_id} for Google Groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#parent CloudIdentityGroup#parent}
+        :param description: An extended description to help users determine the purpose of a Group. Must not be longer than 4,096 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#description CloudIdentityGroup#description}
+        :param display_name: The display name of the Group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#display_name CloudIdentityGroup#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#id CloudIdentityGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initial_group_config: The initial configuration options for creating a Group. See the `API reference <https://cloud.google.com/identity/docs/reference/rest/v1beta1/groups/create#initialgroupconfig>`_ for possible values. Default value: "EMPTY" Possible values: ["INITIAL_GROUP_CONFIG_UNSPECIFIED", "WITH_INITIAL_OWNER", "EMPTY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#initial_group_config CloudIdentityGroup#initial_group_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#timeouts CloudIdentityGroup#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class CloudIdentityGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudIdentityGroup to import.
-        :param import_from_id: The id of the existing CloudIdentityGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudIdentityGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudIdentityGroup to import is found.
         '''
         if __debug__:
@@ -143,8 +143,8 @@ class CloudIdentityGroup(
         namespace: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: The ID of the entity. For Google-managed entities, the id must be the email address of an existing group or user. For external-identity-mapped entities, the id must be a string conforming to the Identity Source's requirements. Must be unique within a namespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#id CloudIdentityGroup#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param namespace: The namespace in which the entity exists. If not specified, the EntityKey represents a Google-managed entity such as a Google user or a Google Group. If specified, the EntityKey represents an external-identity-mapped group. The namespace must correspond to an identity source created in Admin Console and must be in the form of 'identitysources/{identity_source_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#namespace CloudIdentityGroup#namespace}
+        :param id: The ID of the entity. For Google-managed entities, the id must be the email address of an existing group or user. For external-identity-mapped entities, the id must be a string conforming to the Identity Source's requirements. Must be unique within a namespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#id CloudIdentityGroup#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param namespace: The namespace in which the entity exists. If not specified, the EntityKey represents a Google-managed entity such as a Google user or a Google Group. If specified, the EntityKey represents an external-identity-mapped group. The namespace must correspond to an identity source created in Admin Console and must be in the form of 'identitysources/{identity_source_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#namespace CloudIdentityGroup#namespace}
         '''
         value = CloudIdentityGroupGroupKey(id=id, namespace=namespace)
 
@@ -159,9 +159,9 @@ class CloudIdentityGroup(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#create CloudIdentityGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#delete CloudIdentityGroup#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#update CloudIdentityGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#create CloudIdentityGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#delete CloudIdentityGroup#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#update CloudIdentityGroup#update}.
         '''
         value = CloudIdentityGroupTimeouts(create=create, delete=delete, update=update)
 
@@ -545,14 +545,14 @@ class CloudIdentityGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param group_key: group_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#group_key CloudIdentityGroup#group_key}
-        :param labels: One or more label entries that apply to the Group. Currently supported labels contain a key with an empty value. Google Groups are the default type of group and have a label with a key of cloudidentity.googleapis.com/groups.discussion_forum and an empty value. Existing Google Groups can have an additional label with a key of cloudidentity.googleapis.com/groups.security and an empty value added to them. This is an immutable change and the security label cannot be removed once added. Dynamic groups have a label with a key of cloudidentity.googleapis.com/groups.dynamic. Identity-mapped groups for Cloud Search have a label with a key of system/groups/external and an empty value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#labels CloudIdentityGroup#labels}
-        :param parent: The resource name of the entity under which this Group resides in the Cloud Identity resource hierarchy. Must be of the form identitysources/{identity_source_id} for external-identity-mapped groups or customers/{customer_id} for Google Groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#parent CloudIdentityGroup#parent}
-        :param description: An extended description to help users determine the purpose of a Group. Must not be longer than 4,096 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#description CloudIdentityGroup#description}
-        :param display_name: The display name of the Group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#display_name CloudIdentityGroup#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#id CloudIdentityGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initial_group_config: The initial configuration options for creating a Group. See the `API reference <https://cloud.google.com/identity/docs/reference/rest/v1beta1/groups/create#initialgroupconfig>`_ for possible values. Default value: "EMPTY" Possible values: ["INITIAL_GROUP_CONFIG_UNSPECIFIED", "WITH_INITIAL_OWNER", "EMPTY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#initial_group_config CloudIdentityGroup#initial_group_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#timeouts CloudIdentityGroup#timeouts}
+        :param group_key: group_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#group_key CloudIdentityGroup#group_key}
+        :param labels: One or more label entries that apply to the Group. Currently supported labels contain a key with an empty value. Google Groups are the default type of group and have a label with a key of cloudidentity.googleapis.com/groups.discussion_forum and an empty value. Existing Google Groups can have an additional label with a key of cloudidentity.googleapis.com/groups.security and an empty value added to them. This is an immutable change and the security label cannot be removed once added. Dynamic groups have a label with a key of cloudidentity.googleapis.com/groups.dynamic. Identity-mapped groups for Cloud Search have a label with a key of system/groups/external and an empty value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#labels CloudIdentityGroup#labels}
+        :param parent: The resource name of the entity under which this Group resides in the Cloud Identity resource hierarchy. Must be of the form identitysources/{identity_source_id} for external-identity-mapped groups or customers/{customer_id} for Google Groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#parent CloudIdentityGroup#parent}
+        :param description: An extended description to help users determine the purpose of a Group. Must not be longer than 4,096 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#description CloudIdentityGroup#description}
+        :param display_name: The display name of the Group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#display_name CloudIdentityGroup#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#id CloudIdentityGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initial_group_config: The initial configuration options for creating a Group. See the `API reference <https://cloud.google.com/identity/docs/reference/rest/v1beta1/groups/create#initialgroupconfig>`_ for possible values. Default value: "EMPTY" Possible values: ["INITIAL_GROUP_CONFIG_UNSPECIFIED", "WITH_INITIAL_OWNER", "EMPTY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#initial_group_config CloudIdentityGroup#initial_group_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#timeouts CloudIdentityGroup#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -675,7 +675,7 @@ class CloudIdentityGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def group_key(self) -> "CloudIdentityGroupGroupKey":
         '''group_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#group_key CloudIdentityGroup#group_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#group_key CloudIdentityGroup#group_key}
         '''
         result = self._values.get("group_key")
         assert result is not None, "Required property 'group_key' is missing"
@@ -695,7 +695,7 @@ class CloudIdentityGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Identity-mapped groups for Cloud Search have a label with a key of system/groups/external and an empty value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#labels CloudIdentityGroup#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#labels CloudIdentityGroup#labels}
         '''
         result = self._values.get("labels")
         assert result is not None, "Required property 'labels' is missing"
@@ -708,7 +708,7 @@ class CloudIdentityGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Must be of the form identitysources/{identity_source_id} for external-identity-mapped
         groups or customers/{customer_id} for Google Groups.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#parent CloudIdentityGroup#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#parent CloudIdentityGroup#parent}
         '''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
@@ -718,7 +718,7 @@ class CloudIdentityGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An extended description to help users determine the purpose of a Group. Must not be longer than 4,096 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#description CloudIdentityGroup#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#description CloudIdentityGroup#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -727,14 +727,14 @@ class CloudIdentityGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The display name of the Group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#display_name CloudIdentityGroup#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#display_name CloudIdentityGroup#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#id CloudIdentityGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#id CloudIdentityGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -750,7 +750,7 @@ class CloudIdentityGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         `API reference <https://cloud.google.com/identity/docs/reference/rest/v1beta1/groups/create#initialgroupconfig>`_
         for possible values. Default value: "EMPTY" Possible values: ["INITIAL_GROUP_CONFIG_UNSPECIFIED", "WITH_INITIAL_OWNER", "EMPTY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#initial_group_config CloudIdentityGroup#initial_group_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#initial_group_config CloudIdentityGroup#initial_group_config}
         '''
         result = self._values.get("initial_group_config")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -759,7 +759,7 @@ class CloudIdentityGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CloudIdentityGroupTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#timeouts CloudIdentityGroup#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#timeouts CloudIdentityGroup#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CloudIdentityGroupTimeouts"], result)
@@ -789,8 +789,8 @@ class CloudIdentityGroupGroupKey:
         namespace: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: The ID of the entity. For Google-managed entities, the id must be the email address of an existing group or user. For external-identity-mapped entities, the id must be a string conforming to the Identity Source's requirements. Must be unique within a namespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#id CloudIdentityGroup#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param namespace: The namespace in which the entity exists. If not specified, the EntityKey represents a Google-managed entity such as a Google user or a Google Group. If specified, the EntityKey represents an external-identity-mapped group. The namespace must correspond to an identity source created in Admin Console and must be in the form of 'identitysources/{identity_source_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#namespace CloudIdentityGroup#namespace}
+        :param id: The ID of the entity. For Google-managed entities, the id must be the email address of an existing group or user. For external-identity-mapped entities, the id must be a string conforming to the Identity Source's requirements. Must be unique within a namespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#id CloudIdentityGroup#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param namespace: The namespace in which the entity exists. If not specified, the EntityKey represents a Google-managed entity such as a Google user or a Google Group. If specified, the EntityKey represents an external-identity-mapped group. The namespace must correspond to an identity source created in Admin Console and must be in the form of 'identitysources/{identity_source_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#namespace CloudIdentityGroup#namespace}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0227d062b13fa254034828c76290a51863417284e35babe411c6f71b56169bb9)
@@ -814,7 +814,7 @@ class CloudIdentityGroupGroupKey:
 
         Must be unique within a namespace.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#id CloudIdentityGroup#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#id CloudIdentityGroup#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -834,7 +834,7 @@ class CloudIdentityGroupGroupKey:
         The namespace must correspond to an identity source created in Admin Console
         and must be in the form of 'identitysources/{identity_source_id}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#namespace CloudIdentityGroup#namespace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#namespace CloudIdentityGroup#namespace}
         '''
         result = self._values.get("namespace")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -939,9 +939,9 @@ class CloudIdentityGroupTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#create CloudIdentityGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#delete CloudIdentityGroup#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#update CloudIdentityGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#create CloudIdentityGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#delete CloudIdentityGroup#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#update CloudIdentityGroup#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ae677fe01899820969b5cdd9a03cb2112af699bcaa6c955c18e29004667ae049)
@@ -958,19 +958,19 @@ class CloudIdentityGroupTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#create CloudIdentityGroup#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#create CloudIdentityGroup#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#delete CloudIdentityGroup#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#delete CloudIdentityGroup#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group#update CloudIdentityGroup#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group#update CloudIdentityGroup#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

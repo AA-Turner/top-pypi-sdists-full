@@ -1,7 +1,7 @@
 r'''
 # `docker_config`
 
-Refer to the Terraform Registry for docs: [`docker_config`](https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/config).
+Refer to the Terraform Registry for docs: [`docker_config`](https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Config(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-docker.config.Config",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/config docker_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/config docker_config}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class Config(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/config docker_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/config docker_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param data: Base64-url-safe-encoded config data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/config#data Config#data}
-        :param name: User-defined name of the config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/config#name Config#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/config#id Config#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param data: Base64-url-safe-encoded config data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/config#data Config#data}
+        :param name: User-defined name of the config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/config#name Config#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/config#id Config#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class Config(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Config to import.
-        :param import_from_id: The id of the existing Config that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Config that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Config to import is found.
         '''
         if __debug__:
@@ -228,9 +228,9 @@ class ConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param data: Base64-url-safe-encoded config data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/config#data Config#data}
-        :param name: User-defined name of the config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/config#name Config#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/config#id Config#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param data: Base64-url-safe-encoded config data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/config#data Config#data}
+        :param name: User-defined name of the config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/config#name Config#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/config#id Config#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -335,7 +335,7 @@ class ConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def data(self) -> builtins.str:
         '''Base64-url-safe-encoded config data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/config#data Config#data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/config#data Config#data}
         '''
         result = self._values.get("data")
         assert result is not None, "Required property 'data' is missing"
@@ -345,7 +345,7 @@ class ConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''User-defined name of the config.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/config#name Config#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/config#name Config#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -353,7 +353,7 @@ class ConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/config#id Config#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/config#id Config#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

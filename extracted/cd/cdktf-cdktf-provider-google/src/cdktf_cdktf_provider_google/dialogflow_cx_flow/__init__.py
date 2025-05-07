@@ -1,7 +1,7 @@
 r'''
 # `google_dialogflow_cx_flow`
 
-Refer to the Terraform Registry for docs: [`google_dialogflow_cx_flow`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow).
+Refer to the Terraform Registry for docs: [`google_dialogflow_cx_flow`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DialogflowCxFlow(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dialogflowCxFlow.DialogflowCxFlow",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow google_dialogflow_cx_flow}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow google_dialogflow_cx_flow}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class DialogflowCxFlow(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow google_dialogflow_cx_flow} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow google_dialogflow_cx_flow} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The human-readable name of the flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#display_name DialogflowCxFlow#display_name}
-        :param advanced_settings: advanced_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#advanced_settings DialogflowCxFlow#advanced_settings}
-        :param description: The description of the flow. The maximum length is 500 characters. If exceeded, the request is rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#description DialogflowCxFlow#description}
-        :param event_handlers: event_handlers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#event_handlers DialogflowCxFlow#event_handlers}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#id DialogflowCxFlow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param is_default_start_flow: Marks this as the `Default Start Flow <https://cloud.google.com/dialogflow/cx/docs/concept/flow#start>`_ for an agent. When you create an agent, the Default Start Flow is created automatically. The Default Start Flow cannot be deleted; deleting the 'google_dialogflow_cx_flow' resource does nothing to the underlying GCP resources. ~> Avoid having multiple 'google_dialogflow_cx_flow' resources linked to the same agent with 'is_default_start_flow = true' because they will compete to control a single Default Start Flow resource in GCP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#is_default_start_flow DialogflowCxFlow#is_default_start_flow}
-        :param language_code: The language of the following fields in flow: Flow.event_handlers.trigger_fulfillment.messages Flow.event_handlers.trigger_fulfillment.conditional_cases Flow.transition_routes.trigger_fulfillment.messages Flow.transition_routes.trigger_fulfillment.conditional_cases If not specified, the agent's default language is used. Many languages are supported. Note: languages must be enabled in the agent before they can be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#language_code DialogflowCxFlow#language_code}
-        :param nlu_settings: nlu_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#nlu_settings DialogflowCxFlow#nlu_settings}
-        :param parent: The agent to create a flow for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#parent DialogflowCxFlow#parent}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#timeouts DialogflowCxFlow#timeouts}
-        :param transition_route_groups: A flow's transition route group serve two purposes: They are responsible for matching the user's first utterances in the flow. They are inherited by every page's [transition route groups][Page.transition_route_groups]. Transition route groups defined in the page have higher priority than those defined in the flow. Format:projects//locations//agents//flows//transitionRouteGroups/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#transition_route_groups DialogflowCxFlow#transition_route_groups}
-        :param transition_routes: transition_routes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#transition_routes DialogflowCxFlow#transition_routes}
+        :param display_name: The human-readable name of the flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#display_name DialogflowCxFlow#display_name}
+        :param advanced_settings: advanced_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#advanced_settings DialogflowCxFlow#advanced_settings}
+        :param description: The description of the flow. The maximum length is 500 characters. If exceeded, the request is rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#description DialogflowCxFlow#description}
+        :param event_handlers: event_handlers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#event_handlers DialogflowCxFlow#event_handlers}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#id DialogflowCxFlow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_default_start_flow: Marks this as the `Default Start Flow <https://cloud.google.com/dialogflow/cx/docs/concept/flow#start>`_ for an agent. When you create an agent, the Default Start Flow is created automatically. The Default Start Flow cannot be deleted; deleting the 'google_dialogflow_cx_flow' resource does nothing to the underlying GCP resources. ~> Avoid having multiple 'google_dialogflow_cx_flow' resources linked to the same agent with 'is_default_start_flow = true' because they will compete to control a single Default Start Flow resource in GCP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#is_default_start_flow DialogflowCxFlow#is_default_start_flow}
+        :param language_code: The language of the following fields in flow: Flow.event_handlers.trigger_fulfillment.messages Flow.event_handlers.trigger_fulfillment.conditional_cases Flow.transition_routes.trigger_fulfillment.messages Flow.transition_routes.trigger_fulfillment.conditional_cases If not specified, the agent's default language is used. Many languages are supported. Note: languages must be enabled in the agent before they can be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#language_code DialogflowCxFlow#language_code}
+        :param nlu_settings: nlu_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#nlu_settings DialogflowCxFlow#nlu_settings}
+        :param parent: The agent to create a flow for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#parent DialogflowCxFlow#parent}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#timeouts DialogflowCxFlow#timeouts}
+        :param transition_route_groups: A flow's transition route group serve two purposes: They are responsible for matching the user's first utterances in the flow. They are inherited by every page's [transition route groups][Page.transition_route_groups]. Transition route groups defined in the page have higher priority than those defined in the flow. Format:projects//locations//agents//flows//transitionRouteGroups/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#transition_route_groups DialogflowCxFlow#transition_route_groups}
+        :param transition_routes: transition_routes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#transition_routes DialogflowCxFlow#transition_routes}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class DialogflowCxFlow(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DialogflowCxFlow to import.
-        :param import_from_id: The id of the existing DialogflowCxFlow that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DialogflowCxFlow that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DialogflowCxFlow to import is found.
         '''
         if __debug__:
@@ -157,10 +157,10 @@ class DialogflowCxFlow(
         speech_settings: typing.Optional[typing.Union["DialogflowCxFlowAdvancedSettingsSpeechSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param audio_export_gcs_destination: audio_export_gcs_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#audio_export_gcs_destination DialogflowCxFlow#audio_export_gcs_destination}
-        :param dtmf_settings: dtmf_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#dtmf_settings DialogflowCxFlow#dtmf_settings}
-        :param logging_settings: logging_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#logging_settings DialogflowCxFlow#logging_settings}
-        :param speech_settings: speech_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#speech_settings DialogflowCxFlow#speech_settings}
+        :param audio_export_gcs_destination: audio_export_gcs_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#audio_export_gcs_destination DialogflowCxFlow#audio_export_gcs_destination}
+        :param dtmf_settings: dtmf_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#dtmf_settings DialogflowCxFlow#dtmf_settings}
+        :param logging_settings: logging_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#logging_settings DialogflowCxFlow#logging_settings}
+        :param speech_settings: speech_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#speech_settings DialogflowCxFlow#speech_settings}
         '''
         value = DialogflowCxFlowAdvancedSettings(
             audio_export_gcs_destination=audio_export_gcs_destination,
@@ -193,9 +193,9 @@ class DialogflowCxFlow(
         model_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param classification_threshold: To filter out false positive results and still get variety in matched natural language inputs for your agent, you can tune the machine learning classification threshold. If the returned score value is less than the threshold value, then a no-match event will be triggered. The score values range from 0.0 (completely uncertain) to 1.0 (completely certain). If set to 0.0, the default of 0.3 is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#classification_threshold DialogflowCxFlow#classification_threshold}
-        :param model_training_mode: Indicates NLU model training mode. - MODEL_TRAINING_MODE_AUTOMATIC: NLU model training is automatically triggered when a flow gets modified. User can also manually trigger model training in this mode. - MODEL_TRAINING_MODE_MANUAL: User needs to manually trigger NLU model training. Best for large flows whose models take long time to train. Possible values: ["MODEL_TRAINING_MODE_AUTOMATIC", "MODEL_TRAINING_MODE_MANUAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#model_training_mode DialogflowCxFlow#model_training_mode}
-        :param model_type: Indicates the type of NLU model. - MODEL_TYPE_STANDARD: Use standard NLU model. - MODEL_TYPE_ADVANCED: Use advanced NLU model. Possible values: ["MODEL_TYPE_STANDARD", "MODEL_TYPE_ADVANCED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#model_type DialogflowCxFlow#model_type}
+        :param classification_threshold: To filter out false positive results and still get variety in matched natural language inputs for your agent, you can tune the machine learning classification threshold. If the returned score value is less than the threshold value, then a no-match event will be triggered. The score values range from 0.0 (completely uncertain) to 1.0 (completely certain). If set to 0.0, the default of 0.3 is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#classification_threshold DialogflowCxFlow#classification_threshold}
+        :param model_training_mode: Indicates NLU model training mode. - MODEL_TRAINING_MODE_AUTOMATIC: NLU model training is automatically triggered when a flow gets modified. User can also manually trigger model training in this mode. - MODEL_TRAINING_MODE_MANUAL: User needs to manually trigger NLU model training. Best for large flows whose models take long time to train. Possible values: ["MODEL_TRAINING_MODE_AUTOMATIC", "MODEL_TRAINING_MODE_MANUAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#model_training_mode DialogflowCxFlow#model_training_mode}
+        :param model_type: Indicates the type of NLU model. - MODEL_TYPE_STANDARD: Use standard NLU model. - MODEL_TYPE_ADVANCED: Use advanced NLU model. Possible values: ["MODEL_TYPE_STANDARD", "MODEL_TYPE_ADVANCED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#model_type DialogflowCxFlow#model_type}
         '''
         value = DialogflowCxFlowNluSettings(
             classification_threshold=classification_threshold,
@@ -214,9 +214,9 @@ class DialogflowCxFlow(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#create DialogflowCxFlow#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#delete DialogflowCxFlow#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#update DialogflowCxFlow#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#create DialogflowCxFlow#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#delete DialogflowCxFlow#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#update DialogflowCxFlow#update}.
         '''
         value = DialogflowCxFlowTimeouts(create=create, delete=delete, update=update)
 
@@ -504,10 +504,10 @@ class DialogflowCxFlowAdvancedSettings:
         speech_settings: typing.Optional[typing.Union["DialogflowCxFlowAdvancedSettingsSpeechSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param audio_export_gcs_destination: audio_export_gcs_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#audio_export_gcs_destination DialogflowCxFlow#audio_export_gcs_destination}
-        :param dtmf_settings: dtmf_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#dtmf_settings DialogflowCxFlow#dtmf_settings}
-        :param logging_settings: logging_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#logging_settings DialogflowCxFlow#logging_settings}
-        :param speech_settings: speech_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#speech_settings DialogflowCxFlow#speech_settings}
+        :param audio_export_gcs_destination: audio_export_gcs_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#audio_export_gcs_destination DialogflowCxFlow#audio_export_gcs_destination}
+        :param dtmf_settings: dtmf_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#dtmf_settings DialogflowCxFlow#dtmf_settings}
+        :param logging_settings: logging_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#logging_settings DialogflowCxFlow#logging_settings}
+        :param speech_settings: speech_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#speech_settings DialogflowCxFlow#speech_settings}
         '''
         if isinstance(audio_export_gcs_destination, dict):
             audio_export_gcs_destination = DialogflowCxFlowAdvancedSettingsAudioExportGcsDestination(**audio_export_gcs_destination)
@@ -539,7 +539,7 @@ class DialogflowCxFlowAdvancedSettings:
     ) -> typing.Optional["DialogflowCxFlowAdvancedSettingsAudioExportGcsDestination"]:
         '''audio_export_gcs_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#audio_export_gcs_destination DialogflowCxFlow#audio_export_gcs_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#audio_export_gcs_destination DialogflowCxFlow#audio_export_gcs_destination}
         '''
         result = self._values.get("audio_export_gcs_destination")
         return typing.cast(typing.Optional["DialogflowCxFlowAdvancedSettingsAudioExportGcsDestination"], result)
@@ -550,7 +550,7 @@ class DialogflowCxFlowAdvancedSettings:
     ) -> typing.Optional["DialogflowCxFlowAdvancedSettingsDtmfSettings"]:
         '''dtmf_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#dtmf_settings DialogflowCxFlow#dtmf_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#dtmf_settings DialogflowCxFlow#dtmf_settings}
         '''
         result = self._values.get("dtmf_settings")
         return typing.cast(typing.Optional["DialogflowCxFlowAdvancedSettingsDtmfSettings"], result)
@@ -561,7 +561,7 @@ class DialogflowCxFlowAdvancedSettings:
     ) -> typing.Optional["DialogflowCxFlowAdvancedSettingsLoggingSettings"]:
         '''logging_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#logging_settings DialogflowCxFlow#logging_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#logging_settings DialogflowCxFlow#logging_settings}
         '''
         result = self._values.get("logging_settings")
         return typing.cast(typing.Optional["DialogflowCxFlowAdvancedSettingsLoggingSettings"], result)
@@ -572,7 +572,7 @@ class DialogflowCxFlowAdvancedSettings:
     ) -> typing.Optional["DialogflowCxFlowAdvancedSettingsSpeechSettings"]:
         '''speech_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#speech_settings DialogflowCxFlow#speech_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#speech_settings DialogflowCxFlow#speech_settings}
         '''
         result = self._values.get("speech_settings")
         return typing.cast(typing.Optional["DialogflowCxFlowAdvancedSettingsSpeechSettings"], result)
@@ -597,7 +597,7 @@ class DialogflowCxFlowAdvancedSettings:
 class DialogflowCxFlowAdvancedSettingsAudioExportGcsDestination:
     def __init__(self, *, uri: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param uri: The Google Cloud Storage URI for the exported objects. Whether a full object name, or just a prefix, its usage depends on the Dialogflow operation. Format: gs://bucket/object-name-or-prefix Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#uri DialogflowCxFlow#uri}
+        :param uri: The Google Cloud Storage URI for the exported objects. Whether a full object name, or just a prefix, its usage depends on the Dialogflow operation. Format: gs://bucket/object-name-or-prefix Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#uri DialogflowCxFlow#uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4e29a4430913b6606df161e07647e8076057de74748be7d7f0ffaf2e71a24845)
@@ -613,7 +613,7 @@ class DialogflowCxFlowAdvancedSettingsAudioExportGcsDestination:
         Whether a full object name, or just a prefix, its usage depends on the Dialogflow operation.
         Format: gs://bucket/object-name-or-prefix
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#uri DialogflowCxFlow#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#uri DialogflowCxFlow#uri}
         '''
         result = self._values.get("uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -707,9 +707,9 @@ class DialogflowCxFlowAdvancedSettingsDtmfSettings:
         max_digits: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: If true, incoming audio is processed for DTMF (dual tone multi frequency) events. For example, if the caller presses a button on their telephone keypad and DTMF processing is enabled, Dialogflow will detect the event (e.g. a "3" was pressed) in the incoming audio and pass the event to the bot to drive business logic (e.g. when 3 is pressed, return the account balance). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#enabled DialogflowCxFlow#enabled}
-        :param finish_digit: The digit that terminates a DTMF digit sequence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#finish_digit DialogflowCxFlow#finish_digit}
-        :param max_digits: Max length of DTMF digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#max_digits DialogflowCxFlow#max_digits}
+        :param enabled: If true, incoming audio is processed for DTMF (dual tone multi frequency) events. For example, if the caller presses a button on their telephone keypad and DTMF processing is enabled, Dialogflow will detect the event (e.g. a "3" was pressed) in the incoming audio and pass the event to the bot to drive business logic (e.g. when 3 is pressed, return the account balance). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#enabled DialogflowCxFlow#enabled}
+        :param finish_digit: The digit that terminates a DTMF digit sequence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#finish_digit DialogflowCxFlow#finish_digit}
+        :param max_digits: Max length of DTMF digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#max_digits DialogflowCxFlow#max_digits}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5a00d02b7c456dd8806f50fc0d5ddaa2074ed8a2ec5cb425b475665c291d697b)
@@ -732,7 +732,7 @@ class DialogflowCxFlowAdvancedSettingsDtmfSettings:
 
         For example, if the caller presses a button on their telephone keypad and DTMF processing is enabled, Dialogflow will detect the event (e.g. a "3" was pressed) in the incoming audio and pass the event to the bot to drive business logic (e.g. when 3 is pressed, return the account balance).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#enabled DialogflowCxFlow#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#enabled DialogflowCxFlow#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -741,7 +741,7 @@ class DialogflowCxFlowAdvancedSettingsDtmfSettings:
     def finish_digit(self) -> typing.Optional[builtins.str]:
         '''The digit that terminates a DTMF digit sequence.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#finish_digit DialogflowCxFlow#finish_digit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#finish_digit DialogflowCxFlow#finish_digit}
         '''
         result = self._values.get("finish_digit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -750,7 +750,7 @@ class DialogflowCxFlowAdvancedSettingsDtmfSettings:
     def max_digits(self) -> typing.Optional[jsii.Number]:
         '''Max length of DTMF digits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#max_digits DialogflowCxFlow#max_digits}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#max_digits DialogflowCxFlow#max_digits}
         '''
         result = self._values.get("max_digits")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -891,9 +891,9 @@ class DialogflowCxFlowAdvancedSettingsLoggingSettings:
         enable_stackdriver_logging: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_consent_based_redaction: Enables consent-based end-user input redaction, if true, a pre-defined session parameter **$session.params.conversation-redaction** will be used to determine if the utterance should be redacted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#enable_consent_based_redaction DialogflowCxFlow#enable_consent_based_redaction}
-        :param enable_interaction_logging: Enables DF Interaction logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#enable_interaction_logging DialogflowCxFlow#enable_interaction_logging}
-        :param enable_stackdriver_logging: Enables Google Cloud Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#enable_stackdriver_logging DialogflowCxFlow#enable_stackdriver_logging}
+        :param enable_consent_based_redaction: Enables consent-based end-user input redaction, if true, a pre-defined session parameter **$session.params.conversation-redaction** will be used to determine if the utterance should be redacted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#enable_consent_based_redaction DialogflowCxFlow#enable_consent_based_redaction}
+        :param enable_interaction_logging: Enables DF Interaction logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#enable_interaction_logging DialogflowCxFlow#enable_interaction_logging}
+        :param enable_stackdriver_logging: Enables Google Cloud Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#enable_stackdriver_logging DialogflowCxFlow#enable_stackdriver_logging}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__11b3b6c253d323bfaf741b86cad4081b2770e88537c935997101bb2f508cf510)
@@ -914,7 +914,7 @@ class DialogflowCxFlowAdvancedSettingsLoggingSettings:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enables consent-based end-user input redaction, if true, a pre-defined session parameter **$session.params.conversation-redaction** will be used to determine if the utterance should be redacted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#enable_consent_based_redaction DialogflowCxFlow#enable_consent_based_redaction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#enable_consent_based_redaction DialogflowCxFlow#enable_consent_based_redaction}
         '''
         result = self._values.get("enable_consent_based_redaction")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -925,7 +925,7 @@ class DialogflowCxFlowAdvancedSettingsLoggingSettings:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enables DF Interaction logging.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#enable_interaction_logging DialogflowCxFlow#enable_interaction_logging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#enable_interaction_logging DialogflowCxFlow#enable_interaction_logging}
         '''
         result = self._values.get("enable_interaction_logging")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -936,7 +936,7 @@ class DialogflowCxFlowAdvancedSettingsLoggingSettings:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enables Google Cloud Logging.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#enable_stackdriver_logging DialogflowCxFlow#enable_stackdriver_logging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#enable_stackdriver_logging DialogflowCxFlow#enable_stackdriver_logging}
         '''
         result = self._values.get("enable_stackdriver_logging")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1102,7 +1102,7 @@ class DialogflowCxFlowAdvancedSettingsOutputReference(
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: The Google Cloud Storage URI for the exported objects. Whether a full object name, or just a prefix, its usage depends on the Dialogflow operation. Format: gs://bucket/object-name-or-prefix Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#uri DialogflowCxFlow#uri}
+        :param uri: The Google Cloud Storage URI for the exported objects. Whether a full object name, or just a prefix, its usage depends on the Dialogflow operation. Format: gs://bucket/object-name-or-prefix Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#uri DialogflowCxFlow#uri}
         '''
         value = DialogflowCxFlowAdvancedSettingsAudioExportGcsDestination(uri=uri)
 
@@ -1117,9 +1117,9 @@ class DialogflowCxFlowAdvancedSettingsOutputReference(
         max_digits: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: If true, incoming audio is processed for DTMF (dual tone multi frequency) events. For example, if the caller presses a button on their telephone keypad and DTMF processing is enabled, Dialogflow will detect the event (e.g. a "3" was pressed) in the incoming audio and pass the event to the bot to drive business logic (e.g. when 3 is pressed, return the account balance). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#enabled DialogflowCxFlow#enabled}
-        :param finish_digit: The digit that terminates a DTMF digit sequence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#finish_digit DialogflowCxFlow#finish_digit}
-        :param max_digits: Max length of DTMF digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#max_digits DialogflowCxFlow#max_digits}
+        :param enabled: If true, incoming audio is processed for DTMF (dual tone multi frequency) events. For example, if the caller presses a button on their telephone keypad and DTMF processing is enabled, Dialogflow will detect the event (e.g. a "3" was pressed) in the incoming audio and pass the event to the bot to drive business logic (e.g. when 3 is pressed, return the account balance). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#enabled DialogflowCxFlow#enabled}
+        :param finish_digit: The digit that terminates a DTMF digit sequence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#finish_digit DialogflowCxFlow#finish_digit}
+        :param max_digits: Max length of DTMF digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#max_digits DialogflowCxFlow#max_digits}
         '''
         value = DialogflowCxFlowAdvancedSettingsDtmfSettings(
             enabled=enabled, finish_digit=finish_digit, max_digits=max_digits
@@ -1136,9 +1136,9 @@ class DialogflowCxFlowAdvancedSettingsOutputReference(
         enable_stackdriver_logging: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_consent_based_redaction: Enables consent-based end-user input redaction, if true, a pre-defined session parameter **$session.params.conversation-redaction** will be used to determine if the utterance should be redacted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#enable_consent_based_redaction DialogflowCxFlow#enable_consent_based_redaction}
-        :param enable_interaction_logging: Enables DF Interaction logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#enable_interaction_logging DialogflowCxFlow#enable_interaction_logging}
-        :param enable_stackdriver_logging: Enables Google Cloud Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#enable_stackdriver_logging DialogflowCxFlow#enable_stackdriver_logging}
+        :param enable_consent_based_redaction: Enables consent-based end-user input redaction, if true, a pre-defined session parameter **$session.params.conversation-redaction** will be used to determine if the utterance should be redacted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#enable_consent_based_redaction DialogflowCxFlow#enable_consent_based_redaction}
+        :param enable_interaction_logging: Enables DF Interaction logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#enable_interaction_logging DialogflowCxFlow#enable_interaction_logging}
+        :param enable_stackdriver_logging: Enables Google Cloud Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#enable_stackdriver_logging DialogflowCxFlow#enable_stackdriver_logging}
         '''
         value = DialogflowCxFlowAdvancedSettingsLoggingSettings(
             enable_consent_based_redaction=enable_consent_based_redaction,
@@ -1158,10 +1158,10 @@ class DialogflowCxFlowAdvancedSettingsOutputReference(
         use_timeout_based_endpointing: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param endpointer_sensitivity: Sensitivity of the speech model that detects the end of speech. Scale from 0 to 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#endpointer_sensitivity DialogflowCxFlow#endpointer_sensitivity}
-        :param models: Mapping from language to Speech-to-Text model. The mapped Speech-to-Text model will be selected for requests from its corresponding language. For more information, see `Speech models <https://cloud.google.com/dialogflow/cx/docs/concept/speech-models>`_. An object containing a list of **"key": value** pairs. Example: **{ "name": "wrench", "mass": "1.3kg", "count": "3" }**. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#models DialogflowCxFlow#models}
-        :param no_speech_timeout: Timeout before detecting no speech. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#no_speech_timeout DialogflowCxFlow#no_speech_timeout}
-        :param use_timeout_based_endpointing: Use timeout based endpointing, interpreting endpointer sensitivity as seconds of timeout value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#use_timeout_based_endpointing DialogflowCxFlow#use_timeout_based_endpointing}
+        :param endpointer_sensitivity: Sensitivity of the speech model that detects the end of speech. Scale from 0 to 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#endpointer_sensitivity DialogflowCxFlow#endpointer_sensitivity}
+        :param models: Mapping from language to Speech-to-Text model. The mapped Speech-to-Text model will be selected for requests from its corresponding language. For more information, see `Speech models <https://cloud.google.com/dialogflow/cx/docs/concept/speech-models>`_. An object containing a list of **"key": value** pairs. Example: **{ "name": "wrench", "mass": "1.3kg", "count": "3" }**. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#models DialogflowCxFlow#models}
+        :param no_speech_timeout: Timeout before detecting no speech. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#no_speech_timeout DialogflowCxFlow#no_speech_timeout}
+        :param use_timeout_based_endpointing: Use timeout based endpointing, interpreting endpointer sensitivity as seconds of timeout value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#use_timeout_based_endpointing DialogflowCxFlow#use_timeout_based_endpointing}
         '''
         value = DialogflowCxFlowAdvancedSettingsSpeechSettings(
             endpointer_sensitivity=endpointer_sensitivity,
@@ -1280,10 +1280,10 @@ class DialogflowCxFlowAdvancedSettingsSpeechSettings:
         use_timeout_based_endpointing: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param endpointer_sensitivity: Sensitivity of the speech model that detects the end of speech. Scale from 0 to 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#endpointer_sensitivity DialogflowCxFlow#endpointer_sensitivity}
-        :param models: Mapping from language to Speech-to-Text model. The mapped Speech-to-Text model will be selected for requests from its corresponding language. For more information, see `Speech models <https://cloud.google.com/dialogflow/cx/docs/concept/speech-models>`_. An object containing a list of **"key": value** pairs. Example: **{ "name": "wrench", "mass": "1.3kg", "count": "3" }**. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#models DialogflowCxFlow#models}
-        :param no_speech_timeout: Timeout before detecting no speech. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#no_speech_timeout DialogflowCxFlow#no_speech_timeout}
-        :param use_timeout_based_endpointing: Use timeout based endpointing, interpreting endpointer sensitivity as seconds of timeout value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#use_timeout_based_endpointing DialogflowCxFlow#use_timeout_based_endpointing}
+        :param endpointer_sensitivity: Sensitivity of the speech model that detects the end of speech. Scale from 0 to 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#endpointer_sensitivity DialogflowCxFlow#endpointer_sensitivity}
+        :param models: Mapping from language to Speech-to-Text model. The mapped Speech-to-Text model will be selected for requests from its corresponding language. For more information, see `Speech models <https://cloud.google.com/dialogflow/cx/docs/concept/speech-models>`_. An object containing a list of **"key": value** pairs. Example: **{ "name": "wrench", "mass": "1.3kg", "count": "3" }**. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#models DialogflowCxFlow#models}
+        :param no_speech_timeout: Timeout before detecting no speech. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#no_speech_timeout DialogflowCxFlow#no_speech_timeout}
+        :param use_timeout_based_endpointing: Use timeout based endpointing, interpreting endpointer sensitivity as seconds of timeout value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#use_timeout_based_endpointing DialogflowCxFlow#use_timeout_based_endpointing}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c370fa592bc682b70446b182d3fea98301a3699655bbf1fc2a5ffa750052e76c)
@@ -1305,7 +1305,7 @@ class DialogflowCxFlowAdvancedSettingsSpeechSettings:
     def endpointer_sensitivity(self) -> typing.Optional[jsii.Number]:
         '''Sensitivity of the speech model that detects the end of speech. Scale from 0 to 100.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#endpointer_sensitivity DialogflowCxFlow#endpointer_sensitivity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#endpointer_sensitivity DialogflowCxFlow#endpointer_sensitivity}
         '''
         result = self._values.get("endpointer_sensitivity")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1317,7 +1317,7 @@ class DialogflowCxFlowAdvancedSettingsSpeechSettings:
         The mapped Speech-to-Text model will be selected for requests from its corresponding language. For more information, see `Speech models <https://cloud.google.com/dialogflow/cx/docs/concept/speech-models>`_.
         An object containing a list of **"key": value** pairs. Example: **{ "name": "wrench", "mass": "1.3kg", "count": "3" }**.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#models DialogflowCxFlow#models}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#models DialogflowCxFlow#models}
         '''
         result = self._values.get("models")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1326,7 +1326,7 @@ class DialogflowCxFlowAdvancedSettingsSpeechSettings:
     def no_speech_timeout(self) -> typing.Optional[builtins.str]:
         '''Timeout before detecting no speech. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#no_speech_timeout DialogflowCxFlow#no_speech_timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#no_speech_timeout DialogflowCxFlow#no_speech_timeout}
         '''
         result = self._values.get("no_speech_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1337,7 +1337,7 @@ class DialogflowCxFlowAdvancedSettingsSpeechSettings:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Use timeout based endpointing, interpreting endpointer sensitivity as seconds of timeout value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#use_timeout_based_endpointing DialogflowCxFlow#use_timeout_based_endpointing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#use_timeout_based_endpointing DialogflowCxFlow#use_timeout_based_endpointing}
         '''
         result = self._values.get("use_timeout_based_endpointing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1542,18 +1542,18 @@ class DialogflowCxFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The human-readable name of the flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#display_name DialogflowCxFlow#display_name}
-        :param advanced_settings: advanced_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#advanced_settings DialogflowCxFlow#advanced_settings}
-        :param description: The description of the flow. The maximum length is 500 characters. If exceeded, the request is rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#description DialogflowCxFlow#description}
-        :param event_handlers: event_handlers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#event_handlers DialogflowCxFlow#event_handlers}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#id DialogflowCxFlow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param is_default_start_flow: Marks this as the `Default Start Flow <https://cloud.google.com/dialogflow/cx/docs/concept/flow#start>`_ for an agent. When you create an agent, the Default Start Flow is created automatically. The Default Start Flow cannot be deleted; deleting the 'google_dialogflow_cx_flow' resource does nothing to the underlying GCP resources. ~> Avoid having multiple 'google_dialogflow_cx_flow' resources linked to the same agent with 'is_default_start_flow = true' because they will compete to control a single Default Start Flow resource in GCP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#is_default_start_flow DialogflowCxFlow#is_default_start_flow}
-        :param language_code: The language of the following fields in flow: Flow.event_handlers.trigger_fulfillment.messages Flow.event_handlers.trigger_fulfillment.conditional_cases Flow.transition_routes.trigger_fulfillment.messages Flow.transition_routes.trigger_fulfillment.conditional_cases If not specified, the agent's default language is used. Many languages are supported. Note: languages must be enabled in the agent before they can be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#language_code DialogflowCxFlow#language_code}
-        :param nlu_settings: nlu_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#nlu_settings DialogflowCxFlow#nlu_settings}
-        :param parent: The agent to create a flow for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#parent DialogflowCxFlow#parent}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#timeouts DialogflowCxFlow#timeouts}
-        :param transition_route_groups: A flow's transition route group serve two purposes: They are responsible for matching the user's first utterances in the flow. They are inherited by every page's [transition route groups][Page.transition_route_groups]. Transition route groups defined in the page have higher priority than those defined in the flow. Format:projects//locations//agents//flows//transitionRouteGroups/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#transition_route_groups DialogflowCxFlow#transition_route_groups}
-        :param transition_routes: transition_routes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#transition_routes DialogflowCxFlow#transition_routes}
+        :param display_name: The human-readable name of the flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#display_name DialogflowCxFlow#display_name}
+        :param advanced_settings: advanced_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#advanced_settings DialogflowCxFlow#advanced_settings}
+        :param description: The description of the flow. The maximum length is 500 characters. If exceeded, the request is rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#description DialogflowCxFlow#description}
+        :param event_handlers: event_handlers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#event_handlers DialogflowCxFlow#event_handlers}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#id DialogflowCxFlow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_default_start_flow: Marks this as the `Default Start Flow <https://cloud.google.com/dialogflow/cx/docs/concept/flow#start>`_ for an agent. When you create an agent, the Default Start Flow is created automatically. The Default Start Flow cannot be deleted; deleting the 'google_dialogflow_cx_flow' resource does nothing to the underlying GCP resources. ~> Avoid having multiple 'google_dialogflow_cx_flow' resources linked to the same agent with 'is_default_start_flow = true' because they will compete to control a single Default Start Flow resource in GCP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#is_default_start_flow DialogflowCxFlow#is_default_start_flow}
+        :param language_code: The language of the following fields in flow: Flow.event_handlers.trigger_fulfillment.messages Flow.event_handlers.trigger_fulfillment.conditional_cases Flow.transition_routes.trigger_fulfillment.messages Flow.transition_routes.trigger_fulfillment.conditional_cases If not specified, the agent's default language is used. Many languages are supported. Note: languages must be enabled in the agent before they can be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#language_code DialogflowCxFlow#language_code}
+        :param nlu_settings: nlu_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#nlu_settings DialogflowCxFlow#nlu_settings}
+        :param parent: The agent to create a flow for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#parent DialogflowCxFlow#parent}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#timeouts DialogflowCxFlow#timeouts}
+        :param transition_route_groups: A flow's transition route group serve two purposes: They are responsible for matching the user's first utterances in the flow. They are inherited by every page's [transition route groups][Page.transition_route_groups]. Transition route groups defined in the page have higher priority than those defined in the flow. Format:projects//locations//agents//flows//transitionRouteGroups/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#transition_route_groups DialogflowCxFlow#transition_route_groups}
+        :param transition_routes: transition_routes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#transition_routes DialogflowCxFlow#transition_routes}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1692,7 +1692,7 @@ class DialogflowCxFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The human-readable name of the flow.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#display_name DialogflowCxFlow#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#display_name DialogflowCxFlow#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -1702,7 +1702,7 @@ class DialogflowCxFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def advanced_settings(self) -> typing.Optional[DialogflowCxFlowAdvancedSettings]:
         '''advanced_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#advanced_settings DialogflowCxFlow#advanced_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#advanced_settings DialogflowCxFlow#advanced_settings}
         '''
         result = self._values.get("advanced_settings")
         return typing.cast(typing.Optional[DialogflowCxFlowAdvancedSettings], result)
@@ -1711,7 +1711,7 @@ class DialogflowCxFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the flow. The maximum length is 500 characters. If exceeded, the request is rejected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#description DialogflowCxFlow#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#description DialogflowCxFlow#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1722,14 +1722,14 @@ class DialogflowCxFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxFlowEventHandlers"]]]:
         '''event_handlers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#event_handlers DialogflowCxFlow#event_handlers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#event_handlers DialogflowCxFlow#event_handlers}
         '''
         result = self._values.get("event_handlers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxFlowEventHandlers"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#id DialogflowCxFlow#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#id DialogflowCxFlow#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1745,7 +1745,7 @@ class DialogflowCxFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         ~> Avoid having multiple 'google_dialogflow_cx_flow' resources linked to the same agent with 'is_default_start_flow = true' because they will compete to control a single Default Start Flow resource in GCP.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#is_default_start_flow DialogflowCxFlow#is_default_start_flow}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#is_default_start_flow DialogflowCxFlow#is_default_start_flow}
         '''
         result = self._values.get("is_default_start_flow")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1754,7 +1754,7 @@ class DialogflowCxFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def language_code(self) -> typing.Optional[builtins.str]:
         '''The language of the following fields in flow: Flow.event_handlers.trigger_fulfillment.messages Flow.event_handlers.trigger_fulfillment.conditional_cases Flow.transition_routes.trigger_fulfillment.messages Flow.transition_routes.trigger_fulfillment.conditional_cases If not specified, the agent's default language is used. Many languages are supported. Note: languages must be enabled in the agent before they can be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#language_code DialogflowCxFlow#language_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#language_code DialogflowCxFlow#language_code}
         '''
         result = self._values.get("language_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1763,7 +1763,7 @@ class DialogflowCxFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def nlu_settings(self) -> typing.Optional["DialogflowCxFlowNluSettings"]:
         '''nlu_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#nlu_settings DialogflowCxFlow#nlu_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#nlu_settings DialogflowCxFlow#nlu_settings}
         '''
         result = self._values.get("nlu_settings")
         return typing.cast(typing.Optional["DialogflowCxFlowNluSettings"], result)
@@ -1772,7 +1772,7 @@ class DialogflowCxFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parent(self) -> typing.Optional[builtins.str]:
         '''The agent to create a flow for. Format: projects//locations//agents/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#parent DialogflowCxFlow#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#parent DialogflowCxFlow#parent}
         '''
         result = self._values.get("parent")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1781,7 +1781,7 @@ class DialogflowCxFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DialogflowCxFlowTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#timeouts DialogflowCxFlow#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#timeouts DialogflowCxFlow#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DialogflowCxFlowTimeouts"], result)
@@ -1793,7 +1793,7 @@ class DialogflowCxFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         They are inherited by every page's [transition route groups][Page.transition_route_groups]. Transition route groups defined in the page have higher priority than those defined in the flow.
         Format:projects//locations//agents//flows//transitionRouteGroups/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#transition_route_groups DialogflowCxFlow#transition_route_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#transition_route_groups DialogflowCxFlow#transition_route_groups}
         '''
         result = self._values.get("transition_route_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1804,7 +1804,7 @@ class DialogflowCxFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxFlowTransitionRoutes"]]]:
         '''transition_routes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#transition_routes DialogflowCxFlow#transition_routes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#transition_routes DialogflowCxFlow#transition_routes}
         '''
         result = self._values.get("transition_routes")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxFlowTransitionRoutes"]]], result)
@@ -1841,10 +1841,10 @@ class DialogflowCxFlowEventHandlers:
         trigger_fulfillment: typing.Optional[typing.Union["DialogflowCxFlowEventHandlersTriggerFulfillment", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param event: The name of the event to handle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#event DialogflowCxFlow#event}
-        :param target_flow: The target flow to transition to. Format: projects//locations//agents//flows/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#target_flow DialogflowCxFlow#target_flow}
-        :param target_page: The target page to transition to. Format: projects//locations//agents//flows//pages/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#target_page DialogflowCxFlow#target_page}
-        :param trigger_fulfillment: trigger_fulfillment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#trigger_fulfillment DialogflowCxFlow#trigger_fulfillment}
+        :param event: The name of the event to handle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#event DialogflowCxFlow#event}
+        :param target_flow: The target flow to transition to. Format: projects//locations//agents//flows/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#target_flow DialogflowCxFlow#target_flow}
+        :param target_page: The target page to transition to. Format: projects//locations//agents//flows//pages/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#target_page DialogflowCxFlow#target_page}
+        :param trigger_fulfillment: trigger_fulfillment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#trigger_fulfillment DialogflowCxFlow#trigger_fulfillment}
         '''
         if isinstance(trigger_fulfillment, dict):
             trigger_fulfillment = DialogflowCxFlowEventHandlersTriggerFulfillment(**trigger_fulfillment)
@@ -1868,7 +1868,7 @@ class DialogflowCxFlowEventHandlers:
     def event(self) -> typing.Optional[builtins.str]:
         '''The name of the event to handle.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#event DialogflowCxFlow#event}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#event DialogflowCxFlow#event}
         '''
         result = self._values.get("event")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1877,7 +1877,7 @@ class DialogflowCxFlowEventHandlers:
     def target_flow(self) -> typing.Optional[builtins.str]:
         '''The target flow to transition to. Format: projects//locations//agents//flows/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#target_flow DialogflowCxFlow#target_flow}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#target_flow DialogflowCxFlow#target_flow}
         '''
         result = self._values.get("target_flow")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1886,7 +1886,7 @@ class DialogflowCxFlowEventHandlers:
     def target_page(self) -> typing.Optional[builtins.str]:
         '''The target page to transition to. Format: projects//locations//agents//flows//pages/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#target_page DialogflowCxFlow#target_page}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#target_page DialogflowCxFlow#target_page}
         '''
         result = self._values.get("target_page")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1897,7 +1897,7 @@ class DialogflowCxFlowEventHandlers:
     ) -> typing.Optional["DialogflowCxFlowEventHandlersTriggerFulfillment"]:
         '''trigger_fulfillment block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#trigger_fulfillment DialogflowCxFlow#trigger_fulfillment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#trigger_fulfillment DialogflowCxFlow#trigger_fulfillment}
         '''
         result = self._values.get("trigger_fulfillment")
         return typing.cast(typing.Optional["DialogflowCxFlowEventHandlersTriggerFulfillment"], result)
@@ -2042,12 +2042,12 @@ class DialogflowCxFlowEventHandlersOutputReference(
         webhook: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param conditional_cases: conditional_cases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#conditional_cases DialogflowCxFlow#conditional_cases}
-        :param messages: messages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#messages DialogflowCxFlow#messages}
-        :param return_partial_responses: Whether Dialogflow should return currently queued fulfillment response messages in streaming APIs. If a webhook is specified, it happens before Dialogflow invokes webhook. Warning: 1) This flag only affects streaming API. Responses are still queued and returned once in non-streaming API. 2) The flag can be enabled in any fulfillment but only the first 3 partial responses will be returned. You may only want to apply it to fulfillments that have slow webhooks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#return_partial_responses DialogflowCxFlow#return_partial_responses}
-        :param set_parameter_actions: set_parameter_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#set_parameter_actions DialogflowCxFlow#set_parameter_actions}
-        :param tag: The tag used by the webhook to identify which fulfillment is being called. This field is required if webhook is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#tag DialogflowCxFlow#tag}
-        :param webhook: The webhook to call. Format: projects//locations//agents//webhooks/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#webhook DialogflowCxFlow#webhook}
+        :param conditional_cases: conditional_cases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#conditional_cases DialogflowCxFlow#conditional_cases}
+        :param messages: messages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#messages DialogflowCxFlow#messages}
+        :param return_partial_responses: Whether Dialogflow should return currently queued fulfillment response messages in streaming APIs. If a webhook is specified, it happens before Dialogflow invokes webhook. Warning: 1) This flag only affects streaming API. Responses are still queued and returned once in non-streaming API. 2) The flag can be enabled in any fulfillment but only the first 3 partial responses will be returned. You may only want to apply it to fulfillments that have slow webhooks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#return_partial_responses DialogflowCxFlow#return_partial_responses}
+        :param set_parameter_actions: set_parameter_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#set_parameter_actions DialogflowCxFlow#set_parameter_actions}
+        :param tag: The tag used by the webhook to identify which fulfillment is being called. This field is required if webhook is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#tag DialogflowCxFlow#tag}
+        :param webhook: The webhook to call. Format: projects//locations//agents//webhooks/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#webhook DialogflowCxFlow#webhook}
         '''
         value = DialogflowCxFlowEventHandlersTriggerFulfillment(
             conditional_cases=conditional_cases,
@@ -2188,12 +2188,12 @@ class DialogflowCxFlowEventHandlersTriggerFulfillment:
         webhook: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param conditional_cases: conditional_cases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#conditional_cases DialogflowCxFlow#conditional_cases}
-        :param messages: messages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#messages DialogflowCxFlow#messages}
-        :param return_partial_responses: Whether Dialogflow should return currently queued fulfillment response messages in streaming APIs. If a webhook is specified, it happens before Dialogflow invokes webhook. Warning: 1) This flag only affects streaming API. Responses are still queued and returned once in non-streaming API. 2) The flag can be enabled in any fulfillment but only the first 3 partial responses will be returned. You may only want to apply it to fulfillments that have slow webhooks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#return_partial_responses DialogflowCxFlow#return_partial_responses}
-        :param set_parameter_actions: set_parameter_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#set_parameter_actions DialogflowCxFlow#set_parameter_actions}
-        :param tag: The tag used by the webhook to identify which fulfillment is being called. This field is required if webhook is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#tag DialogflowCxFlow#tag}
-        :param webhook: The webhook to call. Format: projects//locations//agents//webhooks/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#webhook DialogflowCxFlow#webhook}
+        :param conditional_cases: conditional_cases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#conditional_cases DialogflowCxFlow#conditional_cases}
+        :param messages: messages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#messages DialogflowCxFlow#messages}
+        :param return_partial_responses: Whether Dialogflow should return currently queued fulfillment response messages in streaming APIs. If a webhook is specified, it happens before Dialogflow invokes webhook. Warning: 1) This flag only affects streaming API. Responses are still queued and returned once in non-streaming API. 2) The flag can be enabled in any fulfillment but only the first 3 partial responses will be returned. You may only want to apply it to fulfillments that have slow webhooks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#return_partial_responses DialogflowCxFlow#return_partial_responses}
+        :param set_parameter_actions: set_parameter_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#set_parameter_actions DialogflowCxFlow#set_parameter_actions}
+        :param tag: The tag used by the webhook to identify which fulfillment is being called. This field is required if webhook is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#tag DialogflowCxFlow#tag}
+        :param webhook: The webhook to call. Format: projects//locations//agents//webhooks/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#webhook DialogflowCxFlow#webhook}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e845933aee1763891ad709b181bd0b2a143efbaacda06a9e2b63db9eab9a903)
@@ -2223,7 +2223,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillment:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxFlowEventHandlersTriggerFulfillmentConditionalCases"]]]:
         '''conditional_cases block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#conditional_cases DialogflowCxFlow#conditional_cases}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#conditional_cases DialogflowCxFlow#conditional_cases}
         '''
         result = self._values.get("conditional_cases")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxFlowEventHandlersTriggerFulfillmentConditionalCases"]]], result)
@@ -2234,7 +2234,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillment:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxFlowEventHandlersTriggerFulfillmentMessages"]]]:
         '''messages block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#messages DialogflowCxFlow#messages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#messages DialogflowCxFlow#messages}
         '''
         result = self._values.get("messages")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxFlowEventHandlersTriggerFulfillmentMessages"]]], result)
@@ -2247,7 +2247,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillment:
 
         If a webhook is specified, it happens before Dialogflow invokes webhook. Warning: 1) This flag only affects streaming API. Responses are still queued and returned once in non-streaming API. 2) The flag can be enabled in any fulfillment but only the first 3 partial responses will be returned. You may only want to apply it to fulfillments that have slow webhooks.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#return_partial_responses DialogflowCxFlow#return_partial_responses}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#return_partial_responses DialogflowCxFlow#return_partial_responses}
         '''
         result = self._values.get("return_partial_responses")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2258,7 +2258,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillment:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxFlowEventHandlersTriggerFulfillmentSetParameterActions"]]]:
         '''set_parameter_actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#set_parameter_actions DialogflowCxFlow#set_parameter_actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#set_parameter_actions DialogflowCxFlow#set_parameter_actions}
         '''
         result = self._values.get("set_parameter_actions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxFlowEventHandlersTriggerFulfillmentSetParameterActions"]]], result)
@@ -2269,7 +2269,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillment:
 
         This field is required if webhook is specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#tag DialogflowCxFlow#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#tag DialogflowCxFlow#tag}
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2278,7 +2278,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillment:
     def webhook(self) -> typing.Optional[builtins.str]:
         '''The webhook to call. Format: projects//locations//agents//webhooks/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#webhook DialogflowCxFlow#webhook}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#webhook DialogflowCxFlow#webhook}
         '''
         result = self._values.get("webhook")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2303,7 +2303,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillment:
 class DialogflowCxFlowEventHandlersTriggerFulfillmentConditionalCases:
     def __init__(self, *, cases: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param cases: A JSON encoded list of cascading if-else conditions. Cases are mutually exclusive. The first one with a matching condition is selected, all the rest ignored. See `Case <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/Fulfillment#case>`_ for the schema. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#cases DialogflowCxFlow#cases}
+        :param cases: A JSON encoded list of cascading if-else conditions. Cases are mutually exclusive. The first one with a matching condition is selected, all the rest ignored. See `Case <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/Fulfillment#case>`_ for the schema. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#cases DialogflowCxFlow#cases}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b286635f745e721ea317207f30f8efeb0a8e4cda7ba3f3ebad98f035af3fcfb)
@@ -2319,7 +2319,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentConditionalCases:
         Cases are mutually exclusive. The first one with a matching condition is selected, all the rest ignored.
         See `Case <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/Fulfillment#case>`_ for the schema.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#cases DialogflowCxFlow#cases}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#cases DialogflowCxFlow#cases}
         '''
         result = self._values.get("cases")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2522,14 +2522,14 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessages:
         text: typing.Optional[typing.Union["DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesText", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param channel: The channel which the response is associated with. Clients can specify the channel via QueryParameters.channel, and only associated channel response will be returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#channel DialogflowCxFlow#channel}
-        :param conversation_success: conversation_success block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#conversation_success DialogflowCxFlow#conversation_success}
-        :param live_agent_handoff: live_agent_handoff block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#live_agent_handoff DialogflowCxFlow#live_agent_handoff}
-        :param output_audio_text: output_audio_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#output_audio_text DialogflowCxFlow#output_audio_text}
-        :param payload: A custom, platform-specific payload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#payload DialogflowCxFlow#payload}
-        :param play_audio: play_audio block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#play_audio DialogflowCxFlow#play_audio}
-        :param telephony_transfer_call: telephony_transfer_call block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#telephony_transfer_call DialogflowCxFlow#telephony_transfer_call}
-        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
+        :param channel: The channel which the response is associated with. Clients can specify the channel via QueryParameters.channel, and only associated channel response will be returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#channel DialogflowCxFlow#channel}
+        :param conversation_success: conversation_success block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#conversation_success DialogflowCxFlow#conversation_success}
+        :param live_agent_handoff: live_agent_handoff block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#live_agent_handoff DialogflowCxFlow#live_agent_handoff}
+        :param output_audio_text: output_audio_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#output_audio_text DialogflowCxFlow#output_audio_text}
+        :param payload: A custom, platform-specific payload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#payload DialogflowCxFlow#payload}
+        :param play_audio: play_audio block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#play_audio DialogflowCxFlow#play_audio}
+        :param telephony_transfer_call: telephony_transfer_call block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#telephony_transfer_call DialogflowCxFlow#telephony_transfer_call}
+        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
         '''
         if isinstance(conversation_success, dict):
             conversation_success = DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesConversationSuccess(**conversation_success)
@@ -2577,7 +2577,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessages:
 
         Clients can specify the channel via QueryParameters.channel, and only associated channel response will be returned.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#channel DialogflowCxFlow#channel}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#channel DialogflowCxFlow#channel}
         '''
         result = self._values.get("channel")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2588,7 +2588,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessages:
     ) -> typing.Optional["DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesConversationSuccess"]:
         '''conversation_success block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#conversation_success DialogflowCxFlow#conversation_success}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#conversation_success DialogflowCxFlow#conversation_success}
         '''
         result = self._values.get("conversation_success")
         return typing.cast(typing.Optional["DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesConversationSuccess"], result)
@@ -2599,7 +2599,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessages:
     ) -> typing.Optional["DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesLiveAgentHandoff"]:
         '''live_agent_handoff block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#live_agent_handoff DialogflowCxFlow#live_agent_handoff}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#live_agent_handoff DialogflowCxFlow#live_agent_handoff}
         '''
         result = self._values.get("live_agent_handoff")
         return typing.cast(typing.Optional["DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesLiveAgentHandoff"], result)
@@ -2610,7 +2610,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessages:
     ) -> typing.Optional["DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesOutputAudioText"]:
         '''output_audio_text block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#output_audio_text DialogflowCxFlow#output_audio_text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#output_audio_text DialogflowCxFlow#output_audio_text}
         '''
         result = self._values.get("output_audio_text")
         return typing.cast(typing.Optional["DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesOutputAudioText"], result)
@@ -2619,7 +2619,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessages:
     def payload(self) -> typing.Optional[builtins.str]:
         '''A custom, platform-specific payload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#payload DialogflowCxFlow#payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#payload DialogflowCxFlow#payload}
         '''
         result = self._values.get("payload")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2630,7 +2630,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessages:
     ) -> typing.Optional["DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesPlayAudio"]:
         '''play_audio block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#play_audio DialogflowCxFlow#play_audio}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#play_audio DialogflowCxFlow#play_audio}
         '''
         result = self._values.get("play_audio")
         return typing.cast(typing.Optional["DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesPlayAudio"], result)
@@ -2641,7 +2641,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessages:
     ) -> typing.Optional["DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesTelephonyTransferCall"]:
         '''telephony_transfer_call block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#telephony_transfer_call DialogflowCxFlow#telephony_transfer_call}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#telephony_transfer_call DialogflowCxFlow#telephony_transfer_call}
         '''
         result = self._values.get("telephony_transfer_call")
         return typing.cast(typing.Optional["DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesTelephonyTransferCall"], result)
@@ -2652,7 +2652,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessages:
     ) -> typing.Optional["DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesText"]:
         '''text block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional["DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesText"], result)
@@ -2677,7 +2677,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessages:
 class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesConversationSuccess:
     def __init__(self, *, metadata: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param metadata: Custom metadata. Dialogflow doesn't impose any structure on this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
+        :param metadata: Custom metadata. Dialogflow doesn't impose any structure on this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ba3823e96e2872ade15a730fbb317cd7584cb4e2641e3bc774f386111a5eac98)
@@ -2690,7 +2690,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesConversationSuccess
     def metadata(self) -> typing.Optional[builtins.str]:
         '''Custom metadata. Dialogflow doesn't impose any structure on this.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2867,7 +2867,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesList(
 class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesLiveAgentHandoff:
     def __init__(self, *, metadata: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param metadata: Custom metadata. Dialogflow doesn't impose any structure on this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
+        :param metadata: Custom metadata. Dialogflow doesn't impose any structure on this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c0be3bccd08bb404f763dcd6cd11e329dd1969de8ee26456b3e4bf8028e606e4)
@@ -2880,7 +2880,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesLiveAgentHandoff:
     def metadata(self) -> typing.Optional[builtins.str]:
         '''Custom metadata. Dialogflow doesn't impose any structure on this.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2969,8 +2969,8 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesOutputAudioText:
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ssml: The SSML text to be synthesized. For more information, see SSML. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#ssml DialogflowCxFlow#ssml}
-        :param text: The raw text to be synthesized. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
+        :param ssml: The SSML text to be synthesized. For more information, see SSML. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#ssml DialogflowCxFlow#ssml}
+        :param text: The raw text to be synthesized. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5294bbdafa3d1437c1e90b17c51b5ffd6b701e31f13d0bf013702a7f1e1b5423)
@@ -2986,7 +2986,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesOutputAudioText:
     def ssml(self) -> typing.Optional[builtins.str]:
         '''The SSML text to be synthesized. For more information, see SSML.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#ssml DialogflowCxFlow#ssml}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#ssml DialogflowCxFlow#ssml}
         '''
         result = self._values.get("ssml")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2995,7 +2995,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesOutputAudioText:
     def text(self) -> typing.Optional[builtins.str]:
         '''The raw text to be synthesized.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3130,7 +3130,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesOutputReference(
         metadata: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metadata: Custom metadata. Dialogflow doesn't impose any structure on this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
+        :param metadata: Custom metadata. Dialogflow doesn't impose any structure on this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
         '''
         value = DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesConversationSuccess(
             metadata=metadata
@@ -3145,7 +3145,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesOutputReference(
         metadata: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metadata: Custom metadata. Dialogflow doesn't impose any structure on this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
+        :param metadata: Custom metadata. Dialogflow doesn't impose any structure on this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
         '''
         value = DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesLiveAgentHandoff(
             metadata=metadata
@@ -3161,8 +3161,8 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesOutputReference(
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ssml: The SSML text to be synthesized. For more information, see SSML. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#ssml DialogflowCxFlow#ssml}
-        :param text: The raw text to be synthesized. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
+        :param ssml: The SSML text to be synthesized. For more information, see SSML. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#ssml DialogflowCxFlow#ssml}
+        :param text: The raw text to be synthesized. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
         '''
         value = DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesOutputAudioText(
             ssml=ssml, text=text
@@ -3173,7 +3173,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesOutputReference(
     @jsii.member(jsii_name="putPlayAudio")
     def put_play_audio(self, *, audio_uri: builtins.str) -> None:
         '''
-        :param audio_uri: URI of the audio clip. Dialogflow does not impose any validation on this value. It is specific to the client that reads it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#audio_uri DialogflowCxFlow#audio_uri}
+        :param audio_uri: URI of the audio clip. Dialogflow does not impose any validation on this value. It is specific to the client that reads it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#audio_uri DialogflowCxFlow#audio_uri}
         '''
         value = DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesPlayAudio(
             audio_uri=audio_uri
@@ -3184,7 +3184,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesOutputReference(
     @jsii.member(jsii_name="putTelephonyTransferCall")
     def put_telephony_transfer_call(self, *, phone_number: builtins.str) -> None:
         '''
-        :param phone_number: Transfer the call to a phone number in E.164 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#phone_number DialogflowCxFlow#phone_number}
+        :param phone_number: Transfer the call to a phone number in E.164 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#phone_number DialogflowCxFlow#phone_number}
         '''
         value = DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesTelephonyTransferCall(
             phone_number=phone_number
@@ -3199,7 +3199,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesOutputReference(
         text: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param text: A collection of text responses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
+        :param text: A collection of text responses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
         '''
         value = DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesText(text=text)
 
@@ -3381,7 +3381,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesOutputReference(
 class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesPlayAudio:
     def __init__(self, *, audio_uri: builtins.str) -> None:
         '''
-        :param audio_uri: URI of the audio clip. Dialogflow does not impose any validation on this value. It is specific to the client that reads it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#audio_uri DialogflowCxFlow#audio_uri}
+        :param audio_uri: URI of the audio clip. Dialogflow does not impose any validation on this value. It is specific to the client that reads it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#audio_uri DialogflowCxFlow#audio_uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__402d8129c6fc608a5c28c7d40e6f2ae023b71568c916fdfbd48e1857cc21c4e9)
@@ -3396,7 +3396,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesPlayAudio:
 
         Dialogflow does not impose any validation on this value. It is specific to the client that reads it.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#audio_uri DialogflowCxFlow#audio_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#audio_uri DialogflowCxFlow#audio_uri}
         '''
         result = self._values.get("audio_uri")
         assert result is not None, "Required property 'audio_uri' is missing"
@@ -3482,7 +3482,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesPlayAudioOutputRefe
 class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesTelephonyTransferCall:
     def __init__(self, *, phone_number: builtins.str) -> None:
         '''
-        :param phone_number: Transfer the call to a phone number in E.164 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#phone_number DialogflowCxFlow#phone_number}
+        :param phone_number: Transfer the call to a phone number in E.164 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#phone_number DialogflowCxFlow#phone_number}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1407e0d2af6f452f0508586857daeec50f0519155533376eb1ab8d717beb8091)
@@ -3495,7 +3495,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesTelephonyTransferCa
     def phone_number(self) -> builtins.str:
         '''Transfer the call to a phone number in E.164 format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#phone_number DialogflowCxFlow#phone_number}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#phone_number DialogflowCxFlow#phone_number}
         '''
         result = self._values.get("phone_number")
         assert result is not None, "Required property 'phone_number' is missing"
@@ -3580,7 +3580,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesText:
         text: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param text: A collection of text responses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
+        :param text: A collection of text responses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cdd95e583f0f8e3952133f2d2714eb49bf442d20d97cf76c67da3451d7552bda)
@@ -3593,7 +3593,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentMessagesText:
     def text(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A collection of text responses.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3886,8 +3886,8 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentSetParameterActions:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param parameter: Display name of the parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#parameter DialogflowCxFlow#parameter}
-        :param value: The new JSON-encoded value of the parameter. A null value clears the parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#value DialogflowCxFlow#value}
+        :param parameter: Display name of the parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#parameter DialogflowCxFlow#parameter}
+        :param value: The new JSON-encoded value of the parameter. A null value clears the parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#value DialogflowCxFlow#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f183a5721eaadf5b77f2882fb66c55fd2d0442a95ea4152d6f9802706591ef99)
@@ -3903,7 +3903,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentSetParameterActions:
     def parameter(self) -> typing.Optional[builtins.str]:
         '''Display name of the parameter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#parameter DialogflowCxFlow#parameter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#parameter DialogflowCxFlow#parameter}
         '''
         result = self._values.get("parameter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3912,7 +3912,7 @@ class DialogflowCxFlowEventHandlersTriggerFulfillmentSetParameterActions:
     def value(self) -> typing.Optional[builtins.str]:
         '''The new JSON-encoded value of the parameter. A null value clears the parameter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#value DialogflowCxFlow#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#value DialogflowCxFlow#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4126,9 +4126,9 @@ class DialogflowCxFlowNluSettings:
         model_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param classification_threshold: To filter out false positive results and still get variety in matched natural language inputs for your agent, you can tune the machine learning classification threshold. If the returned score value is less than the threshold value, then a no-match event will be triggered. The score values range from 0.0 (completely uncertain) to 1.0 (completely certain). If set to 0.0, the default of 0.3 is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#classification_threshold DialogflowCxFlow#classification_threshold}
-        :param model_training_mode: Indicates NLU model training mode. - MODEL_TRAINING_MODE_AUTOMATIC: NLU model training is automatically triggered when a flow gets modified. User can also manually trigger model training in this mode. - MODEL_TRAINING_MODE_MANUAL: User needs to manually trigger NLU model training. Best for large flows whose models take long time to train. Possible values: ["MODEL_TRAINING_MODE_AUTOMATIC", "MODEL_TRAINING_MODE_MANUAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#model_training_mode DialogflowCxFlow#model_training_mode}
-        :param model_type: Indicates the type of NLU model. - MODEL_TYPE_STANDARD: Use standard NLU model. - MODEL_TYPE_ADVANCED: Use advanced NLU model. Possible values: ["MODEL_TYPE_STANDARD", "MODEL_TYPE_ADVANCED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#model_type DialogflowCxFlow#model_type}
+        :param classification_threshold: To filter out false positive results and still get variety in matched natural language inputs for your agent, you can tune the machine learning classification threshold. If the returned score value is less than the threshold value, then a no-match event will be triggered. The score values range from 0.0 (completely uncertain) to 1.0 (completely certain). If set to 0.0, the default of 0.3 is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#classification_threshold DialogflowCxFlow#classification_threshold}
+        :param model_training_mode: Indicates NLU model training mode. - MODEL_TRAINING_MODE_AUTOMATIC: NLU model training is automatically triggered when a flow gets modified. User can also manually trigger model training in this mode. - MODEL_TRAINING_MODE_MANUAL: User needs to manually trigger NLU model training. Best for large flows whose models take long time to train. Possible values: ["MODEL_TRAINING_MODE_AUTOMATIC", "MODEL_TRAINING_MODE_MANUAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#model_training_mode DialogflowCxFlow#model_training_mode}
+        :param model_type: Indicates the type of NLU model. - MODEL_TYPE_STANDARD: Use standard NLU model. - MODEL_TYPE_ADVANCED: Use advanced NLU model. Possible values: ["MODEL_TYPE_STANDARD", "MODEL_TYPE_ADVANCED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#model_type DialogflowCxFlow#model_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__02f6b106a84e9a588f565581ce95b6d4506e9efe0633a5a30c824027ded98f8e)
@@ -4149,7 +4149,7 @@ class DialogflowCxFlowNluSettings:
 
         If the returned score value is less than the threshold value, then a no-match event will be triggered. The score values range from 0.0 (completely uncertain) to 1.0 (completely certain). If set to 0.0, the default of 0.3 is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#classification_threshold DialogflowCxFlow#classification_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#classification_threshold DialogflowCxFlow#classification_threshold}
         '''
         result = self._values.get("classification_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4161,7 +4161,7 @@ class DialogflowCxFlowNluSettings:
         - MODEL_TRAINING_MODE_AUTOMATIC: NLU model training is automatically triggered when a flow gets modified. User can also manually trigger model training in this mode.
         - MODEL_TRAINING_MODE_MANUAL: User needs to manually trigger NLU model training. Best for large flows whose models take long time to train. Possible values: ["MODEL_TRAINING_MODE_AUTOMATIC", "MODEL_TRAINING_MODE_MANUAL"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#model_training_mode DialogflowCxFlow#model_training_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#model_training_mode DialogflowCxFlow#model_training_mode}
         '''
         result = self._values.get("model_training_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4173,7 +4173,7 @@ class DialogflowCxFlowNluSettings:
         - MODEL_TYPE_STANDARD: Use standard NLU model.
         - MODEL_TYPE_ADVANCED: Use advanced NLU model. Possible values: ["MODEL_TYPE_STANDARD", "MODEL_TYPE_ADVANCED"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#model_type DialogflowCxFlow#model_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#model_type DialogflowCxFlow#model_type}
         '''
         result = self._values.get("model_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4303,9 +4303,9 @@ class DialogflowCxFlowTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#create DialogflowCxFlow#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#delete DialogflowCxFlow#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#update DialogflowCxFlow#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#create DialogflowCxFlow#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#delete DialogflowCxFlow#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#update DialogflowCxFlow#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8595441ba1272955ed9d1289461f1ec0cceca2c1250babf980aebbe83f17fce6)
@@ -4322,19 +4322,19 @@ class DialogflowCxFlowTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#create DialogflowCxFlow#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#create DialogflowCxFlow#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#delete DialogflowCxFlow#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#delete DialogflowCxFlow#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#update DialogflowCxFlow#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#update DialogflowCxFlow#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4473,11 +4473,11 @@ class DialogflowCxFlowTransitionRoutes:
         trigger_fulfillment: typing.Optional[typing.Union["DialogflowCxFlowTransitionRoutesTriggerFulfillment", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param condition: The condition to evaluate against form parameters or session parameters. At least one of intent or condition must be specified. When both intent and condition are specified, the transition can only happen when both are fulfilled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#condition DialogflowCxFlow#condition}
-        :param intent: The unique identifier of an Intent. Format: projects//locations//agents//intents/. Indicates that the transition can only happen when the given intent is matched. At least one of intent or condition must be specified. When both intent and condition are specified, the transition can only happen when both are fulfilled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#intent DialogflowCxFlow#intent}
-        :param target_flow: The target flow to transition to. Format: projects//locations//agents//flows/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#target_flow DialogflowCxFlow#target_flow}
-        :param target_page: The target page to transition to. Format: projects//locations//agents//flows//pages/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#target_page DialogflowCxFlow#target_page}
-        :param trigger_fulfillment: trigger_fulfillment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#trigger_fulfillment DialogflowCxFlow#trigger_fulfillment}
+        :param condition: The condition to evaluate against form parameters or session parameters. At least one of intent or condition must be specified. When both intent and condition are specified, the transition can only happen when both are fulfilled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#condition DialogflowCxFlow#condition}
+        :param intent: The unique identifier of an Intent. Format: projects//locations//agents//intents/. Indicates that the transition can only happen when the given intent is matched. At least one of intent or condition must be specified. When both intent and condition are specified, the transition can only happen when both are fulfilled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#intent DialogflowCxFlow#intent}
+        :param target_flow: The target flow to transition to. Format: projects//locations//agents//flows/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#target_flow DialogflowCxFlow#target_flow}
+        :param target_page: The target page to transition to. Format: projects//locations//agents//flows//pages/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#target_page DialogflowCxFlow#target_page}
+        :param trigger_fulfillment: trigger_fulfillment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#trigger_fulfillment DialogflowCxFlow#trigger_fulfillment}
         '''
         if isinstance(trigger_fulfillment, dict):
             trigger_fulfillment = DialogflowCxFlowTransitionRoutesTriggerFulfillment(**trigger_fulfillment)
@@ -4506,7 +4506,7 @@ class DialogflowCxFlowTransitionRoutes:
 
         At least one of intent or condition must be specified. When both intent and condition are specified, the transition can only happen when both are fulfilled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#condition DialogflowCxFlow#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#condition DialogflowCxFlow#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4517,7 +4517,7 @@ class DialogflowCxFlowTransitionRoutes:
 
         Format: projects//locations//agents//intents/. Indicates that the transition can only happen when the given intent is matched. At least one of intent or condition must be specified. When both intent and condition are specified, the transition can only happen when both are fulfilled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#intent DialogflowCxFlow#intent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#intent DialogflowCxFlow#intent}
         '''
         result = self._values.get("intent")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4526,7 +4526,7 @@ class DialogflowCxFlowTransitionRoutes:
     def target_flow(self) -> typing.Optional[builtins.str]:
         '''The target flow to transition to. Format: projects//locations//agents//flows/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#target_flow DialogflowCxFlow#target_flow}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#target_flow DialogflowCxFlow#target_flow}
         '''
         result = self._values.get("target_flow")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4535,7 +4535,7 @@ class DialogflowCxFlowTransitionRoutes:
     def target_page(self) -> typing.Optional[builtins.str]:
         '''The target page to transition to. Format: projects//locations//agents//flows//pages/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#target_page DialogflowCxFlow#target_page}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#target_page DialogflowCxFlow#target_page}
         '''
         result = self._values.get("target_page")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4546,7 +4546,7 @@ class DialogflowCxFlowTransitionRoutes:
     ) -> typing.Optional["DialogflowCxFlowTransitionRoutesTriggerFulfillment"]:
         '''trigger_fulfillment block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#trigger_fulfillment DialogflowCxFlow#trigger_fulfillment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#trigger_fulfillment DialogflowCxFlow#trigger_fulfillment}
         '''
         result = self._values.get("trigger_fulfillment")
         return typing.cast(typing.Optional["DialogflowCxFlowTransitionRoutesTriggerFulfillment"], result)
@@ -4694,12 +4694,12 @@ class DialogflowCxFlowTransitionRoutesOutputReference(
         webhook: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param conditional_cases: conditional_cases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#conditional_cases DialogflowCxFlow#conditional_cases}
-        :param messages: messages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#messages DialogflowCxFlow#messages}
-        :param return_partial_responses: Whether Dialogflow should return currently queued fulfillment response messages in streaming APIs. If a webhook is specified, it happens before Dialogflow invokes webhook. Warning: 1) This flag only affects streaming API. Responses are still queued and returned once in non-streaming API. 2) The flag can be enabled in any fulfillment but only the first 3 partial responses will be returned. You may only want to apply it to fulfillments that have slow webhooks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#return_partial_responses DialogflowCxFlow#return_partial_responses}
-        :param set_parameter_actions: set_parameter_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#set_parameter_actions DialogflowCxFlow#set_parameter_actions}
-        :param tag: The tag used by the webhook to identify which fulfillment is being called. This field is required if webhook is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#tag DialogflowCxFlow#tag}
-        :param webhook: The webhook to call. Format: projects//locations//agents//webhooks/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#webhook DialogflowCxFlow#webhook}
+        :param conditional_cases: conditional_cases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#conditional_cases DialogflowCxFlow#conditional_cases}
+        :param messages: messages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#messages DialogflowCxFlow#messages}
+        :param return_partial_responses: Whether Dialogflow should return currently queued fulfillment response messages in streaming APIs. If a webhook is specified, it happens before Dialogflow invokes webhook. Warning: 1) This flag only affects streaming API. Responses are still queued and returned once in non-streaming API. 2) The flag can be enabled in any fulfillment but only the first 3 partial responses will be returned. You may only want to apply it to fulfillments that have slow webhooks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#return_partial_responses DialogflowCxFlow#return_partial_responses}
+        :param set_parameter_actions: set_parameter_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#set_parameter_actions DialogflowCxFlow#set_parameter_actions}
+        :param tag: The tag used by the webhook to identify which fulfillment is being called. This field is required if webhook is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#tag DialogflowCxFlow#tag}
+        :param webhook: The webhook to call. Format: projects//locations//agents//webhooks/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#webhook DialogflowCxFlow#webhook}
         '''
         value = DialogflowCxFlowTransitionRoutesTriggerFulfillment(
             conditional_cases=conditional_cases,
@@ -4861,12 +4861,12 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillment:
         webhook: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param conditional_cases: conditional_cases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#conditional_cases DialogflowCxFlow#conditional_cases}
-        :param messages: messages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#messages DialogflowCxFlow#messages}
-        :param return_partial_responses: Whether Dialogflow should return currently queued fulfillment response messages in streaming APIs. If a webhook is specified, it happens before Dialogflow invokes webhook. Warning: 1) This flag only affects streaming API. Responses are still queued and returned once in non-streaming API. 2) The flag can be enabled in any fulfillment but only the first 3 partial responses will be returned. You may only want to apply it to fulfillments that have slow webhooks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#return_partial_responses DialogflowCxFlow#return_partial_responses}
-        :param set_parameter_actions: set_parameter_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#set_parameter_actions DialogflowCxFlow#set_parameter_actions}
-        :param tag: The tag used by the webhook to identify which fulfillment is being called. This field is required if webhook is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#tag DialogflowCxFlow#tag}
-        :param webhook: The webhook to call. Format: projects//locations//agents//webhooks/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#webhook DialogflowCxFlow#webhook}
+        :param conditional_cases: conditional_cases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#conditional_cases DialogflowCxFlow#conditional_cases}
+        :param messages: messages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#messages DialogflowCxFlow#messages}
+        :param return_partial_responses: Whether Dialogflow should return currently queued fulfillment response messages in streaming APIs. If a webhook is specified, it happens before Dialogflow invokes webhook. Warning: 1) This flag only affects streaming API. Responses are still queued and returned once in non-streaming API. 2) The flag can be enabled in any fulfillment but only the first 3 partial responses will be returned. You may only want to apply it to fulfillments that have slow webhooks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#return_partial_responses DialogflowCxFlow#return_partial_responses}
+        :param set_parameter_actions: set_parameter_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#set_parameter_actions DialogflowCxFlow#set_parameter_actions}
+        :param tag: The tag used by the webhook to identify which fulfillment is being called. This field is required if webhook is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#tag DialogflowCxFlow#tag}
+        :param webhook: The webhook to call. Format: projects//locations//agents//webhooks/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#webhook DialogflowCxFlow#webhook}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__432893f9cd29f37454ec7f8cbb609d9f910a492bf9c70661909d433841916dbb)
@@ -4896,7 +4896,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillment:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxFlowTransitionRoutesTriggerFulfillmentConditionalCases"]]]:
         '''conditional_cases block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#conditional_cases DialogflowCxFlow#conditional_cases}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#conditional_cases DialogflowCxFlow#conditional_cases}
         '''
         result = self._values.get("conditional_cases")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxFlowTransitionRoutesTriggerFulfillmentConditionalCases"]]], result)
@@ -4907,7 +4907,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillment:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessages"]]]:
         '''messages block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#messages DialogflowCxFlow#messages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#messages DialogflowCxFlow#messages}
         '''
         result = self._values.get("messages")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessages"]]], result)
@@ -4920,7 +4920,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillment:
 
         If a webhook is specified, it happens before Dialogflow invokes webhook. Warning: 1) This flag only affects streaming API. Responses are still queued and returned once in non-streaming API. 2) The flag can be enabled in any fulfillment but only the first 3 partial responses will be returned. You may only want to apply it to fulfillments that have slow webhooks.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#return_partial_responses DialogflowCxFlow#return_partial_responses}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#return_partial_responses DialogflowCxFlow#return_partial_responses}
         '''
         result = self._values.get("return_partial_responses")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4931,7 +4931,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillment:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxFlowTransitionRoutesTriggerFulfillmentSetParameterActions"]]]:
         '''set_parameter_actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#set_parameter_actions DialogflowCxFlow#set_parameter_actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#set_parameter_actions DialogflowCxFlow#set_parameter_actions}
         '''
         result = self._values.get("set_parameter_actions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxFlowTransitionRoutesTriggerFulfillmentSetParameterActions"]]], result)
@@ -4942,7 +4942,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillment:
 
         This field is required if webhook is specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#tag DialogflowCxFlow#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#tag DialogflowCxFlow#tag}
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4951,7 +4951,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillment:
     def webhook(self) -> typing.Optional[builtins.str]:
         '''The webhook to call. Format: projects//locations//agents//webhooks/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#webhook DialogflowCxFlow#webhook}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#webhook DialogflowCxFlow#webhook}
         '''
         result = self._values.get("webhook")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4976,7 +4976,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillment:
 class DialogflowCxFlowTransitionRoutesTriggerFulfillmentConditionalCases:
     def __init__(self, *, cases: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param cases: A JSON encoded list of cascading if-else conditions. Cases are mutually exclusive. The first one with a matching condition is selected, all the rest ignored. See `Case <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/Fulfillment#case>`_ for the schema. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#cases DialogflowCxFlow#cases}
+        :param cases: A JSON encoded list of cascading if-else conditions. Cases are mutually exclusive. The first one with a matching condition is selected, all the rest ignored. See `Case <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/Fulfillment#case>`_ for the schema. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#cases DialogflowCxFlow#cases}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__db75a87a152b7f8cd24c2d3be5187a09faedcdd7a31294efca73627fced7e4f2)
@@ -4992,7 +4992,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentConditionalCases:
         Cases are mutually exclusive. The first one with a matching condition is selected, all the rest ignored.
         See `Case <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/Fulfillment#case>`_ for the schema.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#cases DialogflowCxFlow#cases}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#cases DialogflowCxFlow#cases}
         '''
         result = self._values.get("cases")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5195,14 +5195,14 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessages:
         text: typing.Optional[typing.Union["DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesText", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param channel: The channel which the response is associated with. Clients can specify the channel via QueryParameters.channel, and only associated channel response will be returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#channel DialogflowCxFlow#channel}
-        :param conversation_success: conversation_success block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#conversation_success DialogflowCxFlow#conversation_success}
-        :param live_agent_handoff: live_agent_handoff block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#live_agent_handoff DialogflowCxFlow#live_agent_handoff}
-        :param output_audio_text: output_audio_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#output_audio_text DialogflowCxFlow#output_audio_text}
-        :param payload: A custom, platform-specific payload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#payload DialogflowCxFlow#payload}
-        :param play_audio: play_audio block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#play_audio DialogflowCxFlow#play_audio}
-        :param telephony_transfer_call: telephony_transfer_call block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#telephony_transfer_call DialogflowCxFlow#telephony_transfer_call}
-        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
+        :param channel: The channel which the response is associated with. Clients can specify the channel via QueryParameters.channel, and only associated channel response will be returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#channel DialogflowCxFlow#channel}
+        :param conversation_success: conversation_success block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#conversation_success DialogflowCxFlow#conversation_success}
+        :param live_agent_handoff: live_agent_handoff block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#live_agent_handoff DialogflowCxFlow#live_agent_handoff}
+        :param output_audio_text: output_audio_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#output_audio_text DialogflowCxFlow#output_audio_text}
+        :param payload: A custom, platform-specific payload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#payload DialogflowCxFlow#payload}
+        :param play_audio: play_audio block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#play_audio DialogflowCxFlow#play_audio}
+        :param telephony_transfer_call: telephony_transfer_call block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#telephony_transfer_call DialogflowCxFlow#telephony_transfer_call}
+        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
         '''
         if isinstance(conversation_success, dict):
             conversation_success = DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesConversationSuccess(**conversation_success)
@@ -5250,7 +5250,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessages:
 
         Clients can specify the channel via QueryParameters.channel, and only associated channel response will be returned.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#channel DialogflowCxFlow#channel}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#channel DialogflowCxFlow#channel}
         '''
         result = self._values.get("channel")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5261,7 +5261,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessages:
     ) -> typing.Optional["DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesConversationSuccess"]:
         '''conversation_success block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#conversation_success DialogflowCxFlow#conversation_success}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#conversation_success DialogflowCxFlow#conversation_success}
         '''
         result = self._values.get("conversation_success")
         return typing.cast(typing.Optional["DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesConversationSuccess"], result)
@@ -5272,7 +5272,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessages:
     ) -> typing.Optional["DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesLiveAgentHandoff"]:
         '''live_agent_handoff block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#live_agent_handoff DialogflowCxFlow#live_agent_handoff}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#live_agent_handoff DialogflowCxFlow#live_agent_handoff}
         '''
         result = self._values.get("live_agent_handoff")
         return typing.cast(typing.Optional["DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesLiveAgentHandoff"], result)
@@ -5283,7 +5283,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessages:
     ) -> typing.Optional["DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesOutputAudioText"]:
         '''output_audio_text block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#output_audio_text DialogflowCxFlow#output_audio_text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#output_audio_text DialogflowCxFlow#output_audio_text}
         '''
         result = self._values.get("output_audio_text")
         return typing.cast(typing.Optional["DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesOutputAudioText"], result)
@@ -5292,7 +5292,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessages:
     def payload(self) -> typing.Optional[builtins.str]:
         '''A custom, platform-specific payload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#payload DialogflowCxFlow#payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#payload DialogflowCxFlow#payload}
         '''
         result = self._values.get("payload")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5303,7 +5303,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessages:
     ) -> typing.Optional["DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesPlayAudio"]:
         '''play_audio block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#play_audio DialogflowCxFlow#play_audio}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#play_audio DialogflowCxFlow#play_audio}
         '''
         result = self._values.get("play_audio")
         return typing.cast(typing.Optional["DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesPlayAudio"], result)
@@ -5314,7 +5314,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessages:
     ) -> typing.Optional["DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesTelephonyTransferCall"]:
         '''telephony_transfer_call block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#telephony_transfer_call DialogflowCxFlow#telephony_transfer_call}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#telephony_transfer_call DialogflowCxFlow#telephony_transfer_call}
         '''
         result = self._values.get("telephony_transfer_call")
         return typing.cast(typing.Optional["DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesTelephonyTransferCall"], result)
@@ -5325,7 +5325,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessages:
     ) -> typing.Optional["DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesText"]:
         '''text block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional["DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesText"], result)
@@ -5350,7 +5350,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessages:
 class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesConversationSuccess:
     def __init__(self, *, metadata: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param metadata: Custom metadata. Dialogflow doesn't impose any structure on this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
+        :param metadata: Custom metadata. Dialogflow doesn't impose any structure on this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0011078f8283a463693b104af4cb53fd6f57ad35fcc60409af13c66c05203a03)
@@ -5363,7 +5363,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesConversationSucc
     def metadata(self) -> typing.Optional[builtins.str]:
         '''Custom metadata. Dialogflow doesn't impose any structure on this.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5540,7 +5540,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesList(
 class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesLiveAgentHandoff:
     def __init__(self, *, metadata: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param metadata: Custom metadata. Dialogflow doesn't impose any structure on this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
+        :param metadata: Custom metadata. Dialogflow doesn't impose any structure on this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__263ebc099831bbd840b4132efec9622802980c77d9827f01d5d33003792d9b42)
@@ -5553,7 +5553,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesLiveAgentHandoff
     def metadata(self) -> typing.Optional[builtins.str]:
         '''Custom metadata. Dialogflow doesn't impose any structure on this.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5642,8 +5642,8 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesOutputAudioText:
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ssml: The SSML text to be synthesized. For more information, see SSML. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#ssml DialogflowCxFlow#ssml}
-        :param text: The raw text to be synthesized. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
+        :param ssml: The SSML text to be synthesized. For more information, see SSML. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#ssml DialogflowCxFlow#ssml}
+        :param text: The raw text to be synthesized. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__de52003c4343cc910bdf4518f1bc3c0030e333624f4a1f6f1c2b73a89e47ed3d)
@@ -5659,7 +5659,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesOutputAudioText:
     def ssml(self) -> typing.Optional[builtins.str]:
         '''The SSML text to be synthesized. For more information, see SSML.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#ssml DialogflowCxFlow#ssml}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#ssml DialogflowCxFlow#ssml}
         '''
         result = self._values.get("ssml")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5668,7 +5668,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesOutputAudioText:
     def text(self) -> typing.Optional[builtins.str]:
         '''The raw text to be synthesized.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5803,7 +5803,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesOutputReference(
         metadata: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metadata: Custom metadata. Dialogflow doesn't impose any structure on this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
+        :param metadata: Custom metadata. Dialogflow doesn't impose any structure on this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
         '''
         value = DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesConversationSuccess(
             metadata=metadata
@@ -5818,7 +5818,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesOutputReference(
         metadata: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param metadata: Custom metadata. Dialogflow doesn't impose any structure on this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
+        :param metadata: Custom metadata. Dialogflow doesn't impose any structure on this. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#metadata DialogflowCxFlow#metadata}
         '''
         value = DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesLiveAgentHandoff(
             metadata=metadata
@@ -5834,8 +5834,8 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesOutputReference(
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ssml: The SSML text to be synthesized. For more information, see SSML. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#ssml DialogflowCxFlow#ssml}
-        :param text: The raw text to be synthesized. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
+        :param ssml: The SSML text to be synthesized. For more information, see SSML. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#ssml DialogflowCxFlow#ssml}
+        :param text: The raw text to be synthesized. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
         '''
         value = DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesOutputAudioText(
             ssml=ssml, text=text
@@ -5846,7 +5846,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesOutputReference(
     @jsii.member(jsii_name="putPlayAudio")
     def put_play_audio(self, *, audio_uri: builtins.str) -> None:
         '''
-        :param audio_uri: URI of the audio clip. Dialogflow does not impose any validation on this value. It is specific to the client that reads it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#audio_uri DialogflowCxFlow#audio_uri}
+        :param audio_uri: URI of the audio clip. Dialogflow does not impose any validation on this value. It is specific to the client that reads it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#audio_uri DialogflowCxFlow#audio_uri}
         '''
         value = DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesPlayAudio(
             audio_uri=audio_uri
@@ -5857,7 +5857,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesOutputReference(
     @jsii.member(jsii_name="putTelephonyTransferCall")
     def put_telephony_transfer_call(self, *, phone_number: builtins.str) -> None:
         '''
-        :param phone_number: Transfer the call to a phone number in E.164 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#phone_number DialogflowCxFlow#phone_number}
+        :param phone_number: Transfer the call to a phone number in E.164 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#phone_number DialogflowCxFlow#phone_number}
         '''
         value = DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesTelephonyTransferCall(
             phone_number=phone_number
@@ -5872,7 +5872,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesOutputReference(
         text: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param text: A collection of text responses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
+        :param text: A collection of text responses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
         '''
         value = DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesText(
             text=text
@@ -6056,7 +6056,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesOutputReference(
 class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesPlayAudio:
     def __init__(self, *, audio_uri: builtins.str) -> None:
         '''
-        :param audio_uri: URI of the audio clip. Dialogflow does not impose any validation on this value. It is specific to the client that reads it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#audio_uri DialogflowCxFlow#audio_uri}
+        :param audio_uri: URI of the audio clip. Dialogflow does not impose any validation on this value. It is specific to the client that reads it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#audio_uri DialogflowCxFlow#audio_uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__744a97e2329f1385bef3b89046c9e2e502dec77c1ff68a1433153cbd1828a140)
@@ -6071,7 +6071,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesPlayAudio:
 
         Dialogflow does not impose any validation on this value. It is specific to the client that reads it.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#audio_uri DialogflowCxFlow#audio_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#audio_uri DialogflowCxFlow#audio_uri}
         '''
         result = self._values.get("audio_uri")
         assert result is not None, "Required property 'audio_uri' is missing"
@@ -6157,7 +6157,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesPlayAudioOutputR
 class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesTelephonyTransferCall:
     def __init__(self, *, phone_number: builtins.str) -> None:
         '''
-        :param phone_number: Transfer the call to a phone number in E.164 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#phone_number DialogflowCxFlow#phone_number}
+        :param phone_number: Transfer the call to a phone number in E.164 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#phone_number DialogflowCxFlow#phone_number}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bcc631c62f835ad7ef815276cbed7772c0821925e93e0fc4fdb3592f846d1338)
@@ -6170,7 +6170,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesTelephonyTransfe
     def phone_number(self) -> builtins.str:
         '''Transfer the call to a phone number in E.164 format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#phone_number DialogflowCxFlow#phone_number}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#phone_number DialogflowCxFlow#phone_number}
         '''
         result = self._values.get("phone_number")
         assert result is not None, "Required property 'phone_number' is missing"
@@ -6255,7 +6255,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesText:
         text: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param text: A collection of text responses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
+        :param text: A collection of text responses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cb845cd2e37763a470724a8398ea907a821e78981076ecdb01940c409d1349b2)
@@ -6268,7 +6268,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentMessagesText:
     def text(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A collection of text responses.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#text DialogflowCxFlow#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6563,8 +6563,8 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentSetParameterActions:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param parameter: Display name of the parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#parameter DialogflowCxFlow#parameter}
-        :param value: The new JSON-encoded value of the parameter. A null value clears the parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#value DialogflowCxFlow#value}
+        :param parameter: Display name of the parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#parameter DialogflowCxFlow#parameter}
+        :param value: The new JSON-encoded value of the parameter. A null value clears the parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#value DialogflowCxFlow#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__589eceda523524f13fe19631e4db8792050eab8dc58503d29264b706cb0b6637)
@@ -6580,7 +6580,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentSetParameterActions:
     def parameter(self) -> typing.Optional[builtins.str]:
         '''Display name of the parameter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#parameter DialogflowCxFlow#parameter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#parameter DialogflowCxFlow#parameter}
         '''
         result = self._values.get("parameter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6589,7 +6589,7 @@ class DialogflowCxFlowTransitionRoutesTriggerFulfillmentSetParameterActions:
     def value(self) -> typing.Optional[builtins.str]:
         '''The new JSON-encoded value of the parameter. A null value clears the parameter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_flow#value DialogflowCxFlow#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_flow#value DialogflowCxFlow#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)

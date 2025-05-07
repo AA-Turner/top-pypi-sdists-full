@@ -1,7 +1,7 @@
 r'''
 # `google_bigtable_materialized_view`
 
-Refer to the Terraform Registry for docs: [`google_bigtable_materialized_view`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view).
+Refer to the Terraform Registry for docs: [`google_bigtable_materialized_view`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BigtableMaterializedView(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.bigtableMaterializedView.BigtableMaterializedView",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view google_bigtable_materialized_view}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view google_bigtable_materialized_view}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class BigtableMaterializedView(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view google_bigtable_materialized_view} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view google_bigtable_materialized_view} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param materialized_view_id: The unique name of the materialized view in the form '[*a-zA-Z0-9][-*.a-zA-Z0-9]*'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#materialized_view_id BigtableMaterializedView#materialized_view_id}
-        :param query: The materialized view's select query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#query BigtableMaterializedView#query}
-        :param deletion_protection: Set to true to make the MaterializedView protected against deletion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#deletion_protection BigtableMaterializedView#deletion_protection}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#id BigtableMaterializedView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance: The name of the instance to create the materialized view within. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#instance BigtableMaterializedView#instance}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#project BigtableMaterializedView#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#timeouts BigtableMaterializedView#timeouts}
+        :param materialized_view_id: The unique name of the materialized view in the form '[*a-zA-Z0-9][-*.a-zA-Z0-9]*'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#materialized_view_id BigtableMaterializedView#materialized_view_id}
+        :param query: The materialized view's select query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#query BigtableMaterializedView#query}
+        :param deletion_protection: Set to true to make the MaterializedView protected against deletion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#deletion_protection BigtableMaterializedView#deletion_protection}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#id BigtableMaterializedView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance: The name of the instance to create the materialized view within. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#instance BigtableMaterializedView#instance}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#project BigtableMaterializedView#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#timeouts BigtableMaterializedView#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class BigtableMaterializedView(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BigtableMaterializedView to import.
-        :param import_from_id: The id of the existing BigtableMaterializedView that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BigtableMaterializedView that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BigtableMaterializedView to import is found.
         '''
         if __debug__:
@@ -141,9 +141,9 @@ class BigtableMaterializedView(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#create BigtableMaterializedView#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#delete BigtableMaterializedView#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#update BigtableMaterializedView#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#create BigtableMaterializedView#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#delete BigtableMaterializedView#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#update BigtableMaterializedView#update}.
         '''
         value = BigtableMaterializedViewTimeouts(
             create=create, delete=delete, update=update
@@ -358,13 +358,13 @@ class BigtableMaterializedViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param materialized_view_id: The unique name of the materialized view in the form '[*a-zA-Z0-9][-*.a-zA-Z0-9]*'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#materialized_view_id BigtableMaterializedView#materialized_view_id}
-        :param query: The materialized view's select query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#query BigtableMaterializedView#query}
-        :param deletion_protection: Set to true to make the MaterializedView protected against deletion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#deletion_protection BigtableMaterializedView#deletion_protection}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#id BigtableMaterializedView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance: The name of the instance to create the materialized view within. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#instance BigtableMaterializedView#instance}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#project BigtableMaterializedView#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#timeouts BigtableMaterializedView#timeouts}
+        :param materialized_view_id: The unique name of the materialized view in the form '[*a-zA-Z0-9][-*.a-zA-Z0-9]*'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#materialized_view_id BigtableMaterializedView#materialized_view_id}
+        :param query: The materialized view's select query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#query BigtableMaterializedView#query}
+        :param deletion_protection: Set to true to make the MaterializedView protected against deletion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#deletion_protection BigtableMaterializedView#deletion_protection}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#id BigtableMaterializedView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance: The name of the instance to create the materialized view within. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#instance BigtableMaterializedView#instance}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#project BigtableMaterializedView#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#timeouts BigtableMaterializedView#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -483,7 +483,7 @@ class BigtableMaterializedViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def materialized_view_id(self) -> builtins.str:
         '''The unique name of the materialized view in the form '[*a-zA-Z0-9][-*.a-zA-Z0-9]*'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#materialized_view_id BigtableMaterializedView#materialized_view_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#materialized_view_id BigtableMaterializedView#materialized_view_id}
         '''
         result = self._values.get("materialized_view_id")
         assert result is not None, "Required property 'materialized_view_id' is missing"
@@ -493,7 +493,7 @@ class BigtableMaterializedViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def query(self) -> builtins.str:
         '''The materialized view's select query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#query BigtableMaterializedView#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#query BigtableMaterializedView#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -505,14 +505,14 @@ class BigtableMaterializedViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to true to make the MaterializedView protected against deletion.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#deletion_protection BigtableMaterializedView#deletion_protection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#deletion_protection BigtableMaterializedView#deletion_protection}
         '''
         result = self._values.get("deletion_protection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#id BigtableMaterializedView#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#id BigtableMaterializedView#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -524,14 +524,14 @@ class BigtableMaterializedViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance(self) -> typing.Optional[builtins.str]:
         '''The name of the instance to create the materialized view within.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#instance BigtableMaterializedView#instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#instance BigtableMaterializedView#instance}
         '''
         result = self._values.get("instance")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#project BigtableMaterializedView#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#project BigtableMaterializedView#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -539,7 +539,7 @@ class BigtableMaterializedViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BigtableMaterializedViewTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#timeouts BigtableMaterializedView#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#timeouts BigtableMaterializedView#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BigtableMaterializedViewTimeouts"], result)
@@ -570,9 +570,9 @@ class BigtableMaterializedViewTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#create BigtableMaterializedView#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#delete BigtableMaterializedView#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#update BigtableMaterializedView#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#create BigtableMaterializedView#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#delete BigtableMaterializedView#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#update BigtableMaterializedView#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__138dac746dd229b41c6baa96343ec6b281369983f93c88734ae48c3a7c865a79)
@@ -589,19 +589,19 @@ class BigtableMaterializedViewTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#create BigtableMaterializedView#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#create BigtableMaterializedView#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#delete BigtableMaterializedView#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#delete BigtableMaterializedView#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_materialized_view#update BigtableMaterializedView#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_materialized_view#update BigtableMaterializedView#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

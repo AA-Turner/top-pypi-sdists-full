@@ -1,7 +1,7 @@
 r'''
 # `google_chronicle_data_access_scope`
 
-Refer to the Terraform Registry for docs: [`google_chronicle_data_access_scope`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope).
+Refer to the Terraform Registry for docs: [`google_chronicle_data_access_scope`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ChronicleDataAccessScope(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.chronicleDataAccessScope.ChronicleDataAccessScope",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope google_chronicle_data_access_scope}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope google_chronicle_data_access_scope}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class ChronicleDataAccessScope(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope google_chronicle_data_access_scope} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope google_chronicle_data_access_scope} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param data_access_scope_id: Required. The user provided scope id which will become the last part of the name of the scope resource. Needs to be compliant with https://google.aip.dev/122 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#data_access_scope_id ChronicleDataAccessScope#data_access_scope_id}
-        :param instance: The unique identifier for the Chronicle instance, which is the same as the customer ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#instance ChronicleDataAccessScope#instance}
-        :param location: The location of the resource. This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#location ChronicleDataAccessScope#location}
-        :param allow_all: Optional. Whether or not the scope allows all labels, allow_all and allowed_data_access_labels are mutually exclusive and one of them must be present. denied_data_access_labels can still be used along with allow_all. When combined with denied_data_access_labels, access will be granted to all data that doesn't have labels mentioned in denied_data_access_labels. E.g.: A customer with scope with denied labels A and B and allow_all will be able to see all data except data labeled with A and data labeled with B and data with labels A and B. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#allow_all ChronicleDataAccessScope#allow_all}
-        :param allowed_data_access_labels: allowed_data_access_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#allowed_data_access_labels ChronicleDataAccessScope#allowed_data_access_labels}
-        :param denied_data_access_labels: denied_data_access_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#denied_data_access_labels ChronicleDataAccessScope#denied_data_access_labels}
-        :param description: Optional. A description of the data access scope for a human reader. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#description ChronicleDataAccessScope#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#id ChronicleDataAccessScope#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#project ChronicleDataAccessScope#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#timeouts ChronicleDataAccessScope#timeouts}
+        :param data_access_scope_id: Required. The user provided scope id which will become the last part of the name of the scope resource. Needs to be compliant with https://google.aip.dev/122 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#data_access_scope_id ChronicleDataAccessScope#data_access_scope_id}
+        :param instance: The unique identifier for the Chronicle instance, which is the same as the customer ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#instance ChronicleDataAccessScope#instance}
+        :param location: The location of the resource. This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#location ChronicleDataAccessScope#location}
+        :param allow_all: Optional. Whether or not the scope allows all labels, allow_all and allowed_data_access_labels are mutually exclusive and one of them must be present. denied_data_access_labels can still be used along with allow_all. When combined with denied_data_access_labels, access will be granted to all data that doesn't have labels mentioned in denied_data_access_labels. E.g.: A customer with scope with denied labels A and B and allow_all will be able to see all data except data labeled with A and data labeled with B and data with labels A and B. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#allow_all ChronicleDataAccessScope#allow_all}
+        :param allowed_data_access_labels: allowed_data_access_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#allowed_data_access_labels ChronicleDataAccessScope#allowed_data_access_labels}
+        :param denied_data_access_labels: denied_data_access_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#denied_data_access_labels ChronicleDataAccessScope#denied_data_access_labels}
+        :param description: Optional. A description of the data access scope for a human reader. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#description ChronicleDataAccessScope#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#id ChronicleDataAccessScope#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#project ChronicleDataAccessScope#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#timeouts ChronicleDataAccessScope#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class ChronicleDataAccessScope(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ChronicleDataAccessScope to import.
-        :param import_from_id: The id of the existing ChronicleDataAccessScope that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ChronicleDataAccessScope that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ChronicleDataAccessScope to import is found.
         '''
         if __debug__:
@@ -176,9 +176,9 @@ class ChronicleDataAccessScope(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#create ChronicleDataAccessScope#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#delete ChronicleDataAccessScope#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#update ChronicleDataAccessScope#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#create ChronicleDataAccessScope#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#delete ChronicleDataAccessScope#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#update ChronicleDataAccessScope#update}.
         '''
         value = ChronicleDataAccessScopeTimeouts(
             create=create, delete=delete, update=update
@@ -442,10 +442,10 @@ class ChronicleDataAccessScopeAllowedDataAccessLabels:
         log_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param asset_namespace: The asset namespace configured in the forwarder of the customer's events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#asset_namespace ChronicleDataAccessScope#asset_namespace}
-        :param data_access_label: The name of the data access label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#data_access_label ChronicleDataAccessScope#data_access_label}
-        :param ingestion_label: ingestion_label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#ingestion_label ChronicleDataAccessScope#ingestion_label}
-        :param log_type: The name of the log type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#log_type ChronicleDataAccessScope#log_type}
+        :param asset_namespace: The asset namespace configured in the forwarder of the customer's events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#asset_namespace ChronicleDataAccessScope#asset_namespace}
+        :param data_access_label: The name of the data access label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#data_access_label ChronicleDataAccessScope#data_access_label}
+        :param ingestion_label: ingestion_label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#ingestion_label ChronicleDataAccessScope#ingestion_label}
+        :param log_type: The name of the log type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#log_type ChronicleDataAccessScope#log_type}
         '''
         if isinstance(ingestion_label, dict):
             ingestion_label = ChronicleDataAccessScopeAllowedDataAccessLabelsIngestionLabel(**ingestion_label)
@@ -469,7 +469,7 @@ class ChronicleDataAccessScopeAllowedDataAccessLabels:
     def asset_namespace(self) -> typing.Optional[builtins.str]:
         '''The asset namespace configured in the forwarder of the customer's events.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#asset_namespace ChronicleDataAccessScope#asset_namespace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#asset_namespace ChronicleDataAccessScope#asset_namespace}
         '''
         result = self._values.get("asset_namespace")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -478,7 +478,7 @@ class ChronicleDataAccessScopeAllowedDataAccessLabels:
     def data_access_label(self) -> typing.Optional[builtins.str]:
         '''The name of the data access label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#data_access_label ChronicleDataAccessScope#data_access_label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#data_access_label ChronicleDataAccessScope#data_access_label}
         '''
         result = self._values.get("data_access_label")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -489,7 +489,7 @@ class ChronicleDataAccessScopeAllowedDataAccessLabels:
     ) -> typing.Optional["ChronicleDataAccessScopeAllowedDataAccessLabelsIngestionLabel"]:
         '''ingestion_label block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#ingestion_label ChronicleDataAccessScope#ingestion_label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#ingestion_label ChronicleDataAccessScope#ingestion_label}
         '''
         result = self._values.get("ingestion_label")
         return typing.cast(typing.Optional["ChronicleDataAccessScopeAllowedDataAccessLabelsIngestionLabel"], result)
@@ -498,7 +498,7 @@ class ChronicleDataAccessScopeAllowedDataAccessLabels:
     def log_type(self) -> typing.Optional[builtins.str]:
         '''The name of the log type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#log_type ChronicleDataAccessScope#log_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#log_type ChronicleDataAccessScope#log_type}
         '''
         result = self._values.get("log_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -531,8 +531,8 @@ class ChronicleDataAccessScopeAllowedDataAccessLabelsIngestionLabel:
         ingestion_label_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ingestion_label_key: Required. The key of the ingestion label. Always required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#ingestion_label_key ChronicleDataAccessScope#ingestion_label_key}
-        :param ingestion_label_value: Optional. The value of the ingestion label. Optional. An object with no provided value and some key provided would match against the given key and ANY value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#ingestion_label_value ChronicleDataAccessScope#ingestion_label_value}
+        :param ingestion_label_key: Required. The key of the ingestion label. Always required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#ingestion_label_key ChronicleDataAccessScope#ingestion_label_key}
+        :param ingestion_label_value: Optional. The value of the ingestion label. Optional. An object with no provided value and some key provided would match against the given key and ANY value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#ingestion_label_value ChronicleDataAccessScope#ingestion_label_value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__556112b57caeb02df7d986acff78be981965027fca92ebe078941af64ac90031)
@@ -548,7 +548,7 @@ class ChronicleDataAccessScopeAllowedDataAccessLabelsIngestionLabel:
     def ingestion_label_key(self) -> builtins.str:
         '''Required. The key of the ingestion label. Always required.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#ingestion_label_key ChronicleDataAccessScope#ingestion_label_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#ingestion_label_key ChronicleDataAccessScope#ingestion_label_key}
         '''
         result = self._values.get("ingestion_label_key")
         assert result is not None, "Required property 'ingestion_label_key' is missing"
@@ -562,7 +562,7 @@ class ChronicleDataAccessScopeAllowedDataAccessLabelsIngestionLabel:
         with no provided value and some key provided would match
         against the given key and ANY value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#ingestion_label_value ChronicleDataAccessScope#ingestion_label_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#ingestion_label_value ChronicleDataAccessScope#ingestion_label_value}
         '''
         result = self._values.get("ingestion_label_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -782,8 +782,8 @@ class ChronicleDataAccessScopeAllowedDataAccessLabelsOutputReference(
         ingestion_label_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ingestion_label_key: Required. The key of the ingestion label. Always required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#ingestion_label_key ChronicleDataAccessScope#ingestion_label_key}
-        :param ingestion_label_value: Optional. The value of the ingestion label. Optional. An object with no provided value and some key provided would match against the given key and ANY value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#ingestion_label_value ChronicleDataAccessScope#ingestion_label_value}
+        :param ingestion_label_key: Required. The key of the ingestion label. Always required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#ingestion_label_key ChronicleDataAccessScope#ingestion_label_key}
+        :param ingestion_label_value: Optional. The value of the ingestion label. Optional. An object with no provided value and some key provided would match against the given key and ANY value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#ingestion_label_value ChronicleDataAccessScope#ingestion_label_value}
         '''
         value = ChronicleDataAccessScopeAllowedDataAccessLabelsIngestionLabel(
             ingestion_label_key=ingestion_label_key,
@@ -949,16 +949,16 @@ class ChronicleDataAccessScopeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param data_access_scope_id: Required. The user provided scope id which will become the last part of the name of the scope resource. Needs to be compliant with https://google.aip.dev/122 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#data_access_scope_id ChronicleDataAccessScope#data_access_scope_id}
-        :param instance: The unique identifier for the Chronicle instance, which is the same as the customer ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#instance ChronicleDataAccessScope#instance}
-        :param location: The location of the resource. This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#location ChronicleDataAccessScope#location}
-        :param allow_all: Optional. Whether or not the scope allows all labels, allow_all and allowed_data_access_labels are mutually exclusive and one of them must be present. denied_data_access_labels can still be used along with allow_all. When combined with denied_data_access_labels, access will be granted to all data that doesn't have labels mentioned in denied_data_access_labels. E.g.: A customer with scope with denied labels A and B and allow_all will be able to see all data except data labeled with A and data labeled with B and data with labels A and B. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#allow_all ChronicleDataAccessScope#allow_all}
-        :param allowed_data_access_labels: allowed_data_access_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#allowed_data_access_labels ChronicleDataAccessScope#allowed_data_access_labels}
-        :param denied_data_access_labels: denied_data_access_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#denied_data_access_labels ChronicleDataAccessScope#denied_data_access_labels}
-        :param description: Optional. A description of the data access scope for a human reader. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#description ChronicleDataAccessScope#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#id ChronicleDataAccessScope#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#project ChronicleDataAccessScope#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#timeouts ChronicleDataAccessScope#timeouts}
+        :param data_access_scope_id: Required. The user provided scope id which will become the last part of the name of the scope resource. Needs to be compliant with https://google.aip.dev/122 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#data_access_scope_id ChronicleDataAccessScope#data_access_scope_id}
+        :param instance: The unique identifier for the Chronicle instance, which is the same as the customer ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#instance ChronicleDataAccessScope#instance}
+        :param location: The location of the resource. This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#location ChronicleDataAccessScope#location}
+        :param allow_all: Optional. Whether or not the scope allows all labels, allow_all and allowed_data_access_labels are mutually exclusive and one of them must be present. denied_data_access_labels can still be used along with allow_all. When combined with denied_data_access_labels, access will be granted to all data that doesn't have labels mentioned in denied_data_access_labels. E.g.: A customer with scope with denied labels A and B and allow_all will be able to see all data except data labeled with A and data labeled with B and data with labels A and B. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#allow_all ChronicleDataAccessScope#allow_all}
+        :param allowed_data_access_labels: allowed_data_access_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#allowed_data_access_labels ChronicleDataAccessScope#allowed_data_access_labels}
+        :param denied_data_access_labels: denied_data_access_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#denied_data_access_labels ChronicleDataAccessScope#denied_data_access_labels}
+        :param description: Optional. A description of the data access scope for a human reader. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#description ChronicleDataAccessScope#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#id ChronicleDataAccessScope#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#project ChronicleDataAccessScope#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#timeouts ChronicleDataAccessScope#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1089,7 +1089,7 @@ class ChronicleDataAccessScopeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         of the scope resource.
         Needs to be compliant with https://google.aip.dev/122
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#data_access_scope_id ChronicleDataAccessScope#data_access_scope_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#data_access_scope_id ChronicleDataAccessScope#data_access_scope_id}
         '''
         result = self._values.get("data_access_scope_id")
         assert result is not None, "Required property 'data_access_scope_id' is missing"
@@ -1099,7 +1099,7 @@ class ChronicleDataAccessScopeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance(self) -> builtins.str:
         '''The unique identifier for the Chronicle instance, which is the same as the customer ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#instance ChronicleDataAccessScope#instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#instance ChronicleDataAccessScope#instance}
         '''
         result = self._values.get("instance")
         assert result is not None, "Required property 'instance' is missing"
@@ -1111,7 +1111,7 @@ class ChronicleDataAccessScopeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#location ChronicleDataAccessScope#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#location ChronicleDataAccessScope#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1132,7 +1132,7 @@ class ChronicleDataAccessScopeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         to see all data except data labeled with A and data labeled with B and data
         with labels A and B.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#allow_all ChronicleDataAccessScope#allow_all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#allow_all ChronicleDataAccessScope#allow_all}
         '''
         result = self._values.get("allow_all")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1143,7 +1143,7 @@ class ChronicleDataAccessScopeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ChronicleDataAccessScopeAllowedDataAccessLabels]]]:
         '''allowed_data_access_labels block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#allowed_data_access_labels ChronicleDataAccessScope#allowed_data_access_labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#allowed_data_access_labels ChronicleDataAccessScope#allowed_data_access_labels}
         '''
         result = self._values.get("allowed_data_access_labels")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ChronicleDataAccessScopeAllowedDataAccessLabels]]], result)
@@ -1154,7 +1154,7 @@ class ChronicleDataAccessScopeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ChronicleDataAccessScopeDeniedDataAccessLabels"]]]:
         '''denied_data_access_labels block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#denied_data_access_labels ChronicleDataAccessScope#denied_data_access_labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#denied_data_access_labels ChronicleDataAccessScope#denied_data_access_labels}
         '''
         result = self._values.get("denied_data_access_labels")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ChronicleDataAccessScopeDeniedDataAccessLabels"]]], result)
@@ -1163,14 +1163,14 @@ class ChronicleDataAccessScopeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Optional. A description of the data access scope for a human reader.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#description ChronicleDataAccessScope#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#description ChronicleDataAccessScope#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#id ChronicleDataAccessScope#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#id ChronicleDataAccessScope#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1180,7 +1180,7 @@ class ChronicleDataAccessScopeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#project ChronicleDataAccessScope#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#project ChronicleDataAccessScope#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1188,7 +1188,7 @@ class ChronicleDataAccessScopeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ChronicleDataAccessScopeTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#timeouts ChronicleDataAccessScope#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#timeouts ChronicleDataAccessScope#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ChronicleDataAccessScopeTimeouts"], result)
@@ -1225,10 +1225,10 @@ class ChronicleDataAccessScopeDeniedDataAccessLabels:
         log_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param asset_namespace: The asset namespace configured in the forwarder of the customer's events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#asset_namespace ChronicleDataAccessScope#asset_namespace}
-        :param data_access_label: The name of the data access label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#data_access_label ChronicleDataAccessScope#data_access_label}
-        :param ingestion_label: ingestion_label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#ingestion_label ChronicleDataAccessScope#ingestion_label}
-        :param log_type: The name of the log type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#log_type ChronicleDataAccessScope#log_type}
+        :param asset_namespace: The asset namespace configured in the forwarder of the customer's events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#asset_namespace ChronicleDataAccessScope#asset_namespace}
+        :param data_access_label: The name of the data access label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#data_access_label ChronicleDataAccessScope#data_access_label}
+        :param ingestion_label: ingestion_label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#ingestion_label ChronicleDataAccessScope#ingestion_label}
+        :param log_type: The name of the log type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#log_type ChronicleDataAccessScope#log_type}
         '''
         if isinstance(ingestion_label, dict):
             ingestion_label = ChronicleDataAccessScopeDeniedDataAccessLabelsIngestionLabel(**ingestion_label)
@@ -1252,7 +1252,7 @@ class ChronicleDataAccessScopeDeniedDataAccessLabels:
     def asset_namespace(self) -> typing.Optional[builtins.str]:
         '''The asset namespace configured in the forwarder of the customer's events.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#asset_namespace ChronicleDataAccessScope#asset_namespace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#asset_namespace ChronicleDataAccessScope#asset_namespace}
         '''
         result = self._values.get("asset_namespace")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1261,7 +1261,7 @@ class ChronicleDataAccessScopeDeniedDataAccessLabels:
     def data_access_label(self) -> typing.Optional[builtins.str]:
         '''The name of the data access label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#data_access_label ChronicleDataAccessScope#data_access_label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#data_access_label ChronicleDataAccessScope#data_access_label}
         '''
         result = self._values.get("data_access_label")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1272,7 +1272,7 @@ class ChronicleDataAccessScopeDeniedDataAccessLabels:
     ) -> typing.Optional["ChronicleDataAccessScopeDeniedDataAccessLabelsIngestionLabel"]:
         '''ingestion_label block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#ingestion_label ChronicleDataAccessScope#ingestion_label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#ingestion_label ChronicleDataAccessScope#ingestion_label}
         '''
         result = self._values.get("ingestion_label")
         return typing.cast(typing.Optional["ChronicleDataAccessScopeDeniedDataAccessLabelsIngestionLabel"], result)
@@ -1281,7 +1281,7 @@ class ChronicleDataAccessScopeDeniedDataAccessLabels:
     def log_type(self) -> typing.Optional[builtins.str]:
         '''The name of the log type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#log_type ChronicleDataAccessScope#log_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#log_type ChronicleDataAccessScope#log_type}
         '''
         result = self._values.get("log_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1314,8 +1314,8 @@ class ChronicleDataAccessScopeDeniedDataAccessLabelsIngestionLabel:
         ingestion_label_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ingestion_label_key: Required. The key of the ingestion label. Always required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#ingestion_label_key ChronicleDataAccessScope#ingestion_label_key}
-        :param ingestion_label_value: Optional. The value of the ingestion label. Optional. An object with no provided value and some key provided would match against the given key and ANY value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#ingestion_label_value ChronicleDataAccessScope#ingestion_label_value}
+        :param ingestion_label_key: Required. The key of the ingestion label. Always required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#ingestion_label_key ChronicleDataAccessScope#ingestion_label_key}
+        :param ingestion_label_value: Optional. The value of the ingestion label. Optional. An object with no provided value and some key provided would match against the given key and ANY value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#ingestion_label_value ChronicleDataAccessScope#ingestion_label_value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__33cd5d0b695c32721bf20e038db5c43f6bc5a8a3d1f39cd7b99e7b05c3c84ab6)
@@ -1331,7 +1331,7 @@ class ChronicleDataAccessScopeDeniedDataAccessLabelsIngestionLabel:
     def ingestion_label_key(self) -> builtins.str:
         '''Required. The key of the ingestion label. Always required.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#ingestion_label_key ChronicleDataAccessScope#ingestion_label_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#ingestion_label_key ChronicleDataAccessScope#ingestion_label_key}
         '''
         result = self._values.get("ingestion_label_key")
         assert result is not None, "Required property 'ingestion_label_key' is missing"
@@ -1345,7 +1345,7 @@ class ChronicleDataAccessScopeDeniedDataAccessLabelsIngestionLabel:
         with no provided value and some key provided would match
         against the given key and ANY value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#ingestion_label_value ChronicleDataAccessScope#ingestion_label_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#ingestion_label_value ChronicleDataAccessScope#ingestion_label_value}
         '''
         result = self._values.get("ingestion_label_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1565,8 +1565,8 @@ class ChronicleDataAccessScopeDeniedDataAccessLabelsOutputReference(
         ingestion_label_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ingestion_label_key: Required. The key of the ingestion label. Always required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#ingestion_label_key ChronicleDataAccessScope#ingestion_label_key}
-        :param ingestion_label_value: Optional. The value of the ingestion label. Optional. An object with no provided value and some key provided would match against the given key and ANY value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#ingestion_label_value ChronicleDataAccessScope#ingestion_label_value}
+        :param ingestion_label_key: Required. The key of the ingestion label. Always required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#ingestion_label_key ChronicleDataAccessScope#ingestion_label_key}
+        :param ingestion_label_value: Optional. The value of the ingestion label. Optional. An object with no provided value and some key provided would match against the given key and ANY value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#ingestion_label_value ChronicleDataAccessScope#ingestion_label_value}
         '''
         value = ChronicleDataAccessScopeDeniedDataAccessLabelsIngestionLabel(
             ingestion_label_key=ingestion_label_key,
@@ -1693,9 +1693,9 @@ class ChronicleDataAccessScopeTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#create ChronicleDataAccessScope#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#delete ChronicleDataAccessScope#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#update ChronicleDataAccessScope#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#create ChronicleDataAccessScope#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#delete ChronicleDataAccessScope#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#update ChronicleDataAccessScope#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1686c3d1442b2edd1e02b600544dbf1d32e6845f1ef38f1ca75059e593604cd8)
@@ -1712,19 +1712,19 @@ class ChronicleDataAccessScopeTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#create ChronicleDataAccessScope#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#create ChronicleDataAccessScope#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#delete ChronicleDataAccessScope#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#delete ChronicleDataAccessScope#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/chronicle_data_access_scope#update ChronicleDataAccessScope#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/chronicle_data_access_scope#update ChronicleDataAccessScope#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

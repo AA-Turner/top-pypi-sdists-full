@@ -1,7 +1,7 @@
 r'''
 # `google_eventarc_trigger`
 
-Refer to the Terraform Registry for docs: [`google_eventarc_trigger`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger).
+Refer to the Terraform Registry for docs: [`google_eventarc_trigger`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EventarcTrigger(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.eventarcTrigger.EventarcTrigger",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger google_eventarc_trigger}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger google_eventarc_trigger}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class EventarcTrigger(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger google_eventarc_trigger} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger google_eventarc_trigger} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#destination EventarcTrigger#destination}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#location EventarcTrigger#location}
-        :param matching_criteria: matching_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#matching_criteria EventarcTrigger#matching_criteria}
-        :param name: Required. The resource name of the trigger. Must be unique within the location on the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#name EventarcTrigger#name}
-        :param channel: Optional. The name of the channel associated with the trigger in 'projects/{project}/locations/{location}/channels/{channel}' format. You must provide a channel to receive events from Eventarc SaaS partners. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#channel EventarcTrigger#channel}
-        :param event_data_content_type: Optional. EventDataContentType specifies the type of payload in MIME format that is expected from the CloudEvent data field. This is set to 'application/json' if the value is not defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#event_data_content_type EventarcTrigger#event_data_content_type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#id EventarcTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Optional. User labels attached to the triggers that can be used to group resources. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#labels EventarcTrigger#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#project EventarcTrigger#project}.
-        :param service_account: Optional. The IAM service account email associated with the trigger. The service account represents the identity of the trigger. The principal who calls this API must have 'iam.serviceAccounts.actAs' permission in the service account. See https://cloud.google.com/iam/docs/understanding-service-accounts#sa_common for more information. For Cloud Run destinations, this service account is used to generate identity tokens when invoking the service. See https://cloud.google.com/run/docs/triggering/pubsub-push#create-service-account for information on how to invoke authenticated Cloud Run services. In order to create Audit Log triggers, the service account should also have 'roles/eventarc.eventReceiver' IAM role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#service_account EventarcTrigger#service_account}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#timeouts EventarcTrigger#timeouts}
-        :param transport: transport block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#transport EventarcTrigger#transport}
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#destination EventarcTrigger#destination}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#location EventarcTrigger#location}
+        :param matching_criteria: matching_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#matching_criteria EventarcTrigger#matching_criteria}
+        :param name: Required. The resource name of the trigger. Must be unique within the location on the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#name EventarcTrigger#name}
+        :param channel: Optional. The name of the channel associated with the trigger in 'projects/{project}/locations/{location}/channels/{channel}' format. You must provide a channel to receive events from Eventarc SaaS partners. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#channel EventarcTrigger#channel}
+        :param event_data_content_type: Optional. EventDataContentType specifies the type of payload in MIME format that is expected from the CloudEvent data field. This is set to 'application/json' if the value is not defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#event_data_content_type EventarcTrigger#event_data_content_type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#id EventarcTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Optional. User labels attached to the triggers that can be used to group resources. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#labels EventarcTrigger#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#project EventarcTrigger#project}.
+        :param service_account: Optional. The IAM service account email associated with the trigger. The service account represents the identity of the trigger. The principal who calls this API must have 'iam.serviceAccounts.actAs' permission in the service account. See https://cloud.google.com/iam/docs/understanding-service-accounts#sa_common for more information. For Cloud Run destinations, this service account is used to generate identity tokens when invoking the service. See https://cloud.google.com/run/docs/triggering/pubsub-push#create-service-account for information on how to invoke authenticated Cloud Run services. In order to create Audit Log triggers, the service account should also have 'roles/eventarc.eventReceiver' IAM role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#service_account EventarcTrigger#service_account}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#timeouts EventarcTrigger#timeouts}
+        :param transport: transport block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#transport EventarcTrigger#transport}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class EventarcTrigger(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EventarcTrigger to import.
-        :param import_from_id: The id of the existing EventarcTrigger that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EventarcTrigger that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EventarcTrigger to import is found.
         '''
         if __debug__:
@@ -158,11 +158,11 @@ class EventarcTrigger(
         workflow: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cloud_run_service: cloud_run_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#cloud_run_service EventarcTrigger#cloud_run_service}
-        :param gke: gke block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#gke EventarcTrigger#gke}
-        :param http_endpoint: http_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#http_endpoint EventarcTrigger#http_endpoint}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#network_config EventarcTrigger#network_config}
-        :param workflow: The resource name of the Workflow whose Executions are triggered by the events. The Workflow resource should be deployed in the same project as the trigger. Format: 'projects/{project}/locations/{location}/workflows/{workflow}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#workflow EventarcTrigger#workflow}
+        :param cloud_run_service: cloud_run_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#cloud_run_service EventarcTrigger#cloud_run_service}
+        :param gke: gke block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#gke EventarcTrigger#gke}
+        :param http_endpoint: http_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#http_endpoint EventarcTrigger#http_endpoint}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#network_config EventarcTrigger#network_config}
+        :param workflow: The resource name of the Workflow whose Executions are triggered by the events. The Workflow resource should be deployed in the same project as the trigger. Format: 'projects/{project}/locations/{location}/workflows/{workflow}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#workflow EventarcTrigger#workflow}
         '''
         value = EventarcTriggerDestination(
             cloud_run_service=cloud_run_service,
@@ -196,9 +196,9 @@ class EventarcTrigger(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#create EventarcTrigger#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#delete EventarcTrigger#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#update EventarcTrigger#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#create EventarcTrigger#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#delete EventarcTrigger#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#update EventarcTrigger#update}.
         '''
         value = EventarcTriggerTimeouts(create=create, delete=delete, update=update)
 
@@ -211,7 +211,7 @@ class EventarcTrigger(
         pubsub: typing.Optional[typing.Union["EventarcTriggerTransportPubsub", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param pubsub: pubsub block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#pubsub EventarcTrigger#pubsub}
+        :param pubsub: pubsub block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#pubsub EventarcTrigger#pubsub}
         '''
         value = EventarcTriggerTransport(pubsub=pubsub)
 
@@ -537,18 +537,18 @@ class EventarcTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#destination EventarcTrigger#destination}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#location EventarcTrigger#location}
-        :param matching_criteria: matching_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#matching_criteria EventarcTrigger#matching_criteria}
-        :param name: Required. The resource name of the trigger. Must be unique within the location on the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#name EventarcTrigger#name}
-        :param channel: Optional. The name of the channel associated with the trigger in 'projects/{project}/locations/{location}/channels/{channel}' format. You must provide a channel to receive events from Eventarc SaaS partners. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#channel EventarcTrigger#channel}
-        :param event_data_content_type: Optional. EventDataContentType specifies the type of payload in MIME format that is expected from the CloudEvent data field. This is set to 'application/json' if the value is not defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#event_data_content_type EventarcTrigger#event_data_content_type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#id EventarcTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Optional. User labels attached to the triggers that can be used to group resources. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#labels EventarcTrigger#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#project EventarcTrigger#project}.
-        :param service_account: Optional. The IAM service account email associated with the trigger. The service account represents the identity of the trigger. The principal who calls this API must have 'iam.serviceAccounts.actAs' permission in the service account. See https://cloud.google.com/iam/docs/understanding-service-accounts#sa_common for more information. For Cloud Run destinations, this service account is used to generate identity tokens when invoking the service. See https://cloud.google.com/run/docs/triggering/pubsub-push#create-service-account for information on how to invoke authenticated Cloud Run services. In order to create Audit Log triggers, the service account should also have 'roles/eventarc.eventReceiver' IAM role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#service_account EventarcTrigger#service_account}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#timeouts EventarcTrigger#timeouts}
-        :param transport: transport block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#transport EventarcTrigger#transport}
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#destination EventarcTrigger#destination}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#location EventarcTrigger#location}
+        :param matching_criteria: matching_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#matching_criteria EventarcTrigger#matching_criteria}
+        :param name: Required. The resource name of the trigger. Must be unique within the location on the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#name EventarcTrigger#name}
+        :param channel: Optional. The name of the channel associated with the trigger in 'projects/{project}/locations/{location}/channels/{channel}' format. You must provide a channel to receive events from Eventarc SaaS partners. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#channel EventarcTrigger#channel}
+        :param event_data_content_type: Optional. EventDataContentType specifies the type of payload in MIME format that is expected from the CloudEvent data field. This is set to 'application/json' if the value is not defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#event_data_content_type EventarcTrigger#event_data_content_type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#id EventarcTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Optional. User labels attached to the triggers that can be used to group resources. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#labels EventarcTrigger#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#project EventarcTrigger#project}.
+        :param service_account: Optional. The IAM service account email associated with the trigger. The service account represents the identity of the trigger. The principal who calls this API must have 'iam.serviceAccounts.actAs' permission in the service account. See https://cloud.google.com/iam/docs/understanding-service-accounts#sa_common for more information. For Cloud Run destinations, this service account is used to generate identity tokens when invoking the service. See https://cloud.google.com/run/docs/triggering/pubsub-push#create-service-account for information on how to invoke authenticated Cloud Run services. In order to create Audit Log triggers, the service account should also have 'roles/eventarc.eventReceiver' IAM role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#service_account EventarcTrigger#service_account}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#timeouts EventarcTrigger#timeouts}
+        :param transport: transport block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#transport EventarcTrigger#transport}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -684,7 +684,7 @@ class EventarcTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def destination(self) -> "EventarcTriggerDestination":
         '''destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#destination EventarcTrigger#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#destination EventarcTrigger#destination}
         '''
         result = self._values.get("destination")
         assert result is not None, "Required property 'destination' is missing"
@@ -694,7 +694,7 @@ class EventarcTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#location EventarcTrigger#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#location EventarcTrigger#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -706,7 +706,7 @@ class EventarcTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EventarcTriggerMatchingCriteria"]]:
         '''matching_criteria block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#matching_criteria EventarcTrigger#matching_criteria}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#matching_criteria EventarcTrigger#matching_criteria}
         '''
         result = self._values.get("matching_criteria")
         assert result is not None, "Required property 'matching_criteria' is missing"
@@ -716,7 +716,7 @@ class EventarcTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Required. The resource name of the trigger. Must be unique within the location on the project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#name EventarcTrigger#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#name EventarcTrigger#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -728,7 +728,7 @@ class EventarcTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The name of the channel associated with the trigger in 'projects/{project}/locations/{location}/channels/{channel}' format. You must provide a channel to receive events from Eventarc SaaS partners.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#channel EventarcTrigger#channel}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#channel EventarcTrigger#channel}
         '''
         result = self._values.get("channel")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -739,14 +739,14 @@ class EventarcTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         EventDataContentType specifies the type of payload in MIME format that is expected from the CloudEvent data field. This is set to 'application/json' if the value is not defined.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#event_data_content_type EventarcTrigger#event_data_content_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#event_data_content_type EventarcTrigger#event_data_content_type}
         '''
         result = self._values.get("event_data_content_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#id EventarcTrigger#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#id EventarcTrigger#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -761,14 +761,14 @@ class EventarcTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#labels EventarcTrigger#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#labels EventarcTrigger#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#project EventarcTrigger#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#project EventarcTrigger#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -778,7 +778,7 @@ class EventarcTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The IAM service account email associated with the trigger. The service account represents the identity of the trigger. The principal who calls this API must have 'iam.serviceAccounts.actAs' permission in the service account. See https://cloud.google.com/iam/docs/understanding-service-accounts#sa_common for more information. For Cloud Run destinations, this service account is used to generate identity tokens when invoking the service. See https://cloud.google.com/run/docs/triggering/pubsub-push#create-service-account for information on how to invoke authenticated Cloud Run services. In order to create Audit Log triggers, the service account should also have 'roles/eventarc.eventReceiver' IAM role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#service_account EventarcTrigger#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#service_account EventarcTrigger#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -787,7 +787,7 @@ class EventarcTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["EventarcTriggerTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#timeouts EventarcTrigger#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#timeouts EventarcTrigger#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["EventarcTriggerTimeouts"], result)
@@ -796,7 +796,7 @@ class EventarcTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def transport(self) -> typing.Optional["EventarcTriggerTransport"]:
         '''transport block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#transport EventarcTrigger#transport}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#transport EventarcTrigger#transport}
         '''
         result = self._values.get("transport")
         return typing.cast(typing.Optional["EventarcTriggerTransport"], result)
@@ -835,11 +835,11 @@ class EventarcTriggerDestination:
         workflow: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cloud_run_service: cloud_run_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#cloud_run_service EventarcTrigger#cloud_run_service}
-        :param gke: gke block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#gke EventarcTrigger#gke}
-        :param http_endpoint: http_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#http_endpoint EventarcTrigger#http_endpoint}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#network_config EventarcTrigger#network_config}
-        :param workflow: The resource name of the Workflow whose Executions are triggered by the events. The Workflow resource should be deployed in the same project as the trigger. Format: 'projects/{project}/locations/{location}/workflows/{workflow}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#workflow EventarcTrigger#workflow}
+        :param cloud_run_service: cloud_run_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#cloud_run_service EventarcTrigger#cloud_run_service}
+        :param gke: gke block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#gke EventarcTrigger#gke}
+        :param http_endpoint: http_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#http_endpoint EventarcTrigger#http_endpoint}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#network_config EventarcTrigger#network_config}
+        :param workflow: The resource name of the Workflow whose Executions are triggered by the events. The Workflow resource should be deployed in the same project as the trigger. Format: 'projects/{project}/locations/{location}/workflows/{workflow}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#workflow EventarcTrigger#workflow}
         '''
         if isinstance(cloud_run_service, dict):
             cloud_run_service = EventarcTriggerDestinationCloudRunService(**cloud_run_service)
@@ -874,7 +874,7 @@ class EventarcTriggerDestination:
     ) -> typing.Optional["EventarcTriggerDestinationCloudRunService"]:
         '''cloud_run_service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#cloud_run_service EventarcTrigger#cloud_run_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#cloud_run_service EventarcTrigger#cloud_run_service}
         '''
         result = self._values.get("cloud_run_service")
         return typing.cast(typing.Optional["EventarcTriggerDestinationCloudRunService"], result)
@@ -883,7 +883,7 @@ class EventarcTriggerDestination:
     def gke(self) -> typing.Optional["EventarcTriggerDestinationGke"]:
         '''gke block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#gke EventarcTrigger#gke}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#gke EventarcTrigger#gke}
         '''
         result = self._values.get("gke")
         return typing.cast(typing.Optional["EventarcTriggerDestinationGke"], result)
@@ -894,7 +894,7 @@ class EventarcTriggerDestination:
     ) -> typing.Optional["EventarcTriggerDestinationHttpEndpoint"]:
         '''http_endpoint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#http_endpoint EventarcTrigger#http_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#http_endpoint EventarcTrigger#http_endpoint}
         '''
         result = self._values.get("http_endpoint")
         return typing.cast(typing.Optional["EventarcTriggerDestinationHttpEndpoint"], result)
@@ -905,7 +905,7 @@ class EventarcTriggerDestination:
     ) -> typing.Optional["EventarcTriggerDestinationNetworkConfig"]:
         '''network_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#network_config EventarcTrigger#network_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#network_config EventarcTrigger#network_config}
         '''
         result = self._values.get("network_config")
         return typing.cast(typing.Optional["EventarcTriggerDestinationNetworkConfig"], result)
@@ -916,7 +916,7 @@ class EventarcTriggerDestination:
 
         The Workflow resource should be deployed in the same project as the trigger. Format: 'projects/{project}/locations/{location}/workflows/{workflow}'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#workflow EventarcTrigger#workflow}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#workflow EventarcTrigger#workflow}
         '''
         result = self._values.get("workflow")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -947,9 +947,9 @@ class EventarcTriggerDestinationCloudRunService:
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param service: Required. The name of the Cloud Run service being addressed. See https://cloud.google.com/run/docs/reference/rest/v1/namespaces.services. Only services located in the same project of the trigger object can be addressed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#service EventarcTrigger#service}
-        :param path: Optional. The relative path on the Cloud Run service the events should be sent to. The value must conform to the definition of URI path segment (section 3.3 of RFC2396). Examples: "/route", "route", "route/subroute". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#path EventarcTrigger#path}
-        :param region: Required. The region the Cloud Run service is deployed in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#region EventarcTrigger#region}
+        :param service: Required. The name of the Cloud Run service being addressed. See https://cloud.google.com/run/docs/reference/rest/v1/namespaces.services. Only services located in the same project of the trigger object can be addressed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#service EventarcTrigger#service}
+        :param path: Optional. The relative path on the Cloud Run service the events should be sent to. The value must conform to the definition of URI path segment (section 3.3 of RFC2396). Examples: "/route", "route", "route/subroute". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#path EventarcTrigger#path}
+        :param region: Required. The region the Cloud Run service is deployed in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#region EventarcTrigger#region}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__80c28df834889a18c0d3a1b35fe0c4339c84952053718bbd810dff9c83a17ba6)
@@ -970,7 +970,7 @@ class EventarcTriggerDestinationCloudRunService:
 
         The name of the Cloud Run service being addressed. See https://cloud.google.com/run/docs/reference/rest/v1/namespaces.services. Only services located in the same project of the trigger object can be addressed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#service EventarcTrigger#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#service EventarcTrigger#service}
         '''
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
@@ -982,7 +982,7 @@ class EventarcTriggerDestinationCloudRunService:
 
         The relative path on the Cloud Run service the events should be sent to. The value must conform to the definition of URI path segment (section 3.3 of RFC2396). Examples: "/route", "route", "route/subroute".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#path EventarcTrigger#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#path EventarcTrigger#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -991,7 +991,7 @@ class EventarcTriggerDestinationCloudRunService:
     def region(self) -> typing.Optional[builtins.str]:
         '''Required. The region the Cloud Run service is deployed in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#region EventarcTrigger#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#region EventarcTrigger#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1127,11 +1127,11 @@ class EventarcTriggerDestinationGke:
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cluster: Required. The name of the cluster the GKE service is running in. The cluster must be running in the same project as the trigger being created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#cluster EventarcTrigger#cluster}
-        :param location: Required. The name of the Google Compute Engine in which the cluster resides, which can either be compute zone (for example, us-central1-a) for the zonal clusters or region (for example, us-central1) for regional clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#location EventarcTrigger#location}
-        :param namespace: Required. The namespace the GKE service is running in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#namespace EventarcTrigger#namespace}
-        :param service: Required. Name of the GKE service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#service EventarcTrigger#service}
-        :param path: Optional. The relative path on the GKE service the events should be sent to. The value must conform to the definition of a URI path segment (section 3.3 of RFC2396). Examples: "/route", "route", "route/subroute". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#path EventarcTrigger#path}
+        :param cluster: Required. The name of the cluster the GKE service is running in. The cluster must be running in the same project as the trigger being created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#cluster EventarcTrigger#cluster}
+        :param location: Required. The name of the Google Compute Engine in which the cluster resides, which can either be compute zone (for example, us-central1-a) for the zonal clusters or region (for example, us-central1) for regional clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#location EventarcTrigger#location}
+        :param namespace: Required. The namespace the GKE service is running in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#namespace EventarcTrigger#namespace}
+        :param service: Required. Name of the GKE service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#service EventarcTrigger#service}
+        :param path: Optional. The relative path on the GKE service the events should be sent to. The value must conform to the definition of a URI path segment (section 3.3 of RFC2396). Examples: "/route", "route", "route/subroute". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#path EventarcTrigger#path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cea9e3b6a743fe69de5f30f820a55c48c61ed14da854fb482d165f0ebdfb1e8a)
@@ -1155,7 +1155,7 @@ class EventarcTriggerDestinationGke:
 
         The name of the cluster the GKE service is running in. The cluster must be running in the same project as the trigger being created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#cluster EventarcTrigger#cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#cluster EventarcTrigger#cluster}
         '''
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
@@ -1167,7 +1167,7 @@ class EventarcTriggerDestinationGke:
 
         The name of the Google Compute Engine in which the cluster resides, which can either be compute zone (for example, us-central1-a) for the zonal clusters or region (for example, us-central1) for regional clusters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#location EventarcTrigger#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#location EventarcTrigger#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1177,7 +1177,7 @@ class EventarcTriggerDestinationGke:
     def namespace(self) -> builtins.str:
         '''Required. The namespace the GKE service is running in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#namespace EventarcTrigger#namespace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#namespace EventarcTrigger#namespace}
         '''
         result = self._values.get("namespace")
         assert result is not None, "Required property 'namespace' is missing"
@@ -1187,7 +1187,7 @@ class EventarcTriggerDestinationGke:
     def service(self) -> builtins.str:
         '''Required. Name of the GKE service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#service EventarcTrigger#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#service EventarcTrigger#service}
         '''
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
@@ -1199,7 +1199,7 @@ class EventarcTriggerDestinationGke:
 
         The relative path on the GKE service the events should be sent to. The value must conform to the definition of a URI path segment (section 3.3 of RFC2396). Examples: "/route", "route", "route/subroute".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#path EventarcTrigger#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#path EventarcTrigger#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1349,7 +1349,7 @@ class EventarcTriggerDestinationGkeOutputReference(
 class EventarcTriggerDestinationHttpEndpoint:
     def __init__(self, *, uri: builtins.str) -> None:
         '''
-        :param uri: Required. The URI of the HTTP enpdoint. The value must be a RFC2396 URI string. Examples: 'http://10.10.10.8:80/route', 'http://svc.us-central1.p.local:8080/'. Only HTTP and HTTPS protocols are supported. The host can be either a static IP addressable from the VPC specified by the network config, or an internal DNS hostname of the service resolvable via Cloud DNS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#uri EventarcTrigger#uri}
+        :param uri: Required. The URI of the HTTP enpdoint. The value must be a RFC2396 URI string. Examples: 'http://10.10.10.8:80/route', 'http://svc.us-central1.p.local:8080/'. Only HTTP and HTTPS protocols are supported. The host can be either a static IP addressable from the VPC specified by the network config, or an internal DNS hostname of the service resolvable via Cloud DNS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#uri EventarcTrigger#uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9d258f047396a23a4a6ece456fff7295561c483ef5b75cd32c844936f6b263ae)
@@ -1364,7 +1364,7 @@ class EventarcTriggerDestinationHttpEndpoint:
 
         The URI of the HTTP enpdoint. The value must be a RFC2396 URI string. Examples: 'http://10.10.10.8:80/route', 'http://svc.us-central1.p.local:8080/'. Only HTTP and HTTPS protocols are supported. The host can be either a static IP addressable from the VPC specified by the network config, or an internal DNS hostname of the service resolvable via Cloud DNS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#uri EventarcTrigger#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#uri EventarcTrigger#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -1443,7 +1443,7 @@ class EventarcTriggerDestinationHttpEndpointOutputReference(
 class EventarcTriggerDestinationNetworkConfig:
     def __init__(self, *, network_attachment: builtins.str) -> None:
         '''
-        :param network_attachment: Required. Name of the NetworkAttachment that allows access to the destination VPC. Format: 'projects/{PROJECT_ID}/regions/{REGION}/networkAttachments/{NETWORK_ATTACHMENT_NAME}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#network_attachment EventarcTrigger#network_attachment}
+        :param network_attachment: Required. Name of the NetworkAttachment that allows access to the destination VPC. Format: 'projects/{PROJECT_ID}/regions/{REGION}/networkAttachments/{NETWORK_ATTACHMENT_NAME}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#network_attachment EventarcTrigger#network_attachment}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5173b463442b84c5f71c32263c372fdfdb3f843befd8a2ed6db2db424abcc1ee)
@@ -1456,7 +1456,7 @@ class EventarcTriggerDestinationNetworkConfig:
     def network_attachment(self) -> builtins.str:
         '''Required. Name of the NetworkAttachment that allows access to the destination VPC. Format: 'projects/{PROJECT_ID}/regions/{REGION}/networkAttachments/{NETWORK_ATTACHMENT_NAME}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#network_attachment EventarcTrigger#network_attachment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#network_attachment EventarcTrigger#network_attachment}
         '''
         result = self._values.get("network_attachment")
         assert result is not None, "Required property 'network_attachment' is missing"
@@ -1558,9 +1558,9 @@ class EventarcTriggerDestinationOutputReference(
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param service: Required. The name of the Cloud Run service being addressed. See https://cloud.google.com/run/docs/reference/rest/v1/namespaces.services. Only services located in the same project of the trigger object can be addressed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#service EventarcTrigger#service}
-        :param path: Optional. The relative path on the Cloud Run service the events should be sent to. The value must conform to the definition of URI path segment (section 3.3 of RFC2396). Examples: "/route", "route", "route/subroute". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#path EventarcTrigger#path}
-        :param region: Required. The region the Cloud Run service is deployed in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#region EventarcTrigger#region}
+        :param service: Required. The name of the Cloud Run service being addressed. See https://cloud.google.com/run/docs/reference/rest/v1/namespaces.services. Only services located in the same project of the trigger object can be addressed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#service EventarcTrigger#service}
+        :param path: Optional. The relative path on the Cloud Run service the events should be sent to. The value must conform to the definition of URI path segment (section 3.3 of RFC2396). Examples: "/route", "route", "route/subroute". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#path EventarcTrigger#path}
+        :param region: Required. The region the Cloud Run service is deployed in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#region EventarcTrigger#region}
         '''
         value = EventarcTriggerDestinationCloudRunService(
             service=service, path=path, region=region
@@ -1579,11 +1579,11 @@ class EventarcTriggerDestinationOutputReference(
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cluster: Required. The name of the cluster the GKE service is running in. The cluster must be running in the same project as the trigger being created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#cluster EventarcTrigger#cluster}
-        :param location: Required. The name of the Google Compute Engine in which the cluster resides, which can either be compute zone (for example, us-central1-a) for the zonal clusters or region (for example, us-central1) for regional clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#location EventarcTrigger#location}
-        :param namespace: Required. The namespace the GKE service is running in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#namespace EventarcTrigger#namespace}
-        :param service: Required. Name of the GKE service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#service EventarcTrigger#service}
-        :param path: Optional. The relative path on the GKE service the events should be sent to. The value must conform to the definition of a URI path segment (section 3.3 of RFC2396). Examples: "/route", "route", "route/subroute". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#path EventarcTrigger#path}
+        :param cluster: Required. The name of the cluster the GKE service is running in. The cluster must be running in the same project as the trigger being created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#cluster EventarcTrigger#cluster}
+        :param location: Required. The name of the Google Compute Engine in which the cluster resides, which can either be compute zone (for example, us-central1-a) for the zonal clusters or region (for example, us-central1) for regional clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#location EventarcTrigger#location}
+        :param namespace: Required. The namespace the GKE service is running in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#namespace EventarcTrigger#namespace}
+        :param service: Required. Name of the GKE service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#service EventarcTrigger#service}
+        :param path: Optional. The relative path on the GKE service the events should be sent to. The value must conform to the definition of a URI path segment (section 3.3 of RFC2396). Examples: "/route", "route", "route/subroute". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#path EventarcTrigger#path}
         '''
         value = EventarcTriggerDestinationGke(
             cluster=cluster,
@@ -1598,7 +1598,7 @@ class EventarcTriggerDestinationOutputReference(
     @jsii.member(jsii_name="putHttpEndpoint")
     def put_http_endpoint(self, *, uri: builtins.str) -> None:
         '''
-        :param uri: Required. The URI of the HTTP enpdoint. The value must be a RFC2396 URI string. Examples: 'http://10.10.10.8:80/route', 'http://svc.us-central1.p.local:8080/'. Only HTTP and HTTPS protocols are supported. The host can be either a static IP addressable from the VPC specified by the network config, or an internal DNS hostname of the service resolvable via Cloud DNS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#uri EventarcTrigger#uri}
+        :param uri: Required. The URI of the HTTP enpdoint. The value must be a RFC2396 URI string. Examples: 'http://10.10.10.8:80/route', 'http://svc.us-central1.p.local:8080/'. Only HTTP and HTTPS protocols are supported. The host can be either a static IP addressable from the VPC specified by the network config, or an internal DNS hostname of the service resolvable via Cloud DNS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#uri EventarcTrigger#uri}
         '''
         value = EventarcTriggerDestinationHttpEndpoint(uri=uri)
 
@@ -1607,7 +1607,7 @@ class EventarcTriggerDestinationOutputReference(
     @jsii.member(jsii_name="putNetworkConfig")
     def put_network_config(self, *, network_attachment: builtins.str) -> None:
         '''
-        :param network_attachment: Required. Name of the NetworkAttachment that allows access to the destination VPC. Format: 'projects/{PROJECT_ID}/regions/{REGION}/networkAttachments/{NETWORK_ATTACHMENT_NAME}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#network_attachment EventarcTrigger#network_attachment}
+        :param network_attachment: Required. Name of the NetworkAttachment that allows access to the destination VPC. Format: 'projects/{PROJECT_ID}/regions/{REGION}/networkAttachments/{NETWORK_ATTACHMENT_NAME}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#network_attachment EventarcTrigger#network_attachment}
         '''
         value = EventarcTriggerDestinationNetworkConfig(
             network_attachment=network_attachment
@@ -1735,9 +1735,9 @@ class EventarcTriggerMatchingCriteria:
         operator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param attribute: Required. The name of a CloudEvents attribute. Currently, only a subset of attributes are supported for filtering. All triggers MUST provide a filter for the 'type' attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#attribute EventarcTrigger#attribute}
-        :param value: Required. The value for the attribute. See https://cloud.google.com/eventarc/docs/creating-triggers#trigger-gcloud for available values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#value EventarcTrigger#value}
-        :param operator: Optional. The operator used for matching the events with the value of the filter. If not specified, only events that have an exact key-value pair specified in the filter are matched. The only allowed value is 'match-path-pattern'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#operator EventarcTrigger#operator}
+        :param attribute: Required. The name of a CloudEvents attribute. Currently, only a subset of attributes are supported for filtering. All triggers MUST provide a filter for the 'type' attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#attribute EventarcTrigger#attribute}
+        :param value: Required. The value for the attribute. See https://cloud.google.com/eventarc/docs/creating-triggers#trigger-gcloud for available values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#value EventarcTrigger#value}
+        :param operator: Optional. The operator used for matching the events with the value of the filter. If not specified, only events that have an exact key-value pair specified in the filter are matched. The only allowed value is 'match-path-pattern'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#operator EventarcTrigger#operator}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f88c2fa39d157faa28a8024b7af6c4069d0eae5381f502bf65d15da1d7009436)
@@ -1757,7 +1757,7 @@ class EventarcTriggerMatchingCriteria:
 
         The name of a CloudEvents attribute. Currently, only a subset of attributes are supported for filtering. All triggers MUST provide a filter for the 'type' attribute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#attribute EventarcTrigger#attribute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#attribute EventarcTrigger#attribute}
         '''
         result = self._values.get("attribute")
         assert result is not None, "Required property 'attribute' is missing"
@@ -1767,7 +1767,7 @@ class EventarcTriggerMatchingCriteria:
     def value(self) -> builtins.str:
         '''Required. The value for the attribute. See https://cloud.google.com/eventarc/docs/creating-triggers#trigger-gcloud for available values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#value EventarcTrigger#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#value EventarcTrigger#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -1779,7 +1779,7 @@ class EventarcTriggerMatchingCriteria:
 
         The operator used for matching the events with the value of the filter. If not specified, only events that have an exact key-value pair specified in the filter are matched. The only allowed value is 'match-path-pattern'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#operator EventarcTrigger#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#operator EventarcTrigger#operator}
         '''
         result = self._values.get("operator")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2002,9 +2002,9 @@ class EventarcTriggerTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#create EventarcTrigger#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#delete EventarcTrigger#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#update EventarcTrigger#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#create EventarcTrigger#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#delete EventarcTrigger#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#update EventarcTrigger#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0a3a4a5190a2b77fdac07902af27fb7cc35ee44a016b4505b6213c0c255a307d)
@@ -2021,19 +2021,19 @@ class EventarcTriggerTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#create EventarcTrigger#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#create EventarcTrigger#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#delete EventarcTrigger#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#delete EventarcTrigger#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#update EventarcTrigger#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#update EventarcTrigger#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2162,7 +2162,7 @@ class EventarcTriggerTransport:
         pubsub: typing.Optional[typing.Union["EventarcTriggerTransportPubsub", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param pubsub: pubsub block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#pubsub EventarcTrigger#pubsub}
+        :param pubsub: pubsub block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#pubsub EventarcTrigger#pubsub}
         '''
         if isinstance(pubsub, dict):
             pubsub = EventarcTriggerTransportPubsub(**pubsub)
@@ -2177,7 +2177,7 @@ class EventarcTriggerTransport:
     def pubsub(self) -> typing.Optional["EventarcTriggerTransportPubsub"]:
         '''pubsub block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#pubsub EventarcTrigger#pubsub}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#pubsub EventarcTrigger#pubsub}
         '''
         result = self._values.get("pubsub")
         return typing.cast(typing.Optional["EventarcTriggerTransportPubsub"], result)
@@ -2217,7 +2217,7 @@ class EventarcTriggerTransportOutputReference(
     @jsii.member(jsii_name="putPubsub")
     def put_pubsub(self, *, topic: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param topic: Optional. The name of the Pub/Sub topic created and managed by Eventarc system as a transport for the event delivery. Format: 'projects/{PROJECT_ID}/topics/{TOPIC_NAME}. You may set an existing topic for triggers of the type google.cloud.pubsub.topic.v1.messagePublished' only. The topic you provide here will not be deleted by Eventarc at trigger deletion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#topic EventarcTrigger#topic}
+        :param topic: Optional. The name of the Pub/Sub topic created and managed by Eventarc system as a transport for the event delivery. Format: 'projects/{PROJECT_ID}/topics/{TOPIC_NAME}. You may set an existing topic for triggers of the type google.cloud.pubsub.topic.v1.messagePublished' only. The topic you provide here will not be deleted by Eventarc at trigger deletion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#topic EventarcTrigger#topic}
         '''
         value = EventarcTriggerTransportPubsub(topic=topic)
 
@@ -2258,7 +2258,7 @@ class EventarcTriggerTransportOutputReference(
 class EventarcTriggerTransportPubsub:
     def __init__(self, *, topic: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param topic: Optional. The name of the Pub/Sub topic created and managed by Eventarc system as a transport for the event delivery. Format: 'projects/{PROJECT_ID}/topics/{TOPIC_NAME}. You may set an existing topic for triggers of the type google.cloud.pubsub.topic.v1.messagePublished' only. The topic you provide here will not be deleted by Eventarc at trigger deletion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#topic EventarcTrigger#topic}
+        :param topic: Optional. The name of the Pub/Sub topic created and managed by Eventarc system as a transport for the event delivery. Format: 'projects/{PROJECT_ID}/topics/{TOPIC_NAME}. You may set an existing topic for triggers of the type google.cloud.pubsub.topic.v1.messagePublished' only. The topic you provide here will not be deleted by Eventarc at trigger deletion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#topic EventarcTrigger#topic}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5f9375c3462cf6edd593879543ed6954d3f69a2c0ac8f135bbc77acafe413cbc)
@@ -2273,7 +2273,7 @@ class EventarcTriggerTransportPubsub:
 
         The name of the Pub/Sub topic created and managed by Eventarc system as a transport for the event delivery. Format: 'projects/{PROJECT_ID}/topics/{TOPIC_NAME}. You may set an existing topic for triggers of the type google.cloud.pubsub.topic.v1.messagePublished' only. The topic you provide here will not be deleted by Eventarc at trigger deletion.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/eventarc_trigger#topic EventarcTrigger#topic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/eventarc_trigger#topic EventarcTrigger#topic}
         '''
         result = self._values.get("topic")
         return typing.cast(typing.Optional[builtins.str], result)

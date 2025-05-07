@@ -1,7 +1,7 @@
 r'''
 # `google_monitoring_group`
 
-Refer to the Terraform Registry for docs: [`google_monitoring_group`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group).
+Refer to the Terraform Registry for docs: [`google_monitoring_group`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MonitoringGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.monitoringGroup.MonitoringGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group google_monitoring_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group google_monitoring_group}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class MonitoringGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group google_monitoring_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group google_monitoring_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: A user-assigned name for this group, used only for display purposes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#display_name MonitoringGroup#display_name}
-        :param filter: The filter used to determine which monitored resources belong to this group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#filter MonitoringGroup#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#id MonitoringGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param is_cluster: If true, the members of this group are considered to be a cluster. The system can perform additional analysis on groups that are clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#is_cluster MonitoringGroup#is_cluster}
-        :param parent_name: The name of the group's parent, if it has one. The format is "projects/{project_id_or_number}/groups/{group_id}". For groups with no parent, parentName is the empty string, "". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#parent_name MonitoringGroup#parent_name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#project MonitoringGroup#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#timeouts MonitoringGroup#timeouts}
+        :param display_name: A user-assigned name for this group, used only for display purposes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#display_name MonitoringGroup#display_name}
+        :param filter: The filter used to determine which monitored resources belong to this group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#filter MonitoringGroup#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#id MonitoringGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_cluster: If true, the members of this group are considered to be a cluster. The system can perform additional analysis on groups that are clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#is_cluster MonitoringGroup#is_cluster}
+        :param parent_name: The name of the group's parent, if it has one. The format is "projects/{project_id_or_number}/groups/{group_id}". For groups with no parent, parentName is the empty string, "". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#parent_name MonitoringGroup#parent_name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#project MonitoringGroup#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#timeouts MonitoringGroup#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class MonitoringGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MonitoringGroup to import.
-        :param import_from_id: The id of the existing MonitoringGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MonitoringGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MonitoringGroup to import is found.
         '''
         if __debug__:
@@ -141,9 +141,9 @@ class MonitoringGroup(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#create MonitoringGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#delete MonitoringGroup#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#update MonitoringGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#create MonitoringGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#delete MonitoringGroup#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#update MonitoringGroup#update}.
         '''
         value = MonitoringGroupTimeouts(create=create, delete=delete, update=update)
 
@@ -354,13 +354,13 @@ class MonitoringGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: A user-assigned name for this group, used only for display purposes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#display_name MonitoringGroup#display_name}
-        :param filter: The filter used to determine which monitored resources belong to this group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#filter MonitoringGroup#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#id MonitoringGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param is_cluster: If true, the members of this group are considered to be a cluster. The system can perform additional analysis on groups that are clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#is_cluster MonitoringGroup#is_cluster}
-        :param parent_name: The name of the group's parent, if it has one. The format is "projects/{project_id_or_number}/groups/{group_id}". For groups with no parent, parentName is the empty string, "". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#parent_name MonitoringGroup#parent_name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#project MonitoringGroup#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#timeouts MonitoringGroup#timeouts}
+        :param display_name: A user-assigned name for this group, used only for display purposes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#display_name MonitoringGroup#display_name}
+        :param filter: The filter used to determine which monitored resources belong to this group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#filter MonitoringGroup#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#id MonitoringGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_cluster: If true, the members of this group are considered to be a cluster. The system can perform additional analysis on groups that are clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#is_cluster MonitoringGroup#is_cluster}
+        :param parent_name: The name of the group's parent, if it has one. The format is "projects/{project_id_or_number}/groups/{group_id}". For groups with no parent, parentName is the empty string, "". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#parent_name MonitoringGroup#parent_name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#project MonitoringGroup#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#timeouts MonitoringGroup#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -479,7 +479,7 @@ class MonitoringGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''A user-assigned name for this group, used only for display purposes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#display_name MonitoringGroup#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#display_name MonitoringGroup#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -489,7 +489,7 @@ class MonitoringGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> builtins.str:
         '''The filter used to determine which monitored resources belong to this group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#filter MonitoringGroup#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#filter MonitoringGroup#filter}
         '''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
@@ -497,7 +497,7 @@ class MonitoringGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#id MonitoringGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#id MonitoringGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -514,7 +514,7 @@ class MonitoringGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         The system can perform additional analysis on
         groups that are clusters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#is_cluster MonitoringGroup#is_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#is_cluster MonitoringGroup#is_cluster}
         '''
         result = self._values.get("is_cluster")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -527,14 +527,14 @@ class MonitoringGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         "projects/{project_id_or_number}/groups/{group_id}". For
         groups with no parent, parentName is the empty string, "".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#parent_name MonitoringGroup#parent_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#parent_name MonitoringGroup#parent_name}
         '''
         result = self._values.get("parent_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#project MonitoringGroup#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#project MonitoringGroup#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -542,7 +542,7 @@ class MonitoringGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MonitoringGroupTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#timeouts MonitoringGroup#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#timeouts MonitoringGroup#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MonitoringGroupTimeouts"], result)
@@ -573,9 +573,9 @@ class MonitoringGroupTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#create MonitoringGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#delete MonitoringGroup#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#update MonitoringGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#create MonitoringGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#delete MonitoringGroup#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#update MonitoringGroup#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cae529d1fa411063803defa5928a92338e8897a3eb7c433850cde19fde24aba2)
@@ -592,19 +592,19 @@ class MonitoringGroupTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#create MonitoringGroup#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#create MonitoringGroup#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#delete MonitoringGroup#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#delete MonitoringGroup#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_group#update MonitoringGroup#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_group#update MonitoringGroup#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

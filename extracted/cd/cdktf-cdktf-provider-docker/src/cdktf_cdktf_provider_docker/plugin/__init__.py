@@ -1,7 +1,7 @@
 r'''
 # `docker_plugin`
 
-Refer to the Terraform Registry for docs: [`docker_plugin`](https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin).
+Refer to the Terraform Registry for docs: [`docker_plugin`](https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Plugin(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-docker.plugin.Plugin",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin docker_plugin}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin docker_plugin}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class Plugin(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin docker_plugin} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin docker_plugin} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docker Plugin name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#name Plugin#name}
-        :param alias: Docker Plugin alias. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#alias Plugin#alias}
-        :param enabled: If ``true`` the plugin is enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#enabled Plugin#enabled}
-        :param enable_timeout: HTTP client timeout to enable the plugin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#enable_timeout Plugin#enable_timeout}
-        :param env: The environment variables in the form of ``KEY=VALUE``, e.g. ``DEBUG=0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#env Plugin#env}
-        :param force_destroy: If true, then the plugin is destroyed forcibly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#force_destroy Plugin#force_destroy}
-        :param force_disable: If true, then the plugin is disabled forcibly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#force_disable Plugin#force_disable}
-        :param grant_all_permissions: If true, grant all permissions necessary to run the plugin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#grant_all_permissions Plugin#grant_all_permissions}
-        :param grant_permissions: grant_permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#grant_permissions Plugin#grant_permissions}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#id Plugin#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docker Plugin name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#name Plugin#name}
+        :param alias: Docker Plugin alias. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#alias Plugin#alias}
+        :param enabled: If ``true`` the plugin is enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#enabled Plugin#enabled}
+        :param enable_timeout: HTTP client timeout to enable the plugin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#enable_timeout Plugin#enable_timeout}
+        :param env: The environment variables in the form of ``KEY=VALUE``, e.g. ``DEBUG=0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#env Plugin#env}
+        :param force_destroy: If true, then the plugin is destroyed forcibly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#force_destroy Plugin#force_destroy}
+        :param force_disable: If true, then the plugin is disabled forcibly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#force_disable Plugin#force_disable}
+        :param grant_all_permissions: If true, grant all permissions necessary to run the plugin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#grant_all_permissions Plugin#grant_all_permissions}
+        :param grant_permissions: grant_permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#grant_permissions Plugin#grant_permissions}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#id Plugin#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class Plugin(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Plugin to import.
-        :param import_from_id: The id of the existing Plugin that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Plugin that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Plugin to import is found.
         '''
         if __debug__:
@@ -449,16 +449,16 @@ class PluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docker Plugin name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#name Plugin#name}
-        :param alias: Docker Plugin alias. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#alias Plugin#alias}
-        :param enabled: If ``true`` the plugin is enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#enabled Plugin#enabled}
-        :param enable_timeout: HTTP client timeout to enable the plugin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#enable_timeout Plugin#enable_timeout}
-        :param env: The environment variables in the form of ``KEY=VALUE``, e.g. ``DEBUG=0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#env Plugin#env}
-        :param force_destroy: If true, then the plugin is destroyed forcibly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#force_destroy Plugin#force_destroy}
-        :param force_disable: If true, then the plugin is disabled forcibly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#force_disable Plugin#force_disable}
-        :param grant_all_permissions: If true, grant all permissions necessary to run the plugin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#grant_all_permissions Plugin#grant_all_permissions}
-        :param grant_permissions: grant_permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#grant_permissions Plugin#grant_permissions}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#id Plugin#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docker Plugin name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#name Plugin#name}
+        :param alias: Docker Plugin alias. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#alias Plugin#alias}
+        :param enabled: If ``true`` the plugin is enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#enabled Plugin#enabled}
+        :param enable_timeout: HTTP client timeout to enable the plugin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#enable_timeout Plugin#enable_timeout}
+        :param env: The environment variables in the form of ``KEY=VALUE``, e.g. ``DEBUG=0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#env Plugin#env}
+        :param force_destroy: If true, then the plugin is destroyed forcibly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#force_destroy Plugin#force_destroy}
+        :param force_disable: If true, then the plugin is disabled forcibly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#force_disable Plugin#force_disable}
+        :param grant_all_permissions: If true, grant all permissions necessary to run the plugin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#grant_all_permissions Plugin#grant_all_permissions}
+        :param grant_permissions: grant_permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#grant_permissions Plugin#grant_permissions}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#id Plugin#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -585,7 +585,7 @@ class PluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Docker Plugin name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#name Plugin#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#name Plugin#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -595,7 +595,7 @@ class PluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def alias(self) -> typing.Optional[builtins.str]:
         '''Docker Plugin alias.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#alias Plugin#alias}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#alias Plugin#alias}
         '''
         result = self._values.get("alias")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -606,7 +606,7 @@ class PluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If ``true`` the plugin is enabled. Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#enabled Plugin#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#enabled Plugin#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -615,7 +615,7 @@ class PluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_timeout(self) -> typing.Optional[jsii.Number]:
         '''HTTP client timeout to enable the plugin.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#enable_timeout Plugin#enable_timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#enable_timeout Plugin#enable_timeout}
         '''
         result = self._values.get("enable_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -624,7 +624,7 @@ class PluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def env(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The environment variables in the form of ``KEY=VALUE``, e.g. ``DEBUG=0``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#env Plugin#env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#env Plugin#env}
         '''
         result = self._values.get("env")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -635,7 +635,7 @@ class PluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, then the plugin is destroyed forcibly.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#force_destroy Plugin#force_destroy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#force_destroy Plugin#force_destroy}
         '''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -646,7 +646,7 @@ class PluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, then the plugin is disabled forcibly.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#force_disable Plugin#force_disable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#force_disable Plugin#force_disable}
         '''
         result = self._values.get("force_disable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -657,7 +657,7 @@ class PluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, grant all permissions necessary to run the plugin.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#grant_all_permissions Plugin#grant_all_permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#grant_all_permissions Plugin#grant_all_permissions}
         '''
         result = self._values.get("grant_all_permissions")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -668,14 +668,14 @@ class PluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PluginGrantPermissions"]]]:
         '''grant_permissions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#grant_permissions Plugin#grant_permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#grant_permissions Plugin#grant_permissions}
         '''
         result = self._values.get("grant_permissions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PluginGrantPermissions"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#id Plugin#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#id Plugin#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -708,8 +708,8 @@ class PluginGrantPermissions:
         value: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param name: The name of the permission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#name Plugin#name}
-        :param value: The value of the permission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#value Plugin#value}
+        :param name: The name of the permission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#name Plugin#name}
+        :param value: The value of the permission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#value Plugin#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c97d33f3501c205fa200c06c81acdf79b9397ad1d2ca12558d68bd590e7213c)
@@ -724,7 +724,7 @@ class PluginGrantPermissions:
     def name(self) -> builtins.str:
         '''The name of the permission.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#name Plugin#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#name Plugin#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -734,7 +734,7 @@ class PluginGrantPermissions:
     def value(self) -> typing.List[builtins.str]:
         '''The value of the permission.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/plugin#value Plugin#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/plugin#value Plugin#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"

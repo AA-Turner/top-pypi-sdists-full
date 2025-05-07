@@ -1,7 +1,7 @@
 r'''
 # `google_vmwareengine_external_access_rule`
 
-Refer to the Terraform Registry for docs: [`google_vmwareengine_external_access_rule`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule).
+Refer to the Terraform Registry for docs: [`google_vmwareengine_external_access_rule`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class VmwareengineExternalAccessRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.vmwareengineExternalAccessRule.VmwareengineExternalAccessRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule google_vmwareengine_external_access_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule google_vmwareengine_external_access_rule}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class VmwareengineExternalAccessRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule google_vmwareengine_external_access_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule google_vmwareengine_external_access_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param action: The action that the external access rule performs. Possible values: ["ALLOW", "DENY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#action VmwareengineExternalAccessRule#action}
-        :param destination_ip_ranges: destination_ip_ranges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#destination_ip_ranges VmwareengineExternalAccessRule#destination_ip_ranges}
-        :param destination_ports: A list of destination ports to which the external access rule applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#destination_ports VmwareengineExternalAccessRule#destination_ports}
-        :param ip_protocol: The IP protocol to which the external access rule applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#ip_protocol VmwareengineExternalAccessRule#ip_protocol}
-        :param name: The ID of the external access rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#name VmwareengineExternalAccessRule#name}
-        :param parent: The resource name of the network policy. Resource names are schemeless URIs that follow the conventions in https://cloud.google.com/apis/design/resource_names. For example: projects/my-project/locations/us-west1-a/networkPolicies/my-policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#parent VmwareengineExternalAccessRule#parent}
-        :param priority: External access rule priority, which determines the external access rule to use when multiple rules apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#priority VmwareengineExternalAccessRule#priority}
-        :param source_ip_ranges: source_ip_ranges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#source_ip_ranges VmwareengineExternalAccessRule#source_ip_ranges}
-        :param source_ports: A list of source ports to which the external access rule applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#source_ports VmwareengineExternalAccessRule#source_ports}
-        :param description: User-provided description for the external access rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#description VmwareengineExternalAccessRule#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#id VmwareengineExternalAccessRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#timeouts VmwareengineExternalAccessRule#timeouts}
+        :param action: The action that the external access rule performs. Possible values: ["ALLOW", "DENY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#action VmwareengineExternalAccessRule#action}
+        :param destination_ip_ranges: destination_ip_ranges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#destination_ip_ranges VmwareengineExternalAccessRule#destination_ip_ranges}
+        :param destination_ports: A list of destination ports to which the external access rule applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#destination_ports VmwareengineExternalAccessRule#destination_ports}
+        :param ip_protocol: The IP protocol to which the external access rule applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#ip_protocol VmwareengineExternalAccessRule#ip_protocol}
+        :param name: The ID of the external access rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#name VmwareengineExternalAccessRule#name}
+        :param parent: The resource name of the network policy. Resource names are schemeless URIs that follow the conventions in https://cloud.google.com/apis/design/resource_names. For example: projects/my-project/locations/us-west1-a/networkPolicies/my-policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#parent VmwareengineExternalAccessRule#parent}
+        :param priority: External access rule priority, which determines the external access rule to use when multiple rules apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#priority VmwareengineExternalAccessRule#priority}
+        :param source_ip_ranges: source_ip_ranges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#source_ip_ranges VmwareengineExternalAccessRule#source_ip_ranges}
+        :param source_ports: A list of source ports to which the external access rule applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#source_ports VmwareengineExternalAccessRule#source_ports}
+        :param description: User-provided description for the external access rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#description VmwareengineExternalAccessRule#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#id VmwareengineExternalAccessRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#timeouts VmwareengineExternalAccessRule#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class VmwareengineExternalAccessRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the VmwareengineExternalAccessRule to import.
-        :param import_from_id: The id of the existing VmwareengineExternalAccessRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing VmwareengineExternalAccessRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the VmwareengineExternalAccessRule to import is found.
         '''
         if __debug__:
@@ -182,9 +182,9 @@ class VmwareengineExternalAccessRule(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#create VmwareengineExternalAccessRule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#delete VmwareengineExternalAccessRule#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#update VmwareengineExternalAccessRule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#create VmwareengineExternalAccessRule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#delete VmwareengineExternalAccessRule#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#update VmwareengineExternalAccessRule#update}.
         '''
         value = VmwareengineExternalAccessRuleTimeouts(
             create=create, delete=delete, update=update
@@ -486,18 +486,18 @@ class VmwareengineExternalAccessRuleConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param action: The action that the external access rule performs. Possible values: ["ALLOW", "DENY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#action VmwareengineExternalAccessRule#action}
-        :param destination_ip_ranges: destination_ip_ranges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#destination_ip_ranges VmwareengineExternalAccessRule#destination_ip_ranges}
-        :param destination_ports: A list of destination ports to which the external access rule applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#destination_ports VmwareengineExternalAccessRule#destination_ports}
-        :param ip_protocol: The IP protocol to which the external access rule applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#ip_protocol VmwareengineExternalAccessRule#ip_protocol}
-        :param name: The ID of the external access rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#name VmwareengineExternalAccessRule#name}
-        :param parent: The resource name of the network policy. Resource names are schemeless URIs that follow the conventions in https://cloud.google.com/apis/design/resource_names. For example: projects/my-project/locations/us-west1-a/networkPolicies/my-policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#parent VmwareengineExternalAccessRule#parent}
-        :param priority: External access rule priority, which determines the external access rule to use when multiple rules apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#priority VmwareengineExternalAccessRule#priority}
-        :param source_ip_ranges: source_ip_ranges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#source_ip_ranges VmwareengineExternalAccessRule#source_ip_ranges}
-        :param source_ports: A list of source ports to which the external access rule applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#source_ports VmwareengineExternalAccessRule#source_ports}
-        :param description: User-provided description for the external access rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#description VmwareengineExternalAccessRule#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#id VmwareengineExternalAccessRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#timeouts VmwareengineExternalAccessRule#timeouts}
+        :param action: The action that the external access rule performs. Possible values: ["ALLOW", "DENY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#action VmwareengineExternalAccessRule#action}
+        :param destination_ip_ranges: destination_ip_ranges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#destination_ip_ranges VmwareengineExternalAccessRule#destination_ip_ranges}
+        :param destination_ports: A list of destination ports to which the external access rule applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#destination_ports VmwareengineExternalAccessRule#destination_ports}
+        :param ip_protocol: The IP protocol to which the external access rule applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#ip_protocol VmwareengineExternalAccessRule#ip_protocol}
+        :param name: The ID of the external access rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#name VmwareengineExternalAccessRule#name}
+        :param parent: The resource name of the network policy. Resource names are schemeless URIs that follow the conventions in https://cloud.google.com/apis/design/resource_names. For example: projects/my-project/locations/us-west1-a/networkPolicies/my-policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#parent VmwareengineExternalAccessRule#parent}
+        :param priority: External access rule priority, which determines the external access rule to use when multiple rules apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#priority VmwareengineExternalAccessRule#priority}
+        :param source_ip_ranges: source_ip_ranges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#source_ip_ranges VmwareengineExternalAccessRule#source_ip_ranges}
+        :param source_ports: A list of source ports to which the external access rule applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#source_ports VmwareengineExternalAccessRule#source_ports}
+        :param description: User-provided description for the external access rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#description VmwareengineExternalAccessRule#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#id VmwareengineExternalAccessRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#timeouts VmwareengineExternalAccessRule#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -624,7 +624,7 @@ class VmwareengineExternalAccessRuleConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def action(self) -> builtins.str:
         '''The action that the external access rule performs. Possible values: ["ALLOW", "DENY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#action VmwareengineExternalAccessRule#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#action VmwareengineExternalAccessRule#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -636,7 +636,7 @@ class VmwareengineExternalAccessRuleConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["VmwareengineExternalAccessRuleDestinationIpRanges"]]:
         '''destination_ip_ranges block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#destination_ip_ranges VmwareengineExternalAccessRule#destination_ip_ranges}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#destination_ip_ranges VmwareengineExternalAccessRule#destination_ip_ranges}
         '''
         result = self._values.get("destination_ip_ranges")
         assert result is not None, "Required property 'destination_ip_ranges' is missing"
@@ -646,7 +646,7 @@ class VmwareengineExternalAccessRuleConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def destination_ports(self) -> typing.List[builtins.str]:
         '''A list of destination ports to which the external access rule applies.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#destination_ports VmwareengineExternalAccessRule#destination_ports}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#destination_ports VmwareengineExternalAccessRule#destination_ports}
         '''
         result = self._values.get("destination_ports")
         assert result is not None, "Required property 'destination_ports' is missing"
@@ -656,7 +656,7 @@ class VmwareengineExternalAccessRuleConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def ip_protocol(self) -> builtins.str:
         '''The IP protocol to which the external access rule applies.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#ip_protocol VmwareengineExternalAccessRule#ip_protocol}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#ip_protocol VmwareengineExternalAccessRule#ip_protocol}
         '''
         result = self._values.get("ip_protocol")
         assert result is not None, "Required property 'ip_protocol' is missing"
@@ -666,7 +666,7 @@ class VmwareengineExternalAccessRuleConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def name(self) -> builtins.str:
         '''The ID of the external access rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#name VmwareengineExternalAccessRule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#name VmwareengineExternalAccessRule#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -676,7 +676,7 @@ class VmwareengineExternalAccessRuleConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def parent(self) -> builtins.str:
         '''The resource name of the network policy. Resource names are schemeless URIs that follow the conventions in https://cloud.google.com/apis/design/resource_names. For example: projects/my-project/locations/us-west1-a/networkPolicies/my-policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#parent VmwareengineExternalAccessRule#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#parent VmwareengineExternalAccessRule#parent}
         '''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
@@ -686,7 +686,7 @@ class VmwareengineExternalAccessRuleConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def priority(self) -> jsii.Number:
         '''External access rule priority, which determines the external access rule to use when multiple rules apply.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#priority VmwareengineExternalAccessRule#priority}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#priority VmwareengineExternalAccessRule#priority}
         '''
         result = self._values.get("priority")
         assert result is not None, "Required property 'priority' is missing"
@@ -698,7 +698,7 @@ class VmwareengineExternalAccessRuleConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["VmwareengineExternalAccessRuleSourceIpRanges"]]:
         '''source_ip_ranges block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#source_ip_ranges VmwareengineExternalAccessRule#source_ip_ranges}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#source_ip_ranges VmwareengineExternalAccessRule#source_ip_ranges}
         '''
         result = self._values.get("source_ip_ranges")
         assert result is not None, "Required property 'source_ip_ranges' is missing"
@@ -708,7 +708,7 @@ class VmwareengineExternalAccessRuleConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def source_ports(self) -> typing.List[builtins.str]:
         '''A list of source ports to which the external access rule applies.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#source_ports VmwareengineExternalAccessRule#source_ports}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#source_ports VmwareengineExternalAccessRule#source_ports}
         '''
         result = self._values.get("source_ports")
         assert result is not None, "Required property 'source_ports' is missing"
@@ -718,14 +718,14 @@ class VmwareengineExternalAccessRuleConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def description(self) -> typing.Optional[builtins.str]:
         '''User-provided description for the external access rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#description VmwareengineExternalAccessRule#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#description VmwareengineExternalAccessRule#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#id VmwareengineExternalAccessRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#id VmwareengineExternalAccessRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -737,7 +737,7 @@ class VmwareengineExternalAccessRuleConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def timeouts(self) -> typing.Optional["VmwareengineExternalAccessRuleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#timeouts VmwareengineExternalAccessRule#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#timeouts VmwareengineExternalAccessRule#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["VmwareengineExternalAccessRuleTimeouts"], result)
@@ -770,8 +770,8 @@ class VmwareengineExternalAccessRuleDestinationIpRanges:
         ip_address_range: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param external_address: The name of an 'ExternalAddress' resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#external_address VmwareengineExternalAccessRule#external_address}
-        :param ip_address_range: An IP address range in the CIDR format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#ip_address_range VmwareengineExternalAccessRule#ip_address_range}
+        :param external_address: The name of an 'ExternalAddress' resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#external_address VmwareengineExternalAccessRule#external_address}
+        :param ip_address_range: An IP address range in the CIDR format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#ip_address_range VmwareengineExternalAccessRule#ip_address_range}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__10732d55b02b2fdf46bcc413be78fabb6874f1c86eaf220d946471fdbfb126ee)
@@ -787,7 +787,7 @@ class VmwareengineExternalAccessRuleDestinationIpRanges:
     def external_address(self) -> typing.Optional[builtins.str]:
         '''The name of an 'ExternalAddress' resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#external_address VmwareengineExternalAccessRule#external_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#external_address VmwareengineExternalAccessRule#external_address}
         '''
         result = self._values.get("external_address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -796,7 +796,7 @@ class VmwareengineExternalAccessRuleDestinationIpRanges:
     def ip_address_range(self) -> typing.Optional[builtins.str]:
         '''An IP address range in the CIDR format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#ip_address_range VmwareengineExternalAccessRule#ip_address_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#ip_address_range VmwareengineExternalAccessRule#ip_address_range}
         '''
         result = self._values.get("ip_address_range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1005,8 +1005,8 @@ class VmwareengineExternalAccessRuleSourceIpRanges:
         ip_address_range: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ip_address: A single IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#ip_address VmwareengineExternalAccessRule#ip_address}
-        :param ip_address_range: An IP address range in the CIDR format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#ip_address_range VmwareengineExternalAccessRule#ip_address_range}
+        :param ip_address: A single IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#ip_address VmwareengineExternalAccessRule#ip_address}
+        :param ip_address_range: An IP address range in the CIDR format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#ip_address_range VmwareengineExternalAccessRule#ip_address_range}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f1083f99cd95e41b1801683bb945aa37bb3f09799c7c768d084a52db61926351)
@@ -1022,7 +1022,7 @@ class VmwareengineExternalAccessRuleSourceIpRanges:
     def ip_address(self) -> typing.Optional[builtins.str]:
         '''A single IP address.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#ip_address VmwareengineExternalAccessRule#ip_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#ip_address VmwareengineExternalAccessRule#ip_address}
         '''
         result = self._values.get("ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1031,7 +1031,7 @@ class VmwareengineExternalAccessRuleSourceIpRanges:
     def ip_address_range(self) -> typing.Optional[builtins.str]:
         '''An IP address range in the CIDR format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#ip_address_range VmwareengineExternalAccessRule#ip_address_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#ip_address_range VmwareengineExternalAccessRule#ip_address_range}
         '''
         result = self._values.get("ip_address_range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1241,9 +1241,9 @@ class VmwareengineExternalAccessRuleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#create VmwareengineExternalAccessRule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#delete VmwareengineExternalAccessRule#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#update VmwareengineExternalAccessRule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#create VmwareengineExternalAccessRule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#delete VmwareengineExternalAccessRule#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#update VmwareengineExternalAccessRule#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__56502cbf643fbb2062ec7f4131389b487a91dfc215148ba0ebb901af9fc99582)
@@ -1260,19 +1260,19 @@ class VmwareengineExternalAccessRuleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#create VmwareengineExternalAccessRule#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#create VmwareengineExternalAccessRule#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#delete VmwareengineExternalAccessRule#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#delete VmwareengineExternalAccessRule#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_external_access_rule#update VmwareengineExternalAccessRule#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_external_access_rule#update VmwareengineExternalAccessRule#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

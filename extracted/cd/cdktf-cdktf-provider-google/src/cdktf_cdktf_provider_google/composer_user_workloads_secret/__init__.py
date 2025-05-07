@@ -1,7 +1,7 @@
 r'''
 # `google_composer_user_workloads_secret`
 
-Refer to the Terraform Registry for docs: [`google_composer_user_workloads_secret`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret).
+Refer to the Terraform Registry for docs: [`google_composer_user_workloads_secret`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComposerUserWorkloadsSecret(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.composerUserWorkloadsSecret.ComposerUserWorkloadsSecret",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret google_composer_user_workloads_secret}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret google_composer_user_workloads_secret}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class ComposerUserWorkloadsSecret(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret google_composer_user_workloads_secret} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret google_composer_user_workloads_secret} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param environment: Name of the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#environment ComposerUserWorkloadsSecret#environment}
-        :param name: Name of the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#name ComposerUserWorkloadsSecret#name}
-        :param data: A map of the secret data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#data ComposerUserWorkloadsSecret#data}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#id ComposerUserWorkloadsSecret#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#project ComposerUserWorkloadsSecret#project}
-        :param region: The location or Compute Engine region for the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#region ComposerUserWorkloadsSecret#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#timeouts ComposerUserWorkloadsSecret#timeouts}
+        :param environment: Name of the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#environment ComposerUserWorkloadsSecret#environment}
+        :param name: Name of the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#name ComposerUserWorkloadsSecret#name}
+        :param data: A map of the secret data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#data ComposerUserWorkloadsSecret#data}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#id ComposerUserWorkloadsSecret#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#project ComposerUserWorkloadsSecret#project}
+        :param region: The location or Compute Engine region for the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#region ComposerUserWorkloadsSecret#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#timeouts ComposerUserWorkloadsSecret#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class ComposerUserWorkloadsSecret(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComposerUserWorkloadsSecret to import.
-        :param import_from_id: The id of the existing ComposerUserWorkloadsSecret that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComposerUserWorkloadsSecret that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComposerUserWorkloadsSecret to import is found.
         '''
         if __debug__:
@@ -141,9 +141,9 @@ class ComposerUserWorkloadsSecret(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#create ComposerUserWorkloadsSecret#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#delete ComposerUserWorkloadsSecret#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#update ComposerUserWorkloadsSecret#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#create ComposerUserWorkloadsSecret#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#delete ComposerUserWorkloadsSecret#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#update ComposerUserWorkloadsSecret#update}.
         '''
         value = ComposerUserWorkloadsSecretTimeouts(
             create=create, delete=delete, update=update
@@ -346,13 +346,13 @@ class ComposerUserWorkloadsSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param environment: Name of the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#environment ComposerUserWorkloadsSecret#environment}
-        :param name: Name of the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#name ComposerUserWorkloadsSecret#name}
-        :param data: A map of the secret data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#data ComposerUserWorkloadsSecret#data}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#id ComposerUserWorkloadsSecret#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#project ComposerUserWorkloadsSecret#project}
-        :param region: The location or Compute Engine region for the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#region ComposerUserWorkloadsSecret#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#timeouts ComposerUserWorkloadsSecret#timeouts}
+        :param environment: Name of the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#environment ComposerUserWorkloadsSecret#environment}
+        :param name: Name of the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#name ComposerUserWorkloadsSecret#name}
+        :param data: A map of the secret data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#data ComposerUserWorkloadsSecret#data}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#id ComposerUserWorkloadsSecret#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#project ComposerUserWorkloadsSecret#project}
+        :param region: The location or Compute Engine region for the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#region ComposerUserWorkloadsSecret#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#timeouts ComposerUserWorkloadsSecret#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -471,7 +471,7 @@ class ComposerUserWorkloadsSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def environment(self) -> builtins.str:
         '''Name of the environment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#environment ComposerUserWorkloadsSecret#environment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#environment ComposerUserWorkloadsSecret#environment}
         '''
         result = self._values.get("environment")
         assert result is not None, "Required property 'environment' is missing"
@@ -481,7 +481,7 @@ class ComposerUserWorkloadsSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name of the secret.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#name ComposerUserWorkloadsSecret#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#name ComposerUserWorkloadsSecret#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -491,14 +491,14 @@ class ComposerUserWorkloadsSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def data(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A map of the secret data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#data ComposerUserWorkloadsSecret#data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#data ComposerUserWorkloadsSecret#data}
         '''
         result = self._values.get("data")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#id ComposerUserWorkloadsSecret#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#id ComposerUserWorkloadsSecret#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -512,7 +512,7 @@ class ComposerUserWorkloadsSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#project ComposerUserWorkloadsSecret#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#project ComposerUserWorkloadsSecret#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -521,7 +521,7 @@ class ComposerUserWorkloadsSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''The location or Compute Engine region for the environment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#region ComposerUserWorkloadsSecret#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#region ComposerUserWorkloadsSecret#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -530,7 +530,7 @@ class ComposerUserWorkloadsSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComposerUserWorkloadsSecretTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#timeouts ComposerUserWorkloadsSecret#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#timeouts ComposerUserWorkloadsSecret#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComposerUserWorkloadsSecretTimeouts"], result)
@@ -561,9 +561,9 @@ class ComposerUserWorkloadsSecretTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#create ComposerUserWorkloadsSecret#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#delete ComposerUserWorkloadsSecret#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#update ComposerUserWorkloadsSecret#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#create ComposerUserWorkloadsSecret#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#delete ComposerUserWorkloadsSecret#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#update ComposerUserWorkloadsSecret#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fe19b9f214f5acc59652914bc18496609dd0b5c0a62db397d7567c5da88a5a52)
@@ -580,19 +580,19 @@ class ComposerUserWorkloadsSecretTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#create ComposerUserWorkloadsSecret#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#create ComposerUserWorkloadsSecret#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#delete ComposerUserWorkloadsSecret#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#delete ComposerUserWorkloadsSecret#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/composer_user_workloads_secret#update ComposerUserWorkloadsSecret#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/composer_user_workloads_secret#update ComposerUserWorkloadsSecret#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

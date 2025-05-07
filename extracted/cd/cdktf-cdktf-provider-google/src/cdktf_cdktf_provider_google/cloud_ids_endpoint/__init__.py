@@ -1,7 +1,7 @@
 r'''
 # `google_cloud_ids_endpoint`
 
-Refer to the Terraform Registry for docs: [`google_cloud_ids_endpoint`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint).
+Refer to the Terraform Registry for docs: [`google_cloud_ids_endpoint`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudIdsEndpoint(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.cloudIdsEndpoint.CloudIdsEndpoint",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint google_cloud_ids_endpoint}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint google_cloud_ids_endpoint}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class CloudIdsEndpoint(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint google_cloud_ids_endpoint} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint google_cloud_ids_endpoint} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location for the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#location CloudIdsEndpoint#location}
-        :param name: Name of the endpoint in the format projects/{project_id}/locations/{locationId}/endpoints/{endpointId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#name CloudIdsEndpoint#name}
-        :param network: Name of the VPC network that is connected to the IDS endpoint. This can either contain the VPC network name itself (like "src-net") or the full URL to the network (like "projects/{project_id}/global/networks/src-net"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#network CloudIdsEndpoint#network}
-        :param severity: The minimum alert severity level that is reported by the endpoint. Possible values: ["INFORMATIONAL", "LOW", "MEDIUM", "HIGH", "CRITICAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#severity CloudIdsEndpoint#severity}
-        :param description: An optional description of the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#description CloudIdsEndpoint#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#id CloudIdsEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#project CloudIdsEndpoint#project}.
-        :param threat_exceptions: Configuration for threat IDs excluded from generating alerts. Limit: 99 IDs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#threat_exceptions CloudIdsEndpoint#threat_exceptions}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#timeouts CloudIdsEndpoint#timeouts}
+        :param location: The location for the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#location CloudIdsEndpoint#location}
+        :param name: Name of the endpoint in the format projects/{project_id}/locations/{locationId}/endpoints/{endpointId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#name CloudIdsEndpoint#name}
+        :param network: Name of the VPC network that is connected to the IDS endpoint. This can either contain the VPC network name itself (like "src-net") or the full URL to the network (like "projects/{project_id}/global/networks/src-net"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#network CloudIdsEndpoint#network}
+        :param severity: The minimum alert severity level that is reported by the endpoint. Possible values: ["INFORMATIONAL", "LOW", "MEDIUM", "HIGH", "CRITICAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#severity CloudIdsEndpoint#severity}
+        :param description: An optional description of the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#description CloudIdsEndpoint#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#id CloudIdsEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#project CloudIdsEndpoint#project}.
+        :param threat_exceptions: Configuration for threat IDs excluded from generating alerts. Limit: 99 IDs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#threat_exceptions CloudIdsEndpoint#threat_exceptions}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#timeouts CloudIdsEndpoint#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class CloudIdsEndpoint(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudIdsEndpoint to import.
-        :param import_from_id: The id of the existing CloudIdsEndpoint that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudIdsEndpoint that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudIdsEndpoint to import is found.
         '''
         if __debug__:
@@ -147,9 +147,9 @@ class CloudIdsEndpoint(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#create CloudIdsEndpoint#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#delete CloudIdsEndpoint#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#update CloudIdsEndpoint#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#create CloudIdsEndpoint#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#delete CloudIdsEndpoint#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#update CloudIdsEndpoint#update}.
         '''
         value = CloudIdsEndpointTimeouts(create=create, delete=delete, update=update)
 
@@ -408,15 +408,15 @@ class CloudIdsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location for the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#location CloudIdsEndpoint#location}
-        :param name: Name of the endpoint in the format projects/{project_id}/locations/{locationId}/endpoints/{endpointId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#name CloudIdsEndpoint#name}
-        :param network: Name of the VPC network that is connected to the IDS endpoint. This can either contain the VPC network name itself (like "src-net") or the full URL to the network (like "projects/{project_id}/global/networks/src-net"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#network CloudIdsEndpoint#network}
-        :param severity: The minimum alert severity level that is reported by the endpoint. Possible values: ["INFORMATIONAL", "LOW", "MEDIUM", "HIGH", "CRITICAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#severity CloudIdsEndpoint#severity}
-        :param description: An optional description of the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#description CloudIdsEndpoint#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#id CloudIdsEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#project CloudIdsEndpoint#project}.
-        :param threat_exceptions: Configuration for threat IDs excluded from generating alerts. Limit: 99 IDs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#threat_exceptions CloudIdsEndpoint#threat_exceptions}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#timeouts CloudIdsEndpoint#timeouts}
+        :param location: The location for the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#location CloudIdsEndpoint#location}
+        :param name: Name of the endpoint in the format projects/{project_id}/locations/{locationId}/endpoints/{endpointId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#name CloudIdsEndpoint#name}
+        :param network: Name of the VPC network that is connected to the IDS endpoint. This can either contain the VPC network name itself (like "src-net") or the full URL to the network (like "projects/{project_id}/global/networks/src-net"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#network CloudIdsEndpoint#network}
+        :param severity: The minimum alert severity level that is reported by the endpoint. Possible values: ["INFORMATIONAL", "LOW", "MEDIUM", "HIGH", "CRITICAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#severity CloudIdsEndpoint#severity}
+        :param description: An optional description of the endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#description CloudIdsEndpoint#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#id CloudIdsEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#project CloudIdsEndpoint#project}.
+        :param threat_exceptions: Configuration for threat IDs excluded from generating alerts. Limit: 99 IDs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#threat_exceptions CloudIdsEndpoint#threat_exceptions}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#timeouts CloudIdsEndpoint#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -539,7 +539,7 @@ class CloudIdsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the endpoint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#location CloudIdsEndpoint#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#location CloudIdsEndpoint#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -549,7 +549,7 @@ class CloudIdsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name of the endpoint in the format projects/{project_id}/locations/{locationId}/endpoints/{endpointId}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#name CloudIdsEndpoint#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#name CloudIdsEndpoint#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -561,7 +561,7 @@ class CloudIdsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This can either contain the VPC network name itself (like "src-net") or the full URL to the network (like "projects/{project_id}/global/networks/src-net").
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#network CloudIdsEndpoint#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#network CloudIdsEndpoint#network}
         '''
         result = self._values.get("network")
         assert result is not None, "Required property 'network' is missing"
@@ -571,7 +571,7 @@ class CloudIdsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def severity(self) -> builtins.str:
         '''The minimum alert severity level that is reported by the endpoint. Possible values: ["INFORMATIONAL", "LOW", "MEDIUM", "HIGH", "CRITICAL"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#severity CloudIdsEndpoint#severity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#severity CloudIdsEndpoint#severity}
         '''
         result = self._values.get("severity")
         assert result is not None, "Required property 'severity' is missing"
@@ -581,14 +581,14 @@ class CloudIdsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of the endpoint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#description CloudIdsEndpoint#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#description CloudIdsEndpoint#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#id CloudIdsEndpoint#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#id CloudIdsEndpoint#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -598,7 +598,7 @@ class CloudIdsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#project CloudIdsEndpoint#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#project CloudIdsEndpoint#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -606,7 +606,7 @@ class CloudIdsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def threat_exceptions(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Configuration for threat IDs excluded from generating alerts. Limit: 99 IDs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#threat_exceptions CloudIdsEndpoint#threat_exceptions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#threat_exceptions CloudIdsEndpoint#threat_exceptions}
         '''
         result = self._values.get("threat_exceptions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -615,7 +615,7 @@ class CloudIdsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CloudIdsEndpointTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#timeouts CloudIdsEndpoint#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#timeouts CloudIdsEndpoint#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CloudIdsEndpointTimeouts"], result)
@@ -646,9 +646,9 @@ class CloudIdsEndpointTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#create CloudIdsEndpoint#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#delete CloudIdsEndpoint#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#update CloudIdsEndpoint#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#create CloudIdsEndpoint#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#delete CloudIdsEndpoint#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#update CloudIdsEndpoint#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8fe63911821d653020460f9c4bbbd7dc63764476f32710660b8fb130f665d546)
@@ -665,19 +665,19 @@ class CloudIdsEndpointTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#create CloudIdsEndpoint#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#create CloudIdsEndpoint#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#delete CloudIdsEndpoint#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#delete CloudIdsEndpoint#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_ids_endpoint#update CloudIdsEndpoint#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_ids_endpoint#update CloudIdsEndpoint#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

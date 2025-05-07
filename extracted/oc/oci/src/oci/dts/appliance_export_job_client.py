@@ -158,7 +158,7 @@ class ApplianceExportJobClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dts/change_appliance_export_job_compartment.py.html>`__ to see an example of how to use change_appliance_export_job_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/dts/change_appliance_export_job_compartment.py.html>`__ to see an example of how to use change_appliance_export_job_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['applianceExportJobId']
@@ -267,7 +267,7 @@ class ApplianceExportJobClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dts/create_appliance_export_job.py.html>`__ to see an example of how to use create_appliance_export_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/dts/create_appliance_export_job.py.html>`__ to see an example of how to use create_appliance_export_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -368,7 +368,7 @@ class ApplianceExportJobClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dts/delete_appliance_export_job.py.html>`__ to see an example of how to use delete_appliance_export_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/dts/delete_appliance_export_job.py.html>`__ to see an example of how to use delete_appliance_export_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['applianceExportJobId']
@@ -468,7 +468,7 @@ class ApplianceExportJobClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dts/get_appliance_export_job.py.html>`__ to see an example of how to use get_appliance_export_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/dts/get_appliance_export_job.py.html>`__ to see an example of how to use get_appliance_export_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['applianceExportJobId']
@@ -589,7 +589,7 @@ class ApplianceExportJobClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dts/list_appliance_export_jobs.py.html>`__ to see an example of how to use list_appliance_export_jobs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/dts/list_appliance_export_jobs.py.html>`__ to see an example of how to use list_appliance_export_jobs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -703,7 +703,7 @@ class ApplianceExportJobClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dts/update_appliance_export_job.py.html>`__ to see an example of how to use update_appliance_export_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/dts/update_appliance_export_job.py.html>`__ to see an example of how to use update_appliance_export_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['applianceExportJobId']

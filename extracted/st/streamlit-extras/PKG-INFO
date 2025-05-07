@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: streamlit-extras
-Version: 0.7.0
+Version: 0.7.1
 Summary: A library to discover, try, install and share Streamlit extras
 Project-URL: Homepage, https://github.com/arnaudmiribel/streamlit-extras
 Project-URL: Bug Tracker, https://github.com/arnaudmiribel/streamlit-extras/issues
@@ -9,26 +9,26 @@ License-Expression: Apache-2.0
 License-File: LICENSE
 Keywords: data,python,streamlit,ui
 Requires-Python: <3.14,>=3.9
-Requires-Dist: entrypoints==0.4
-Requires-Dist: htbuilder==0.6.2
-Requires-Dist: markdownlit==0.0.7
-Requires-Dist: plotly==5.23.0
-Requires-Dist: prometheus-client==0.20.0
-Requires-Dist: protobuf==5.27.3
+Requires-Dist: entrypoints>=0.4
+Requires-Dist: htbuilder>=0.6.2
+Requires-Dist: markdownlit>=0.0.7
+Requires-Dist: plotly>=5.23.0
+Requires-Dist: prometheus-client>=0.20.0
+Requires-Dist: protobuf>=5.27.3
 Requires-Dist: snowflake-snowpark-python[pandas]>=1.30.0
-Requires-Dist: st-annotated-text==4.0.1
-Requires-Dist: st-theme==1.2.3
-Requires-Dist: streamlit-avatar==0.1.3
-Requires-Dist: streamlit-camera-input-live==0.2.0
-Requires-Dist: streamlit-card==1.0.2
-Requires-Dist: streamlit-embedcode==0.1.2
-Requires-Dist: streamlit-faker==0.0.3
-Requires-Dist: streamlit-image-coordinates==0.1.9
-Requires-Dist: streamlit-keyup==0.2.4
-Requires-Dist: streamlit-toggle-switch==1.0.2
-Requires-Dist: streamlit-vertical-slider==2.5.5
-Requires-Dist: streamlit==1.37.0
-Requires-Dist: validators==0.33.0
+Requires-Dist: st-annotated-text>=4.0.1
+Requires-Dist: st-theme>=1.2.3
+Requires-Dist: streamlit-avatar>=0.1.3
+Requires-Dist: streamlit-camera-input-live>=0.2.0
+Requires-Dist: streamlit-card>=1.0.2
+Requires-Dist: streamlit-embedcode>=0.1.2
+Requires-Dist: streamlit-faker>=0.0.3
+Requires-Dist: streamlit-image-coordinates>=0.1.9
+Requires-Dist: streamlit-keyup>=0.2.4
+Requires-Dist: streamlit-toggle-switch>=1.0.2
+Requires-Dist: streamlit-vertical-slider>=2.5.5
+Requires-Dist: streamlit>=1.37.0
+Requires-Dist: validators>=0.33.0
 Description-Content-Type: text/markdown
 
 

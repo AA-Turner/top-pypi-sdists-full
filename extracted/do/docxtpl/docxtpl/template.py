@@ -46,6 +46,7 @@ class DocxTemplate(object):
         self.docx = None
         self.is_rendered = False
         self.is_saved = False
+        self.allow_missing_pics = False
 
     def init_docx(self, reload: bool = True):
         if not self.docx or (self.is_rendered and reload):
@@ -194,7 +195,8 @@ class DocxTemplate(object):
             src_xml = re.sub(pat, r"\1 \2", src_xml, flags=re.DOTALL)
 
         # add vMerge
-        # use {% vm %} to make this table cell and its copies be vertically merged within a {% for %}
+        # use {% vm %} to make this table cell and its copies
+        # be vertically merged within a {% for %}
         def v_merge_tc(m):
             def v_merge(m1):
                 return (
@@ -797,10 +799,13 @@ class DocxTemplate(object):
             if rel.reltype in (REL_TYPE.HEADER, REL_TYPE.FOOTER):
                 self._replace_docx_part_pics(rel.target_part, replaced_pics)
 
-        # make sure all template images defined by user were replaced
-        for img_id, replaced in replaced_pics.items():
-            if not replaced:
-                raise ValueError("Picture %s not found in the docx template" % img_id)
+        if not self.allow_missing_pics:
+            # make sure all template images defined by user were replaced
+            for img_id, replaced in replaced_pics.items():
+                if not replaced:
+                    raise ValueError(
+                        "Picture %s not found in the docx template" % img_id
+                    )
 
     def get_pic_map(self):
         return self.pic_map
@@ -860,7 +865,8 @@ class DocxTemplate(object):
                         replaced_pics[img_id] = True
                         break
 
-            # FIXME: figure out what exceptions are thrown here and catch more specific exceptions
+            # FIXME: figure out what exceptions are thrown here
+            # and catch more specific exceptions
             except Exception:
                 continue
 

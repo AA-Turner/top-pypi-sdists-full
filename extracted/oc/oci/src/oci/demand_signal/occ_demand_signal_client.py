@@ -161,7 +161,7 @@ class OccDemandSignalClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/demandsignal/change_occ_demand_signal_compartment.py.html>`__ to see an example of how to use change_occ_demand_signal_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/demandsignal/change_occ_demand_signal_compartment.py.html>`__ to see an example of how to use change_occ_demand_signal_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occDemandSignalId']
@@ -271,7 +271,7 @@ class OccDemandSignalClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/demandsignal/create_occ_demand_signal.py.html>`__ to see an example of how to use create_occ_demand_signal API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/demandsignal/create_occ_demand_signal.py.html>`__ to see an example of how to use create_occ_demand_signal API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -373,7 +373,7 @@ class OccDemandSignalClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/demandsignal/delete_occ_demand_signal.py.html>`__ to see an example of how to use delete_occ_demand_signal API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/demandsignal/delete_occ_demand_signal.py.html>`__ to see an example of how to use delete_occ_demand_signal API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occDemandSignalId']
@@ -476,7 +476,7 @@ class OccDemandSignalClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/demandsignal/get_occ_demand_signal.py.html>`__ to see an example of how to use get_occ_demand_signal API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/demandsignal/get_occ_demand_signal.py.html>`__ to see an example of how to use get_occ_demand_signal API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occDemandSignalId']
@@ -618,7 +618,7 @@ class OccDemandSignalClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/demandsignal/list_occ_demand_signals.py.html>`__ to see an example of how to use list_occ_demand_signals API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/demandsignal/list_occ_demand_signals.py.html>`__ to see an example of how to use list_occ_demand_signals API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -761,7 +761,7 @@ class OccDemandSignalClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/demandsignal/patch_occ_demand_signal.py.html>`__ to see an example of how to use patch_occ_demand_signal API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/demandsignal/patch_occ_demand_signal.py.html>`__ to see an example of how to use patch_occ_demand_signal API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occDemandSignalId']
@@ -877,7 +877,7 @@ class OccDemandSignalClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/demandsignal/update_occ_demand_signal.py.html>`__ to see an example of how to use update_occ_demand_signal API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/demandsignal/update_occ_demand_signal.py.html>`__ to see an example of how to use update_occ_demand_signal API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occDemandSignalId']

@@ -1,7 +1,7 @@
 r'''
 # `google_compute_instance_settings`
 
-Refer to the Terraform Registry for docs: [`google_compute_instance_settings`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings).
+Refer to the Terraform Registry for docs: [`google_compute_instance_settings`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeInstanceSettings(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeInstanceSettings.ComputeInstanceSettings",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings google_compute_instance_settings}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings google_compute_instance_settings}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class ComputeInstanceSettings(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings google_compute_instance_settings} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings google_compute_instance_settings} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param zone: A reference to the zone where the machine resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#zone ComputeInstanceSettings#zone}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#id ComputeInstanceSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#metadata ComputeInstanceSettings#metadata}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#project ComputeInstanceSettings#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#timeouts ComputeInstanceSettings#timeouts}
+        :param zone: A reference to the zone where the machine resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#zone ComputeInstanceSettings#zone}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#id ComputeInstanceSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#metadata ComputeInstanceSettings#metadata}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#project ComputeInstanceSettings#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#timeouts ComputeInstanceSettings#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class ComputeInstanceSettings(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeInstanceSettings to import.
-        :param import_from_id: The id of the existing ComputeInstanceSettings that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeInstanceSettings that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeInstanceSettings to import is found.
         '''
         if __debug__:
@@ -133,7 +133,7 @@ class ComputeInstanceSettings(
         items: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param items: A metadata key/value items map. The total size of all keys and values must be less than 512KB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#items ComputeInstanceSettings#items}
+        :param items: A metadata key/value items map. The total size of all keys and values must be less than 512KB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#items ComputeInstanceSettings#items}
         '''
         value = ComputeInstanceSettingsMetadata(items=items)
 
@@ -148,9 +148,9 @@ class ComputeInstanceSettings(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#create ComputeInstanceSettings#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#delete ComputeInstanceSettings#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#update ComputeInstanceSettings#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#create ComputeInstanceSettings#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#delete ComputeInstanceSettings#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#update ComputeInstanceSettings#update}.
         '''
         value = ComputeInstanceSettingsTimeouts(
             create=create, delete=delete, update=update
@@ -309,11 +309,11 @@ class ComputeInstanceSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param zone: A reference to the zone where the machine resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#zone ComputeInstanceSettings#zone}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#id ComputeInstanceSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#metadata ComputeInstanceSettings#metadata}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#project ComputeInstanceSettings#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#timeouts ComputeInstanceSettings#timeouts}
+        :param zone: A reference to the zone where the machine resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#zone ComputeInstanceSettings#zone}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#id ComputeInstanceSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#metadata ComputeInstanceSettings#metadata}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#project ComputeInstanceSettings#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#timeouts ComputeInstanceSettings#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -429,7 +429,7 @@ class ComputeInstanceSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def zone(self) -> builtins.str:
         '''A reference to the zone where the machine resides.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#zone ComputeInstanceSettings#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#zone ComputeInstanceSettings#zone}
         '''
         result = self._values.get("zone")
         assert result is not None, "Required property 'zone' is missing"
@@ -437,7 +437,7 @@ class ComputeInstanceSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#id ComputeInstanceSettings#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#id ComputeInstanceSettings#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -449,14 +449,14 @@ class ComputeInstanceSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def metadata(self) -> typing.Optional["ComputeInstanceSettingsMetadata"]:
         '''metadata block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#metadata ComputeInstanceSettings#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#metadata ComputeInstanceSettings#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional["ComputeInstanceSettingsMetadata"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#project ComputeInstanceSettings#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#project ComputeInstanceSettings#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -464,7 +464,7 @@ class ComputeInstanceSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeInstanceSettingsTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#timeouts ComputeInstanceSettings#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#timeouts ComputeInstanceSettings#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeInstanceSettingsTimeouts"], result)
@@ -493,7 +493,7 @@ class ComputeInstanceSettingsMetadata:
         items: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param items: A metadata key/value items map. The total size of all keys and values must be less than 512KB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#items ComputeInstanceSettings#items}
+        :param items: A metadata key/value items map. The total size of all keys and values must be less than 512KB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#items ComputeInstanceSettings#items}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bf97ebcc55ea18555289efc2bd1d6c873d3fe117e5d42195da319ff5bd7fc4f8)
@@ -506,7 +506,7 @@ class ComputeInstanceSettingsMetadata:
     def items(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A metadata key/value items map. The total size of all keys and values must be less than 512KB.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#items ComputeInstanceSettings#items}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#items ComputeInstanceSettings#items}
         '''
         result = self._values.get("items")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -596,9 +596,9 @@ class ComputeInstanceSettingsTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#create ComputeInstanceSettings#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#delete ComputeInstanceSettings#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#update ComputeInstanceSettings#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#create ComputeInstanceSettings#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#delete ComputeInstanceSettings#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#update ComputeInstanceSettings#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__727bd09aad908feb4d6b5bb1ef3de9a379e3c74468f27e7bcb6f982103831180)
@@ -615,19 +615,19 @@ class ComputeInstanceSettingsTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#create ComputeInstanceSettings#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#create ComputeInstanceSettings#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#delete ComputeInstanceSettings#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#delete ComputeInstanceSettings#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_settings#update ComputeInstanceSettings#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_settings#update ComputeInstanceSettings#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

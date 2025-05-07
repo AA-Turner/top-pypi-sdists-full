@@ -1,7 +1,7 @@
 r'''
 # `google_integrations_auth_config`
 
-Refer to the Terraform Registry for docs: [`google_integrations_auth_config`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config).
+Refer to the Terraform Registry for docs: [`google_integrations_auth_config`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IntegrationsAuthConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.integrationsAuthConfig.IntegrationsAuthConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config google_integrations_auth_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config google_integrations_auth_config}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class IntegrationsAuthConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config google_integrations_auth_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config google_integrations_auth_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The name of the auth config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#display_name IntegrationsAuthConfig#display_name}
-        :param location: Location in which client needs to be provisioned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#location IntegrationsAuthConfig#location}
-        :param client_certificate: client_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#client_certificate IntegrationsAuthConfig#client_certificate}
-        :param decrypted_credential: decrypted_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#decrypted_credential IntegrationsAuthConfig#decrypted_credential}
-        :param description: A description of the auth config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#description IntegrationsAuthConfig#description}
-        :param expiry_notification_duration: User can define the time to receive notification after which the auth config becomes invalid. Support up to 30 days. Support granularity in hours. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#expiry_notification_duration IntegrationsAuthConfig#expiry_notification_duration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#id IntegrationsAuthConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param override_valid_time: User provided expiry time to override. For the example of Salesforce, username/password credentials can be valid for 6 months depending on the instance settings. A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#override_valid_time IntegrationsAuthConfig#override_valid_time}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#project IntegrationsAuthConfig#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#timeouts IntegrationsAuthConfig#timeouts}
-        :param visibility: The visibility of the auth config. Possible values: ["PRIVATE", "CLIENT_VISIBLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#visibility IntegrationsAuthConfig#visibility}
+        :param display_name: The name of the auth config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#display_name IntegrationsAuthConfig#display_name}
+        :param location: Location in which client needs to be provisioned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#location IntegrationsAuthConfig#location}
+        :param client_certificate: client_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#client_certificate IntegrationsAuthConfig#client_certificate}
+        :param decrypted_credential: decrypted_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#decrypted_credential IntegrationsAuthConfig#decrypted_credential}
+        :param description: A description of the auth config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#description IntegrationsAuthConfig#description}
+        :param expiry_notification_duration: User can define the time to receive notification after which the auth config becomes invalid. Support up to 30 days. Support granularity in hours. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#expiry_notification_duration IntegrationsAuthConfig#expiry_notification_duration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#id IntegrationsAuthConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param override_valid_time: User provided expiry time to override. For the example of Salesforce, username/password credentials can be valid for 6 months depending on the instance settings. A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#override_valid_time IntegrationsAuthConfig#override_valid_time}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#project IntegrationsAuthConfig#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#timeouts IntegrationsAuthConfig#timeouts}
+        :param visibility: The visibility of the auth config. Possible values: ["PRIVATE", "CLIENT_VISIBLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#visibility IntegrationsAuthConfig#visibility}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class IntegrationsAuthConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IntegrationsAuthConfig to import.
-        :param import_from_id: The id of the existing IntegrationsAuthConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IntegrationsAuthConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IntegrationsAuthConfig to import is found.
         '''
         if __debug__:
@@ -153,9 +153,9 @@ class IntegrationsAuthConfig(
         passphrase: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param encrypted_private_key: The ssl certificate encoded in PEM format. This string must include the begin header and end footer lines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#encrypted_private_key IntegrationsAuthConfig#encrypted_private_key}
-        :param ssl_certificate: The ssl certificate encoded in PEM format. This string must include the begin header and end footer lines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#ssl_certificate IntegrationsAuthConfig#ssl_certificate}
-        :param passphrase: 'passphrase' should be left unset if private key is not encrypted. Note that 'passphrase' is not the password for web server, but an extra layer of security to protected private key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#passphrase IntegrationsAuthConfig#passphrase}
+        :param encrypted_private_key: The ssl certificate encoded in PEM format. This string must include the begin header and end footer lines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#encrypted_private_key IntegrationsAuthConfig#encrypted_private_key}
+        :param ssl_certificate: The ssl certificate encoded in PEM format. This string must include the begin header and end footer lines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#ssl_certificate IntegrationsAuthConfig#ssl_certificate}
+        :param passphrase: 'passphrase' should be left unset if private key is not encrypted. Note that 'passphrase' is not the password for web server, but an extra layer of security to protected private key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#passphrase IntegrationsAuthConfig#passphrase}
         '''
         value = IntegrationsAuthConfigClientCertificate(
             encrypted_private_key=encrypted_private_key,
@@ -179,14 +179,14 @@ class IntegrationsAuthConfig(
         username_and_password: typing.Optional[typing.Union["IntegrationsAuthConfigDecryptedCredentialUsernameAndPassword", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param credential_type: Credential type associated with auth configs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#credential_type IntegrationsAuthConfig#credential_type}
-        :param auth_token: auth_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#auth_token IntegrationsAuthConfig#auth_token}
-        :param jwt: jwt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#jwt IntegrationsAuthConfig#jwt}
-        :param oauth2_authorization_code: oauth2_authorization_code block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#oauth2_authorization_code IntegrationsAuthConfig#oauth2_authorization_code}
-        :param oauth2_client_credentials: oauth2_client_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#oauth2_client_credentials IntegrationsAuthConfig#oauth2_client_credentials}
-        :param oidc_token: oidc_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#oidc_token IntegrationsAuthConfig#oidc_token}
-        :param service_account_credentials: service_account_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#service_account_credentials IntegrationsAuthConfig#service_account_credentials}
-        :param username_and_password: username_and_password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#username_and_password IntegrationsAuthConfig#username_and_password}
+        :param credential_type: Credential type associated with auth configs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#credential_type IntegrationsAuthConfig#credential_type}
+        :param auth_token: auth_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#auth_token IntegrationsAuthConfig#auth_token}
+        :param jwt: jwt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#jwt IntegrationsAuthConfig#jwt}
+        :param oauth2_authorization_code: oauth2_authorization_code block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#oauth2_authorization_code IntegrationsAuthConfig#oauth2_authorization_code}
+        :param oauth2_client_credentials: oauth2_client_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#oauth2_client_credentials IntegrationsAuthConfig#oauth2_client_credentials}
+        :param oidc_token: oidc_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#oidc_token IntegrationsAuthConfig#oidc_token}
+        :param service_account_credentials: service_account_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#service_account_credentials IntegrationsAuthConfig#service_account_credentials}
+        :param username_and_password: username_and_password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#username_and_password IntegrationsAuthConfig#username_and_password}
         '''
         value = IntegrationsAuthConfigDecryptedCredential(
             credential_type=credential_type,
@@ -210,9 +210,9 @@ class IntegrationsAuthConfig(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#create IntegrationsAuthConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#delete IntegrationsAuthConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#update IntegrationsAuthConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#create IntegrationsAuthConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#delete IntegrationsAuthConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#update IntegrationsAuthConfig#update}.
         '''
         value = IntegrationsAuthConfigTimeouts(
             create=create, delete=delete, update=update
@@ -521,9 +521,9 @@ class IntegrationsAuthConfigClientCertificate:
         passphrase: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param encrypted_private_key: The ssl certificate encoded in PEM format. This string must include the begin header and end footer lines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#encrypted_private_key IntegrationsAuthConfig#encrypted_private_key}
-        :param ssl_certificate: The ssl certificate encoded in PEM format. This string must include the begin header and end footer lines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#ssl_certificate IntegrationsAuthConfig#ssl_certificate}
-        :param passphrase: 'passphrase' should be left unset if private key is not encrypted. Note that 'passphrase' is not the password for web server, but an extra layer of security to protected private key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#passphrase IntegrationsAuthConfig#passphrase}
+        :param encrypted_private_key: The ssl certificate encoded in PEM format. This string must include the begin header and end footer lines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#encrypted_private_key IntegrationsAuthConfig#encrypted_private_key}
+        :param ssl_certificate: The ssl certificate encoded in PEM format. This string must include the begin header and end footer lines. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#ssl_certificate IntegrationsAuthConfig#ssl_certificate}
+        :param passphrase: 'passphrase' should be left unset if private key is not encrypted. Note that 'passphrase' is not the password for web server, but an extra layer of security to protected private key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#passphrase IntegrationsAuthConfig#passphrase}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__248680474fffa63e8f19838f9b307a7879c89b440a800452d4d638e8e0060467)
@@ -541,7 +541,7 @@ class IntegrationsAuthConfigClientCertificate:
     def encrypted_private_key(self) -> builtins.str:
         '''The ssl certificate encoded in PEM format. This string must include the begin header and end footer lines.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#encrypted_private_key IntegrationsAuthConfig#encrypted_private_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#encrypted_private_key IntegrationsAuthConfig#encrypted_private_key}
         '''
         result = self._values.get("encrypted_private_key")
         assert result is not None, "Required property 'encrypted_private_key' is missing"
@@ -551,7 +551,7 @@ class IntegrationsAuthConfigClientCertificate:
     def ssl_certificate(self) -> builtins.str:
         '''The ssl certificate encoded in PEM format. This string must include the begin header and end footer lines.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#ssl_certificate IntegrationsAuthConfig#ssl_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#ssl_certificate IntegrationsAuthConfig#ssl_certificate}
         '''
         result = self._values.get("ssl_certificate")
         assert result is not None, "Required property 'ssl_certificate' is missing"
@@ -563,7 +563,7 @@ class IntegrationsAuthConfigClientCertificate:
 
         Note that 'passphrase' is not the password for web server, but an extra layer of security to protected private key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#passphrase IntegrationsAuthConfig#passphrase}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#passphrase IntegrationsAuthConfig#passphrase}
         '''
         result = self._values.get("passphrase")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -728,17 +728,17 @@ class IntegrationsAuthConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The name of the auth config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#display_name IntegrationsAuthConfig#display_name}
-        :param location: Location in which client needs to be provisioned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#location IntegrationsAuthConfig#location}
-        :param client_certificate: client_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#client_certificate IntegrationsAuthConfig#client_certificate}
-        :param decrypted_credential: decrypted_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#decrypted_credential IntegrationsAuthConfig#decrypted_credential}
-        :param description: A description of the auth config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#description IntegrationsAuthConfig#description}
-        :param expiry_notification_duration: User can define the time to receive notification after which the auth config becomes invalid. Support up to 30 days. Support granularity in hours. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#expiry_notification_duration IntegrationsAuthConfig#expiry_notification_duration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#id IntegrationsAuthConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param override_valid_time: User provided expiry time to override. For the example of Salesforce, username/password credentials can be valid for 6 months depending on the instance settings. A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#override_valid_time IntegrationsAuthConfig#override_valid_time}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#project IntegrationsAuthConfig#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#timeouts IntegrationsAuthConfig#timeouts}
-        :param visibility: The visibility of the auth config. Possible values: ["PRIVATE", "CLIENT_VISIBLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#visibility IntegrationsAuthConfig#visibility}
+        :param display_name: The name of the auth config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#display_name IntegrationsAuthConfig#display_name}
+        :param location: Location in which client needs to be provisioned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#location IntegrationsAuthConfig#location}
+        :param client_certificate: client_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#client_certificate IntegrationsAuthConfig#client_certificate}
+        :param decrypted_credential: decrypted_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#decrypted_credential IntegrationsAuthConfig#decrypted_credential}
+        :param description: A description of the auth config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#description IntegrationsAuthConfig#description}
+        :param expiry_notification_duration: User can define the time to receive notification after which the auth config becomes invalid. Support up to 30 days. Support granularity in hours. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#expiry_notification_duration IntegrationsAuthConfig#expiry_notification_duration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#id IntegrationsAuthConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param override_valid_time: User provided expiry time to override. For the example of Salesforce, username/password credentials can be valid for 6 months depending on the instance settings. A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#override_valid_time IntegrationsAuthConfig#override_valid_time}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#project IntegrationsAuthConfig#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#timeouts IntegrationsAuthConfig#timeouts}
+        :param visibility: The visibility of the auth config. Possible values: ["PRIVATE", "CLIENT_VISIBLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#visibility IntegrationsAuthConfig#visibility}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -873,7 +873,7 @@ class IntegrationsAuthConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The name of the auth config.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#display_name IntegrationsAuthConfig#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#display_name IntegrationsAuthConfig#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -883,7 +883,7 @@ class IntegrationsAuthConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Location in which client needs to be provisioned.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#location IntegrationsAuthConfig#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#location IntegrationsAuthConfig#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -895,7 +895,7 @@ class IntegrationsAuthConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[IntegrationsAuthConfigClientCertificate]:
         '''client_certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#client_certificate IntegrationsAuthConfig#client_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#client_certificate IntegrationsAuthConfig#client_certificate}
         '''
         result = self._values.get("client_certificate")
         return typing.cast(typing.Optional[IntegrationsAuthConfigClientCertificate], result)
@@ -906,7 +906,7 @@ class IntegrationsAuthConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["IntegrationsAuthConfigDecryptedCredential"]:
         '''decrypted_credential block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#decrypted_credential IntegrationsAuthConfig#decrypted_credential}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#decrypted_credential IntegrationsAuthConfig#decrypted_credential}
         '''
         result = self._values.get("decrypted_credential")
         return typing.cast(typing.Optional["IntegrationsAuthConfigDecryptedCredential"], result)
@@ -915,7 +915,7 @@ class IntegrationsAuthConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of the auth config.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#description IntegrationsAuthConfig#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#description IntegrationsAuthConfig#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -930,14 +930,14 @@ class IntegrationsAuthConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#expiry_notification_duration IntegrationsAuthConfig#expiry_notification_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#expiry_notification_duration IntegrationsAuthConfig#expiry_notification_duration}
         '''
         result = self._values.get("expiry_notification_duration")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#id IntegrationsAuthConfig#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#id IntegrationsAuthConfig#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -953,14 +953,14 @@ class IntegrationsAuthConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#override_valid_time IntegrationsAuthConfig#override_valid_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#override_valid_time IntegrationsAuthConfig#override_valid_time}
         '''
         result = self._values.get("override_valid_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#project IntegrationsAuthConfig#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#project IntegrationsAuthConfig#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -968,7 +968,7 @@ class IntegrationsAuthConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["IntegrationsAuthConfigTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#timeouts IntegrationsAuthConfig#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#timeouts IntegrationsAuthConfig#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["IntegrationsAuthConfigTimeouts"], result)
@@ -977,7 +977,7 @@ class IntegrationsAuthConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def visibility(self) -> typing.Optional[builtins.str]:
         '''The visibility of the auth config. Possible values: ["PRIVATE", "CLIENT_VISIBLE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#visibility IntegrationsAuthConfig#visibility}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#visibility IntegrationsAuthConfig#visibility}
         '''
         result = self._values.get("visibility")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1022,14 +1022,14 @@ class IntegrationsAuthConfigDecryptedCredential:
         username_and_password: typing.Optional[typing.Union["IntegrationsAuthConfigDecryptedCredentialUsernameAndPassword", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param credential_type: Credential type associated with auth configs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#credential_type IntegrationsAuthConfig#credential_type}
-        :param auth_token: auth_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#auth_token IntegrationsAuthConfig#auth_token}
-        :param jwt: jwt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#jwt IntegrationsAuthConfig#jwt}
-        :param oauth2_authorization_code: oauth2_authorization_code block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#oauth2_authorization_code IntegrationsAuthConfig#oauth2_authorization_code}
-        :param oauth2_client_credentials: oauth2_client_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#oauth2_client_credentials IntegrationsAuthConfig#oauth2_client_credentials}
-        :param oidc_token: oidc_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#oidc_token IntegrationsAuthConfig#oidc_token}
-        :param service_account_credentials: service_account_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#service_account_credentials IntegrationsAuthConfig#service_account_credentials}
-        :param username_and_password: username_and_password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#username_and_password IntegrationsAuthConfig#username_and_password}
+        :param credential_type: Credential type associated with auth configs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#credential_type IntegrationsAuthConfig#credential_type}
+        :param auth_token: auth_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#auth_token IntegrationsAuthConfig#auth_token}
+        :param jwt: jwt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#jwt IntegrationsAuthConfig#jwt}
+        :param oauth2_authorization_code: oauth2_authorization_code block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#oauth2_authorization_code IntegrationsAuthConfig#oauth2_authorization_code}
+        :param oauth2_client_credentials: oauth2_client_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#oauth2_client_credentials IntegrationsAuthConfig#oauth2_client_credentials}
+        :param oidc_token: oidc_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#oidc_token IntegrationsAuthConfig#oidc_token}
+        :param service_account_credentials: service_account_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#service_account_credentials IntegrationsAuthConfig#service_account_credentials}
+        :param username_and_password: username_and_password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#username_and_password IntegrationsAuthConfig#username_and_password}
         '''
         if isinstance(auth_token, dict):
             auth_token = IntegrationsAuthConfigDecryptedCredentialAuthToken(**auth_token)
@@ -1077,7 +1077,7 @@ class IntegrationsAuthConfigDecryptedCredential:
     def credential_type(self) -> builtins.str:
         '''Credential type associated with auth configs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#credential_type IntegrationsAuthConfig#credential_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#credential_type IntegrationsAuthConfig#credential_type}
         '''
         result = self._values.get("credential_type")
         assert result is not None, "Required property 'credential_type' is missing"
@@ -1089,7 +1089,7 @@ class IntegrationsAuthConfigDecryptedCredential:
     ) -> typing.Optional["IntegrationsAuthConfigDecryptedCredentialAuthToken"]:
         '''auth_token block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#auth_token IntegrationsAuthConfig#auth_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#auth_token IntegrationsAuthConfig#auth_token}
         '''
         result = self._values.get("auth_token")
         return typing.cast(typing.Optional["IntegrationsAuthConfigDecryptedCredentialAuthToken"], result)
@@ -1098,7 +1098,7 @@ class IntegrationsAuthConfigDecryptedCredential:
     def jwt(self) -> typing.Optional["IntegrationsAuthConfigDecryptedCredentialJwt"]:
         '''jwt block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#jwt IntegrationsAuthConfig#jwt}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#jwt IntegrationsAuthConfig#jwt}
         '''
         result = self._values.get("jwt")
         return typing.cast(typing.Optional["IntegrationsAuthConfigDecryptedCredentialJwt"], result)
@@ -1109,7 +1109,7 @@ class IntegrationsAuthConfigDecryptedCredential:
     ) -> typing.Optional["IntegrationsAuthConfigDecryptedCredentialOauth2AuthorizationCode"]:
         '''oauth2_authorization_code block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#oauth2_authorization_code IntegrationsAuthConfig#oauth2_authorization_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#oauth2_authorization_code IntegrationsAuthConfig#oauth2_authorization_code}
         '''
         result = self._values.get("oauth2_authorization_code")
         return typing.cast(typing.Optional["IntegrationsAuthConfigDecryptedCredentialOauth2AuthorizationCode"], result)
@@ -1120,7 +1120,7 @@ class IntegrationsAuthConfigDecryptedCredential:
     ) -> typing.Optional["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentials"]:
         '''oauth2_client_credentials block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#oauth2_client_credentials IntegrationsAuthConfig#oauth2_client_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#oauth2_client_credentials IntegrationsAuthConfig#oauth2_client_credentials}
         '''
         result = self._values.get("oauth2_client_credentials")
         return typing.cast(typing.Optional["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentials"], result)
@@ -1131,7 +1131,7 @@ class IntegrationsAuthConfigDecryptedCredential:
     ) -> typing.Optional["IntegrationsAuthConfigDecryptedCredentialOidcToken"]:
         '''oidc_token block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#oidc_token IntegrationsAuthConfig#oidc_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#oidc_token IntegrationsAuthConfig#oidc_token}
         '''
         result = self._values.get("oidc_token")
         return typing.cast(typing.Optional["IntegrationsAuthConfigDecryptedCredentialOidcToken"], result)
@@ -1142,7 +1142,7 @@ class IntegrationsAuthConfigDecryptedCredential:
     ) -> typing.Optional["IntegrationsAuthConfigDecryptedCredentialServiceAccountCredentials"]:
         '''service_account_credentials block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#service_account_credentials IntegrationsAuthConfig#service_account_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#service_account_credentials IntegrationsAuthConfig#service_account_credentials}
         '''
         result = self._values.get("service_account_credentials")
         return typing.cast(typing.Optional["IntegrationsAuthConfigDecryptedCredentialServiceAccountCredentials"], result)
@@ -1153,7 +1153,7 @@ class IntegrationsAuthConfigDecryptedCredential:
     ) -> typing.Optional["IntegrationsAuthConfigDecryptedCredentialUsernameAndPassword"]:
         '''username_and_password block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#username_and_password IntegrationsAuthConfig#username_and_password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#username_and_password IntegrationsAuthConfig#username_and_password}
         '''
         result = self._values.get("username_and_password")
         return typing.cast(typing.Optional["IntegrationsAuthConfigDecryptedCredentialUsernameAndPassword"], result)
@@ -1183,8 +1183,8 @@ class IntegrationsAuthConfigDecryptedCredentialAuthToken:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param token: The token for the auth type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#token IntegrationsAuthConfig#token}
-        :param type: Authentication type, e.g. "Basic", "Bearer", etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#type IntegrationsAuthConfig#type}
+        :param token: The token for the auth type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#token IntegrationsAuthConfig#token}
+        :param type: Authentication type, e.g. "Basic", "Bearer", etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#type IntegrationsAuthConfig#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b2f61513080a0e244dc01995e9289d720a0f1abbeba8661c340a8075d17d103d)
@@ -1200,7 +1200,7 @@ class IntegrationsAuthConfigDecryptedCredentialAuthToken:
     def token(self) -> typing.Optional[builtins.str]:
         '''The token for the auth type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#token IntegrationsAuthConfig#token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#token IntegrationsAuthConfig#token}
         '''
         result = self._values.get("token")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1209,7 +1209,7 @@ class IntegrationsAuthConfigDecryptedCredentialAuthToken:
     def type(self) -> typing.Optional[builtins.str]:
         '''Authentication type, e.g. "Basic", "Bearer", etc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#type IntegrationsAuthConfig#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#type IntegrationsAuthConfig#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1324,9 +1324,9 @@ class IntegrationsAuthConfigDecryptedCredentialJwt:
         secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param jwt_header: Identifies which algorithm is used to generate the signature. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#jwt_header IntegrationsAuthConfig#jwt_header}
-        :param jwt_payload: Contains a set of claims. The JWT specification defines seven Registered Claim Names which are the standard fields commonly included in tokens. Custom claims are usually also included, depending on the purpose of the token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#jwt_payload IntegrationsAuthConfig#jwt_payload}
-        :param secret: User's pre-shared secret to sign the token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#secret IntegrationsAuthConfig#secret}
+        :param jwt_header: Identifies which algorithm is used to generate the signature. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#jwt_header IntegrationsAuthConfig#jwt_header}
+        :param jwt_payload: Contains a set of claims. The JWT specification defines seven Registered Claim Names which are the standard fields commonly included in tokens. Custom claims are usually also included, depending on the purpose of the token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#jwt_payload IntegrationsAuthConfig#jwt_payload}
+        :param secret: User's pre-shared secret to sign the token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#secret IntegrationsAuthConfig#secret}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__38133aed2ea7b86196ac43a9d1f6739001edcfa58838e8bc05e3ab38a9d65bcd)
@@ -1345,7 +1345,7 @@ class IntegrationsAuthConfigDecryptedCredentialJwt:
     def jwt_header(self) -> typing.Optional[builtins.str]:
         '''Identifies which algorithm is used to generate the signature.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#jwt_header IntegrationsAuthConfig#jwt_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#jwt_header IntegrationsAuthConfig#jwt_header}
         '''
         result = self._values.get("jwt_header")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1356,7 +1356,7 @@ class IntegrationsAuthConfigDecryptedCredentialJwt:
 
         The JWT specification defines seven Registered Claim Names which are the standard fields commonly included in tokens. Custom claims are usually also included, depending on the purpose of the token.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#jwt_payload IntegrationsAuthConfig#jwt_payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#jwt_payload IntegrationsAuthConfig#jwt_payload}
         '''
         result = self._values.get("jwt_payload")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1365,7 +1365,7 @@ class IntegrationsAuthConfigDecryptedCredentialJwt:
     def secret(self) -> typing.Optional[builtins.str]:
         '''User's pre-shared secret to sign the token.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#secret IntegrationsAuthConfig#secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#secret IntegrationsAuthConfig#secret}
         '''
         result = self._values.get("secret")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1510,11 +1510,11 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2AuthorizationCode:
         token_endpoint: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_endpoint: The auth url endpoint to send the auth code request to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#auth_endpoint IntegrationsAuthConfig#auth_endpoint}
-        :param client_id: The client's id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#client_id IntegrationsAuthConfig#client_id}
-        :param client_secret: The client's secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#client_secret IntegrationsAuthConfig#client_secret}
-        :param scope: A space-delimited list of requested scope permissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#scope IntegrationsAuthConfig#scope}
-        :param token_endpoint: The token url endpoint to send the token request to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#token_endpoint IntegrationsAuthConfig#token_endpoint}
+        :param auth_endpoint: The auth url endpoint to send the auth code request to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#auth_endpoint IntegrationsAuthConfig#auth_endpoint}
+        :param client_id: The client's id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#client_id IntegrationsAuthConfig#client_id}
+        :param client_secret: The client's secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#client_secret IntegrationsAuthConfig#client_secret}
+        :param scope: A space-delimited list of requested scope permissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#scope IntegrationsAuthConfig#scope}
+        :param token_endpoint: The token url endpoint to send the token request to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#token_endpoint IntegrationsAuthConfig#token_endpoint}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__49d1f66bf32763276acd3475c3980eaca2d5734f5fef9d49e89961076f9b6287)
@@ -1539,7 +1539,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2AuthorizationCode:
     def auth_endpoint(self) -> typing.Optional[builtins.str]:
         '''The auth url endpoint to send the auth code request to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#auth_endpoint IntegrationsAuthConfig#auth_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#auth_endpoint IntegrationsAuthConfig#auth_endpoint}
         '''
         result = self._values.get("auth_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1548,7 +1548,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2AuthorizationCode:
     def client_id(self) -> typing.Optional[builtins.str]:
         '''The client's id.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#client_id IntegrationsAuthConfig#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#client_id IntegrationsAuthConfig#client_id}
         '''
         result = self._values.get("client_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1557,7 +1557,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2AuthorizationCode:
     def client_secret(self) -> typing.Optional[builtins.str]:
         '''The client's secret.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#client_secret IntegrationsAuthConfig#client_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#client_secret IntegrationsAuthConfig#client_secret}
         '''
         result = self._values.get("client_secret")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1566,7 +1566,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2AuthorizationCode:
     def scope(self) -> typing.Optional[builtins.str]:
         '''A space-delimited list of requested scope permissions.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#scope IntegrationsAuthConfig#scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#scope IntegrationsAuthConfig#scope}
         '''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1575,7 +1575,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2AuthorizationCode:
     def token_endpoint(self) -> typing.Optional[builtins.str]:
         '''The token url endpoint to send the token request to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#token_endpoint IntegrationsAuthConfig#token_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#token_endpoint IntegrationsAuthConfig#token_endpoint}
         '''
         result = self._values.get("token_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1759,12 +1759,12 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentials:
         token_params: typing.Optional[typing.Union["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParams", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_id: The client's ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#client_id IntegrationsAuthConfig#client_id}
-        :param client_secret: The client's secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#client_secret IntegrationsAuthConfig#client_secret}
-        :param request_type: Represent how to pass parameters to fetch access token Possible values: ["REQUEST_TYPE_UNSPECIFIED", "REQUEST_BODY", "QUERY_PARAMETERS", "ENCODED_HEADER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#request_type IntegrationsAuthConfig#request_type}
-        :param scope: A space-delimited list of requested scope permissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#scope IntegrationsAuthConfig#scope}
-        :param token_endpoint: The token endpoint is used by the client to obtain an access token by presenting its authorization grant or refresh token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#token_endpoint IntegrationsAuthConfig#token_endpoint}
-        :param token_params: token_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#token_params IntegrationsAuthConfig#token_params}
+        :param client_id: The client's ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#client_id IntegrationsAuthConfig#client_id}
+        :param client_secret: The client's secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#client_secret IntegrationsAuthConfig#client_secret}
+        :param request_type: Represent how to pass parameters to fetch access token Possible values: ["REQUEST_TYPE_UNSPECIFIED", "REQUEST_BODY", "QUERY_PARAMETERS", "ENCODED_HEADER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#request_type IntegrationsAuthConfig#request_type}
+        :param scope: A space-delimited list of requested scope permissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#scope IntegrationsAuthConfig#scope}
+        :param token_endpoint: The token endpoint is used by the client to obtain an access token by presenting its authorization grant or refresh token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#token_endpoint IntegrationsAuthConfig#token_endpoint}
+        :param token_params: token_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#token_params IntegrationsAuthConfig#token_params}
         '''
         if isinstance(token_params, dict):
             token_params = IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParams(**token_params)
@@ -1794,7 +1794,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentials:
     def client_id(self) -> typing.Optional[builtins.str]:
         '''The client's ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#client_id IntegrationsAuthConfig#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#client_id IntegrationsAuthConfig#client_id}
         '''
         result = self._values.get("client_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1803,7 +1803,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentials:
     def client_secret(self) -> typing.Optional[builtins.str]:
         '''The client's secret.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#client_secret IntegrationsAuthConfig#client_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#client_secret IntegrationsAuthConfig#client_secret}
         '''
         result = self._values.get("client_secret")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1812,7 +1812,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentials:
     def request_type(self) -> typing.Optional[builtins.str]:
         '''Represent how to pass parameters to fetch access token Possible values: ["REQUEST_TYPE_UNSPECIFIED", "REQUEST_BODY", "QUERY_PARAMETERS", "ENCODED_HEADER"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#request_type IntegrationsAuthConfig#request_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#request_type IntegrationsAuthConfig#request_type}
         '''
         result = self._values.get("request_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1821,7 +1821,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentials:
     def scope(self) -> typing.Optional[builtins.str]:
         '''A space-delimited list of requested scope permissions.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#scope IntegrationsAuthConfig#scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#scope IntegrationsAuthConfig#scope}
         '''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1830,7 +1830,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentials:
     def token_endpoint(self) -> typing.Optional[builtins.str]:
         '''The token endpoint is used by the client to obtain an access token by presenting its authorization grant or refresh token.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#token_endpoint IntegrationsAuthConfig#token_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#token_endpoint IntegrationsAuthConfig#token_endpoint}
         '''
         result = self._values.get("token_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1841,7 +1841,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentials:
     ) -> typing.Optional["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParams"]:
         '''token_params block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#token_params IntegrationsAuthConfig#token_params}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#token_params IntegrationsAuthConfig#token_params}
         '''
         result = self._values.get("token_params")
         return typing.cast(typing.Optional["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParams"], result)
@@ -1885,7 +1885,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsOutputRefe
         entries: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntries", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param entries: entries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#entries IntegrationsAuthConfig#entries}
+        :param entries: entries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#entries IntegrationsAuthConfig#entries}
         '''
         value = IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParams(
             entries=entries
@@ -2046,7 +2046,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParam
         entries: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntries", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param entries: entries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#entries IntegrationsAuthConfig#entries}
+        :param entries: entries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#entries IntegrationsAuthConfig#entries}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f19c7bfcd27473c135ddc867744e22c63c3966379cc4930ce97e151b80340071)
@@ -2061,7 +2061,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParam
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntries"]]]:
         '''entries block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#entries IntegrationsAuthConfig#entries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#entries IntegrationsAuthConfig#entries}
         '''
         result = self._values.get("entries")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntries"]]], result)
@@ -2091,8 +2091,8 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParam
         value: typing.Optional[typing.Union["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesValue", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param key: key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#key IntegrationsAuthConfig#key}
-        :param value: value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#value IntegrationsAuthConfig#value}
+        :param key: key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#key IntegrationsAuthConfig#key}
+        :param value: value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#value IntegrationsAuthConfig#value}
         '''
         if isinstance(key, dict):
             key = IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesKey(**key)
@@ -2114,7 +2114,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParam
     ) -> typing.Optional["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesKey"]:
         '''key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#key IntegrationsAuthConfig#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#key IntegrationsAuthConfig#key}
         '''
         result = self._values.get("key")
         return typing.cast(typing.Optional["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesKey"], result)
@@ -2125,7 +2125,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParam
     ) -> typing.Optional["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesValue"]:
         '''value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#value IntegrationsAuthConfig#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#value IntegrationsAuthConfig#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesValue"], result)
@@ -2154,7 +2154,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParam
         literal_value: typing.Optional[typing.Union["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesKeyLiteralValue", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param literal_value: literal_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#literal_value IntegrationsAuthConfig#literal_value}
+        :param literal_value: literal_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#literal_value IntegrationsAuthConfig#literal_value}
         '''
         if isinstance(literal_value, dict):
             literal_value = IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesKeyLiteralValue(**literal_value)
@@ -2171,7 +2171,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParam
     ) -> typing.Optional["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesKeyLiteralValue"]:
         '''literal_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#literal_value IntegrationsAuthConfig#literal_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#literal_value IntegrationsAuthConfig#literal_value}
         '''
         result = self._values.get("literal_value")
         return typing.cast(typing.Optional["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesKeyLiteralValue"], result)
@@ -2196,7 +2196,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParam
 class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesKeyLiteralValue:
     def __init__(self, *, string_value: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param string_value: String. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#string_value IntegrationsAuthConfig#string_value}
+        :param string_value: String. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#string_value IntegrationsAuthConfig#string_value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e86781a4966c307c8d1ffce82923083cc05573c5539e94eeded18acb205598da)
@@ -2209,7 +2209,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParam
     def string_value(self) -> typing.Optional[builtins.str]:
         '''String.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#string_value IntegrationsAuthConfig#string_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#string_value IntegrationsAuthConfig#string_value}
         '''
         result = self._values.get("string_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2312,7 +2312,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParam
         string_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param string_value: String. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#string_value IntegrationsAuthConfig#string_value}
+        :param string_value: String. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#string_value IntegrationsAuthConfig#string_value}
         '''
         value = IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesKeyLiteralValue(
             string_value=string_value
@@ -2482,7 +2482,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParam
         literal_value: typing.Optional[typing.Union[IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesKeyLiteralValue, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param literal_value: literal_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#literal_value IntegrationsAuthConfig#literal_value}
+        :param literal_value: literal_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#literal_value IntegrationsAuthConfig#literal_value}
         '''
         value = IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesKey(
             literal_value=literal_value
@@ -2497,7 +2497,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParam
         literal_value: typing.Optional[typing.Union["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesValueLiteralValue", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param literal_value: literal_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#literal_value IntegrationsAuthConfig#literal_value}
+        :param literal_value: literal_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#literal_value IntegrationsAuthConfig#literal_value}
         '''
         value = IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesValue(
             literal_value=literal_value
@@ -2571,7 +2571,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParam
         literal_value: typing.Optional[typing.Union["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesValueLiteralValue", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param literal_value: literal_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#literal_value IntegrationsAuthConfig#literal_value}
+        :param literal_value: literal_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#literal_value IntegrationsAuthConfig#literal_value}
         '''
         if isinstance(literal_value, dict):
             literal_value = IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesValueLiteralValue(**literal_value)
@@ -2588,7 +2588,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParam
     ) -> typing.Optional["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesValueLiteralValue"]:
         '''literal_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#literal_value IntegrationsAuthConfig#literal_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#literal_value IntegrationsAuthConfig#literal_value}
         '''
         result = self._values.get("literal_value")
         return typing.cast(typing.Optional["IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesValueLiteralValue"], result)
@@ -2613,7 +2613,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParam
 class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesValueLiteralValue:
     def __init__(self, *, string_value: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param string_value: String. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#string_value IntegrationsAuthConfig#string_value}
+        :param string_value: String. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#string_value IntegrationsAuthConfig#string_value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c9b140138bae61c9cfdf8e2d48f348dea0341dafc225a6938040734d10120d93)
@@ -2626,7 +2626,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParam
     def string_value(self) -> typing.Optional[builtins.str]:
         '''String.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#string_value IntegrationsAuthConfig#string_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#string_value IntegrationsAuthConfig#string_value}
         '''
         result = self._values.get("string_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2729,7 +2729,7 @@ class IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParam
         string_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param string_value: String. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#string_value IntegrationsAuthConfig#string_value}
+        :param string_value: String. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#string_value IntegrationsAuthConfig#string_value}
         '''
         value = IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesValueLiteralValue(
             string_value=string_value
@@ -2858,8 +2858,8 @@ class IntegrationsAuthConfigDecryptedCredentialOidcToken:
         service_account_email: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param audience: Audience to be used when generating OIDC token. The audience claim identifies the recipients that the JWT is intended for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#audience IntegrationsAuthConfig#audience}
-        :param service_account_email: The service account email to be used as the identity for the token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#service_account_email IntegrationsAuthConfig#service_account_email}
+        :param audience: Audience to be used when generating OIDC token. The audience claim identifies the recipients that the JWT is intended for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#audience IntegrationsAuthConfig#audience}
+        :param service_account_email: The service account email to be used as the identity for the token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#service_account_email IntegrationsAuthConfig#service_account_email}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c7076d2577d28dc24244e438a80f313bae1e5eed6ac34c2c502cd62321579bb9)
@@ -2877,7 +2877,7 @@ class IntegrationsAuthConfigDecryptedCredentialOidcToken:
 
         The audience claim identifies the recipients that the JWT is intended for.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#audience IntegrationsAuthConfig#audience}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#audience IntegrationsAuthConfig#audience}
         '''
         result = self._values.get("audience")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2886,7 +2886,7 @@ class IntegrationsAuthConfigDecryptedCredentialOidcToken:
     def service_account_email(self) -> typing.Optional[builtins.str]:
         '''The service account email to be used as the identity for the token.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#service_account_email IntegrationsAuthConfig#service_account_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#service_account_email IntegrationsAuthConfig#service_account_email}
         '''
         result = self._values.get("service_account_email")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3021,8 +3021,8 @@ class IntegrationsAuthConfigDecryptedCredentialOutputReference(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param token: The token for the auth type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#token IntegrationsAuthConfig#token}
-        :param type: Authentication type, e.g. "Basic", "Bearer", etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#type IntegrationsAuthConfig#type}
+        :param token: The token for the auth type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#token IntegrationsAuthConfig#token}
+        :param type: Authentication type, e.g. "Basic", "Bearer", etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#type IntegrationsAuthConfig#type}
         '''
         value = IntegrationsAuthConfigDecryptedCredentialAuthToken(
             token=token, type=type
@@ -3039,9 +3039,9 @@ class IntegrationsAuthConfigDecryptedCredentialOutputReference(
         secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param jwt_header: Identifies which algorithm is used to generate the signature. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#jwt_header IntegrationsAuthConfig#jwt_header}
-        :param jwt_payload: Contains a set of claims. The JWT specification defines seven Registered Claim Names which are the standard fields commonly included in tokens. Custom claims are usually also included, depending on the purpose of the token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#jwt_payload IntegrationsAuthConfig#jwt_payload}
-        :param secret: User's pre-shared secret to sign the token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#secret IntegrationsAuthConfig#secret}
+        :param jwt_header: Identifies which algorithm is used to generate the signature. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#jwt_header IntegrationsAuthConfig#jwt_header}
+        :param jwt_payload: Contains a set of claims. The JWT specification defines seven Registered Claim Names which are the standard fields commonly included in tokens. Custom claims are usually also included, depending on the purpose of the token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#jwt_payload IntegrationsAuthConfig#jwt_payload}
+        :param secret: User's pre-shared secret to sign the token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#secret IntegrationsAuthConfig#secret}
         '''
         value = IntegrationsAuthConfigDecryptedCredentialJwt(
             jwt_header=jwt_header, jwt_payload=jwt_payload, secret=secret
@@ -3060,11 +3060,11 @@ class IntegrationsAuthConfigDecryptedCredentialOutputReference(
         token_endpoint: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_endpoint: The auth url endpoint to send the auth code request to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#auth_endpoint IntegrationsAuthConfig#auth_endpoint}
-        :param client_id: The client's id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#client_id IntegrationsAuthConfig#client_id}
-        :param client_secret: The client's secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#client_secret IntegrationsAuthConfig#client_secret}
-        :param scope: A space-delimited list of requested scope permissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#scope IntegrationsAuthConfig#scope}
-        :param token_endpoint: The token url endpoint to send the token request to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#token_endpoint IntegrationsAuthConfig#token_endpoint}
+        :param auth_endpoint: The auth url endpoint to send the auth code request to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#auth_endpoint IntegrationsAuthConfig#auth_endpoint}
+        :param client_id: The client's id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#client_id IntegrationsAuthConfig#client_id}
+        :param client_secret: The client's secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#client_secret IntegrationsAuthConfig#client_secret}
+        :param scope: A space-delimited list of requested scope permissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#scope IntegrationsAuthConfig#scope}
+        :param token_endpoint: The token url endpoint to send the token request to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#token_endpoint IntegrationsAuthConfig#token_endpoint}
         '''
         value = IntegrationsAuthConfigDecryptedCredentialOauth2AuthorizationCode(
             auth_endpoint=auth_endpoint,
@@ -3088,12 +3088,12 @@ class IntegrationsAuthConfigDecryptedCredentialOutputReference(
         token_params: typing.Optional[typing.Union[IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParams, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_id: The client's ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#client_id IntegrationsAuthConfig#client_id}
-        :param client_secret: The client's secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#client_secret IntegrationsAuthConfig#client_secret}
-        :param request_type: Represent how to pass parameters to fetch access token Possible values: ["REQUEST_TYPE_UNSPECIFIED", "REQUEST_BODY", "QUERY_PARAMETERS", "ENCODED_HEADER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#request_type IntegrationsAuthConfig#request_type}
-        :param scope: A space-delimited list of requested scope permissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#scope IntegrationsAuthConfig#scope}
-        :param token_endpoint: The token endpoint is used by the client to obtain an access token by presenting its authorization grant or refresh token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#token_endpoint IntegrationsAuthConfig#token_endpoint}
-        :param token_params: token_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#token_params IntegrationsAuthConfig#token_params}
+        :param client_id: The client's ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#client_id IntegrationsAuthConfig#client_id}
+        :param client_secret: The client's secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#client_secret IntegrationsAuthConfig#client_secret}
+        :param request_type: Represent how to pass parameters to fetch access token Possible values: ["REQUEST_TYPE_UNSPECIFIED", "REQUEST_BODY", "QUERY_PARAMETERS", "ENCODED_HEADER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#request_type IntegrationsAuthConfig#request_type}
+        :param scope: A space-delimited list of requested scope permissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#scope IntegrationsAuthConfig#scope}
+        :param token_endpoint: The token endpoint is used by the client to obtain an access token by presenting its authorization grant or refresh token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#token_endpoint IntegrationsAuthConfig#token_endpoint}
+        :param token_params: token_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#token_params IntegrationsAuthConfig#token_params}
         '''
         value = IntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentials(
             client_id=client_id,
@@ -3114,8 +3114,8 @@ class IntegrationsAuthConfigDecryptedCredentialOutputReference(
         service_account_email: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param audience: Audience to be used when generating OIDC token. The audience claim identifies the recipients that the JWT is intended for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#audience IntegrationsAuthConfig#audience}
-        :param service_account_email: The service account email to be used as the identity for the token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#service_account_email IntegrationsAuthConfig#service_account_email}
+        :param audience: Audience to be used when generating OIDC token. The audience claim identifies the recipients that the JWT is intended for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#audience IntegrationsAuthConfig#audience}
+        :param service_account_email: The service account email to be used as the identity for the token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#service_account_email IntegrationsAuthConfig#service_account_email}
         '''
         value = IntegrationsAuthConfigDecryptedCredentialOidcToken(
             audience=audience, service_account_email=service_account_email
@@ -3131,8 +3131,8 @@ class IntegrationsAuthConfigDecryptedCredentialOutputReference(
         service_account: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param scope: A space-delimited list of requested scope permissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#scope IntegrationsAuthConfig#scope}
-        :param service_account: Name of the service account that has the permission to make the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#service_account IntegrationsAuthConfig#service_account}
+        :param scope: A space-delimited list of requested scope permissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#scope IntegrationsAuthConfig#scope}
+        :param service_account: Name of the service account that has the permission to make the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#service_account IntegrationsAuthConfig#service_account}
         '''
         value = IntegrationsAuthConfigDecryptedCredentialServiceAccountCredentials(
             scope=scope, service_account=service_account
@@ -3148,8 +3148,8 @@ class IntegrationsAuthConfigDecryptedCredentialOutputReference(
         username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param password: Password to be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#password IntegrationsAuthConfig#password}
-        :param username: Username to be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#username IntegrationsAuthConfig#username}
+        :param password: Password to be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#password IntegrationsAuthConfig#password}
+        :param username: Username to be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#username IntegrationsAuthConfig#username}
         '''
         value = IntegrationsAuthConfigDecryptedCredentialUsernameAndPassword(
             password=password, username=username
@@ -3329,8 +3329,8 @@ class IntegrationsAuthConfigDecryptedCredentialServiceAccountCredentials:
         service_account: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param scope: A space-delimited list of requested scope permissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#scope IntegrationsAuthConfig#scope}
-        :param service_account: Name of the service account that has the permission to make the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#service_account IntegrationsAuthConfig#service_account}
+        :param scope: A space-delimited list of requested scope permissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#scope IntegrationsAuthConfig#scope}
+        :param service_account: Name of the service account that has the permission to make the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#service_account IntegrationsAuthConfig#service_account}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b646ff8d4bbc2c533b3adc5e404beba388df1173f86a02e7f370c5cacefec90e)
@@ -3346,7 +3346,7 @@ class IntegrationsAuthConfigDecryptedCredentialServiceAccountCredentials:
     def scope(self) -> typing.Optional[builtins.str]:
         '''A space-delimited list of requested scope permissions.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#scope IntegrationsAuthConfig#scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#scope IntegrationsAuthConfig#scope}
         '''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3355,7 +3355,7 @@ class IntegrationsAuthConfigDecryptedCredentialServiceAccountCredentials:
     def service_account(self) -> typing.Optional[builtins.str]:
         '''Name of the service account that has the permission to make the request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#service_account IntegrationsAuthConfig#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#service_account IntegrationsAuthConfig#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3465,8 +3465,8 @@ class IntegrationsAuthConfigDecryptedCredentialUsernameAndPassword:
         username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param password: Password to be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#password IntegrationsAuthConfig#password}
-        :param username: Username to be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#username IntegrationsAuthConfig#username}
+        :param password: Password to be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#password IntegrationsAuthConfig#password}
+        :param username: Username to be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#username IntegrationsAuthConfig#username}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c701dc89a8ea1ed564b06e3f32821443ca63fd69aacd284cb09774bc8b5d0b35)
@@ -3482,7 +3482,7 @@ class IntegrationsAuthConfigDecryptedCredentialUsernameAndPassword:
     def password(self) -> typing.Optional[builtins.str]:
         '''Password to be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#password IntegrationsAuthConfig#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#password IntegrationsAuthConfig#password}
         '''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3491,7 +3491,7 @@ class IntegrationsAuthConfigDecryptedCredentialUsernameAndPassword:
     def username(self) -> typing.Optional[builtins.str]:
         '''Username to be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#username IntegrationsAuthConfig#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#username IntegrationsAuthConfig#username}
         '''
         result = self._values.get("username")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3602,9 +3602,9 @@ class IntegrationsAuthConfigTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#create IntegrationsAuthConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#delete IntegrationsAuthConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#update IntegrationsAuthConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#create IntegrationsAuthConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#delete IntegrationsAuthConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#update IntegrationsAuthConfig#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2d0cf6e17d497014fdb03920ff9169dbe500184a9573b01139926b93b0982d66)
@@ -3621,19 +3621,19 @@ class IntegrationsAuthConfigTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#create IntegrationsAuthConfig#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#create IntegrationsAuthConfig#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#delete IntegrationsAuthConfig#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#delete IntegrationsAuthConfig#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integrations_auth_config#update IntegrationsAuthConfig#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integrations_auth_config#update IntegrationsAuthConfig#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

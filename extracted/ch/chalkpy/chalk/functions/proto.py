@@ -4,7 +4,7 @@ from google.protobuf.descriptor import FileDescriptor
 from google.protobuf.descriptor_pb2 import FileDescriptorProto, FileDescriptorSet
 from google.protobuf.message import Message
 
-from chalk.features._encoding.protobuf import create_null_pyarrow_scalar_from_proto_type
+from chalk.features._encoding.protobuf import create_empty_pyarrow_scalar_from_proto_type
 from chalk.features.underscore import Underscore, UnderscoreFunction
 
 
@@ -108,7 +108,7 @@ class UnderscoreProtoDeserialize(UnderscoreFunction):
 
         message_file_descriptor = serialize_message_file_descriptor(message)
         message_name = message.DESCRIPTOR.full_name
-        pa_scalar = create_null_pyarrow_scalar_from_proto_type(message)
+        pa_scalar = create_empty_pyarrow_scalar_from_proto_type(message)
         super().__init__(
             "proto_deserialize",
             message_file_descriptor,

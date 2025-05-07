@@ -197,7 +197,7 @@ def setup_logging(debug: bool = False) -> None:
     "--evgVersionsFile",
     "evg_versions_file",
     type=click.Path(),
-    hidden=True,
+    help="File to write the discovered download URLs to.",
 )
 @click.option(
     "-ed",
@@ -265,6 +265,8 @@ def setup_repro_env(
         - evergreen version ids
 
         - evergreen task ids
+
+        - a .json file produced by a previous invocation's --evgVersionsFile
 
     Optionally with the version accepts binary suffix, e.g. <version>=<bin_suffix>:
 

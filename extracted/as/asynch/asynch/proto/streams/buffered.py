@@ -3,6 +3,7 @@ from asyncio import StreamReader, StreamWriter
 
 import leb128
 
+from asynch.errors import OperationalError
 from asynch.proto import constants
 from asynch.proto.compression import BaseCompressor, get_decompressor_cls
 
@@ -142,7 +143,11 @@ class BufferedReader:
             packets.append(packet)
             if packet < 0x80:
                 break
-        return leb128.u.decode(packets)
+
+        if packets:
+            return leb128.u.decode(packets)
+        msg = "Failed to read data from socket. Likely the connection was closed by the remote."
+        raise OperationalError(msg)
 
     async def read_bytes(self, length: int):
         packets = bytearray()
@@ -209,7 +214,7 @@ class CompressedBufferedWriter(BufferedWriter):
         max_buffer_size: int = constants.BUFFER_SIZE,
     ):
         self.compressor = compressor
-        super(CompressedBufferedWriter, self).__init__(writer, max_buffer_size)
+        super().__init__(writer, max_buffer_size)
 
     async def flush(self):
         await self.compressor.write(self.buffer)
@@ -224,7 +229,7 @@ class CompressedBufferedReader(BufferedReader):
         buffer_max_size: int = constants.BUFFER_SIZE,
     ):
         self.raw_reader = raw_reader
-        super(CompressedBufferedReader, self).__init__(reader, buffer_max_size)
+        super().__init__(reader, buffer_max_size)
 
     async def _read_compressed_data(self):
         compressed_hash = await self.raw_reader.read_uint128()

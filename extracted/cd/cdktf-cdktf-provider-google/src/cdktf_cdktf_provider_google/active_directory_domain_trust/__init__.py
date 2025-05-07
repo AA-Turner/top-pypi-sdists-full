@@ -1,7 +1,7 @@
 r'''
 # `google_active_directory_domain_trust`
 
-Refer to the Terraform Registry for docs: [`google_active_directory_domain_trust`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust).
+Refer to the Terraform Registry for docs: [`google_active_directory_domain_trust`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ActiveDirectoryDomainTrust(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.activeDirectoryDomainTrust.ActiveDirectoryDomainTrust",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust google_active_directory_domain_trust}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust google_active_directory_domain_trust}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class ActiveDirectoryDomainTrust(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust google_active_directory_domain_trust} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust google_active_directory_domain_trust} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param domain: The fully qualified domain name. e.g. mydomain.myorganization.com, with the restrictions of https://cloud.google.com/managed-microsoft-ad/reference/rest/v1/projects.locations.global.domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#domain ActiveDirectoryDomainTrust#domain}
-        :param target_dns_ip_addresses: The target DNS server IP addresses which can resolve the remote domain involved in the trust. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#target_dns_ip_addresses ActiveDirectoryDomainTrust#target_dns_ip_addresses}
-        :param target_domain_name: The fully qualified target domain name which will be in trust with the current domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#target_domain_name ActiveDirectoryDomainTrust#target_domain_name}
-        :param trust_direction: The trust direction, which decides if the current domain is trusted, trusting, or both. Possible values: ["INBOUND", "OUTBOUND", "BIDIRECTIONAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#trust_direction ActiveDirectoryDomainTrust#trust_direction}
-        :param trust_handshake_secret: The trust secret used for the handshake with the target domain. This will not be stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#trust_handshake_secret ActiveDirectoryDomainTrust#trust_handshake_secret}
-        :param trust_type: The type of trust represented by the trust resource. Possible values: ["FOREST", "EXTERNAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#trust_type ActiveDirectoryDomainTrust#trust_type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#id ActiveDirectoryDomainTrust#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#project ActiveDirectoryDomainTrust#project}.
-        :param selective_authentication: Whether the trusted side has forest/domain wide access or selective access to an approved set of resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#selective_authentication ActiveDirectoryDomainTrust#selective_authentication}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#timeouts ActiveDirectoryDomainTrust#timeouts}
+        :param domain: The fully qualified domain name. e.g. mydomain.myorganization.com, with the restrictions of https://cloud.google.com/managed-microsoft-ad/reference/rest/v1/projects.locations.global.domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#domain ActiveDirectoryDomainTrust#domain}
+        :param target_dns_ip_addresses: The target DNS server IP addresses which can resolve the remote domain involved in the trust. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#target_dns_ip_addresses ActiveDirectoryDomainTrust#target_dns_ip_addresses}
+        :param target_domain_name: The fully qualified target domain name which will be in trust with the current domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#target_domain_name ActiveDirectoryDomainTrust#target_domain_name}
+        :param trust_direction: The trust direction, which decides if the current domain is trusted, trusting, or both. Possible values: ["INBOUND", "OUTBOUND", "BIDIRECTIONAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#trust_direction ActiveDirectoryDomainTrust#trust_direction}
+        :param trust_handshake_secret: The trust secret used for the handshake with the target domain. This will not be stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#trust_handshake_secret ActiveDirectoryDomainTrust#trust_handshake_secret}
+        :param trust_type: The type of trust represented by the trust resource. Possible values: ["FOREST", "EXTERNAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#trust_type ActiveDirectoryDomainTrust#trust_type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#id ActiveDirectoryDomainTrust#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#project ActiveDirectoryDomainTrust#project}.
+        :param selective_authentication: Whether the trusted side has forest/domain wide access or selective access to an approved set of resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#selective_authentication ActiveDirectoryDomainTrust#selective_authentication}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#timeouts ActiveDirectoryDomainTrust#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class ActiveDirectoryDomainTrust(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ActiveDirectoryDomainTrust to import.
-        :param import_from_id: The id of the existing ActiveDirectoryDomainTrust that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ActiveDirectoryDomainTrust that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ActiveDirectoryDomainTrust to import is found.
         '''
         if __debug__:
@@ -150,9 +150,9 @@ class ActiveDirectoryDomainTrust(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#create ActiveDirectoryDomainTrust#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#delete ActiveDirectoryDomainTrust#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#update ActiveDirectoryDomainTrust#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#create ActiveDirectoryDomainTrust#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#delete ActiveDirectoryDomainTrust#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#update ActiveDirectoryDomainTrust#update}.
         '''
         value = ActiveDirectoryDomainTrustTimeouts(
             create=create, delete=delete, update=update
@@ -417,16 +417,16 @@ class ActiveDirectoryDomainTrustConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param domain: The fully qualified domain name. e.g. mydomain.myorganization.com, with the restrictions of https://cloud.google.com/managed-microsoft-ad/reference/rest/v1/projects.locations.global.domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#domain ActiveDirectoryDomainTrust#domain}
-        :param target_dns_ip_addresses: The target DNS server IP addresses which can resolve the remote domain involved in the trust. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#target_dns_ip_addresses ActiveDirectoryDomainTrust#target_dns_ip_addresses}
-        :param target_domain_name: The fully qualified target domain name which will be in trust with the current domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#target_domain_name ActiveDirectoryDomainTrust#target_domain_name}
-        :param trust_direction: The trust direction, which decides if the current domain is trusted, trusting, or both. Possible values: ["INBOUND", "OUTBOUND", "BIDIRECTIONAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#trust_direction ActiveDirectoryDomainTrust#trust_direction}
-        :param trust_handshake_secret: The trust secret used for the handshake with the target domain. This will not be stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#trust_handshake_secret ActiveDirectoryDomainTrust#trust_handshake_secret}
-        :param trust_type: The type of trust represented by the trust resource. Possible values: ["FOREST", "EXTERNAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#trust_type ActiveDirectoryDomainTrust#trust_type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#id ActiveDirectoryDomainTrust#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#project ActiveDirectoryDomainTrust#project}.
-        :param selective_authentication: Whether the trusted side has forest/domain wide access or selective access to an approved set of resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#selective_authentication ActiveDirectoryDomainTrust#selective_authentication}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#timeouts ActiveDirectoryDomainTrust#timeouts}
+        :param domain: The fully qualified domain name. e.g. mydomain.myorganization.com, with the restrictions of https://cloud.google.com/managed-microsoft-ad/reference/rest/v1/projects.locations.global.domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#domain ActiveDirectoryDomainTrust#domain}
+        :param target_dns_ip_addresses: The target DNS server IP addresses which can resolve the remote domain involved in the trust. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#target_dns_ip_addresses ActiveDirectoryDomainTrust#target_dns_ip_addresses}
+        :param target_domain_name: The fully qualified target domain name which will be in trust with the current domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#target_domain_name ActiveDirectoryDomainTrust#target_domain_name}
+        :param trust_direction: The trust direction, which decides if the current domain is trusted, trusting, or both. Possible values: ["INBOUND", "OUTBOUND", "BIDIRECTIONAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#trust_direction ActiveDirectoryDomainTrust#trust_direction}
+        :param trust_handshake_secret: The trust secret used for the handshake with the target domain. This will not be stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#trust_handshake_secret ActiveDirectoryDomainTrust#trust_handshake_secret}
+        :param trust_type: The type of trust represented by the trust resource. Possible values: ["FOREST", "EXTERNAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#trust_type ActiveDirectoryDomainTrust#trust_type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#id ActiveDirectoryDomainTrust#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#project ActiveDirectoryDomainTrust#project}.
+        :param selective_authentication: Whether the trusted side has forest/domain wide access or selective access to an approved set of resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#selective_authentication ActiveDirectoryDomainTrust#selective_authentication}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#timeouts ActiveDirectoryDomainTrust#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -550,7 +550,7 @@ class ActiveDirectoryDomainTrustConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def domain(self) -> builtins.str:
         '''The fully qualified domain name. e.g. mydomain.myorganization.com, with the restrictions of https://cloud.google.com/managed-microsoft-ad/reference/rest/v1/projects.locations.global.domains.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#domain ActiveDirectoryDomainTrust#domain}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#domain ActiveDirectoryDomainTrust#domain}
         '''
         result = self._values.get("domain")
         assert result is not None, "Required property 'domain' is missing"
@@ -560,7 +560,7 @@ class ActiveDirectoryDomainTrustConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target_dns_ip_addresses(self) -> typing.List[builtins.str]:
         '''The target DNS server IP addresses which can resolve the remote domain involved in the trust.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#target_dns_ip_addresses ActiveDirectoryDomainTrust#target_dns_ip_addresses}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#target_dns_ip_addresses ActiveDirectoryDomainTrust#target_dns_ip_addresses}
         '''
         result = self._values.get("target_dns_ip_addresses")
         assert result is not None, "Required property 'target_dns_ip_addresses' is missing"
@@ -570,7 +570,7 @@ class ActiveDirectoryDomainTrustConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target_domain_name(self) -> builtins.str:
         '''The fully qualified target domain name which will be in trust with the current domain.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#target_domain_name ActiveDirectoryDomainTrust#target_domain_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#target_domain_name ActiveDirectoryDomainTrust#target_domain_name}
         '''
         result = self._values.get("target_domain_name")
         assert result is not None, "Required property 'target_domain_name' is missing"
@@ -580,7 +580,7 @@ class ActiveDirectoryDomainTrustConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def trust_direction(self) -> builtins.str:
         '''The trust direction, which decides if the current domain is trusted, trusting, or both. Possible values: ["INBOUND", "OUTBOUND", "BIDIRECTIONAL"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#trust_direction ActiveDirectoryDomainTrust#trust_direction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#trust_direction ActiveDirectoryDomainTrust#trust_direction}
         '''
         result = self._values.get("trust_direction")
         assert result is not None, "Required property 'trust_direction' is missing"
@@ -590,7 +590,7 @@ class ActiveDirectoryDomainTrustConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def trust_handshake_secret(self) -> builtins.str:
         '''The trust secret used for the handshake with the target domain. This will not be stored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#trust_handshake_secret ActiveDirectoryDomainTrust#trust_handshake_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#trust_handshake_secret ActiveDirectoryDomainTrust#trust_handshake_secret}
         '''
         result = self._values.get("trust_handshake_secret")
         assert result is not None, "Required property 'trust_handshake_secret' is missing"
@@ -600,7 +600,7 @@ class ActiveDirectoryDomainTrustConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def trust_type(self) -> builtins.str:
         '''The type of trust represented by the trust resource. Possible values: ["FOREST", "EXTERNAL"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#trust_type ActiveDirectoryDomainTrust#trust_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#trust_type ActiveDirectoryDomainTrust#trust_type}
         '''
         result = self._values.get("trust_type")
         assert result is not None, "Required property 'trust_type' is missing"
@@ -608,7 +608,7 @@ class ActiveDirectoryDomainTrustConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#id ActiveDirectoryDomainTrust#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#id ActiveDirectoryDomainTrust#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -618,7 +618,7 @@ class ActiveDirectoryDomainTrustConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#project ActiveDirectoryDomainTrust#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#project ActiveDirectoryDomainTrust#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -628,7 +628,7 @@ class ActiveDirectoryDomainTrustConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the trusted side has forest/domain wide access or selective access to an approved set of resources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#selective_authentication ActiveDirectoryDomainTrust#selective_authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#selective_authentication ActiveDirectoryDomainTrust#selective_authentication}
         '''
         result = self._values.get("selective_authentication")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -637,7 +637,7 @@ class ActiveDirectoryDomainTrustConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ActiveDirectoryDomainTrustTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#timeouts ActiveDirectoryDomainTrust#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#timeouts ActiveDirectoryDomainTrust#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ActiveDirectoryDomainTrustTimeouts"], result)
@@ -668,9 +668,9 @@ class ActiveDirectoryDomainTrustTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#create ActiveDirectoryDomainTrust#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#delete ActiveDirectoryDomainTrust#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#update ActiveDirectoryDomainTrust#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#create ActiveDirectoryDomainTrust#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#delete ActiveDirectoryDomainTrust#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#update ActiveDirectoryDomainTrust#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bbdb24b9403e444195442621a7a2dae866890b0d6c63a5a1779669c873cb5fd0)
@@ -687,19 +687,19 @@ class ActiveDirectoryDomainTrustTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#create ActiveDirectoryDomainTrust#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#create ActiveDirectoryDomainTrust#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#delete ActiveDirectoryDomainTrust#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#delete ActiveDirectoryDomainTrust#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/active_directory_domain_trust#update ActiveDirectoryDomainTrust#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/active_directory_domain_trust#update ActiveDirectoryDomainTrust#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

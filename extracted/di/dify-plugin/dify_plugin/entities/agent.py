@@ -4,6 +4,7 @@ from typing import Any, Optional, Union
 
 from pydantic import BaseModel, Field, field_validator
 
+from dify_plugin.core.documentation.schema_doc import docs
 from dify_plugin.core.utils.yaml_loader import load_yaml_file
 from dify_plugin.entities import I18nObject
 from dify_plugin.entities.tool import (
@@ -17,18 +18,34 @@ from dify_plugin.entities.tool import (
 )
 
 
+@docs(
+    description="The identity of the agent strategy provider",
+)
 class AgentStrategyProviderIdentity(ToolProviderIdentity):
     pass
 
 
+class AgentRuntime(BaseModel):
+    user_id: Optional[str]
+
+
+@docs(
+    description="The feature of the agent strategy",
+)
 class AgentStrategyFeature(str, Enum):
     HISTORY_MESSAGES = "history-messages"
 
 
+@docs(
+    description="The identity of the agent strategy",
+)
 class AgentStrategyIdentity(ToolIdentity):
     pass
 
 
+@docs(
+    description="The parameter of the agent strategy",
+)
 class AgentStrategyParameter(BaseModel):
     class ToolParameterType(str, Enum):
         STRING = CommonParameterType.STRING.value
@@ -42,6 +59,7 @@ class AgentStrategyParameter(BaseModel):
         APP_SELECTOR = CommonParameterType.APP_SELECTOR.value
         TOOLS_SELECTOR = CommonParameterType.TOOLS_SELECTOR.value
         # TOOL_SELECTOR = CommonParameterType.TOOL_SELECTOR.value
+        ANY = CommonParameterType.ANY.value
 
     name: str = Field(..., description="The name of the parameter")
     label: I18nObject = Field(..., description="The label presented to the user")
@@ -60,13 +78,26 @@ class AgentStrategyParameter(BaseModel):
     options: Optional[list[ToolParameterOption]] = None
 
 
-class AgentStrategyConfigurationExtra(BaseModel):
-    class Python(BaseModel):
-        source: str
+@docs(
+    name="Python",
+    description="The extra of the agent strategy",
+)
+class Python(BaseModel):
+    source: str
 
+
+@docs(
+    name="AgentStrategyExtra",
+    description="The extra of the agent strategy",
+)
+class AgentStrategyConfigurationExtra(BaseModel):
     python: Python
 
 
+@docs(
+    name="AgentStrategy",
+    description="The Manifest of the agent strategy",
+)
 class AgentStrategyConfiguration(BaseModel):
     identity: AgentStrategyIdentity
     parameters: list[AgentStrategyParameter] = Field(default=[], description="The parameters of the agent")
@@ -77,13 +108,26 @@ class AgentStrategyConfiguration(BaseModel):
     features: list[AgentStrategyFeature] = Field(default=[], description="The features of the agent")
 
 
+@docs(
+    name="AgentStrategyProviderExtra",
+    description="The extra of the agent provider",
+)
 class AgentProviderConfigurationExtra(BaseModel):
+    @docs(
+        name="Python",
+        description="The extra of the agent provider",
+    )
     class Python(BaseModel):
         source: str
 
     python: Python
 
 
+@docs(
+    name="AgentStrategyProvider",
+    description="The Manifest of the agent strategy provider",
+    outside_reference_fields={"strategies": AgentStrategyConfiguration},
+)
 class AgentStrategyProviderConfiguration(BaseModel):
     identity: AgentStrategyProviderIdentity
     strategies: list[AgentStrategyConfiguration] = Field(default=[], description="The strategies of the agent provider")

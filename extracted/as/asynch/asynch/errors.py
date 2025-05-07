@@ -1,3 +1,6 @@
+from typing import Union
+
+
 class ErrorCode:
     UNSUPPORTED_METHOD = 1
     UNSUPPORTED_PARAMETER = 2
@@ -372,7 +375,7 @@ class ErrorCode:
     ILLEGAL_PROJECTION_MANIPULATOR = 2002
 
 
-class Warning(Exception):
+class Warning(Exception):  # noqa: A001
     """Asynch DB-API v2.0 Warning.
 
     Exception raised for important warnings
@@ -398,14 +401,14 @@ class Error(Exception):
 
 
 class ClickHouseException(Error):
-    code = None
+    code: Union[None, int] = None
 
     def __init__(self, message=None):
         self.message = message
 
     def __str__(self):
         message = " " + self.message if self.message is not None else ""
-        return "Code: {}.{}".format(self.code, message)
+        return f"Code: {self.code}.{message}"
 
 
 class ServerException(ClickHouseException):
@@ -415,8 +418,8 @@ class ServerException(ClickHouseException):
         self.nested = nested
 
     def __str__(self):
-        nested = "\nNested: {}".format(self.nested) if self.nested else ""
-        return "Code: {}.{}\n{}".format(self.code, nested, self.message)
+        nested = f"\nNested: {self.nested}" if self.nested else ""
+        return f"Code: {self.code}.{nested}\n{self.message}"
 
 
 class UnexpectedPacketFromServerError(ClickHouseException):
@@ -568,3 +571,7 @@ class NotSupportedError(DatabaseError):
 
     It must be a subclass of DatabaseError.
     """
+
+
+class AsynchPoolError(ClickHouseException):
+    pass

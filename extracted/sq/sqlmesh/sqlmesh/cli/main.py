@@ -29,6 +29,7 @@ SKIP_LOAD_COMMANDS = (
     "run",
     "environments",
     "invalidate",
+    "table_name",
 )
 SKIP_CONTEXT_COMMANDS = ("init", "ui")
 
@@ -891,18 +892,26 @@ def create_external_models(obj: Context, **kwargs: t.Any) -> None:
     type=str,
     help="Schema used for temporary tables. It can be `CATALOG.SCHEMA` or `SCHEMA`. Default: `sqlmesh_temp`",
 )
+@click.option(
+    "--select-model",
+    "-m",
+    type=str,
+    multiple=True,
+    help="Specify one or more models to data diff. Use wildcards to diff multiple models. Ex: '*' (all models with applied plan diffs), 'demo.model+' (this and downstream models), 'git:feature_branch' (models with direct modifications in this branch only)",
+)
 @click.pass_obj
 @error_handler
 @cli_analytics
 def table_diff(
     obj: Context, source_to_target: str, model: t.Optional[str], **kwargs: t.Any
 ) -> None:
-    """Show the diff between two tables."""
+    """Show the diff between two tables or a selection of models when they are specified."""
     source, target = source_to_target.split(":")
+    select_models = {model} if model else kwargs.pop("select_model", None)
     obj.table_diff(
         source=source,
         target=target,
-        model_or_snapshot=model,
+        select_models=select_models,
         **kwargs,
     )
 
@@ -988,17 +997,24 @@ def clean(obj: Context) -> None:
 @cli.command("table_name")
 @click.argument("model_name", required=True)
 @click.option(
-    "--dev",
+    "--environment",
+    "--env",
+    help="The environment to source the model version from.",
+)
+@click.option(
+    "--prod",
     is_flag=True,
-    help="Print the name of the snapshot table used for previews in development environments.",
     default=False,
+    help="If set, return the name of the physical table that will be used in production for the model version promoted in the target environment.",
 )
 @click.pass_obj
 @error_handler
 @cli_analytics
-def table_name(obj: Context, model_name: str, dev: bool) -> None:
+def table_name(
+    obj: Context, model_name: str, environment: t.Optional[str] = None, prod: bool = False
+) -> None:
     """Prints the name of the physical table for the given model."""
-    print(obj.table_name(model_name, dev))
+    print(obj.table_name(model_name, environment, prod))
 
 
 @cli.command("dlt_refresh")

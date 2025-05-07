@@ -1,7 +1,7 @@
 r'''
 # `docker_registry_image`
 
-Refer to the Terraform Registry for docs: [`docker_registry_image`](https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image).
+Refer to the Terraform Registry for docs: [`docker_registry_image`](https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RegistryImage(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-docker.registryImage.RegistryImage",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image docker_registry_image}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image docker_registry_image}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class RegistryImage(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image docker_registry_image} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image docker_registry_image} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the Docker image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#name RegistryImage#name}
-        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#auth_config RegistryImage#auth_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#id RegistryImage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param insecure_skip_verify: If ``true``, the verification of TLS certificates of the server/registry is disabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#insecure_skip_verify RegistryImage#insecure_skip_verify}
-        :param keep_remotely: If true, then the Docker image won't be deleted on destroy operation. If this is false, it will delete the image from the docker registry on destroy operation. Defaults to ``false`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#keep_remotely RegistryImage#keep_remotely}
-        :param triggers: A map of arbitrary strings that, when changed, will force the ``docker_registry_image`` resource to be replaced. This can be used to repush a local image Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#triggers RegistryImage#triggers}
+        :param name: The name of the Docker image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#name RegistryImage#name}
+        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#auth_config RegistryImage#auth_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#id RegistryImage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param insecure_skip_verify: If ``true``, the verification of TLS certificates of the server/registry is disabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#insecure_skip_verify RegistryImage#insecure_skip_verify}
+        :param keep_remotely: If true, then the Docker image won't be deleted on destroy operation. If this is false, it will delete the image from the docker registry on destroy operation. Defaults to ``false`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#keep_remotely RegistryImage#keep_remotely}
+        :param triggers: A map of arbitrary strings that, when changed, will force the ``docker_registry_image`` resource to be replaced. This can be used to repush a local image Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#triggers RegistryImage#triggers}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class RegistryImage(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RegistryImage to import.
-        :param import_from_id: The id of the existing RegistryImage that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RegistryImage that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RegistryImage to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class RegistryImage(
         username: builtins.str,
     ) -> None:
         '''
-        :param address: The address of the Docker registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#address RegistryImage#address}
-        :param password: The password for the Docker registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#password RegistryImage#password}
-        :param username: The username for the Docker registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#username RegistryImage#username}
+        :param address: The address of the Docker registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#address RegistryImage#address}
+        :param password: The password for the Docker registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#password RegistryImage#password}
+        :param username: The username for the Docker registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#username RegistryImage#username}
         '''
         value = RegistryImageAuthConfig(
             address=address, password=password, username=username
@@ -314,9 +314,9 @@ class RegistryImageAuthConfig:
         username: builtins.str,
     ) -> None:
         '''
-        :param address: The address of the Docker registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#address RegistryImage#address}
-        :param password: The password for the Docker registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#password RegistryImage#password}
-        :param username: The username for the Docker registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#username RegistryImage#username}
+        :param address: The address of the Docker registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#address RegistryImage#address}
+        :param password: The password for the Docker registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#password RegistryImage#password}
+        :param username: The username for the Docker registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#username RegistryImage#username}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c83d7a1853e7fc8a270bacccf5d657bcda023af33eef34f9cd413bea06ae3f31)
@@ -333,7 +333,7 @@ class RegistryImageAuthConfig:
     def address(self) -> builtins.str:
         '''The address of the Docker registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#address RegistryImage#address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#address RegistryImage#address}
         '''
         result = self._values.get("address")
         assert result is not None, "Required property 'address' is missing"
@@ -343,7 +343,7 @@ class RegistryImageAuthConfig:
     def password(self) -> builtins.str:
         '''The password for the Docker registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#password RegistryImage#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#password RegistryImage#password}
         '''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
@@ -353,7 +353,7 @@ class RegistryImageAuthConfig:
     def username(self) -> builtins.str:
         '''The username for the Docker registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#username RegistryImage#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#username RegistryImage#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -500,12 +500,12 @@ class RegistryImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the Docker image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#name RegistryImage#name}
-        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#auth_config RegistryImage#auth_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#id RegistryImage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param insecure_skip_verify: If ``true``, the verification of TLS certificates of the server/registry is disabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#insecure_skip_verify RegistryImage#insecure_skip_verify}
-        :param keep_remotely: If true, then the Docker image won't be deleted on destroy operation. If this is false, it will delete the image from the docker registry on destroy operation. Defaults to ``false`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#keep_remotely RegistryImage#keep_remotely}
-        :param triggers: A map of arbitrary strings that, when changed, will force the ``docker_registry_image`` resource to be replaced. This can be used to repush a local image Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#triggers RegistryImage#triggers}
+        :param name: The name of the Docker image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#name RegistryImage#name}
+        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#auth_config RegistryImage#auth_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#id RegistryImage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param insecure_skip_verify: If ``true``, the verification of TLS certificates of the server/registry is disabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#insecure_skip_verify RegistryImage#insecure_skip_verify}
+        :param keep_remotely: If true, then the Docker image won't be deleted on destroy operation. If this is false, it will delete the image from the docker registry on destroy operation. Defaults to ``false`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#keep_remotely RegistryImage#keep_remotely}
+        :param triggers: A map of arbitrary strings that, when changed, will force the ``docker_registry_image`` resource to be replaced. This can be used to repush a local image Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#triggers RegistryImage#triggers}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -622,7 +622,7 @@ class RegistryImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the Docker image.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#name RegistryImage#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#name RegistryImage#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -632,14 +632,14 @@ class RegistryImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auth_config(self) -> typing.Optional[RegistryImageAuthConfig]:
         '''auth_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#auth_config RegistryImage#auth_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#auth_config RegistryImage#auth_config}
         '''
         result = self._values.get("auth_config")
         return typing.cast(typing.Optional[RegistryImageAuthConfig], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#id RegistryImage#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#id RegistryImage#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -653,7 +653,7 @@ class RegistryImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If ``true``, the verification of TLS certificates of the server/registry is disabled. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#insecure_skip_verify RegistryImage#insecure_skip_verify}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#insecure_skip_verify RegistryImage#insecure_skip_verify}
         '''
         result = self._values.get("insecure_skip_verify")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -666,7 +666,7 @@ class RegistryImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If this is false, it will delete the image from the docker registry on destroy operation. Defaults to ``false``
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#keep_remotely RegistryImage#keep_remotely}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#keep_remotely RegistryImage#keep_remotely}
         '''
         result = self._values.get("keep_remotely")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -677,7 +677,7 @@ class RegistryImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This can be used to repush a local image
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/registry_image#triggers RegistryImage#triggers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/registry_image#triggers RegistryImage#triggers}
         '''
         result = self._values.get("triggers")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)

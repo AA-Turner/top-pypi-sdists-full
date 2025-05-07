@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import time
 
@@ -15,6 +16,10 @@ import coiled
 from ..utils import PRIMARY_COLOR, Panel, console, log_interactions
 
 NTASKS = 10
+
+# Ensure subprocesses use utf-8 encoding.
+# Some Windows systems raise encoding errors without this.
+os.environ["PYTHONIOENCODING"] = "utf-8"
 
 
 def hello_world(first_time=False):

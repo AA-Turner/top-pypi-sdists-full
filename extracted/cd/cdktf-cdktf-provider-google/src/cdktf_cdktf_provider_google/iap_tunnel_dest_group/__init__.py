@@ -1,7 +1,7 @@
 r'''
 # `google_iap_tunnel_dest_group`
 
-Refer to the Terraform Registry for docs: [`google_iap_tunnel_dest_group`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group).
+Refer to the Terraform Registry for docs: [`google_iap_tunnel_dest_group`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IapTunnelDestGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.iapTunnelDestGroup.IapTunnelDestGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group google_iap_tunnel_dest_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group google_iap_tunnel_dest_group}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class IapTunnelDestGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group google_iap_tunnel_dest_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group google_iap_tunnel_dest_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param group_name: Unique tunnel destination group name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#group_name IapTunnelDestGroup#group_name}
-        :param cidrs: List of CIDRs that this group applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#cidrs IapTunnelDestGroup#cidrs}
-        :param fqdns: List of FQDNs that this group applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#fqdns IapTunnelDestGroup#fqdns}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#id IapTunnelDestGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#project IapTunnelDestGroup#project}.
-        :param region: The region of the tunnel group. Must be the same as the network resources in the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#region IapTunnelDestGroup#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#timeouts IapTunnelDestGroup#timeouts}
+        :param group_name: Unique tunnel destination group name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#group_name IapTunnelDestGroup#group_name}
+        :param cidrs: List of CIDRs that this group applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#cidrs IapTunnelDestGroup#cidrs}
+        :param fqdns: List of FQDNs that this group applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#fqdns IapTunnelDestGroup#fqdns}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#id IapTunnelDestGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#project IapTunnelDestGroup#project}.
+        :param region: The region of the tunnel group. Must be the same as the network resources in the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#region IapTunnelDestGroup#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#timeouts IapTunnelDestGroup#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class IapTunnelDestGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IapTunnelDestGroup to import.
-        :param import_from_id: The id of the existing IapTunnelDestGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IapTunnelDestGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IapTunnelDestGroup to import is found.
         '''
         if __debug__:
@@ -141,9 +141,9 @@ class IapTunnelDestGroup(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#create IapTunnelDestGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#delete IapTunnelDestGroup#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#update IapTunnelDestGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#create IapTunnelDestGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#delete IapTunnelDestGroup#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#update IapTunnelDestGroup#update}.
         '''
         value = IapTunnelDestGroupTimeouts(create=create, delete=delete, update=update)
 
@@ -353,13 +353,13 @@ class IapTunnelDestGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param group_name: Unique tunnel destination group name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#group_name IapTunnelDestGroup#group_name}
-        :param cidrs: List of CIDRs that this group applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#cidrs IapTunnelDestGroup#cidrs}
-        :param fqdns: List of FQDNs that this group applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#fqdns IapTunnelDestGroup#fqdns}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#id IapTunnelDestGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#project IapTunnelDestGroup#project}.
-        :param region: The region of the tunnel group. Must be the same as the network resources in the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#region IapTunnelDestGroup#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#timeouts IapTunnelDestGroup#timeouts}
+        :param group_name: Unique tunnel destination group name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#group_name IapTunnelDestGroup#group_name}
+        :param cidrs: List of CIDRs that this group applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#cidrs IapTunnelDestGroup#cidrs}
+        :param fqdns: List of FQDNs that this group applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#fqdns IapTunnelDestGroup#fqdns}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#id IapTunnelDestGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#project IapTunnelDestGroup#project}.
+        :param region: The region of the tunnel group. Must be the same as the network resources in the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#region IapTunnelDestGroup#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#timeouts IapTunnelDestGroup#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -479,7 +479,7 @@ class IapTunnelDestGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def group_name(self) -> builtins.str:
         '''Unique tunnel destination group name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#group_name IapTunnelDestGroup#group_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#group_name IapTunnelDestGroup#group_name}
         '''
         result = self._values.get("group_name")
         assert result is not None, "Required property 'group_name' is missing"
@@ -489,7 +489,7 @@ class IapTunnelDestGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cidrs(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of CIDRs that this group applies to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#cidrs IapTunnelDestGroup#cidrs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#cidrs IapTunnelDestGroup#cidrs}
         '''
         result = self._values.get("cidrs")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -498,14 +498,14 @@ class IapTunnelDestGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def fqdns(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of FQDNs that this group applies to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#fqdns IapTunnelDestGroup#fqdns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#fqdns IapTunnelDestGroup#fqdns}
         '''
         result = self._values.get("fqdns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#id IapTunnelDestGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#id IapTunnelDestGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -515,7 +515,7 @@ class IapTunnelDestGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#project IapTunnelDestGroup#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#project IapTunnelDestGroup#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -523,7 +523,7 @@ class IapTunnelDestGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''The region of the tunnel group. Must be the same as the network resources in the group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#region IapTunnelDestGroup#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#region IapTunnelDestGroup#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -532,7 +532,7 @@ class IapTunnelDestGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["IapTunnelDestGroupTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#timeouts IapTunnelDestGroup#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#timeouts IapTunnelDestGroup#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["IapTunnelDestGroupTimeouts"], result)
@@ -563,9 +563,9 @@ class IapTunnelDestGroupTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#create IapTunnelDestGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#delete IapTunnelDestGroup#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#update IapTunnelDestGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#create IapTunnelDestGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#delete IapTunnelDestGroup#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#update IapTunnelDestGroup#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3086138061092b8ba614e8f851fa8d62859ce16e36ac70bbc82707a3b94c19ba)
@@ -582,19 +582,19 @@ class IapTunnelDestGroupTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#create IapTunnelDestGroup#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#create IapTunnelDestGroup#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#delete IapTunnelDestGroup#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#delete IapTunnelDestGroup#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_tunnel_dest_group#update IapTunnelDestGroup#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_tunnel_dest_group#update IapTunnelDestGroup#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

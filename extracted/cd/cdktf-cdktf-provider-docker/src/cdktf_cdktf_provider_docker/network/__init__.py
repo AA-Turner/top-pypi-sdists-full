@@ -1,7 +1,7 @@
 r'''
 # `docker_network`
 
-Refer to the Terraform Registry for docs: [`docker_network`](https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network).
+Refer to the Terraform Registry for docs: [`docker_network`](https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Network(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-docker.network.Network",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network docker_network}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network docker_network}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class Network(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network docker_network} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network docker_network} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the Docker network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#name Network#name}
-        :param attachable: Enable manual container attachment to the network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#attachable Network#attachable}
-        :param check_duplicate: Requests daemon to check for networks with same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#check_duplicate Network#check_duplicate}
-        :param driver: The driver of the Docker network. Possible values are ``bridge``, ``host``, ``overlay``, ``macvlan``. See `network docs <https://docs.docker.com/network/#network-drivers>`_ for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#driver Network#driver}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#id Network#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ingress: Create swarm routing-mesh network. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#ingress Network#ingress}
-        :param internal: Whether the network is internal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#internal Network#internal}
-        :param ipam_config: ipam_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#ipam_config Network#ipam_config}
-        :param ipam_driver: Driver used by the custom IP scheme of the network. Defaults to ``default``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#ipam_driver Network#ipam_driver}
-        :param ipam_options: Provide explicit options to the IPAM driver. Valid options vary with ``ipam_driver`` and refer to that driver's documentation for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#ipam_options Network#ipam_options}
-        :param ipv6: Enable IPv6 networking. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#ipv6 Network#ipv6}
-        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#labels Network#labels}
-        :param options: Only available with bridge networks. See `bridge options docs <https://docs.docker.com/engine/reference/commandline/network_create/#bridge-driver-options>`_ for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#options Network#options}
+        :param name: The name of the Docker network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#name Network#name}
+        :param attachable: Enable manual container attachment to the network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#attachable Network#attachable}
+        :param check_duplicate: Requests daemon to check for networks with same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#check_duplicate Network#check_duplicate}
+        :param driver: The driver of the Docker network. Possible values are ``bridge``, ``host``, ``overlay``, ``macvlan``. See `network docs <https://docs.docker.com/network/#network-drivers>`_ for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#driver Network#driver}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#id Network#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ingress: Create swarm routing-mesh network. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#ingress Network#ingress}
+        :param internal: Whether the network is internal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#internal Network#internal}
+        :param ipam_config: ipam_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#ipam_config Network#ipam_config}
+        :param ipam_driver: Driver used by the custom IP scheme of the network. Defaults to ``default``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#ipam_driver Network#ipam_driver}
+        :param ipam_options: Provide explicit options to the IPAM driver. Valid options vary with ``ipam_driver`` and refer to that driver's documentation for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#ipam_options Network#ipam_options}
+        :param ipv6: Enable IPv6 networking. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#ipv6 Network#ipv6}
+        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#labels Network#labels}
+        :param options: Only available with bridge networks. See `bridge options docs <https://docs.docker.com/engine/reference/commandline/network_create/#bridge-driver-options>`_ for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#options Network#options}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class Network(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Network to import.
-        :param import_from_id: The id of the existing Network that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Network that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Network to import is found.
         '''
         if __debug__:
@@ -544,19 +544,19 @@ class NetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the Docker network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#name Network#name}
-        :param attachable: Enable manual container attachment to the network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#attachable Network#attachable}
-        :param check_duplicate: Requests daemon to check for networks with same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#check_duplicate Network#check_duplicate}
-        :param driver: The driver of the Docker network. Possible values are ``bridge``, ``host``, ``overlay``, ``macvlan``. See `network docs <https://docs.docker.com/network/#network-drivers>`_ for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#driver Network#driver}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#id Network#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ingress: Create swarm routing-mesh network. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#ingress Network#ingress}
-        :param internal: Whether the network is internal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#internal Network#internal}
-        :param ipam_config: ipam_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#ipam_config Network#ipam_config}
-        :param ipam_driver: Driver used by the custom IP scheme of the network. Defaults to ``default``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#ipam_driver Network#ipam_driver}
-        :param ipam_options: Provide explicit options to the IPAM driver. Valid options vary with ``ipam_driver`` and refer to that driver's documentation for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#ipam_options Network#ipam_options}
-        :param ipv6: Enable IPv6 networking. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#ipv6 Network#ipv6}
-        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#labels Network#labels}
-        :param options: Only available with bridge networks. See `bridge options docs <https://docs.docker.com/engine/reference/commandline/network_create/#bridge-driver-options>`_ for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#options Network#options}
+        :param name: The name of the Docker network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#name Network#name}
+        :param attachable: Enable manual container attachment to the network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#attachable Network#attachable}
+        :param check_duplicate: Requests daemon to check for networks with same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#check_duplicate Network#check_duplicate}
+        :param driver: The driver of the Docker network. Possible values are ``bridge``, ``host``, ``overlay``, ``macvlan``. See `network docs <https://docs.docker.com/network/#network-drivers>`_ for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#driver Network#driver}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#id Network#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ingress: Create swarm routing-mesh network. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#ingress Network#ingress}
+        :param internal: Whether the network is internal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#internal Network#internal}
+        :param ipam_config: ipam_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#ipam_config Network#ipam_config}
+        :param ipam_driver: Driver used by the custom IP scheme of the network. Defaults to ``default``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#ipam_driver Network#ipam_driver}
+        :param ipam_options: Provide explicit options to the IPAM driver. Valid options vary with ``ipam_driver`` and refer to that driver's documentation for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#ipam_options Network#ipam_options}
+        :param ipv6: Enable IPv6 networking. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#ipv6 Network#ipv6}
+        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#labels Network#labels}
+        :param options: Only available with bridge networks. See `bridge options docs <https://docs.docker.com/engine/reference/commandline/network_create/#bridge-driver-options>`_ for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#options Network#options}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -692,7 +692,7 @@ class NetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the Docker network.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#name Network#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#name Network#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -704,7 +704,7 @@ class NetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable manual container attachment to the network.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#attachable Network#attachable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#attachable Network#attachable}
         '''
         result = self._values.get("attachable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -715,7 +715,7 @@ class NetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Requests daemon to check for networks with same name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#check_duplicate Network#check_duplicate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#check_duplicate Network#check_duplicate}
         '''
         result = self._values.get("check_duplicate")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -724,14 +724,14 @@ class NetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def driver(self) -> typing.Optional[builtins.str]:
         '''The driver of the Docker network. Possible values are ``bridge``, ``host``, ``overlay``, ``macvlan``. See `network docs <https://docs.docker.com/network/#network-drivers>`_ for more details.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#driver Network#driver}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#driver Network#driver}
         '''
         result = self._values.get("driver")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#id Network#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#id Network#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -745,7 +745,7 @@ class NetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Create swarm routing-mesh network. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#ingress Network#ingress}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#ingress Network#ingress}
         '''
         result = self._values.get("ingress")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -756,7 +756,7 @@ class NetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the network is internal.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#internal Network#internal}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#internal Network#internal}
         '''
         result = self._values.get("internal")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -767,7 +767,7 @@ class NetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkIpamConfig"]]]:
         '''ipam_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#ipam_config Network#ipam_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#ipam_config Network#ipam_config}
         '''
         result = self._values.get("ipam_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkIpamConfig"]]], result)
@@ -776,7 +776,7 @@ class NetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ipam_driver(self) -> typing.Optional[builtins.str]:
         '''Driver used by the custom IP scheme of the network. Defaults to ``default``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#ipam_driver Network#ipam_driver}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#ipam_driver Network#ipam_driver}
         '''
         result = self._values.get("ipam_driver")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -789,7 +789,7 @@ class NetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid options vary with ``ipam_driver`` and refer to that driver's documentation for more details.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#ipam_options Network#ipam_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#ipam_options Network#ipam_options}
         '''
         result = self._values.get("ipam_options")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -800,7 +800,7 @@ class NetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable IPv6 networking. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#ipv6 Network#ipv6}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#ipv6 Network#ipv6}
         '''
         result = self._values.get("ipv6")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -811,7 +811,7 @@ class NetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkLabels"]]]:
         '''labels block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#labels Network#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#labels Network#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkLabels"]]], result)
@@ -820,7 +820,7 @@ class NetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def options(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Only available with bridge networks. See `bridge options docs <https://docs.docker.com/engine/reference/commandline/network_create/#bridge-driver-options>`_ for more details.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#options Network#options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#options Network#options}
         '''
         result = self._values.get("options")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -857,10 +857,10 @@ class NetworkIpamConfig:
         subnet: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param aux_address: Auxiliary IPv4 or IPv6 addresses used by Network driver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#aux_address Network#aux_address}
-        :param gateway: The IP address of the gateway. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#gateway Network#gateway}
-        :param ip_range: The ip range in CIDR form. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#ip_range Network#ip_range}
-        :param subnet: The subnet in CIDR form. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#subnet Network#subnet}
+        :param aux_address: Auxiliary IPv4 or IPv6 addresses used by Network driver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#aux_address Network#aux_address}
+        :param gateway: The IP address of the gateway. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#gateway Network#gateway}
+        :param ip_range: The ip range in CIDR form. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#ip_range Network#ip_range}
+        :param subnet: The subnet in CIDR form. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#subnet Network#subnet}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b02724099a39742e43166fab51a3f655e2d1a7d1e079e9752d1e39e552ff77df)
@@ -884,7 +884,7 @@ class NetworkIpamConfig:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Auxiliary IPv4 or IPv6 addresses used by Network driver.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#aux_address Network#aux_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#aux_address Network#aux_address}
         '''
         result = self._values.get("aux_address")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -893,7 +893,7 @@ class NetworkIpamConfig:
     def gateway(self) -> typing.Optional[builtins.str]:
         '''The IP address of the gateway.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#gateway Network#gateway}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#gateway Network#gateway}
         '''
         result = self._values.get("gateway")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -902,7 +902,7 @@ class NetworkIpamConfig:
     def ip_range(self) -> typing.Optional[builtins.str]:
         '''The ip range in CIDR form.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#ip_range Network#ip_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#ip_range Network#ip_range}
         '''
         result = self._values.get("ip_range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -911,7 +911,7 @@ class NetworkIpamConfig:
     def subnet(self) -> typing.Optional[builtins.str]:
         '''The subnet in CIDR form.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#subnet Network#subnet}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#subnet Network#subnet}
         '''
         result = self._values.get("subnet")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1156,8 +1156,8 @@ class NetworkIpamConfigOutputReference(
 class NetworkLabels:
     def __init__(self, *, label: builtins.str, value: builtins.str) -> None:
         '''
-        :param label: Name of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#label Network#label}
-        :param value: Value of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#value Network#value}
+        :param label: Name of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#label Network#label}
+        :param value: Value of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#value Network#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6deaa7d8c72c6db62f111d443f13dc464551a70e8ecd991f36ed43cce7a8d36e)
@@ -1172,7 +1172,7 @@ class NetworkLabels:
     def label(self) -> builtins.str:
         '''Name of the label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#label Network#label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#label Network#label}
         '''
         result = self._values.get("label")
         assert result is not None, "Required property 'label' is missing"
@@ -1182,7 +1182,7 @@ class NetworkLabels:
     def value(self) -> builtins.str:
         '''Value of the label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/network#value Network#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/network#value Network#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"

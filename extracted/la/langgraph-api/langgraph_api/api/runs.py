@@ -285,7 +285,7 @@ async def wait_run_stateless(request: ApiRequest):
 
 
 @retry_db
-async def list_runs_http(
+async def list_runs(
     request: ApiRequest,
 ):
     """List all runs for a thread."""
@@ -312,7 +312,7 @@ async def list_runs_http(
 
 
 @retry_db
-async def get_run_http(request: ApiRequest):
+async def get_run(request: ApiRequest):
     """Get a run by ID."""
     thread_id = request.path_params["thread_id"]
     run_id = request.path_params["run_id"]
@@ -349,7 +349,7 @@ async def join_run(request: ApiRequest):
 
 
 @retry_db
-async def join_run_stream_endpoint(request: ApiRequest):
+async def join_run_stream(request: ApiRequest):
     """Wait for a run to finish."""
     thread_id = request.path_params["thread_id"]
     run_id = request.path_params["run_id"]
@@ -541,11 +541,11 @@ runs_routes = [
     ApiRoute("/threads/{thread_id}/runs/{run_id}/join", join_run, methods=["GET"]),
     ApiRoute(
         "/threads/{thread_id}/runs/{run_id}/stream",
-        join_run_stream_endpoint,
+        join_run_stream,
         methods=["GET"],
     ),
     ApiRoute("/threads/{thread_id}/runs/{run_id}/cancel", cancel_run, methods=["POST"]),
-    ApiRoute("/threads/{thread_id}/runs/{run_id}", get_run_http, methods=["GET"]),
+    ApiRoute("/threads/{thread_id}/runs/{run_id}", get_run, methods=["GET"]),
     ApiRoute("/threads/{thread_id}/runs/{run_id}", delete_run, methods=["DELETE"]),
     ApiRoute("/threads/{thread_id}/runs/stream", stream_run, methods=["POST"]),
     ApiRoute("/threads/{thread_id}/runs/wait", wait_run, methods=["POST"]),
@@ -557,7 +557,7 @@ runs_routes = [
         if config.FF_CRONS_ENABLED and plus_features_enabled()
         else None
     ),
-    ApiRoute("/threads/{thread_id}/runs", list_runs_http, methods=["GET"]),
+    ApiRoute("/threads/{thread_id}/runs", list_runs, methods=["GET"]),
     (
         ApiRoute("/runs/crons/{cron_id}", delete_cron, methods=["DELETE"])
         if config.FF_CRONS_ENABLED and plus_features_enabled()

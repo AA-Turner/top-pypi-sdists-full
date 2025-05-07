@@ -1,7 +1,7 @@
 r'''
 # `google_firebaserules_release`
 
-Refer to the Terraform Registry for docs: [`google_firebaserules_release`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release).
+Refer to the Terraform Registry for docs: [`google_firebaserules_release`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class FirebaserulesRelease(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.firebaserulesRelease.FirebaserulesRelease",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release google_firebaserules_release}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release google_firebaserules_release}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class FirebaserulesRelease(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release google_firebaserules_release} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release google_firebaserules_release} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Format: ``projects/{project_id}/releases/{release_id}``\\Firestore Rules Releases will **always** have the name 'cloud.firestore'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#name FirebaserulesRelease#name}
-        :param ruleset_name: Name of the ``Ruleset`` referred to by this ``Release``. The ``Ruleset`` must exist for the ``Release`` to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#ruleset_name FirebaserulesRelease#ruleset_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#id FirebaserulesRelease#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#project FirebaserulesRelease#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#timeouts FirebaserulesRelease#timeouts}
+        :param name: Format: ``projects/{project_id}/releases/{release_id}``\\Firestore Rules Releases will **always** have the name 'cloud.firestore'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#name FirebaserulesRelease#name}
+        :param ruleset_name: Name of the ``Ruleset`` referred to by this ``Release``. The ``Ruleset`` must exist for the ``Release`` to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#ruleset_name FirebaserulesRelease#ruleset_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#id FirebaserulesRelease#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#project FirebaserulesRelease#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#timeouts FirebaserulesRelease#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class FirebaserulesRelease(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the FirebaserulesRelease to import.
-        :param import_from_id: The id of the existing FirebaserulesRelease that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing FirebaserulesRelease that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the FirebaserulesRelease to import is found.
         '''
         if __debug__:
@@ -134,8 +134,8 @@ class FirebaserulesRelease(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#create FirebaserulesRelease#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#delete FirebaserulesRelease#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#create FirebaserulesRelease#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#delete FirebaserulesRelease#delete}.
         '''
         value = FirebaserulesReleaseTimeouts(create=create, delete=delete)
 
@@ -305,11 +305,11 @@ class FirebaserulesReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Format: ``projects/{project_id}/releases/{release_id}``\\Firestore Rules Releases will **always** have the name 'cloud.firestore'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#name FirebaserulesRelease#name}
-        :param ruleset_name: Name of the ``Ruleset`` referred to by this ``Release``. The ``Ruleset`` must exist for the ``Release`` to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#ruleset_name FirebaserulesRelease#ruleset_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#id FirebaserulesRelease#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#project FirebaserulesRelease#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#timeouts FirebaserulesRelease#timeouts}
+        :param name: Format: ``projects/{project_id}/releases/{release_id}``\\Firestore Rules Releases will **always** have the name 'cloud.firestore'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#name FirebaserulesRelease#name}
+        :param ruleset_name: Name of the ``Ruleset`` referred to by this ``Release``. The ``Ruleset`` must exist for the ``Release`` to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#ruleset_name FirebaserulesRelease#ruleset_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#id FirebaserulesRelease#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#project FirebaserulesRelease#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#timeouts FirebaserulesRelease#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -422,7 +422,7 @@ class FirebaserulesReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Format: ``projects/{project_id}/releases/{release_id}``\\Firestore Rules Releases will **always** have the name 'cloud.firestore'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#name FirebaserulesRelease#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#name FirebaserulesRelease#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -432,7 +432,7 @@ class FirebaserulesReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ruleset_name(self) -> builtins.str:
         '''Name of the ``Ruleset`` referred to by this ``Release``. The ``Ruleset`` must exist for the ``Release`` to be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#ruleset_name FirebaserulesRelease#ruleset_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#ruleset_name FirebaserulesRelease#ruleset_name}
         '''
         result = self._values.get("ruleset_name")
         assert result is not None, "Required property 'ruleset_name' is missing"
@@ -440,7 +440,7 @@ class FirebaserulesReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#id FirebaserulesRelease#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#id FirebaserulesRelease#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -452,7 +452,7 @@ class FirebaserulesReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''The project for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#project FirebaserulesRelease#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#project FirebaserulesRelease#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -461,7 +461,7 @@ class FirebaserulesReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["FirebaserulesReleaseTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#timeouts FirebaserulesRelease#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#timeouts FirebaserulesRelease#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["FirebaserulesReleaseTimeouts"], result)
@@ -491,8 +491,8 @@ class FirebaserulesReleaseTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#create FirebaserulesRelease#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#delete FirebaserulesRelease#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#create FirebaserulesRelease#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#delete FirebaserulesRelease#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e1ab42138901a49d79f2af3103ecd31fd876fbb0191ba19923fe198b8a6ded59)
@@ -506,13 +506,13 @@ class FirebaserulesReleaseTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#create FirebaserulesRelease#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#create FirebaserulesRelease#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/firebaserules_release#delete FirebaserulesRelease#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/firebaserules_release#delete FirebaserulesRelease#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

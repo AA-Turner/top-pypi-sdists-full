@@ -99,7 +99,7 @@ def clean_repos():
 
 def _get_remote_config(url):
     try:
-        repo = Repo(url)
+        repo = Repo(url, uninitialized=True)
     except NotDvcRepoError:
         return {}
 
@@ -109,10 +109,16 @@ def _get_remote_config(url):
             # Fill the empty upstream entry with a new remote pointing to the
             # original repo's cache location.
             name = "auto-generated-upstream"
-            return {
-                "core": {"remote": name},
-                "remote": {name: {"url": repo.cache.local_cache_dir}},
-            }
+            try:
+                local_cache_dir = repo.cache.local_cache_dir
+            except AttributeError:
+                # if the `.dvc` dir is missing, we get an AttributeError
+                return {}
+            else:
+                return {
+                    "core": {"remote": name},
+                    "remote": {name: {"url": local_cache_dir}},
+                }
 
         # Use original remote to make sure that we are using correct url,
         # credential paths, etc if they are relative to the config location.

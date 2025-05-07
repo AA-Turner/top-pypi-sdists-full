@@ -1,7 +1,7 @@
 r'''
 # `google_compute_project_default_network_tier`
 
-Refer to the Terraform Registry for docs: [`google_compute_project_default_network_tier`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_project_default_network_tier).
+Refer to the Terraform Registry for docs: [`google_compute_project_default_network_tier`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_project_default_network_tier).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeProjectDefaultNetworkTier(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeProjectDefaultNetworkTier.ComputeProjectDefaultNetworkTier",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_project_default_network_tier google_compute_project_default_network_tier}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_project_default_network_tier google_compute_project_default_network_tier}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class ComputeProjectDefaultNetworkTier(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_project_default_network_tier google_compute_project_default_network_tier} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_project_default_network_tier google_compute_project_default_network_tier} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param network_tier: The default network tier to be configured for the project. This field can take the following values: PREMIUM or STANDARD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_project_default_network_tier#network_tier ComputeProjectDefaultNetworkTier#network_tier}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_project_default_network_tier#id ComputeProjectDefaultNetworkTier#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_project_default_network_tier#project ComputeProjectDefaultNetworkTier#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_project_default_network_tier#timeouts ComputeProjectDefaultNetworkTier#timeouts}
+        :param network_tier: The default network tier to be configured for the project. This field can take the following values: PREMIUM or STANDARD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_project_default_network_tier#network_tier ComputeProjectDefaultNetworkTier#network_tier}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_project_default_network_tier#id ComputeProjectDefaultNetworkTier#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_project_default_network_tier#project ComputeProjectDefaultNetworkTier#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_project_default_network_tier#timeouts ComputeProjectDefaultNetworkTier#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class ComputeProjectDefaultNetworkTier(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeProjectDefaultNetworkTier to import.
-        :param import_from_id: The id of the existing ComputeProjectDefaultNetworkTier that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_project_default_network_tier#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeProjectDefaultNetworkTier that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_project_default_network_tier#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeProjectDefaultNetworkTier to import is found.
         '''
         if __debug__:
@@ -126,7 +126,7 @@ class ComputeProjectDefaultNetworkTier(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_project_default_network_tier#create ComputeProjectDefaultNetworkTier#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_project_default_network_tier#create ComputeProjectDefaultNetworkTier#create}.
         '''
         value = ComputeProjectDefaultNetworkTierTimeouts(create=create)
 
@@ -262,10 +262,10 @@ class ComputeProjectDefaultNetworkTierConfig(_cdktf_9a9027ec.TerraformMetaArgume
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param network_tier: The default network tier to be configured for the project. This field can take the following values: PREMIUM or STANDARD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_project_default_network_tier#network_tier ComputeProjectDefaultNetworkTier#network_tier}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_project_default_network_tier#id ComputeProjectDefaultNetworkTier#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_project_default_network_tier#project ComputeProjectDefaultNetworkTier#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_project_default_network_tier#timeouts ComputeProjectDefaultNetworkTier#timeouts}
+        :param network_tier: The default network tier to be configured for the project. This field can take the following values: PREMIUM or STANDARD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_project_default_network_tier#network_tier ComputeProjectDefaultNetworkTier#network_tier}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_project_default_network_tier#id ComputeProjectDefaultNetworkTier#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_project_default_network_tier#project ComputeProjectDefaultNetworkTier#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_project_default_network_tier#timeouts ComputeProjectDefaultNetworkTier#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -378,7 +378,7 @@ class ComputeProjectDefaultNetworkTierConfig(_cdktf_9a9027ec.TerraformMetaArgume
 
         This field can take the following values: PREMIUM or STANDARD.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_project_default_network_tier#network_tier ComputeProjectDefaultNetworkTier#network_tier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_project_default_network_tier#network_tier ComputeProjectDefaultNetworkTier#network_tier}
         '''
         result = self._values.get("network_tier")
         assert result is not None, "Required property 'network_tier' is missing"
@@ -386,7 +386,7 @@ class ComputeProjectDefaultNetworkTierConfig(_cdktf_9a9027ec.TerraformMetaArgume
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_project_default_network_tier#id ComputeProjectDefaultNetworkTier#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_project_default_network_tier#id ComputeProjectDefaultNetworkTier#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -400,7 +400,7 @@ class ComputeProjectDefaultNetworkTierConfig(_cdktf_9a9027ec.TerraformMetaArgume
 
         If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_project_default_network_tier#project ComputeProjectDefaultNetworkTier#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_project_default_network_tier#project ComputeProjectDefaultNetworkTier#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -409,7 +409,7 @@ class ComputeProjectDefaultNetworkTierConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def timeouts(self) -> typing.Optional["ComputeProjectDefaultNetworkTierTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_project_default_network_tier#timeouts ComputeProjectDefaultNetworkTier#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_project_default_network_tier#timeouts ComputeProjectDefaultNetworkTier#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeProjectDefaultNetworkTierTimeouts"], result)
@@ -434,7 +434,7 @@ class ComputeProjectDefaultNetworkTierConfig(_cdktf_9a9027ec.TerraformMetaArgume
 class ComputeProjectDefaultNetworkTierTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_project_default_network_tier#create ComputeProjectDefaultNetworkTier#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_project_default_network_tier#create ComputeProjectDefaultNetworkTier#create}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c33d39da0fd1727d3ce76f8cdc2ed48a7627bf25e3c5fe172cd76c704572d941)
@@ -445,7 +445,7 @@ class ComputeProjectDefaultNetworkTierTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_project_default_network_tier#create ComputeProjectDefaultNetworkTier#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_project_default_network_tier#create ComputeProjectDefaultNetworkTier#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 

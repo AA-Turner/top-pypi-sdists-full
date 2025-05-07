@@ -150,7 +150,7 @@ class CommitmentClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osubsubscription/get_commitment.py.html>`__ to see an example of how to use get_commitment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osubsubscription/get_commitment.py.html>`__ to see an example of how to use get_commitment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['commitmentId']
@@ -278,7 +278,7 @@ class CommitmentClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osubsubscription/list_commitments.py.html>`__ to see an example of how to use list_commitments API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osubsubscription/list_commitments.py.html>`__ to see an example of how to use list_commitments API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscribedServiceId', 'compartmentId']

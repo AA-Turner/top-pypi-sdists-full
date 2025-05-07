@@ -1,7 +1,7 @@
 r'''
 # `google_healthcare_dataset`
 
-Refer to the Terraform Registry for docs: [`google_healthcare_dataset`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset).
+Refer to the Terraform Registry for docs: [`google_healthcare_dataset`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class HealthcareDataset(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.healthcareDataset.HealthcareDataset",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset google_healthcare_dataset}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset google_healthcare_dataset}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class HealthcareDataset(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset google_healthcare_dataset} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset google_healthcare_dataset} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location for the Dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#location HealthcareDataset#location}
-        :param name: The resource name for the Dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#name HealthcareDataset#name}
-        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#encryption_spec HealthcareDataset#encryption_spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#id HealthcareDataset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#project HealthcareDataset#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#timeouts HealthcareDataset#timeouts}
-        :param time_zone: The default timezone used by this dataset. Must be a either a valid IANA time zone name such as "America/New_York" or empty, which defaults to UTC. This is used for parsing times in resources (e.g., HL7 messages) where no explicit timezone is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#time_zone HealthcareDataset#time_zone}
+        :param location: The location for the Dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#location HealthcareDataset#location}
+        :param name: The resource name for the Dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#name HealthcareDataset#name}
+        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#encryption_spec HealthcareDataset#encryption_spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#id HealthcareDataset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#project HealthcareDataset#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#timeouts HealthcareDataset#timeouts}
+        :param time_zone: The default timezone used by this dataset. Must be a either a valid IANA time zone name such as "America/New_York" or empty, which defaults to UTC. This is used for parsing times in resources (e.g., HL7 messages) where no explicit timezone is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#time_zone HealthcareDataset#time_zone}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class HealthcareDataset(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the HealthcareDataset to import.
-        :param import_from_id: The id of the existing HealthcareDataset that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing HealthcareDataset that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the HealthcareDataset to import is found.
         '''
         if __debug__:
@@ -139,7 +139,7 @@ class HealthcareDataset(
         kms_key_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_name: KMS encryption key that is used to secure this dataset and its sub-resources. The key used for encryption and the dataset must be in the same location. If empty, the default Google encryption key will be used to secure this dataset. The format is projects/{projectId}/locations/{locationId}/keyRings/{keyRingId}/cryptoKeys/{keyId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#kms_key_name HealthcareDataset#kms_key_name}
+        :param kms_key_name: KMS encryption key that is used to secure this dataset and its sub-resources. The key used for encryption and the dataset must be in the same location. If empty, the default Google encryption key will be used to secure this dataset. The format is projects/{projectId}/locations/{locationId}/keyRings/{keyRingId}/cryptoKeys/{keyId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#kms_key_name HealthcareDataset#kms_key_name}
         '''
         value = HealthcareDatasetEncryptionSpec(kms_key_name=kms_key_name)
 
@@ -154,9 +154,9 @@ class HealthcareDataset(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#create HealthcareDataset#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#delete HealthcareDataset#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#update HealthcareDataset#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#create HealthcareDataset#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#delete HealthcareDataset#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#update HealthcareDataset#update}.
         '''
         value = HealthcareDatasetTimeouts(create=create, delete=delete, update=update)
 
@@ -357,13 +357,13 @@ class HealthcareDatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location for the Dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#location HealthcareDataset#location}
-        :param name: The resource name for the Dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#name HealthcareDataset#name}
-        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#encryption_spec HealthcareDataset#encryption_spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#id HealthcareDataset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#project HealthcareDataset#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#timeouts HealthcareDataset#timeouts}
-        :param time_zone: The default timezone used by this dataset. Must be a either a valid IANA time zone name such as "America/New_York" or empty, which defaults to UTC. This is used for parsing times in resources (e.g., HL7 messages) where no explicit timezone is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#time_zone HealthcareDataset#time_zone}
+        :param location: The location for the Dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#location HealthcareDataset#location}
+        :param name: The resource name for the Dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#name HealthcareDataset#name}
+        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#encryption_spec HealthcareDataset#encryption_spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#id HealthcareDataset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#project HealthcareDataset#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#timeouts HealthcareDataset#timeouts}
+        :param time_zone: The default timezone used by this dataset. Must be a either a valid IANA time zone name such as "America/New_York" or empty, which defaults to UTC. This is used for parsing times in resources (e.g., HL7 messages) where no explicit timezone is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#time_zone HealthcareDataset#time_zone}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -484,7 +484,7 @@ class HealthcareDatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the Dataset.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#location HealthcareDataset#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#location HealthcareDataset#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -494,7 +494,7 @@ class HealthcareDatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The resource name for the Dataset.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#name HealthcareDataset#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#name HealthcareDataset#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -504,14 +504,14 @@ class HealthcareDatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encryption_spec(self) -> typing.Optional["HealthcareDatasetEncryptionSpec"]:
         '''encryption_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#encryption_spec HealthcareDataset#encryption_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#encryption_spec HealthcareDataset#encryption_spec}
         '''
         result = self._values.get("encryption_spec")
         return typing.cast(typing.Optional["HealthcareDatasetEncryptionSpec"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#id HealthcareDataset#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#id HealthcareDataset#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -521,7 +521,7 @@ class HealthcareDatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#project HealthcareDataset#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#project HealthcareDataset#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -529,7 +529,7 @@ class HealthcareDatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["HealthcareDatasetTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#timeouts HealthcareDataset#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#timeouts HealthcareDataset#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["HealthcareDatasetTimeouts"], result)
@@ -542,7 +542,7 @@ class HealthcareDatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         "America/New_York" or empty, which defaults to UTC. This is used for parsing times in resources
         (e.g., HL7 messages) where no explicit timezone is specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#time_zone HealthcareDataset#time_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#time_zone HealthcareDataset#time_zone}
         '''
         result = self._values.get("time_zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -567,7 +567,7 @@ class HealthcareDatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class HealthcareDatasetEncryptionSpec:
     def __init__(self, *, kms_key_name: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param kms_key_name: KMS encryption key that is used to secure this dataset and its sub-resources. The key used for encryption and the dataset must be in the same location. If empty, the default Google encryption key will be used to secure this dataset. The format is projects/{projectId}/locations/{locationId}/keyRings/{keyRingId}/cryptoKeys/{keyId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#kms_key_name HealthcareDataset#kms_key_name}
+        :param kms_key_name: KMS encryption key that is used to secure this dataset and its sub-resources. The key used for encryption and the dataset must be in the same location. If empty, the default Google encryption key will be used to secure this dataset. The format is projects/{projectId}/locations/{locationId}/keyRings/{keyRingId}/cryptoKeys/{keyId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#kms_key_name HealthcareDataset#kms_key_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__17b1ae6a0fb97a663e584f9794ddb3a2482720c62348ea95870418372adc0bcf)
@@ -585,7 +585,7 @@ class HealthcareDatasetEncryptionSpec:
         key will be used to secure this dataset. The format is
         projects/{projectId}/locations/{locationId}/keyRings/{keyRingId}/cryptoKeys/{keyId}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#kms_key_name HealthcareDataset#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#kms_key_name HealthcareDataset#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -673,9 +673,9 @@ class HealthcareDatasetTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#create HealthcareDataset#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#delete HealthcareDataset#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#update HealthcareDataset#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#create HealthcareDataset#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#delete HealthcareDataset#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#update HealthcareDataset#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3217b42335309c91269d625da42008582d12555784c24a75cb63b68455a8413f)
@@ -692,19 +692,19 @@ class HealthcareDatasetTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#create HealthcareDataset#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#create HealthcareDataset#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#delete HealthcareDataset#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#delete HealthcareDataset#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_dataset#update HealthcareDataset#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_dataset#update HealthcareDataset#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

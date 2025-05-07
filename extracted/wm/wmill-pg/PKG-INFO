@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: wmill-pg
-Version: 1.486.1
+Version: 1.487.0
 Summary: An extension client for the wmill client library focused on pg
 Home-page: https://windmill.dev
 License: Apache-2.0

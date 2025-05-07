@@ -1,7 +1,7 @@
 r'''
 # `google_iap_web_backend_service_iam_binding`
 
-Refer to the Terraform Registry for docs: [`google_iap_web_backend_service_iam_binding`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding).
+Refer to the Terraform Registry for docs: [`google_iap_web_backend_service_iam_binding`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IapWebBackendServiceIamBinding(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.iapWebBackendServiceIamBinding.IapWebBackendServiceIamBinding",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding google_iap_web_backend_service_iam_binding}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding google_iap_web_backend_service_iam_binding}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class IapWebBackendServiceIamBinding(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding google_iap_web_backend_service_iam_binding} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding google_iap_web_backend_service_iam_binding} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#members IapWebBackendServiceIamBinding#members}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#role IapWebBackendServiceIamBinding#role}.
-        :param web_backend_service: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#web_backend_service IapWebBackendServiceIamBinding#web_backend_service}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#condition IapWebBackendServiceIamBinding#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#id IapWebBackendServiceIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#project IapWebBackendServiceIamBinding#project}.
+        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#members IapWebBackendServiceIamBinding#members}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#role IapWebBackendServiceIamBinding#role}.
+        :param web_backend_service: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#web_backend_service IapWebBackendServiceIamBinding#web_backend_service}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#condition IapWebBackendServiceIamBinding#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#id IapWebBackendServiceIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#project IapWebBackendServiceIamBinding#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class IapWebBackendServiceIamBinding(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IapWebBackendServiceIamBinding to import.
-        :param import_from_id: The id of the existing IapWebBackendServiceIamBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IapWebBackendServiceIamBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IapWebBackendServiceIamBinding to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class IapWebBackendServiceIamBinding(
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#expression IapWebBackendServiceIamBinding#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#title IapWebBackendServiceIamBinding#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#description IapWebBackendServiceIamBinding#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#expression IapWebBackendServiceIamBinding#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#title IapWebBackendServiceIamBinding#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#description IapWebBackendServiceIamBinding#description}.
         '''
         value = IapWebBackendServiceIamBindingCondition(
             expression=expression, title=title, description=description
@@ -294,9 +294,9 @@ class IapWebBackendServiceIamBindingCondition:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#expression IapWebBackendServiceIamBinding#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#title IapWebBackendServiceIamBinding#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#description IapWebBackendServiceIamBinding#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#expression IapWebBackendServiceIamBinding#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#title IapWebBackendServiceIamBinding#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#description IapWebBackendServiceIamBinding#description}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f909d331f1056321a8803bc2ecb3c3fb9911c47c1679497a1a9c8f8a7cae58b3)
@@ -312,21 +312,21 @@ class IapWebBackendServiceIamBindingCondition:
 
     @builtins.property
     def expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#expression IapWebBackendServiceIamBinding#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#expression IapWebBackendServiceIamBinding#expression}.'''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#title IapWebBackendServiceIamBinding#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#title IapWebBackendServiceIamBinding#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#description IapWebBackendServiceIamBinding#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#description IapWebBackendServiceIamBinding#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -480,12 +480,12 @@ class IapWebBackendServiceIamBindingConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#members IapWebBackendServiceIamBinding#members}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#role IapWebBackendServiceIamBinding#role}.
-        :param web_backend_service: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#web_backend_service IapWebBackendServiceIamBinding#web_backend_service}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#condition IapWebBackendServiceIamBinding#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#id IapWebBackendServiceIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#project IapWebBackendServiceIamBinding#project}.
+        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#members IapWebBackendServiceIamBinding#members}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#role IapWebBackendServiceIamBinding#role}.
+        :param web_backend_service: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#web_backend_service IapWebBackendServiceIamBinding#web_backend_service}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#condition IapWebBackendServiceIamBinding#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#id IapWebBackendServiceIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#project IapWebBackendServiceIamBinding#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -598,21 +598,21 @@ class IapWebBackendServiceIamBindingConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def members(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#members IapWebBackendServiceIamBinding#members}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#members IapWebBackendServiceIamBinding#members}.'''
         result = self._values.get("members")
         assert result is not None, "Required property 'members' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#role IapWebBackendServiceIamBinding#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#role IapWebBackendServiceIamBinding#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def web_backend_service(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#web_backend_service IapWebBackendServiceIamBinding#web_backend_service}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#web_backend_service IapWebBackendServiceIamBinding#web_backend_service}.'''
         result = self._values.get("web_backend_service")
         assert result is not None, "Required property 'web_backend_service' is missing"
         return typing.cast(builtins.str, result)
@@ -621,14 +621,14 @@ class IapWebBackendServiceIamBindingConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def condition(self) -> typing.Optional[IapWebBackendServiceIamBindingCondition]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#condition IapWebBackendServiceIamBinding#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#condition IapWebBackendServiceIamBinding#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[IapWebBackendServiceIamBindingCondition], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#id IapWebBackendServiceIamBinding#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#id IapWebBackendServiceIamBinding#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -638,7 +638,7 @@ class IapWebBackendServiceIamBindingConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_web_backend_service_iam_binding#project IapWebBackendServiceIamBinding#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_web_backend_service_iam_binding#project IapWebBackendServiceIamBinding#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

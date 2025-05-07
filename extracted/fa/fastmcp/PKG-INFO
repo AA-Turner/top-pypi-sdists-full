@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastmcp
-Version: 2.2.8
+Version: 2.2.10
 Summary: The fast, Pythonic way to build MCP servers.
 Project-URL: Homepage, https://gofastmcp.com
 Project-URL: Repository, https://github.com/jlowin/fastmcp
@@ -378,6 +378,10 @@ FastMCP has a comprehensive unit test suite. All PRs must introduce or update te
 Run tests using pytest:
 ```bash
 pytest
+```
+or if you want an overview of the code coverage
+```bash
+uv run pytest --cov=src --cov=examples --cov-report=html
 ```
 
 ### Static Checks

@@ -1,7 +1,7 @@
 r'''
 # `google_privateca_certificate_template_iam_policy`
 
-Refer to the Terraform Registry for docs: [`google_privateca_certificate_template_iam_policy`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_certificate_template_iam_policy).
+Refer to the Terraform Registry for docs: [`google_privateca_certificate_template_iam_policy`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_certificate_template_iam_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class PrivatecaCertificateTemplateIamPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.privatecaCertificateTemplateIamPolicy.PrivatecaCertificateTemplateIamPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_certificate_template_iam_policy google_privateca_certificate_template_iam_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_certificate_template_iam_policy google_privateca_certificate_template_iam_policy}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class PrivatecaCertificateTemplateIamPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_certificate_template_iam_policy google_privateca_certificate_template_iam_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_certificate_template_iam_policy google_privateca_certificate_template_iam_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param certificate_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_certificate_template_iam_policy#certificate_template PrivatecaCertificateTemplateIamPolicy#certificate_template}.
-        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_certificate_template_iam_policy#policy_data PrivatecaCertificateTemplateIamPolicy#policy_data}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_certificate_template_iam_policy#id PrivatecaCertificateTemplateIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_certificate_template_iam_policy#location PrivatecaCertificateTemplateIamPolicy#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_certificate_template_iam_policy#project PrivatecaCertificateTemplateIamPolicy#project}.
+        :param certificate_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_certificate_template_iam_policy#certificate_template PrivatecaCertificateTemplateIamPolicy#certificate_template}.
+        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_certificate_template_iam_policy#policy_data PrivatecaCertificateTemplateIamPolicy#policy_data}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_certificate_template_iam_policy#id PrivatecaCertificateTemplateIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_certificate_template_iam_policy#location PrivatecaCertificateTemplateIamPolicy#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_certificate_template_iam_policy#project PrivatecaCertificateTemplateIamPolicy#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class PrivatecaCertificateTemplateIamPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the PrivatecaCertificateTemplateIamPolicy to import.
-        :param import_from_id: The id of the existing PrivatecaCertificateTemplateIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_certificate_template_iam_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing PrivatecaCertificateTemplateIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_certificate_template_iam_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the PrivatecaCertificateTemplateIamPolicy to import is found.
         '''
         if __debug__:
@@ -287,11 +287,11 @@ class PrivatecaCertificateTemplateIamPolicyConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param certificate_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_certificate_template_iam_policy#certificate_template PrivatecaCertificateTemplateIamPolicy#certificate_template}.
-        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_certificate_template_iam_policy#policy_data PrivatecaCertificateTemplateIamPolicy#policy_data}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_certificate_template_iam_policy#id PrivatecaCertificateTemplateIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_certificate_template_iam_policy#location PrivatecaCertificateTemplateIamPolicy#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_certificate_template_iam_policy#project PrivatecaCertificateTemplateIamPolicy#project}.
+        :param certificate_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_certificate_template_iam_policy#certificate_template PrivatecaCertificateTemplateIamPolicy#certificate_template}.
+        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_certificate_template_iam_policy#policy_data PrivatecaCertificateTemplateIamPolicy#policy_data}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_certificate_template_iam_policy#id PrivatecaCertificateTemplateIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_certificate_template_iam_policy#location PrivatecaCertificateTemplateIamPolicy#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_certificate_template_iam_policy#project PrivatecaCertificateTemplateIamPolicy#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -400,21 +400,21 @@ class PrivatecaCertificateTemplateIamPolicyConfig(
 
     @builtins.property
     def certificate_template(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_certificate_template_iam_policy#certificate_template PrivatecaCertificateTemplateIamPolicy#certificate_template}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_certificate_template_iam_policy#certificate_template PrivatecaCertificateTemplateIamPolicy#certificate_template}.'''
         result = self._values.get("certificate_template")
         assert result is not None, "Required property 'certificate_template' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def policy_data(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_certificate_template_iam_policy#policy_data PrivatecaCertificateTemplateIamPolicy#policy_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_certificate_template_iam_policy#policy_data PrivatecaCertificateTemplateIamPolicy#policy_data}.'''
         result = self._values.get("policy_data")
         assert result is not None, "Required property 'policy_data' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_certificate_template_iam_policy#id PrivatecaCertificateTemplateIamPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_certificate_template_iam_policy#id PrivatecaCertificateTemplateIamPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -424,13 +424,13 @@ class PrivatecaCertificateTemplateIamPolicyConfig(
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_certificate_template_iam_policy#location PrivatecaCertificateTemplateIamPolicy#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_certificate_template_iam_policy#location PrivatecaCertificateTemplateIamPolicy#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_certificate_template_iam_policy#project PrivatecaCertificateTemplateIamPolicy#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_certificate_template_iam_policy#project PrivatecaCertificateTemplateIamPolicy#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

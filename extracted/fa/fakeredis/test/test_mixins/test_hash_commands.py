@@ -3,12 +3,6 @@ import redis
 import redis.client
 
 from test import testtools
-from test.testtools import raw_command
-
-
-@pytest.mark.min_server("7.4")
-def test_hexpire_empty_key(r: redis.Redis):
-    raw_command(r, "hexpire", b"", 2055010579, "fields", 2, b"\x89U\x04", b"6\x86\xf4\xdd")
 
 
 def test_hstrlen_missing(r: redis.Redis):
@@ -249,6 +243,26 @@ def test_hset_removing_last_field_delete_key(r: redis.Redis):
     r.hset(b"3L", b"f1", b"v1")
     r.hdel(b"3L", b"f1")
     assert r.keys("*") == []
+
+
+@pytest.mark.min_server("7.4")
+@testtools.run_test_if_redispy_ver("gte", "5")
+def test_hscan_no_values(r: redis.Redis):
+    name = "hscan-test"
+    for ix in range(20):
+        k = "key:%s" % ix
+        v = "result:%s" % ix
+        r.hset(name, k, v)
+    expected = r.hgetall(name)
+    assert len(expected) == 20  # Ensure we know what we're testing
+
+    # Test that we page through the results and get everything out
+    results = set()
+    cursor = "0"
+    while cursor != 0:
+        cursor, data = r.hscan(name, cursor, count=6, no_values=True)
+        results.update(data)
+    assert results == set(expected.keys())
 
 
 def test_hscan(r: redis.Redis):

@@ -59,7 +59,7 @@ installer = 'uv'
 
 [tool.hatch.envs.default.scripts]
 all = [
-    'hatch test --cover --all',
+    'hatch test --all',
     'hatch run qa:qa',
     'hatch run docs:docs',
 ]
@@ -68,6 +68,7 @@ all = [
 default-args = ['tests', 'docs']
 extra-dependencies = [
     'diff-cover',
+    'importlib_resources >= 5.10; python_version < "3.12"',
     'sybil',
 ]
 
@@ -83,8 +84,12 @@ run-cov = 'hatch test'
 cov-combine = ''
 cov-report = ''
 
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+
 [tool.hatch.envs.qa]
 dependencies = [
+    'ruff',
     'mypy',
 ]
 
@@ -129,7 +134,10 @@ exclude_also = [
 ]
 
 [tool.ruff]
-line-length = 79
+exclude = [
+    'docs/popall_example.py',
+]
+line-length = 100
 src = ['src']
 
 [tool.ruff.lint.extend-per-file-ignores]
@@ -145,6 +153,9 @@ src = ['src']
     'E',
     'I',
     'UP',
+]
+'docs/_ext/**.py' = [
+    'INP001',
 ]
 'src/public/**.py' = [
     'TID',                      # Allow relative imports
@@ -162,11 +173,12 @@ convention = 'pep257'
 
 [tool.ruff.lint.isort]
 case-sensitive = true
+forced-separate = ['docutils', 'sphinx']
 length-sort-straight = true
 lines-after-imports = 2
 lines-between-types = 1
 order-by-type = true
-section-order = ['standard-library', 'third-party', 'first-party']
+section-order = ['standard-library', 'third-party', 'local-folder', 'first-party']
 
 [tool.mypy]
 mypy_path = 'src'

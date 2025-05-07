@@ -1,7 +1,7 @@
 r'''
 # `google_transcoder_job`
 
-Refer to the Terraform Registry for docs: [`google_transcoder_job`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job).
+Refer to the Terraform Registry for docs: [`google_transcoder_job`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TranscoderJob(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.transcoderJob.TranscoderJob",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job google_transcoder_job}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job google_transcoder_job}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class TranscoderJob(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job google_transcoder_job} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job google_transcoder_job} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location of the transcoding job resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#location TranscoderJob#location}
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#config TranscoderJob#config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#id TranscoderJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: The labels associated with this job. You can use these to organize and group your jobs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#labels TranscoderJob#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#project TranscoderJob#project}.
-        :param template_id: Specify the templateId to use for populating Job.config. The default is preset/web-hd, which is the only supported preset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#template_id TranscoderJob#template_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#timeouts TranscoderJob#timeouts}
+        :param location: The location of the transcoding job resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#location TranscoderJob#location}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#config TranscoderJob#config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#id TranscoderJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: The labels associated with this job. You can use these to organize and group your jobs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#labels TranscoderJob#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#project TranscoderJob#project}.
+        :param template_id: Specify the templateId to use for populating Job.config. The default is preset/web-hd, which is the only supported preset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#template_id TranscoderJob#template_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#timeouts TranscoderJob#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class TranscoderJob(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TranscoderJob to import.
-        :param import_from_id: The id of the existing TranscoderJob that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TranscoderJob that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TranscoderJob to import is found.
         '''
         if __debug__:
@@ -148,16 +148,16 @@ class TranscoderJob(
         pubsub_destination: typing.Optional[typing.Union["TranscoderJobConfigPubsubDestination", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param ad_breaks: ad_breaks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#ad_breaks TranscoderJob#ad_breaks}
-        :param edit_list: edit_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#edit_list TranscoderJob#edit_list}
-        :param elementary_streams: elementary_streams block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#elementary_streams TranscoderJob#elementary_streams}
-        :param encryptions: encryptions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#encryptions TranscoderJob#encryptions}
-        :param inputs: inputs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#inputs TranscoderJob#inputs}
-        :param manifests: manifests block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#manifests TranscoderJob#manifests}
-        :param mux_streams: mux_streams block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#mux_streams TranscoderJob#mux_streams}
-        :param output: output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#output TranscoderJob#output}
-        :param overlays: overlays block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#overlays TranscoderJob#overlays}
-        :param pubsub_destination: pubsub_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#pubsub_destination TranscoderJob#pubsub_destination}
+        :param ad_breaks: ad_breaks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#ad_breaks TranscoderJob#ad_breaks}
+        :param edit_list: edit_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#edit_list TranscoderJob#edit_list}
+        :param elementary_streams: elementary_streams block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#elementary_streams TranscoderJob#elementary_streams}
+        :param encryptions: encryptions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#encryptions TranscoderJob#encryptions}
+        :param inputs: inputs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#inputs TranscoderJob#inputs}
+        :param manifests: manifests block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#manifests TranscoderJob#manifests}
+        :param mux_streams: mux_streams block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#mux_streams TranscoderJob#mux_streams}
+        :param output: output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#output TranscoderJob#output}
+        :param overlays: overlays block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#overlays TranscoderJob#overlays}
+        :param pubsub_destination: pubsub_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#pubsub_destination TranscoderJob#pubsub_destination}
         '''
         value = TranscoderJobConfigA(
             ad_breaks=ad_breaks,
@@ -183,9 +183,9 @@ class TranscoderJob(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#create TranscoderJob#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#delete TranscoderJob#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#update TranscoderJob#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#create TranscoderJob#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#delete TranscoderJob#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#update TranscoderJob#update}.
         '''
         value = TranscoderJobTimeouts(create=create, delete=delete, update=update)
 
@@ -420,13 +420,13 @@ class TranscoderJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location of the transcoding job resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#location TranscoderJob#location}
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#config TranscoderJob#config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#id TranscoderJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: The labels associated with this job. You can use these to organize and group your jobs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#labels TranscoderJob#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#project TranscoderJob#project}.
-        :param template_id: Specify the templateId to use for populating Job.config. The default is preset/web-hd, which is the only supported preset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#template_id TranscoderJob#template_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#timeouts TranscoderJob#timeouts}
+        :param location: The location of the transcoding job resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#location TranscoderJob#location}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#config TranscoderJob#config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#id TranscoderJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: The labels associated with this job. You can use these to organize and group your jobs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#labels TranscoderJob#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#project TranscoderJob#project}.
+        :param template_id: Specify the templateId to use for populating Job.config. The default is preset/web-hd, which is the only supported preset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#template_id TranscoderJob#template_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#timeouts TranscoderJob#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -548,7 +548,7 @@ class TranscoderJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location of the transcoding job resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#location TranscoderJob#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#location TranscoderJob#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -558,14 +558,14 @@ class TranscoderJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def config(self) -> typing.Optional["TranscoderJobConfigA"]:
         '''config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#config TranscoderJob#config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#config TranscoderJob#config}
         '''
         result = self._values.get("config")
         return typing.cast(typing.Optional["TranscoderJobConfigA"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#id TranscoderJob#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#id TranscoderJob#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -580,14 +580,14 @@ class TranscoderJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#labels TranscoderJob#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#labels TranscoderJob#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#project TranscoderJob#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#project TranscoderJob#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -595,7 +595,7 @@ class TranscoderJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def template_id(self) -> typing.Optional[builtins.str]:
         '''Specify the templateId to use for populating Job.config. The default is preset/web-hd, which is the only supported preset.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#template_id TranscoderJob#template_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#template_id TranscoderJob#template_id}
         '''
         result = self._values.get("template_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -604,7 +604,7 @@ class TranscoderJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["TranscoderJobTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#timeouts TranscoderJob#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#timeouts TranscoderJob#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["TranscoderJobTimeouts"], result)
@@ -653,16 +653,16 @@ class TranscoderJobConfigA:
         pubsub_destination: typing.Optional[typing.Union["TranscoderJobConfigPubsubDestination", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param ad_breaks: ad_breaks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#ad_breaks TranscoderJob#ad_breaks}
-        :param edit_list: edit_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#edit_list TranscoderJob#edit_list}
-        :param elementary_streams: elementary_streams block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#elementary_streams TranscoderJob#elementary_streams}
-        :param encryptions: encryptions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#encryptions TranscoderJob#encryptions}
-        :param inputs: inputs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#inputs TranscoderJob#inputs}
-        :param manifests: manifests block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#manifests TranscoderJob#manifests}
-        :param mux_streams: mux_streams block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#mux_streams TranscoderJob#mux_streams}
-        :param output: output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#output TranscoderJob#output}
-        :param overlays: overlays block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#overlays TranscoderJob#overlays}
-        :param pubsub_destination: pubsub_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#pubsub_destination TranscoderJob#pubsub_destination}
+        :param ad_breaks: ad_breaks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#ad_breaks TranscoderJob#ad_breaks}
+        :param edit_list: edit_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#edit_list TranscoderJob#edit_list}
+        :param elementary_streams: elementary_streams block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#elementary_streams TranscoderJob#elementary_streams}
+        :param encryptions: encryptions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#encryptions TranscoderJob#encryptions}
+        :param inputs: inputs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#inputs TranscoderJob#inputs}
+        :param manifests: manifests block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#manifests TranscoderJob#manifests}
+        :param mux_streams: mux_streams block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#mux_streams TranscoderJob#mux_streams}
+        :param output: output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#output TranscoderJob#output}
+        :param overlays: overlays block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#overlays TranscoderJob#overlays}
+        :param pubsub_destination: pubsub_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#pubsub_destination TranscoderJob#pubsub_destination}
         '''
         if isinstance(output, dict):
             output = TranscoderJobConfigOutput(**output)
@@ -708,7 +708,7 @@ class TranscoderJobConfigA:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TranscoderJobConfigAdBreaks"]]]:
         '''ad_breaks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#ad_breaks TranscoderJob#ad_breaks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#ad_breaks TranscoderJob#ad_breaks}
         '''
         result = self._values.get("ad_breaks")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TranscoderJobConfigAdBreaks"]]], result)
@@ -719,7 +719,7 @@ class TranscoderJobConfigA:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TranscoderJobConfigEditListStruct"]]]:
         '''edit_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#edit_list TranscoderJob#edit_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#edit_list TranscoderJob#edit_list}
         '''
         result = self._values.get("edit_list")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TranscoderJobConfigEditListStruct"]]], result)
@@ -730,7 +730,7 @@ class TranscoderJobConfigA:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TranscoderJobConfigElementaryStreams"]]]:
         '''elementary_streams block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#elementary_streams TranscoderJob#elementary_streams}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#elementary_streams TranscoderJob#elementary_streams}
         '''
         result = self._values.get("elementary_streams")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TranscoderJobConfigElementaryStreams"]]], result)
@@ -741,7 +741,7 @@ class TranscoderJobConfigA:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TranscoderJobConfigEncryptions"]]]:
         '''encryptions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#encryptions TranscoderJob#encryptions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#encryptions TranscoderJob#encryptions}
         '''
         result = self._values.get("encryptions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TranscoderJobConfigEncryptions"]]], result)
@@ -752,7 +752,7 @@ class TranscoderJobConfigA:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TranscoderJobConfigInputs"]]]:
         '''inputs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#inputs TranscoderJob#inputs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#inputs TranscoderJob#inputs}
         '''
         result = self._values.get("inputs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TranscoderJobConfigInputs"]]], result)
@@ -763,7 +763,7 @@ class TranscoderJobConfigA:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TranscoderJobConfigManifests"]]]:
         '''manifests block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#manifests TranscoderJob#manifests}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#manifests TranscoderJob#manifests}
         '''
         result = self._values.get("manifests")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TranscoderJobConfigManifests"]]], result)
@@ -774,7 +774,7 @@ class TranscoderJobConfigA:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TranscoderJobConfigMuxStreams"]]]:
         '''mux_streams block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#mux_streams TranscoderJob#mux_streams}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#mux_streams TranscoderJob#mux_streams}
         '''
         result = self._values.get("mux_streams")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TranscoderJobConfigMuxStreams"]]], result)
@@ -783,7 +783,7 @@ class TranscoderJobConfigA:
     def output(self) -> typing.Optional["TranscoderJobConfigOutput"]:
         '''output block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#output TranscoderJob#output}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#output TranscoderJob#output}
         '''
         result = self._values.get("output")
         return typing.cast(typing.Optional["TranscoderJobConfigOutput"], result)
@@ -794,7 +794,7 @@ class TranscoderJobConfigA:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TranscoderJobConfigOverlays"]]]:
         '''overlays block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#overlays TranscoderJob#overlays}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#overlays TranscoderJob#overlays}
         '''
         result = self._values.get("overlays")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TranscoderJobConfigOverlays"]]], result)
@@ -805,7 +805,7 @@ class TranscoderJobConfigA:
     ) -> typing.Optional["TranscoderJobConfigPubsubDestination"]:
         '''pubsub_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#pubsub_destination TranscoderJob#pubsub_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#pubsub_destination TranscoderJob#pubsub_destination}
         '''
         result = self._values.get("pubsub_destination")
         return typing.cast(typing.Optional["TranscoderJobConfigPubsubDestination"], result)
@@ -936,7 +936,7 @@ class TranscoderJobConfigAOutputReference(
     @jsii.member(jsii_name="putOutput")
     def put_output(self, *, uri: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param uri: URI for the output file(s). For example, gs://my-bucket/outputs/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#uri TranscoderJob#uri}
+        :param uri: URI for the output file(s). For example, gs://my-bucket/outputs/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#uri TranscoderJob#uri}
         '''
         value = TranscoderJobConfigOutput(uri=uri)
 
@@ -962,7 +962,7 @@ class TranscoderJobConfigAOutputReference(
         topic: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param topic: The name of the Pub/Sub topic to publish job completion notification to. For example: projects/{project}/topics/{topic}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#topic TranscoderJob#topic}
+        :param topic: The name of the Pub/Sub topic to publish job completion notification to. For example: projects/{project}/topics/{topic}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#topic TranscoderJob#topic}
         '''
         value = TranscoderJobConfigPubsubDestination(topic=topic)
 
@@ -1153,7 +1153,7 @@ class TranscoderJobConfigAdBreaks:
         start_time_offset: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param start_time_offset: Start time in seconds for the ad break, relative to the output file timeline. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#start_time_offset TranscoderJob#start_time_offset}
+        :param start_time_offset: Start time in seconds for the ad break, relative to the output file timeline. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#start_time_offset TranscoderJob#start_time_offset}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9db96242575cf0088869fdafaa12e61d5f9e83462f6cac51bb94a439e134c055)
@@ -1166,7 +1166,7 @@ class TranscoderJobConfigAdBreaks:
     def start_time_offset(self) -> typing.Optional[builtins.str]:
         '''Start time in seconds for the ad break, relative to the output file timeline.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#start_time_offset TranscoderJob#start_time_offset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#start_time_offset TranscoderJob#start_time_offset}
         '''
         result = self._values.get("start_time_offset")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1356,9 +1356,9 @@ class TranscoderJobConfigEditListStruct:
         start_time_offset: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param inputs: List of values identifying files that should be used in this atom. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#inputs TranscoderJob#inputs}
-        :param key: A unique key for this atom. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#key TranscoderJob#key}
-        :param start_time_offset: Start time in seconds for the atom, relative to the input file timeline. The default is '0s'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#start_time_offset TranscoderJob#start_time_offset}
+        :param inputs: List of values identifying files that should be used in this atom. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#inputs TranscoderJob#inputs}
+        :param key: A unique key for this atom. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#key TranscoderJob#key}
+        :param start_time_offset: Start time in seconds for the atom, relative to the input file timeline. The default is '0s'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#start_time_offset TranscoderJob#start_time_offset}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8209f79b6eb1e46e51fdeafa3cf13a8a46aa839bdd6c0c54554e6c9b418ab43f)
@@ -1377,7 +1377,7 @@ class TranscoderJobConfigEditListStruct:
     def inputs(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of values identifying files that should be used in this atom.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#inputs TranscoderJob#inputs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#inputs TranscoderJob#inputs}
         '''
         result = self._values.get("inputs")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1386,7 +1386,7 @@ class TranscoderJobConfigEditListStruct:
     def key(self) -> typing.Optional[builtins.str]:
         '''A unique key for this atom.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#key TranscoderJob#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#key TranscoderJob#key}
         '''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1395,7 +1395,7 @@ class TranscoderJobConfigEditListStruct:
     def start_time_offset(self) -> typing.Optional[builtins.str]:
         '''Start time in seconds for the atom, relative to the input file timeline. The default is '0s'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#start_time_offset TranscoderJob#start_time_offset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#start_time_offset TranscoderJob#start_time_offset}
         '''
         result = self._values.get("start_time_offset")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1630,9 +1630,9 @@ class TranscoderJobConfigElementaryStreams:
         video_stream: typing.Optional[typing.Union["TranscoderJobConfigElementaryStreamsVideoStream", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param audio_stream: audio_stream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#audio_stream TranscoderJob#audio_stream}
-        :param key: A unique key for this atom. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#key TranscoderJob#key}
-        :param video_stream: video_stream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#video_stream TranscoderJob#video_stream}
+        :param audio_stream: audio_stream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#audio_stream TranscoderJob#audio_stream}
+        :param key: A unique key for this atom. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#key TranscoderJob#key}
+        :param video_stream: video_stream block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#video_stream TranscoderJob#video_stream}
         '''
         if isinstance(audio_stream, dict):
             audio_stream = TranscoderJobConfigElementaryStreamsAudioStream(**audio_stream)
@@ -1657,7 +1657,7 @@ class TranscoderJobConfigElementaryStreams:
     ) -> typing.Optional["TranscoderJobConfigElementaryStreamsAudioStream"]:
         '''audio_stream block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#audio_stream TranscoderJob#audio_stream}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#audio_stream TranscoderJob#audio_stream}
         '''
         result = self._values.get("audio_stream")
         return typing.cast(typing.Optional["TranscoderJobConfigElementaryStreamsAudioStream"], result)
@@ -1666,7 +1666,7 @@ class TranscoderJobConfigElementaryStreams:
     def key(self) -> typing.Optional[builtins.str]:
         '''A unique key for this atom.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#key TranscoderJob#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#key TranscoderJob#key}
         '''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1677,7 +1677,7 @@ class TranscoderJobConfigElementaryStreams:
     ) -> typing.Optional["TranscoderJobConfigElementaryStreamsVideoStream"]:
         '''video_stream block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#video_stream TranscoderJob#video_stream}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#video_stream TranscoderJob#video_stream}
         '''
         result = self._values.get("video_stream")
         return typing.cast(typing.Optional["TranscoderJobConfigElementaryStreamsVideoStream"], result)
@@ -1716,11 +1716,11 @@ class TranscoderJobConfigElementaryStreamsAudioStream:
         sample_rate_hertz: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bitrate_bps: Audio bitrate in bits per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#bitrate_bps TranscoderJob#bitrate_bps}
-        :param channel_count: Number of audio channels. The default is '2'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#channel_count TranscoderJob#channel_count}
-        :param channel_layout: A list of channel names specifying layout of the audio channels. The default is ["fl", "fr"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#channel_layout TranscoderJob#channel_layout}
-        :param codec: The codec for this audio stream. The default is 'aac'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#codec TranscoderJob#codec}
-        :param sample_rate_hertz: The audio sample rate in Hertz. The default is '48000'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#sample_rate_hertz TranscoderJob#sample_rate_hertz}
+        :param bitrate_bps: Audio bitrate in bits per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#bitrate_bps TranscoderJob#bitrate_bps}
+        :param channel_count: Number of audio channels. The default is '2'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#channel_count TranscoderJob#channel_count}
+        :param channel_layout: A list of channel names specifying layout of the audio channels. The default is ["fl", "fr"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#channel_layout TranscoderJob#channel_layout}
+        :param codec: The codec for this audio stream. The default is 'aac'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#codec TranscoderJob#codec}
+        :param sample_rate_hertz: The audio sample rate in Hertz. The default is '48000'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#sample_rate_hertz TranscoderJob#sample_rate_hertz}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f1ba5830564d2e0063e71526b5a30684961c0ce6e00ca2ae053170ed8757ffb)
@@ -1745,7 +1745,7 @@ class TranscoderJobConfigElementaryStreamsAudioStream:
     def bitrate_bps(self) -> jsii.Number:
         '''Audio bitrate in bits per second.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#bitrate_bps TranscoderJob#bitrate_bps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#bitrate_bps TranscoderJob#bitrate_bps}
         '''
         result = self._values.get("bitrate_bps")
         assert result is not None, "Required property 'bitrate_bps' is missing"
@@ -1755,7 +1755,7 @@ class TranscoderJobConfigElementaryStreamsAudioStream:
     def channel_count(self) -> typing.Optional[jsii.Number]:
         '''Number of audio channels. The default is '2'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#channel_count TranscoderJob#channel_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#channel_count TranscoderJob#channel_count}
         '''
         result = self._values.get("channel_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1764,7 +1764,7 @@ class TranscoderJobConfigElementaryStreamsAudioStream:
     def channel_layout(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of channel names specifying layout of the audio channels. The default is ["fl", "fr"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#channel_layout TranscoderJob#channel_layout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#channel_layout TranscoderJob#channel_layout}
         '''
         result = self._values.get("channel_layout")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1773,7 +1773,7 @@ class TranscoderJobConfigElementaryStreamsAudioStream:
     def codec(self) -> typing.Optional[builtins.str]:
         '''The codec for this audio stream. The default is 'aac'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#codec TranscoderJob#codec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#codec TranscoderJob#codec}
         '''
         result = self._values.get("codec")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1782,7 +1782,7 @@ class TranscoderJobConfigElementaryStreamsAudioStream:
     def sample_rate_hertz(self) -> typing.Optional[jsii.Number]:
         '''The audio sample rate in Hertz. The default is '48000'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#sample_rate_hertz TranscoderJob#sample_rate_hertz}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#sample_rate_hertz TranscoderJob#sample_rate_hertz}
         '''
         result = self._values.get("sample_rate_hertz")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2068,11 +2068,11 @@ class TranscoderJobConfigElementaryStreamsOutputReference(
         sample_rate_hertz: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bitrate_bps: Audio bitrate in bits per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#bitrate_bps TranscoderJob#bitrate_bps}
-        :param channel_count: Number of audio channels. The default is '2'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#channel_count TranscoderJob#channel_count}
-        :param channel_layout: A list of channel names specifying layout of the audio channels. The default is ["fl", "fr"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#channel_layout TranscoderJob#channel_layout}
-        :param codec: The codec for this audio stream. The default is 'aac'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#codec TranscoderJob#codec}
-        :param sample_rate_hertz: The audio sample rate in Hertz. The default is '48000'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#sample_rate_hertz TranscoderJob#sample_rate_hertz}
+        :param bitrate_bps: Audio bitrate in bits per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#bitrate_bps TranscoderJob#bitrate_bps}
+        :param channel_count: Number of audio channels. The default is '2'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#channel_count TranscoderJob#channel_count}
+        :param channel_layout: A list of channel names specifying layout of the audio channels. The default is ["fl", "fr"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#channel_layout TranscoderJob#channel_layout}
+        :param codec: The codec for this audio stream. The default is 'aac'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#codec TranscoderJob#codec}
+        :param sample_rate_hertz: The audio sample rate in Hertz. The default is '48000'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#sample_rate_hertz TranscoderJob#sample_rate_hertz}
         '''
         value = TranscoderJobConfigElementaryStreamsAudioStream(
             bitrate_bps=bitrate_bps,
@@ -2091,7 +2091,7 @@ class TranscoderJobConfigElementaryStreamsOutputReference(
         h264: typing.Optional[typing.Union["TranscoderJobConfigElementaryStreamsVideoStreamH264", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param h264: h264 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#h264 TranscoderJob#h264}
+        :param h264: h264 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#h264 TranscoderJob#h264}
         '''
         value = TranscoderJobConfigElementaryStreamsVideoStream(h264=h264)
 
@@ -2184,7 +2184,7 @@ class TranscoderJobConfigElementaryStreamsVideoStream:
         h264: typing.Optional[typing.Union["TranscoderJobConfigElementaryStreamsVideoStreamH264", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param h264: h264 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#h264 TranscoderJob#h264}
+        :param h264: h264 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#h264 TranscoderJob#h264}
         '''
         if isinstance(h264, dict):
             h264 = TranscoderJobConfigElementaryStreamsVideoStreamH264(**h264)
@@ -2201,7 +2201,7 @@ class TranscoderJobConfigElementaryStreamsVideoStream:
     ) -> typing.Optional["TranscoderJobConfigElementaryStreamsVideoStreamH264"]:
         '''h264 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#h264 TranscoderJob#h264}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#h264 TranscoderJob#h264}
         '''
         result = self._values.get("h264")
         return typing.cast(typing.Optional["TranscoderJobConfigElementaryStreamsVideoStreamH264"], result)
@@ -2260,21 +2260,21 @@ class TranscoderJobConfigElementaryStreamsVideoStreamH264:
         width_pixels: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bitrate_bps: The video bitrate in bits per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#bitrate_bps TranscoderJob#bitrate_bps}
-        :param frame_rate: The target video frame rate in frames per second (FPS). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#frame_rate TranscoderJob#frame_rate}
-        :param crf_level: Target CRF level. The default is '21'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#crf_level TranscoderJob#crf_level}
-        :param entropy_coder: The entropy coder to use. The default is 'cabac'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#entropy_coder TranscoderJob#entropy_coder}
-        :param gop_duration: Select the GOP size based on the specified duration. The default is '3s'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#gop_duration TranscoderJob#gop_duration}
-        :param height_pixels: The height of the video in pixels. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#height_pixels TranscoderJob#height_pixels}
-        :param hlg: hlg block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#hlg TranscoderJob#hlg}
-        :param pixel_format: Pixel format to use. The default is 'yuv420p'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#pixel_format TranscoderJob#pixel_format}
-        :param preset: Enforces the specified codec preset. The default is 'veryfast'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#preset TranscoderJob#preset}
-        :param profile: Enforces the specified codec profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#profile TranscoderJob#profile}
-        :param rate_control_mode: Specify the mode. The default is 'vbr'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#rate_control_mode TranscoderJob#rate_control_mode}
-        :param sdr: sdr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#sdr TranscoderJob#sdr}
-        :param vbv_fullness_bits: Initial fullness of the Video Buffering Verifier (VBV) buffer in bits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#vbv_fullness_bits TranscoderJob#vbv_fullness_bits}
-        :param vbv_size_bits: Size of the Video Buffering Verifier (VBV) buffer in bits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#vbv_size_bits TranscoderJob#vbv_size_bits}
-        :param width_pixels: The width of the video in pixels. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#width_pixels TranscoderJob#width_pixels}
+        :param bitrate_bps: The video bitrate in bits per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#bitrate_bps TranscoderJob#bitrate_bps}
+        :param frame_rate: The target video frame rate in frames per second (FPS). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#frame_rate TranscoderJob#frame_rate}
+        :param crf_level: Target CRF level. The default is '21'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#crf_level TranscoderJob#crf_level}
+        :param entropy_coder: The entropy coder to use. The default is 'cabac'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#entropy_coder TranscoderJob#entropy_coder}
+        :param gop_duration: Select the GOP size based on the specified duration. The default is '3s'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#gop_duration TranscoderJob#gop_duration}
+        :param height_pixels: The height of the video in pixels. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#height_pixels TranscoderJob#height_pixels}
+        :param hlg: hlg block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#hlg TranscoderJob#hlg}
+        :param pixel_format: Pixel format to use. The default is 'yuv420p'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#pixel_format TranscoderJob#pixel_format}
+        :param preset: Enforces the specified codec preset. The default is 'veryfast'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#preset TranscoderJob#preset}
+        :param profile: Enforces the specified codec profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#profile TranscoderJob#profile}
+        :param rate_control_mode: Specify the mode. The default is 'vbr'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#rate_control_mode TranscoderJob#rate_control_mode}
+        :param sdr: sdr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#sdr TranscoderJob#sdr}
+        :param vbv_fullness_bits: Initial fullness of the Video Buffering Verifier (VBV) buffer in bits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#vbv_fullness_bits TranscoderJob#vbv_fullness_bits}
+        :param vbv_size_bits: Size of the Video Buffering Verifier (VBV) buffer in bits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#vbv_size_bits TranscoderJob#vbv_size_bits}
+        :param width_pixels: The width of the video in pixels. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#width_pixels TranscoderJob#width_pixels}
         '''
         if isinstance(hlg, dict):
             hlg = TranscoderJobConfigElementaryStreamsVideoStreamH264Hlg(**hlg)
@@ -2332,7 +2332,7 @@ class TranscoderJobConfigElementaryStreamsVideoStreamH264:
     def bitrate_bps(self) -> jsii.Number:
         '''The video bitrate in bits per second.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#bitrate_bps TranscoderJob#bitrate_bps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#bitrate_bps TranscoderJob#bitrate_bps}
         '''
         result = self._values.get("bitrate_bps")
         assert result is not None, "Required property 'bitrate_bps' is missing"
@@ -2342,7 +2342,7 @@ class TranscoderJobConfigElementaryStreamsVideoStreamH264:
     def frame_rate(self) -> jsii.Number:
         '''The target video frame rate in frames per second (FPS).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#frame_rate TranscoderJob#frame_rate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#frame_rate TranscoderJob#frame_rate}
         '''
         result = self._values.get("frame_rate")
         assert result is not None, "Required property 'frame_rate' is missing"
@@ -2352,7 +2352,7 @@ class TranscoderJobConfigElementaryStreamsVideoStreamH264:
     def crf_level(self) -> typing.Optional[jsii.Number]:
         '''Target CRF level. The default is '21'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#crf_level TranscoderJob#crf_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#crf_level TranscoderJob#crf_level}
         '''
         result = self._values.get("crf_level")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2361,7 +2361,7 @@ class TranscoderJobConfigElementaryStreamsVideoStreamH264:
     def entropy_coder(self) -> typing.Optional[builtins.str]:
         '''The entropy coder to use. The default is 'cabac'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#entropy_coder TranscoderJob#entropy_coder}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#entropy_coder TranscoderJob#entropy_coder}
         '''
         result = self._values.get("entropy_coder")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2370,7 +2370,7 @@ class TranscoderJobConfigElementaryStreamsVideoStreamH264:
     def gop_duration(self) -> typing.Optional[builtins.str]:
         '''Select the GOP size based on the specified duration. The default is '3s'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#gop_duration TranscoderJob#gop_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#gop_duration TranscoderJob#gop_duration}
         '''
         result = self._values.get("gop_duration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2379,7 +2379,7 @@ class TranscoderJobConfigElementaryStreamsVideoStreamH264:
     def height_pixels(self) -> typing.Optional[jsii.Number]:
         '''The height of the video in pixels.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#height_pixels TranscoderJob#height_pixels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#height_pixels TranscoderJob#height_pixels}
         '''
         result = self._values.get("height_pixels")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2390,7 +2390,7 @@ class TranscoderJobConfigElementaryStreamsVideoStreamH264:
     ) -> typing.Optional["TranscoderJobConfigElementaryStreamsVideoStreamH264Hlg"]:
         '''hlg block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#hlg TranscoderJob#hlg}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#hlg TranscoderJob#hlg}
         '''
         result = self._values.get("hlg")
         return typing.cast(typing.Optional["TranscoderJobConfigElementaryStreamsVideoStreamH264Hlg"], result)
@@ -2399,7 +2399,7 @@ class TranscoderJobConfigElementaryStreamsVideoStreamH264:
     def pixel_format(self) -> typing.Optional[builtins.str]:
         '''Pixel format to use. The default is 'yuv420p'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#pixel_format TranscoderJob#pixel_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#pixel_format TranscoderJob#pixel_format}
         '''
         result = self._values.get("pixel_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2408,7 +2408,7 @@ class TranscoderJobConfigElementaryStreamsVideoStreamH264:
     def preset(self) -> typing.Optional[builtins.str]:
         '''Enforces the specified codec preset. The default is 'veryfast'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#preset TranscoderJob#preset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#preset TranscoderJob#preset}
         '''
         result = self._values.get("preset")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2417,7 +2417,7 @@ class TranscoderJobConfigElementaryStreamsVideoStreamH264:
     def profile(self) -> typing.Optional[builtins.str]:
         '''Enforces the specified codec profile.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#profile TranscoderJob#profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#profile TranscoderJob#profile}
         '''
         result = self._values.get("profile")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2426,7 +2426,7 @@ class TranscoderJobConfigElementaryStreamsVideoStreamH264:
     def rate_control_mode(self) -> typing.Optional[builtins.str]:
         '''Specify the mode. The default is 'vbr'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#rate_control_mode TranscoderJob#rate_control_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#rate_control_mode TranscoderJob#rate_control_mode}
         '''
         result = self._values.get("rate_control_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2437,7 +2437,7 @@ class TranscoderJobConfigElementaryStreamsVideoStreamH264:
     ) -> typing.Optional["TranscoderJobConfigElementaryStreamsVideoStreamH264Sdr"]:
         '''sdr block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#sdr TranscoderJob#sdr}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#sdr TranscoderJob#sdr}
         '''
         result = self._values.get("sdr")
         return typing.cast(typing.Optional["TranscoderJobConfigElementaryStreamsVideoStreamH264Sdr"], result)
@@ -2446,7 +2446,7 @@ class TranscoderJobConfigElementaryStreamsVideoStreamH264:
     def vbv_fullness_bits(self) -> typing.Optional[jsii.Number]:
         '''Initial fullness of the Video Buffering Verifier (VBV) buffer in bits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#vbv_fullness_bits TranscoderJob#vbv_fullness_bits}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#vbv_fullness_bits TranscoderJob#vbv_fullness_bits}
         '''
         result = self._values.get("vbv_fullness_bits")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2455,7 +2455,7 @@ class TranscoderJobConfigElementaryStreamsVideoStreamH264:
     def vbv_size_bits(self) -> typing.Optional[jsii.Number]:
         '''Size of the Video Buffering Verifier (VBV) buffer in bits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#vbv_size_bits TranscoderJob#vbv_size_bits}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#vbv_size_bits TranscoderJob#vbv_size_bits}
         '''
         result = self._values.get("vbv_size_bits")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2464,7 +2464,7 @@ class TranscoderJobConfigElementaryStreamsVideoStreamH264:
     def width_pixels(self) -> typing.Optional[jsii.Number]:
         '''The width of the video in pixels.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#width_pixels TranscoderJob#width_pixels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#width_pixels TranscoderJob#width_pixels}
         '''
         result = self._values.get("width_pixels")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2991,21 +2991,21 @@ class TranscoderJobConfigElementaryStreamsVideoStreamOutputReference(
         width_pixels: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bitrate_bps: The video bitrate in bits per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#bitrate_bps TranscoderJob#bitrate_bps}
-        :param frame_rate: The target video frame rate in frames per second (FPS). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#frame_rate TranscoderJob#frame_rate}
-        :param crf_level: Target CRF level. The default is '21'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#crf_level TranscoderJob#crf_level}
-        :param entropy_coder: The entropy coder to use. The default is 'cabac'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#entropy_coder TranscoderJob#entropy_coder}
-        :param gop_duration: Select the GOP size based on the specified duration. The default is '3s'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#gop_duration TranscoderJob#gop_duration}
-        :param height_pixels: The height of the video in pixels. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#height_pixels TranscoderJob#height_pixels}
-        :param hlg: hlg block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#hlg TranscoderJob#hlg}
-        :param pixel_format: Pixel format to use. The default is 'yuv420p'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#pixel_format TranscoderJob#pixel_format}
-        :param preset: Enforces the specified codec preset. The default is 'veryfast'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#preset TranscoderJob#preset}
-        :param profile: Enforces the specified codec profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#profile TranscoderJob#profile}
-        :param rate_control_mode: Specify the mode. The default is 'vbr'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#rate_control_mode TranscoderJob#rate_control_mode}
-        :param sdr: sdr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#sdr TranscoderJob#sdr}
-        :param vbv_fullness_bits: Initial fullness of the Video Buffering Verifier (VBV) buffer in bits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#vbv_fullness_bits TranscoderJob#vbv_fullness_bits}
-        :param vbv_size_bits: Size of the Video Buffering Verifier (VBV) buffer in bits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#vbv_size_bits TranscoderJob#vbv_size_bits}
-        :param width_pixels: The width of the video in pixels. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#width_pixels TranscoderJob#width_pixels}
+        :param bitrate_bps: The video bitrate in bits per second. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#bitrate_bps TranscoderJob#bitrate_bps}
+        :param frame_rate: The target video frame rate in frames per second (FPS). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#frame_rate TranscoderJob#frame_rate}
+        :param crf_level: Target CRF level. The default is '21'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#crf_level TranscoderJob#crf_level}
+        :param entropy_coder: The entropy coder to use. The default is 'cabac'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#entropy_coder TranscoderJob#entropy_coder}
+        :param gop_duration: Select the GOP size based on the specified duration. The default is '3s'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#gop_duration TranscoderJob#gop_duration}
+        :param height_pixels: The height of the video in pixels. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#height_pixels TranscoderJob#height_pixels}
+        :param hlg: hlg block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#hlg TranscoderJob#hlg}
+        :param pixel_format: Pixel format to use. The default is 'yuv420p'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#pixel_format TranscoderJob#pixel_format}
+        :param preset: Enforces the specified codec preset. The default is 'veryfast'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#preset TranscoderJob#preset}
+        :param profile: Enforces the specified codec profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#profile TranscoderJob#profile}
+        :param rate_control_mode: Specify the mode. The default is 'vbr'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#rate_control_mode TranscoderJob#rate_control_mode}
+        :param sdr: sdr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#sdr TranscoderJob#sdr}
+        :param vbv_fullness_bits: Initial fullness of the Video Buffering Verifier (VBV) buffer in bits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#vbv_fullness_bits TranscoderJob#vbv_fullness_bits}
+        :param vbv_size_bits: Size of the Video Buffering Verifier (VBV) buffer in bits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#vbv_size_bits TranscoderJob#vbv_size_bits}
+        :param width_pixels: The width of the video in pixels. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#width_pixels TranscoderJob#width_pixels}
         '''
         value = TranscoderJobConfigElementaryStreamsVideoStreamH264(
             bitrate_bps=bitrate_bps,
@@ -3087,12 +3087,12 @@ class TranscoderJobConfigEncryptions:
         secret_manager_key_source: typing.Optional[typing.Union["TranscoderJobConfigEncryptionsSecretManagerKeySource", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param id: Identifier for this set of encryption options. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#id TranscoderJob#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param aes128: aes128 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#aes128 TranscoderJob#aes128}
-        :param drm_systems: drm_systems block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#drm_systems TranscoderJob#drm_systems}
-        :param mpeg_cenc: mpeg_cenc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#mpeg_cenc TranscoderJob#mpeg_cenc}
-        :param sample_aes: sample_aes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#sample_aes TranscoderJob#sample_aes}
-        :param secret_manager_key_source: secret_manager_key_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#secret_manager_key_source TranscoderJob#secret_manager_key_source}
+        :param id: Identifier for this set of encryption options. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#id TranscoderJob#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param aes128: aes128 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#aes128 TranscoderJob#aes128}
+        :param drm_systems: drm_systems block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#drm_systems TranscoderJob#drm_systems}
+        :param mpeg_cenc: mpeg_cenc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#mpeg_cenc TranscoderJob#mpeg_cenc}
+        :param sample_aes: sample_aes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#sample_aes TranscoderJob#sample_aes}
+        :param secret_manager_key_source: secret_manager_key_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#secret_manager_key_source TranscoderJob#secret_manager_key_source}
         '''
         if isinstance(aes128, dict):
             aes128 = TranscoderJobConfigEncryptionsAes128(**aes128)
@@ -3130,7 +3130,7 @@ class TranscoderJobConfigEncryptions:
     def id(self) -> builtins.str:
         '''Identifier for this set of encryption options.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#id TranscoderJob#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#id TranscoderJob#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -3143,7 +3143,7 @@ class TranscoderJobConfigEncryptions:
     def aes128(self) -> typing.Optional["TranscoderJobConfigEncryptionsAes128"]:
         '''aes128 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#aes128 TranscoderJob#aes128}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#aes128 TranscoderJob#aes128}
         '''
         result = self._values.get("aes128")
         return typing.cast(typing.Optional["TranscoderJobConfigEncryptionsAes128"], result)
@@ -3154,7 +3154,7 @@ class TranscoderJobConfigEncryptions:
     ) -> typing.Optional["TranscoderJobConfigEncryptionsDrmSystems"]:
         '''drm_systems block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#drm_systems TranscoderJob#drm_systems}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#drm_systems TranscoderJob#drm_systems}
         '''
         result = self._values.get("drm_systems")
         return typing.cast(typing.Optional["TranscoderJobConfigEncryptionsDrmSystems"], result)
@@ -3163,7 +3163,7 @@ class TranscoderJobConfigEncryptions:
     def mpeg_cenc(self) -> typing.Optional["TranscoderJobConfigEncryptionsMpegCenc"]:
         '''mpeg_cenc block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#mpeg_cenc TranscoderJob#mpeg_cenc}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#mpeg_cenc TranscoderJob#mpeg_cenc}
         '''
         result = self._values.get("mpeg_cenc")
         return typing.cast(typing.Optional["TranscoderJobConfigEncryptionsMpegCenc"], result)
@@ -3172,7 +3172,7 @@ class TranscoderJobConfigEncryptions:
     def sample_aes(self) -> typing.Optional["TranscoderJobConfigEncryptionsSampleAes"]:
         '''sample_aes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#sample_aes TranscoderJob#sample_aes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#sample_aes TranscoderJob#sample_aes}
         '''
         result = self._values.get("sample_aes")
         return typing.cast(typing.Optional["TranscoderJobConfigEncryptionsSampleAes"], result)
@@ -3183,7 +3183,7 @@ class TranscoderJobConfigEncryptions:
     ) -> typing.Optional["TranscoderJobConfigEncryptionsSecretManagerKeySource"]:
         '''secret_manager_key_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#secret_manager_key_source TranscoderJob#secret_manager_key_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#secret_manager_key_source TranscoderJob#secret_manager_key_source}
         '''
         result = self._values.get("secret_manager_key_source")
         return typing.cast(typing.Optional["TranscoderJobConfigEncryptionsSecretManagerKeySource"], result)
@@ -3277,10 +3277,10 @@ class TranscoderJobConfigEncryptionsDrmSystems:
         widevine: typing.Optional[typing.Union["TranscoderJobConfigEncryptionsDrmSystemsWidevine", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param clearkey: clearkey block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#clearkey TranscoderJob#clearkey}
-        :param fairplay: fairplay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#fairplay TranscoderJob#fairplay}
-        :param playready: playready block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#playready TranscoderJob#playready}
-        :param widevine: widevine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#widevine TranscoderJob#widevine}
+        :param clearkey: clearkey block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#clearkey TranscoderJob#clearkey}
+        :param fairplay: fairplay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#fairplay TranscoderJob#fairplay}
+        :param playready: playready block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#playready TranscoderJob#playready}
+        :param widevine: widevine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#widevine TranscoderJob#widevine}
         '''
         if isinstance(clearkey, dict):
             clearkey = TranscoderJobConfigEncryptionsDrmSystemsClearkey(**clearkey)
@@ -3312,7 +3312,7 @@ class TranscoderJobConfigEncryptionsDrmSystems:
     ) -> typing.Optional["TranscoderJobConfigEncryptionsDrmSystemsClearkey"]:
         '''clearkey block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#clearkey TranscoderJob#clearkey}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#clearkey TranscoderJob#clearkey}
         '''
         result = self._values.get("clearkey")
         return typing.cast(typing.Optional["TranscoderJobConfigEncryptionsDrmSystemsClearkey"], result)
@@ -3323,7 +3323,7 @@ class TranscoderJobConfigEncryptionsDrmSystems:
     ) -> typing.Optional["TranscoderJobConfigEncryptionsDrmSystemsFairplay"]:
         '''fairplay block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#fairplay TranscoderJob#fairplay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#fairplay TranscoderJob#fairplay}
         '''
         result = self._values.get("fairplay")
         return typing.cast(typing.Optional["TranscoderJobConfigEncryptionsDrmSystemsFairplay"], result)
@@ -3334,7 +3334,7 @@ class TranscoderJobConfigEncryptionsDrmSystems:
     ) -> typing.Optional["TranscoderJobConfigEncryptionsDrmSystemsPlayready"]:
         '''playready block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#playready TranscoderJob#playready}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#playready TranscoderJob#playready}
         '''
         result = self._values.get("playready")
         return typing.cast(typing.Optional["TranscoderJobConfigEncryptionsDrmSystemsPlayready"], result)
@@ -3345,7 +3345,7 @@ class TranscoderJobConfigEncryptionsDrmSystems:
     ) -> typing.Optional["TranscoderJobConfigEncryptionsDrmSystemsWidevine"]:
         '''widevine block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#widevine TranscoderJob#widevine}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#widevine TranscoderJob#widevine}
         '''
         result = self._values.get("widevine")
         return typing.cast(typing.Optional["TranscoderJobConfigEncryptionsDrmSystemsWidevine"], result)
@@ -3833,7 +3833,7 @@ class TranscoderJobConfigEncryptionsList(
 class TranscoderJobConfigEncryptionsMpegCenc:
     def __init__(self, *, scheme: builtins.str) -> None:
         '''
-        :param scheme: Specify the encryption scheme. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#scheme TranscoderJob#scheme}
+        :param scheme: Specify the encryption scheme. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#scheme TranscoderJob#scheme}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__622d33adbf2cd6f27cfc07dae7c8301ac875845434fd5af6d704b6a96f7ef5c9)
@@ -3846,7 +3846,7 @@ class TranscoderJobConfigEncryptionsMpegCenc:
     def scheme(self) -> builtins.str:
         '''Specify the encryption scheme.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#scheme TranscoderJob#scheme}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#scheme TranscoderJob#scheme}
         '''
         result = self._values.get("scheme")
         assert result is not None, "Required property 'scheme' is missing"
@@ -3959,10 +3959,10 @@ class TranscoderJobConfigEncryptionsOutputReference(
         widevine: typing.Optional[typing.Union[TranscoderJobConfigEncryptionsDrmSystemsWidevine, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param clearkey: clearkey block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#clearkey TranscoderJob#clearkey}
-        :param fairplay: fairplay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#fairplay TranscoderJob#fairplay}
-        :param playready: playready block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#playready TranscoderJob#playready}
-        :param widevine: widevine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#widevine TranscoderJob#widevine}
+        :param clearkey: clearkey block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#clearkey TranscoderJob#clearkey}
+        :param fairplay: fairplay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#fairplay TranscoderJob#fairplay}
+        :param playready: playready block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#playready TranscoderJob#playready}
+        :param widevine: widevine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#widevine TranscoderJob#widevine}
         '''
         value = TranscoderJobConfigEncryptionsDrmSystems(
             clearkey=clearkey,
@@ -3976,7 +3976,7 @@ class TranscoderJobConfigEncryptionsOutputReference(
     @jsii.member(jsii_name="putMpegCenc")
     def put_mpeg_cenc(self, *, scheme: builtins.str) -> None:
         '''
-        :param scheme: Specify the encryption scheme. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#scheme TranscoderJob#scheme}
+        :param scheme: Specify the encryption scheme. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#scheme TranscoderJob#scheme}
         '''
         value = TranscoderJobConfigEncryptionsMpegCenc(scheme=scheme)
 
@@ -3991,7 +3991,7 @@ class TranscoderJobConfigEncryptionsOutputReference(
     @jsii.member(jsii_name="putSecretManagerKeySource")
     def put_secret_manager_key_source(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: The name of the Secret Version containing the encryption key in the following format: projects/{project}/secrets/{secret_id}/versions/{version_number}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#secret_version TranscoderJob#secret_version}
+        :param secret_version: The name of the Secret Version containing the encryption key in the following format: projects/{project}/secrets/{secret_id}/versions/{version_number}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#secret_version TranscoderJob#secret_version}
         '''
         value = TranscoderJobConfigEncryptionsSecretManagerKeySource(
             secret_version=secret_version
@@ -4181,7 +4181,7 @@ class TranscoderJobConfigEncryptionsSampleAesOutputReference(
 class TranscoderJobConfigEncryptionsSecretManagerKeySource:
     def __init__(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: The name of the Secret Version containing the encryption key in the following format: projects/{project}/secrets/{secret_id}/versions/{version_number}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#secret_version TranscoderJob#secret_version}
+        :param secret_version: The name of the Secret Version containing the encryption key in the following format: projects/{project}/secrets/{secret_id}/versions/{version_number}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#secret_version TranscoderJob#secret_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9bde16d20d71e8787150884f9bc9680d5bd4a3d19ed6b6df2ca5a3d581dde172)
@@ -4194,7 +4194,7 @@ class TranscoderJobConfigEncryptionsSecretManagerKeySource:
     def secret_version(self) -> builtins.str:
         '''The name of the Secret Version containing the encryption key in the following format: projects/{project}/secrets/{secret_id}/versions/{version_number}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#secret_version TranscoderJob#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#secret_version TranscoderJob#secret_version}
         '''
         result = self._values.get("secret_version")
         assert result is not None, "Required property 'secret_version' is missing"
@@ -4280,8 +4280,8 @@ class TranscoderJobConfigInputs:
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key: A unique key for this input. Must be specified when using advanced mapping and edit lists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#key TranscoderJob#key}
-        :param uri: URI of the media. Input files must be at least 5 seconds in duration and stored in Cloud Storage (for example, gs://bucket/inputs/file.mp4). If empty, the value is populated from Job.input_uri. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#uri TranscoderJob#uri}
+        :param key: A unique key for this input. Must be specified when using advanced mapping and edit lists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#key TranscoderJob#key}
+        :param uri: URI of the media. Input files must be at least 5 seconds in duration and stored in Cloud Storage (for example, gs://bucket/inputs/file.mp4). If empty, the value is populated from Job.input_uri. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#uri TranscoderJob#uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__24c105cd42b1e373d56c1dc552f1604423a63c86523a5de34884d19893fd3736)
@@ -4297,7 +4297,7 @@ class TranscoderJobConfigInputs:
     def key(self) -> typing.Optional[builtins.str]:
         '''A unique key for this input. Must be specified when using advanced mapping and edit lists.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#key TranscoderJob#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#key TranscoderJob#key}
         '''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4309,7 +4309,7 @@ class TranscoderJobConfigInputs:
         Input files must be at least 5 seconds in duration and stored in Cloud Storage (for example, gs://bucket/inputs/file.mp4).
         If empty, the value is populated from Job.input_uri.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#uri TranscoderJob#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#uri TranscoderJob#uri}
         '''
         result = self._values.get("uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4520,9 +4520,9 @@ class TranscoderJobConfigManifests:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param file_name: The name of the generated file. The default is 'manifest'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#file_name TranscoderJob#file_name}
-        :param mux_streams: List of user supplied MuxStream.key values that should appear in this manifest. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#mux_streams TranscoderJob#mux_streams}
-        :param type: Type of the manifest. Possible values: ["MANIFEST_TYPE_UNSPECIFIED", "HLS", "DASH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#type TranscoderJob#type}
+        :param file_name: The name of the generated file. The default is 'manifest'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#file_name TranscoderJob#file_name}
+        :param mux_streams: List of user supplied MuxStream.key values that should appear in this manifest. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#mux_streams TranscoderJob#mux_streams}
+        :param type: Type of the manifest. Possible values: ["MANIFEST_TYPE_UNSPECIFIED", "HLS", "DASH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#type TranscoderJob#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3299846a45fa50eb961fb3547923b9795bfda1eaf954c5b2ff5376050b814204)
@@ -4541,7 +4541,7 @@ class TranscoderJobConfigManifests:
     def file_name(self) -> typing.Optional[builtins.str]:
         '''The name of the generated file. The default is 'manifest'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#file_name TranscoderJob#file_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#file_name TranscoderJob#file_name}
         '''
         result = self._values.get("file_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4550,7 +4550,7 @@ class TranscoderJobConfigManifests:
     def mux_streams(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of user supplied MuxStream.key values that should appear in this manifest.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#mux_streams TranscoderJob#mux_streams}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#mux_streams TranscoderJob#mux_streams}
         '''
         result = self._values.get("mux_streams")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4559,7 +4559,7 @@ class TranscoderJobConfigManifests:
     def type(self) -> typing.Optional[builtins.str]:
         '''Type of the manifest. Possible values: ["MANIFEST_TYPE_UNSPECIFIED", "HLS", "DASH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#type TranscoderJob#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#type TranscoderJob#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4797,12 +4797,12 @@ class TranscoderJobConfigMuxStreams:
         segment_settings: typing.Optional[typing.Union["TranscoderJobConfigMuxStreamsSegmentSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param container: The container format. The default is 'mp4'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#container TranscoderJob#container}
-        :param elementary_streams: List of ElementaryStream.key values multiplexed in this stream. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#elementary_streams TranscoderJob#elementary_streams}
-        :param encryption_id: Identifier of the encryption configuration to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#encryption_id TranscoderJob#encryption_id}
-        :param file_name: The name of the generated file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#file_name TranscoderJob#file_name}
-        :param key: A unique key for this multiplexed stream. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#key TranscoderJob#key}
-        :param segment_settings: segment_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#segment_settings TranscoderJob#segment_settings}
+        :param container: The container format. The default is 'mp4'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#container TranscoderJob#container}
+        :param elementary_streams: List of ElementaryStream.key values multiplexed in this stream. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#elementary_streams TranscoderJob#elementary_streams}
+        :param encryption_id: Identifier of the encryption configuration to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#encryption_id TranscoderJob#encryption_id}
+        :param file_name: The name of the generated file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#file_name TranscoderJob#file_name}
+        :param key: A unique key for this multiplexed stream. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#key TranscoderJob#key}
+        :param segment_settings: segment_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#segment_settings TranscoderJob#segment_settings}
         '''
         if isinstance(segment_settings, dict):
             segment_settings = TranscoderJobConfigMuxStreamsSegmentSettings(**segment_settings)
@@ -4832,7 +4832,7 @@ class TranscoderJobConfigMuxStreams:
     def container(self) -> typing.Optional[builtins.str]:
         '''The container format. The default is 'mp4'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#container TranscoderJob#container}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#container TranscoderJob#container}
         '''
         result = self._values.get("container")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4841,7 +4841,7 @@ class TranscoderJobConfigMuxStreams:
     def elementary_streams(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of ElementaryStream.key values multiplexed in this stream.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#elementary_streams TranscoderJob#elementary_streams}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#elementary_streams TranscoderJob#elementary_streams}
         '''
         result = self._values.get("elementary_streams")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4850,7 +4850,7 @@ class TranscoderJobConfigMuxStreams:
     def encryption_id(self) -> typing.Optional[builtins.str]:
         '''Identifier of the encryption configuration to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#encryption_id TranscoderJob#encryption_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#encryption_id TranscoderJob#encryption_id}
         '''
         result = self._values.get("encryption_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4859,7 +4859,7 @@ class TranscoderJobConfigMuxStreams:
     def file_name(self) -> typing.Optional[builtins.str]:
         '''The name of the generated file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#file_name TranscoderJob#file_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#file_name TranscoderJob#file_name}
         '''
         result = self._values.get("file_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4868,7 +4868,7 @@ class TranscoderJobConfigMuxStreams:
     def key(self) -> typing.Optional[builtins.str]:
         '''A unique key for this multiplexed stream.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#key TranscoderJob#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#key TranscoderJob#key}
         '''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4879,7 +4879,7 @@ class TranscoderJobConfigMuxStreams:
     ) -> typing.Optional["TranscoderJobConfigMuxStreamsSegmentSettings"]:
         '''segment_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#segment_settings TranscoderJob#segment_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#segment_settings TranscoderJob#segment_settings}
         '''
         result = self._values.get("segment_settings")
         return typing.cast(typing.Optional["TranscoderJobConfigMuxStreamsSegmentSettings"], result)
@@ -5019,7 +5019,7 @@ class TranscoderJobConfigMuxStreamsOutputReference(
         segment_duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param segment_duration: Duration of the segments in seconds. The default is '6.0s'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#segment_duration TranscoderJob#segment_duration}
+        :param segment_duration: Duration of the segments in seconds. The default is '6.0s'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#segment_duration TranscoderJob#segment_duration}
         '''
         value = TranscoderJobConfigMuxStreamsSegmentSettings(
             segment_duration=segment_duration
@@ -5180,7 +5180,7 @@ class TranscoderJobConfigMuxStreamsSegmentSettings:
         segment_duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param segment_duration: Duration of the segments in seconds. The default is '6.0s'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#segment_duration TranscoderJob#segment_duration}
+        :param segment_duration: Duration of the segments in seconds. The default is '6.0s'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#segment_duration TranscoderJob#segment_duration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ad652bcf46247890ec104409ef12a162abfd11599635c4541767732f9a96159)
@@ -5193,7 +5193,7 @@ class TranscoderJobConfigMuxStreamsSegmentSettings:
     def segment_duration(self) -> typing.Optional[builtins.str]:
         '''Duration of the segments in seconds. The default is '6.0s'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#segment_duration TranscoderJob#segment_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#segment_duration TranscoderJob#segment_duration}
         '''
         result = self._values.get("segment_duration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5277,7 +5277,7 @@ class TranscoderJobConfigMuxStreamsSegmentSettingsOutputReference(
 class TranscoderJobConfigOutput:
     def __init__(self, *, uri: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param uri: URI for the output file(s). For example, gs://my-bucket/outputs/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#uri TranscoderJob#uri}
+        :param uri: URI for the output file(s). For example, gs://my-bucket/outputs/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#uri TranscoderJob#uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d180a1d63d43109073f1924468a02537abacb7748b412c09a056fa57cdb16d53)
@@ -5290,7 +5290,7 @@ class TranscoderJobConfigOutput:
     def uri(self) -> typing.Optional[builtins.str]:
         '''URI for the output file(s). For example, gs://my-bucket/outputs/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#uri TranscoderJob#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#uri TranscoderJob#uri}
         '''
         result = self._values.get("uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5374,8 +5374,8 @@ class TranscoderJobConfigOverlays:
         image: typing.Optional[typing.Union["TranscoderJobConfigOverlaysImage", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param animations: animations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#animations TranscoderJob#animations}
-        :param image: image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#image TranscoderJob#image}
+        :param animations: animations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#animations TranscoderJob#animations}
+        :param image: image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#image TranscoderJob#image}
         '''
         if isinstance(image, dict):
             image = TranscoderJobConfigOverlaysImage(**image)
@@ -5395,7 +5395,7 @@ class TranscoderJobConfigOverlays:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TranscoderJobConfigOverlaysAnimations"]]]:
         '''animations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#animations TranscoderJob#animations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#animations TranscoderJob#animations}
         '''
         result = self._values.get("animations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TranscoderJobConfigOverlaysAnimations"]]], result)
@@ -5404,7 +5404,7 @@ class TranscoderJobConfigOverlays:
     def image(self) -> typing.Optional["TranscoderJobConfigOverlaysImage"]:
         '''image block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#image TranscoderJob#image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#image TranscoderJob#image}
         '''
         result = self._values.get("image")
         return typing.cast(typing.Optional["TranscoderJobConfigOverlaysImage"], result)
@@ -5433,7 +5433,7 @@ class TranscoderJobConfigOverlaysAnimations:
         animation_fade: typing.Optional[typing.Union["TranscoderJobConfigOverlaysAnimationsAnimationFade", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param animation_fade: animation_fade block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#animation_fade TranscoderJob#animation_fade}
+        :param animation_fade: animation_fade block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#animation_fade TranscoderJob#animation_fade}
         '''
         if isinstance(animation_fade, dict):
             animation_fade = TranscoderJobConfigOverlaysAnimationsAnimationFade(**animation_fade)
@@ -5450,7 +5450,7 @@ class TranscoderJobConfigOverlaysAnimations:
     ) -> typing.Optional["TranscoderJobConfigOverlaysAnimationsAnimationFade"]:
         '''animation_fade block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#animation_fade TranscoderJob#animation_fade}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#animation_fade TranscoderJob#animation_fade}
         '''
         result = self._values.get("animation_fade")
         return typing.cast(typing.Optional["TranscoderJobConfigOverlaysAnimationsAnimationFade"], result)
@@ -5487,10 +5487,10 @@ class TranscoderJobConfigOverlaysAnimationsAnimationFade:
         xy: typing.Optional[typing.Union["TranscoderJobConfigOverlaysAnimationsAnimationFadeXy", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param fade_type: Required. Type of fade animation: 'FADE_IN' or 'FADE_OUT'. The possible values are:. - 'FADE_TYPE_UNSPECIFIED': The fade type is not specified. - 'FADE_IN': Fade the overlay object into view. - 'FADE_OUT': Fade the overlay object out of view. Possible values: ["FADE_TYPE_UNSPECIFIED", "FADE_IN", "FADE_OUT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#fade_type TranscoderJob#fade_type}
-        :param end_time_offset: The time to end the fade animation, in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#end_time_offset TranscoderJob#end_time_offset}
-        :param start_time_offset: The time to start the fade animation, in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#start_time_offset TranscoderJob#start_time_offset}
-        :param xy: xy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#xy TranscoderJob#xy}
+        :param fade_type: Required. Type of fade animation: 'FADE_IN' or 'FADE_OUT'. The possible values are:. - 'FADE_TYPE_UNSPECIFIED': The fade type is not specified. - 'FADE_IN': Fade the overlay object into view. - 'FADE_OUT': Fade the overlay object out of view. Possible values: ["FADE_TYPE_UNSPECIFIED", "FADE_IN", "FADE_OUT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#fade_type TranscoderJob#fade_type}
+        :param end_time_offset: The time to end the fade animation, in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#end_time_offset TranscoderJob#end_time_offset}
+        :param start_time_offset: The time to start the fade animation, in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#start_time_offset TranscoderJob#start_time_offset}
+        :param xy: xy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#xy TranscoderJob#xy}
         '''
         if isinstance(xy, dict):
             xy = TranscoderJobConfigOverlaysAnimationsAnimationFadeXy(**xy)
@@ -5518,7 +5518,7 @@ class TranscoderJobConfigOverlaysAnimationsAnimationFade:
         - 'FADE_IN': Fade the overlay object into view.
         - 'FADE_OUT': Fade the overlay object out of view. Possible values: ["FADE_TYPE_UNSPECIFIED", "FADE_IN", "FADE_OUT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#fade_type TranscoderJob#fade_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#fade_type TranscoderJob#fade_type}
         '''
         result = self._values.get("fade_type")
         assert result is not None, "Required property 'fade_type' is missing"
@@ -5528,7 +5528,7 @@ class TranscoderJobConfigOverlaysAnimationsAnimationFade:
     def end_time_offset(self) -> typing.Optional[builtins.str]:
         '''The time to end the fade animation, in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#end_time_offset TranscoderJob#end_time_offset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#end_time_offset TranscoderJob#end_time_offset}
         '''
         result = self._values.get("end_time_offset")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5537,7 +5537,7 @@ class TranscoderJobConfigOverlaysAnimationsAnimationFade:
     def start_time_offset(self) -> typing.Optional[builtins.str]:
         '''The time to start the fade animation, in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#start_time_offset TranscoderJob#start_time_offset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#start_time_offset TranscoderJob#start_time_offset}
         '''
         result = self._values.get("start_time_offset")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5548,7 +5548,7 @@ class TranscoderJobConfigOverlaysAnimationsAnimationFade:
     ) -> typing.Optional["TranscoderJobConfigOverlaysAnimationsAnimationFadeXy"]:
         '''xy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#xy TranscoderJob#xy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#xy TranscoderJob#xy}
         '''
         result = self._values.get("xy")
         return typing.cast(typing.Optional["TranscoderJobConfigOverlaysAnimationsAnimationFadeXy"], result)
@@ -5593,8 +5593,8 @@ class TranscoderJobConfigOverlaysAnimationsAnimationFadeOutputReference(
         y: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param x: Normalized x coordinate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#x TranscoderJob#x}
-        :param y: Normalized y coordinate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#y TranscoderJob#y}
+        :param x: Normalized x coordinate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#x TranscoderJob#x}
+        :param y: Normalized y coordinate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#y TranscoderJob#y}
         '''
         value = TranscoderJobConfigOverlaysAnimationsAnimationFadeXy(x=x, y=y)
 
@@ -5708,8 +5708,8 @@ class TranscoderJobConfigOverlaysAnimationsAnimationFadeXy:
         y: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param x: Normalized x coordinate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#x TranscoderJob#x}
-        :param y: Normalized y coordinate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#y TranscoderJob#y}
+        :param x: Normalized x coordinate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#x TranscoderJob#x}
+        :param y: Normalized y coordinate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#y TranscoderJob#y}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__02d9424873aa9dfc0415389819acebe48dd5384d2c1673c8598b9019d1417755)
@@ -5725,7 +5725,7 @@ class TranscoderJobConfigOverlaysAnimationsAnimationFadeXy:
     def x(self) -> typing.Optional[jsii.Number]:
         '''Normalized x coordinate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#x TranscoderJob#x}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#x TranscoderJob#x}
         '''
         result = self._values.get("x")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5734,7 +5734,7 @@ class TranscoderJobConfigOverlaysAnimationsAnimationFadeXy:
     def y(self) -> typing.Optional[jsii.Number]:
         '''Normalized y coordinate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#y TranscoderJob#y}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#y TranscoderJob#y}
         '''
         result = self._values.get("y")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5960,10 +5960,10 @@ class TranscoderJobConfigOverlaysAnimationsOutputReference(
         xy: typing.Optional[typing.Union[TranscoderJobConfigOverlaysAnimationsAnimationFadeXy, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param fade_type: Required. Type of fade animation: 'FADE_IN' or 'FADE_OUT'. The possible values are:. - 'FADE_TYPE_UNSPECIFIED': The fade type is not specified. - 'FADE_IN': Fade the overlay object into view. - 'FADE_OUT': Fade the overlay object out of view. Possible values: ["FADE_TYPE_UNSPECIFIED", "FADE_IN", "FADE_OUT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#fade_type TranscoderJob#fade_type}
-        :param end_time_offset: The time to end the fade animation, in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#end_time_offset TranscoderJob#end_time_offset}
-        :param start_time_offset: The time to start the fade animation, in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#start_time_offset TranscoderJob#start_time_offset}
-        :param xy: xy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#xy TranscoderJob#xy}
+        :param fade_type: Required. Type of fade animation: 'FADE_IN' or 'FADE_OUT'. The possible values are:. - 'FADE_TYPE_UNSPECIFIED': The fade type is not specified. - 'FADE_IN': Fade the overlay object into view. - 'FADE_OUT': Fade the overlay object out of view. Possible values: ["FADE_TYPE_UNSPECIFIED", "FADE_IN", "FADE_OUT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#fade_type TranscoderJob#fade_type}
+        :param end_time_offset: The time to end the fade animation, in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#end_time_offset TranscoderJob#end_time_offset}
+        :param start_time_offset: The time to start the fade animation, in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#start_time_offset TranscoderJob#start_time_offset}
+        :param xy: xy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#xy TranscoderJob#xy}
         '''
         value = TranscoderJobConfigOverlaysAnimationsAnimationFade(
             fade_type=fade_type,
@@ -6018,7 +6018,7 @@ class TranscoderJobConfigOverlaysAnimationsOutputReference(
 class TranscoderJobConfigOverlaysImage:
     def __init__(self, *, uri: builtins.str) -> None:
         '''
-        :param uri: URI of the image in Cloud Storage. For example, gs://bucket/inputs/image.png. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#uri TranscoderJob#uri}
+        :param uri: URI of the image in Cloud Storage. For example, gs://bucket/inputs/image.png. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#uri TranscoderJob#uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fb758861bc1ced9f759ff906d5a3c022883f501fd77f89b3a3cde119a4936729)
@@ -6031,7 +6031,7 @@ class TranscoderJobConfigOverlaysImage:
     def uri(self) -> builtins.str:
         '''URI of the image in Cloud Storage. For example, gs://bucket/inputs/image.png.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#uri TranscoderJob#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#uri TranscoderJob#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -6234,7 +6234,7 @@ class TranscoderJobConfigOverlaysOutputReference(
     @jsii.member(jsii_name="putImage")
     def put_image(self, *, uri: builtins.str) -> None:
         '''
-        :param uri: URI of the image in Cloud Storage. For example, gs://bucket/inputs/image.png. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#uri TranscoderJob#uri}
+        :param uri: URI of the image in Cloud Storage. For example, gs://bucket/inputs/image.png. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#uri TranscoderJob#uri}
         '''
         value = TranscoderJobConfigOverlaysImage(uri=uri)
 
@@ -6296,7 +6296,7 @@ class TranscoderJobConfigOverlaysOutputReference(
 class TranscoderJobConfigPubsubDestination:
     def __init__(self, *, topic: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param topic: The name of the Pub/Sub topic to publish job completion notification to. For example: projects/{project}/topics/{topic}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#topic TranscoderJob#topic}
+        :param topic: The name of the Pub/Sub topic to publish job completion notification to. For example: projects/{project}/topics/{topic}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#topic TranscoderJob#topic}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__988fd4178606858f608d8d73efeac9a2d8d3603e17f3925c46ad50c26c7a50e1)
@@ -6309,7 +6309,7 @@ class TranscoderJobConfigPubsubDestination:
     def topic(self) -> typing.Optional[builtins.str]:
         '''The name of the Pub/Sub topic to publish job completion notification to. For example: projects/{project}/topics/{topic}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#topic TranscoderJob#topic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#topic TranscoderJob#topic}
         '''
         result = self._values.get("topic")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6397,9 +6397,9 @@ class TranscoderJobTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#create TranscoderJob#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#delete TranscoderJob#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#update TranscoderJob#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#create TranscoderJob#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#delete TranscoderJob#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#update TranscoderJob#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cb34e88f78fe5823b593b6d022d6ff3b5f78ff88be761c868df8876eaed8d7cc)
@@ -6416,19 +6416,19 @@ class TranscoderJobTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#create TranscoderJob#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#create TranscoderJob#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#delete TranscoderJob#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#delete TranscoderJob#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/transcoder_job#update TranscoderJob#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/transcoder_job#update TranscoderJob#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

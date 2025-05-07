@@ -1,7 +1,7 @@
 r'''
 # `google_app_engine_standard_app_version`
 
-Refer to the Terraform Registry for docs: [`google_app_engine_standard_app_version`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version).
+Refer to the Terraform Registry for docs: [`google_app_engine_standard_app_version`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppEngineStandardAppVersion(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.appEngineStandardAppVersion.AppEngineStandardAppVersion",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version google_app_engine_standard_app_version}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version google_app_engine_standard_app_version}.'''
 
     def __init__(
         self,
@@ -82,33 +82,33 @@ class AppEngineStandardAppVersion(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version google_app_engine_standard_app_version} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version google_app_engine_standard_app_version} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param deployment: deployment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#deployment AppEngineStandardAppVersion#deployment}
-        :param entrypoint: entrypoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#entrypoint AppEngineStandardAppVersion#entrypoint}
-        :param runtime: Desired runtime. Example python27. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#runtime AppEngineStandardAppVersion#runtime}
-        :param service: AppEngine service resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#service AppEngineStandardAppVersion#service}
-        :param app_engine_apis: Allows App Engine second generation runtimes to access the legacy bundled services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#app_engine_apis AppEngineStandardAppVersion#app_engine_apis}
-        :param automatic_scaling: automatic_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#automatic_scaling AppEngineStandardAppVersion#automatic_scaling}
-        :param basic_scaling: basic_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#basic_scaling AppEngineStandardAppVersion#basic_scaling}
-        :param delete_service_on_destroy: If set to 'true', the service will be deleted if it is the last version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#delete_service_on_destroy AppEngineStandardAppVersion#delete_service_on_destroy}
-        :param env_variables: Environment variables available to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#env_variables AppEngineStandardAppVersion#env_variables}
-        :param handlers: handlers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#handlers AppEngineStandardAppVersion#handlers}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#id AppEngineStandardAppVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param inbound_services: A list of the types of messages that this application is able to receive. Possible values: ["INBOUND_SERVICE_MAIL", "INBOUND_SERVICE_MAIL_BOUNCE", "INBOUND_SERVICE_XMPP_ERROR", "INBOUND_SERVICE_XMPP_MESSAGE", "INBOUND_SERVICE_XMPP_SUBSCRIBE", "INBOUND_SERVICE_XMPP_PRESENCE", "INBOUND_SERVICE_CHANNEL_PRESENCE", "INBOUND_SERVICE_WARMUP"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#inbound_services AppEngineStandardAppVersion#inbound_services}
-        :param instance_class: Instance class that is used to run this version. Valid values are AutomaticScaling: F1, F2, F4, F4_1G BasicScaling or ManualScaling: B1, B2, B4, B4_1G, B8 Defaults to F1 for AutomaticScaling and B2 for ManualScaling and BasicScaling. If no scaling is specified, AutomaticScaling is chosen. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#instance_class AppEngineStandardAppVersion#instance_class}
-        :param libraries: libraries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#libraries AppEngineStandardAppVersion#libraries}
-        :param manual_scaling: manual_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#manual_scaling AppEngineStandardAppVersion#manual_scaling}
-        :param noop_on_destroy: If set to 'true', the application version will not be deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#noop_on_destroy AppEngineStandardAppVersion#noop_on_destroy}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#project AppEngineStandardAppVersion#project}.
-        :param runtime_api_version: The version of the API in the given runtime environment. Please see the app.yaml reference for valid values at 'https://cloud.google.com/appengine/docs/standard//config/appref' Substitute '' with 'python', 'java', 'php', 'ruby', 'go' or 'nodejs'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#runtime_api_version AppEngineStandardAppVersion#runtime_api_version}
-        :param service_account: The identity that the deployed version will run as. Admin API will use the App Engine Appspot service account as default if this field is neither provided in app.yaml file nor through CLI flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#service_account AppEngineStandardAppVersion#service_account}
-        :param threadsafe: Whether multiple requests can be dispatched to this version at once. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#threadsafe AppEngineStandardAppVersion#threadsafe}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#timeouts AppEngineStandardAppVersion#timeouts}
-        :param version_id: Relative name of the version within the service. For example, 'v1'. Version names can contain only lowercase letters, numbers, or hyphens. Reserved names,"default", "latest", and any name with the prefix "ah-". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#version_id AppEngineStandardAppVersion#version_id}
-        :param vpc_access_connector: vpc_access_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#vpc_access_connector AppEngineStandardAppVersion#vpc_access_connector}
+        :param deployment: deployment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#deployment AppEngineStandardAppVersion#deployment}
+        :param entrypoint: entrypoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#entrypoint AppEngineStandardAppVersion#entrypoint}
+        :param runtime: Desired runtime. Example python27. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#runtime AppEngineStandardAppVersion#runtime}
+        :param service: AppEngine service resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#service AppEngineStandardAppVersion#service}
+        :param app_engine_apis: Allows App Engine second generation runtimes to access the legacy bundled services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#app_engine_apis AppEngineStandardAppVersion#app_engine_apis}
+        :param automatic_scaling: automatic_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#automatic_scaling AppEngineStandardAppVersion#automatic_scaling}
+        :param basic_scaling: basic_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#basic_scaling AppEngineStandardAppVersion#basic_scaling}
+        :param delete_service_on_destroy: If set to 'true', the service will be deleted if it is the last version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#delete_service_on_destroy AppEngineStandardAppVersion#delete_service_on_destroy}
+        :param env_variables: Environment variables available to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#env_variables AppEngineStandardAppVersion#env_variables}
+        :param handlers: handlers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#handlers AppEngineStandardAppVersion#handlers}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#id AppEngineStandardAppVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param inbound_services: A list of the types of messages that this application is able to receive. Possible values: ["INBOUND_SERVICE_MAIL", "INBOUND_SERVICE_MAIL_BOUNCE", "INBOUND_SERVICE_XMPP_ERROR", "INBOUND_SERVICE_XMPP_MESSAGE", "INBOUND_SERVICE_XMPP_SUBSCRIBE", "INBOUND_SERVICE_XMPP_PRESENCE", "INBOUND_SERVICE_CHANNEL_PRESENCE", "INBOUND_SERVICE_WARMUP"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#inbound_services AppEngineStandardAppVersion#inbound_services}
+        :param instance_class: Instance class that is used to run this version. Valid values are AutomaticScaling: F1, F2, F4, F4_1G BasicScaling or ManualScaling: B1, B2, B4, B4_1G, B8 Defaults to F1 for AutomaticScaling and B2 for ManualScaling and BasicScaling. If no scaling is specified, AutomaticScaling is chosen. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#instance_class AppEngineStandardAppVersion#instance_class}
+        :param libraries: libraries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#libraries AppEngineStandardAppVersion#libraries}
+        :param manual_scaling: manual_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#manual_scaling AppEngineStandardAppVersion#manual_scaling}
+        :param noop_on_destroy: If set to 'true', the application version will not be deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#noop_on_destroy AppEngineStandardAppVersion#noop_on_destroy}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#project AppEngineStandardAppVersion#project}.
+        :param runtime_api_version: The version of the API in the given runtime environment. Please see the app.yaml reference for valid values at 'https://cloud.google.com/appengine/docs/standard//config/appref' Substitute '' with 'python', 'java', 'php', 'ruby', 'go' or 'nodejs'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#runtime_api_version AppEngineStandardAppVersion#runtime_api_version}
+        :param service_account: The identity that the deployed version will run as. Admin API will use the App Engine Appspot service account as default if this field is neither provided in app.yaml file nor through CLI flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#service_account AppEngineStandardAppVersion#service_account}
+        :param threadsafe: Whether multiple requests can be dispatched to this version at once. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#threadsafe AppEngineStandardAppVersion#threadsafe}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#timeouts AppEngineStandardAppVersion#timeouts}
+        :param version_id: Relative name of the version within the service. For example, 'v1'. Version names can contain only lowercase letters, numbers, or hyphens. Reserved names,"default", "latest", and any name with the prefix "ah-". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#version_id AppEngineStandardAppVersion#version_id}
+        :param vpc_access_connector: vpc_access_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#vpc_access_connector AppEngineStandardAppVersion#vpc_access_connector}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -169,7 +169,7 @@ class AppEngineStandardAppVersion(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppEngineStandardAppVersion to import.
-        :param import_from_id: The id of the existing AppEngineStandardAppVersion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppEngineStandardAppVersion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppEngineStandardAppVersion to import is found.
         '''
         if __debug__:
@@ -192,12 +192,12 @@ class AppEngineStandardAppVersion(
         standard_scheduler_settings: typing.Optional[typing.Union["AppEngineStandardAppVersionAutomaticScalingStandardSchedulerSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param max_concurrent_requests: Number of concurrent requests an automatic scaling instance can accept before the scheduler spawns a new instance. Defaults to a runtime-specific value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#max_concurrent_requests AppEngineStandardAppVersion#max_concurrent_requests}
-        :param max_idle_instances: Maximum number of idle instances that should be maintained for this version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#max_idle_instances AppEngineStandardAppVersion#max_idle_instances}
-        :param max_pending_latency: Maximum amount of time that a request should wait in the pending queue before starting a new instance to handle it. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#max_pending_latency AppEngineStandardAppVersion#max_pending_latency}
-        :param min_idle_instances: Minimum number of idle instances that should be maintained for this version. Only applicable for the default version of a service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#min_idle_instances AppEngineStandardAppVersion#min_idle_instances}
-        :param min_pending_latency: Minimum amount of time a request should wait in the pending queue before starting a new instance to handle it. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#min_pending_latency AppEngineStandardAppVersion#min_pending_latency}
-        :param standard_scheduler_settings: standard_scheduler_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#standard_scheduler_settings AppEngineStandardAppVersion#standard_scheduler_settings}
+        :param max_concurrent_requests: Number of concurrent requests an automatic scaling instance can accept before the scheduler spawns a new instance. Defaults to a runtime-specific value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#max_concurrent_requests AppEngineStandardAppVersion#max_concurrent_requests}
+        :param max_idle_instances: Maximum number of idle instances that should be maintained for this version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#max_idle_instances AppEngineStandardAppVersion#max_idle_instances}
+        :param max_pending_latency: Maximum amount of time that a request should wait in the pending queue before starting a new instance to handle it. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#max_pending_latency AppEngineStandardAppVersion#max_pending_latency}
+        :param min_idle_instances: Minimum number of idle instances that should be maintained for this version. Only applicable for the default version of a service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#min_idle_instances AppEngineStandardAppVersion#min_idle_instances}
+        :param min_pending_latency: Minimum amount of time a request should wait in the pending queue before starting a new instance to handle it. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#min_pending_latency AppEngineStandardAppVersion#min_pending_latency}
+        :param standard_scheduler_settings: standard_scheduler_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#standard_scheduler_settings AppEngineStandardAppVersion#standard_scheduler_settings}
         '''
         value = AppEngineStandardAppVersionAutomaticScaling(
             max_concurrent_requests=max_concurrent_requests,
@@ -218,8 +218,8 @@ class AppEngineStandardAppVersion(
         idle_timeout: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_instances: Maximum number of instances to create for this version. Must be in the range [1.0, 200.0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#max_instances AppEngineStandardAppVersion#max_instances}
-        :param idle_timeout: Duration of time after the last request that an instance must wait before the instance is shut down. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Defaults to 900s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#idle_timeout AppEngineStandardAppVersion#idle_timeout}
+        :param max_instances: Maximum number of instances to create for this version. Must be in the range [1.0, 200.0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#max_instances AppEngineStandardAppVersion#max_instances}
+        :param idle_timeout: Duration of time after the last request that an instance must wait before the instance is shut down. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Defaults to 900s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#idle_timeout AppEngineStandardAppVersion#idle_timeout}
         '''
         value = AppEngineStandardAppVersionBasicScaling(
             max_instances=max_instances, idle_timeout=idle_timeout
@@ -235,8 +235,8 @@ class AppEngineStandardAppVersion(
         zip: typing.Optional[typing.Union["AppEngineStandardAppVersionDeploymentZip", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param files: files block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#files AppEngineStandardAppVersion#files}
-        :param zip: zip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#zip AppEngineStandardAppVersion#zip}
+        :param files: files block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#files AppEngineStandardAppVersion#files}
+        :param zip: zip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#zip AppEngineStandardAppVersion#zip}
         '''
         value = AppEngineStandardAppVersionDeployment(files=files, zip=zip)
 
@@ -245,7 +245,7 @@ class AppEngineStandardAppVersion(
     @jsii.member(jsii_name="putEntrypoint")
     def put_entrypoint(self, *, shell: builtins.str) -> None:
         '''
-        :param shell: The format should be a shell command that can be fed to bash -c. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#shell AppEngineStandardAppVersion#shell}
+        :param shell: The format should be a shell command that can be fed to bash -c. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#shell AppEngineStandardAppVersion#shell}
         '''
         value = AppEngineStandardAppVersionEntrypoint(shell=shell)
 
@@ -280,7 +280,7 @@ class AppEngineStandardAppVersion(
     @jsii.member(jsii_name="putManualScaling")
     def put_manual_scaling(self, *, instances: jsii.Number) -> None:
         '''
-        :param instances: Number of instances to assign to the service at the start. **Note:** When managing the number of instances at runtime through the App Engine Admin API or the (now deprecated) Python 2 Modules API set_num_instances() you must use 'lifecycle.ignore_changes = ["manual_scaling"[0].instances]' to prevent drift detection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#instances AppEngineStandardAppVersion#instances}
+        :param instances: Number of instances to assign to the service at the start. **Note:** When managing the number of instances at runtime through the App Engine Admin API or the (now deprecated) Python 2 Modules API set_num_instances() you must use 'lifecycle.ignore_changes = ["manual_scaling"[0].instances]' to prevent drift detection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#instances AppEngineStandardAppVersion#instances}
         '''
         value = AppEngineStandardAppVersionManualScaling(instances=instances)
 
@@ -295,9 +295,9 @@ class AppEngineStandardAppVersion(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#create AppEngineStandardAppVersion#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#delete AppEngineStandardAppVersion#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#update AppEngineStandardAppVersion#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#create AppEngineStandardAppVersion#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#delete AppEngineStandardAppVersion#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#update AppEngineStandardAppVersion#update}.
         '''
         value = AppEngineStandardAppVersionTimeouts(
             create=create, delete=delete, update=update
@@ -313,8 +313,8 @@ class AppEngineStandardAppVersion(
         egress_setting: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Full Serverless VPC Access Connector name e.g. /projects/my-project/locations/us-central1/connectors/c1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#name AppEngineStandardAppVersion#name}
-        :param egress_setting: The egress setting for the connector, controlling what traffic is diverted through it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#egress_setting AppEngineStandardAppVersion#egress_setting}
+        :param name: Full Serverless VPC Access Connector name e.g. /projects/my-project/locations/us-central1/connectors/c1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#name AppEngineStandardAppVersion#name}
+        :param egress_setting: The egress setting for the connector, controlling what traffic is diverted through it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#egress_setting AppEngineStandardAppVersion#egress_setting}
         '''
         value = AppEngineStandardAppVersionVpcAccessConnector(
             name=name, egress_setting=egress_setting
@@ -821,12 +821,12 @@ class AppEngineStandardAppVersionAutomaticScaling:
         standard_scheduler_settings: typing.Optional[typing.Union["AppEngineStandardAppVersionAutomaticScalingStandardSchedulerSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param max_concurrent_requests: Number of concurrent requests an automatic scaling instance can accept before the scheduler spawns a new instance. Defaults to a runtime-specific value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#max_concurrent_requests AppEngineStandardAppVersion#max_concurrent_requests}
-        :param max_idle_instances: Maximum number of idle instances that should be maintained for this version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#max_idle_instances AppEngineStandardAppVersion#max_idle_instances}
-        :param max_pending_latency: Maximum amount of time that a request should wait in the pending queue before starting a new instance to handle it. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#max_pending_latency AppEngineStandardAppVersion#max_pending_latency}
-        :param min_idle_instances: Minimum number of idle instances that should be maintained for this version. Only applicable for the default version of a service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#min_idle_instances AppEngineStandardAppVersion#min_idle_instances}
-        :param min_pending_latency: Minimum amount of time a request should wait in the pending queue before starting a new instance to handle it. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#min_pending_latency AppEngineStandardAppVersion#min_pending_latency}
-        :param standard_scheduler_settings: standard_scheduler_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#standard_scheduler_settings AppEngineStandardAppVersion#standard_scheduler_settings}
+        :param max_concurrent_requests: Number of concurrent requests an automatic scaling instance can accept before the scheduler spawns a new instance. Defaults to a runtime-specific value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#max_concurrent_requests AppEngineStandardAppVersion#max_concurrent_requests}
+        :param max_idle_instances: Maximum number of idle instances that should be maintained for this version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#max_idle_instances AppEngineStandardAppVersion#max_idle_instances}
+        :param max_pending_latency: Maximum amount of time that a request should wait in the pending queue before starting a new instance to handle it. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#max_pending_latency AppEngineStandardAppVersion#max_pending_latency}
+        :param min_idle_instances: Minimum number of idle instances that should be maintained for this version. Only applicable for the default version of a service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#min_idle_instances AppEngineStandardAppVersion#min_idle_instances}
+        :param min_pending_latency: Minimum amount of time a request should wait in the pending queue before starting a new instance to handle it. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#min_pending_latency AppEngineStandardAppVersion#min_pending_latency}
+        :param standard_scheduler_settings: standard_scheduler_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#standard_scheduler_settings AppEngineStandardAppVersion#standard_scheduler_settings}
         '''
         if isinstance(standard_scheduler_settings, dict):
             standard_scheduler_settings = AppEngineStandardAppVersionAutomaticScalingStandardSchedulerSettings(**standard_scheduler_settings)
@@ -858,7 +858,7 @@ class AppEngineStandardAppVersionAutomaticScaling:
 
         Defaults to a runtime-specific value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#max_concurrent_requests AppEngineStandardAppVersion#max_concurrent_requests}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#max_concurrent_requests AppEngineStandardAppVersion#max_concurrent_requests}
         '''
         result = self._values.get("max_concurrent_requests")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -867,7 +867,7 @@ class AppEngineStandardAppVersionAutomaticScaling:
     def max_idle_instances(self) -> typing.Optional[jsii.Number]:
         '''Maximum number of idle instances that should be maintained for this version.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#max_idle_instances AppEngineStandardAppVersion#max_idle_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#max_idle_instances AppEngineStandardAppVersion#max_idle_instances}
         '''
         result = self._values.get("max_idle_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -878,7 +878,7 @@ class AppEngineStandardAppVersionAutomaticScaling:
 
         A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#max_pending_latency AppEngineStandardAppVersion#max_pending_latency}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#max_pending_latency AppEngineStandardAppVersion#max_pending_latency}
         '''
         result = self._values.get("max_pending_latency")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -889,7 +889,7 @@ class AppEngineStandardAppVersionAutomaticScaling:
 
         Only applicable for the default version of a service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#min_idle_instances AppEngineStandardAppVersion#min_idle_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#min_idle_instances AppEngineStandardAppVersion#min_idle_instances}
         '''
         result = self._values.get("min_idle_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -900,7 +900,7 @@ class AppEngineStandardAppVersionAutomaticScaling:
 
         A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#min_pending_latency AppEngineStandardAppVersion#min_pending_latency}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#min_pending_latency AppEngineStandardAppVersion#min_pending_latency}
         '''
         result = self._values.get("min_pending_latency")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -911,7 +911,7 @@ class AppEngineStandardAppVersionAutomaticScaling:
     ) -> typing.Optional["AppEngineStandardAppVersionAutomaticScalingStandardSchedulerSettings"]:
         '''standard_scheduler_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#standard_scheduler_settings AppEngineStandardAppVersion#standard_scheduler_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#standard_scheduler_settings AppEngineStandardAppVersion#standard_scheduler_settings}
         '''
         result = self._values.get("standard_scheduler_settings")
         return typing.cast(typing.Optional["AppEngineStandardAppVersionAutomaticScalingStandardSchedulerSettings"], result)
@@ -958,10 +958,10 @@ class AppEngineStandardAppVersionAutomaticScalingOutputReference(
         target_throughput_utilization: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_instances: Maximum number of instances to run for this version. Set to zero to disable maxInstances configuration. **Note:** Starting from March 2025, App Engine sets the maxInstances default for standard environment deployments to 20. This change doesn't impact existing apps. To override the default, specify a new value between 0 and 2147483647, and deploy a new version or redeploy over an existing version. To disable the maxInstances default configuration setting, specify the maximum permitted value 2147483647. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#max_instances AppEngineStandardAppVersion#max_instances}
-        :param min_instances: Minimum number of instances to run for this version. Set to zero to disable minInstances configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#min_instances AppEngineStandardAppVersion#min_instances}
-        :param target_cpu_utilization: Target CPU utilization ratio to maintain when scaling. Should be a value in the range [0.50, 0.95], zero, or a negative value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#target_cpu_utilization AppEngineStandardAppVersion#target_cpu_utilization}
-        :param target_throughput_utilization: Target throughput utilization ratio to maintain when scaling. Should be a value in the range [0.50, 0.95], zero, or a negative value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#target_throughput_utilization AppEngineStandardAppVersion#target_throughput_utilization}
+        :param max_instances: Maximum number of instances to run for this version. Set to zero to disable maxInstances configuration. **Note:** Starting from March 2025, App Engine sets the maxInstances default for standard environment deployments to 20. This change doesn't impact existing apps. To override the default, specify a new value between 0 and 2147483647, and deploy a new version or redeploy over an existing version. To disable the maxInstances default configuration setting, specify the maximum permitted value 2147483647. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#max_instances AppEngineStandardAppVersion#max_instances}
+        :param min_instances: Minimum number of instances to run for this version. Set to zero to disable minInstances configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#min_instances AppEngineStandardAppVersion#min_instances}
+        :param target_cpu_utilization: Target CPU utilization ratio to maintain when scaling. Should be a value in the range [0.50, 0.95], zero, or a negative value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#target_cpu_utilization AppEngineStandardAppVersion#target_cpu_utilization}
+        :param target_throughput_utilization: Target throughput utilization ratio to maintain when scaling. Should be a value in the range [0.50, 0.95], zero, or a negative value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#target_throughput_utilization AppEngineStandardAppVersion#target_throughput_utilization}
         '''
         value = AppEngineStandardAppVersionAutomaticScalingStandardSchedulerSettings(
             max_instances=max_instances,
@@ -1133,10 +1133,10 @@ class AppEngineStandardAppVersionAutomaticScalingStandardSchedulerSettings:
         target_throughput_utilization: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_instances: Maximum number of instances to run for this version. Set to zero to disable maxInstances configuration. **Note:** Starting from March 2025, App Engine sets the maxInstances default for standard environment deployments to 20. This change doesn't impact existing apps. To override the default, specify a new value between 0 and 2147483647, and deploy a new version or redeploy over an existing version. To disable the maxInstances default configuration setting, specify the maximum permitted value 2147483647. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#max_instances AppEngineStandardAppVersion#max_instances}
-        :param min_instances: Minimum number of instances to run for this version. Set to zero to disable minInstances configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#min_instances AppEngineStandardAppVersion#min_instances}
-        :param target_cpu_utilization: Target CPU utilization ratio to maintain when scaling. Should be a value in the range [0.50, 0.95], zero, or a negative value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#target_cpu_utilization AppEngineStandardAppVersion#target_cpu_utilization}
-        :param target_throughput_utilization: Target throughput utilization ratio to maintain when scaling. Should be a value in the range [0.50, 0.95], zero, or a negative value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#target_throughput_utilization AppEngineStandardAppVersion#target_throughput_utilization}
+        :param max_instances: Maximum number of instances to run for this version. Set to zero to disable maxInstances configuration. **Note:** Starting from March 2025, App Engine sets the maxInstances default for standard environment deployments to 20. This change doesn't impact existing apps. To override the default, specify a new value between 0 and 2147483647, and deploy a new version or redeploy over an existing version. To disable the maxInstances default configuration setting, specify the maximum permitted value 2147483647. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#max_instances AppEngineStandardAppVersion#max_instances}
+        :param min_instances: Minimum number of instances to run for this version. Set to zero to disable minInstances configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#min_instances AppEngineStandardAppVersion#min_instances}
+        :param target_cpu_utilization: Target CPU utilization ratio to maintain when scaling. Should be a value in the range [0.50, 0.95], zero, or a negative value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#target_cpu_utilization AppEngineStandardAppVersion#target_cpu_utilization}
+        :param target_throughput_utilization: Target throughput utilization ratio to maintain when scaling. Should be a value in the range [0.50, 0.95], zero, or a negative value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#target_throughput_utilization AppEngineStandardAppVersion#target_throughput_utilization}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__df37acd9beef70f053969b10f0c383267689c6c7f0e72212cc0b59779c889c99)
@@ -1160,7 +1160,7 @@ class AppEngineStandardAppVersionAutomaticScalingStandardSchedulerSettings:
 
         **Note:** Starting from March 2025, App Engine sets the maxInstances default for standard environment deployments to 20. This change doesn't impact existing apps. To override the default, specify a new value between 0 and 2147483647, and deploy a new version or redeploy over an existing version. To disable the maxInstances default configuration setting, specify the maximum permitted value 2147483647.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#max_instances AppEngineStandardAppVersion#max_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#max_instances AppEngineStandardAppVersion#max_instances}
         '''
         result = self._values.get("max_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1169,7 +1169,7 @@ class AppEngineStandardAppVersionAutomaticScalingStandardSchedulerSettings:
     def min_instances(self) -> typing.Optional[jsii.Number]:
         '''Minimum number of instances to run for this version. Set to zero to disable minInstances configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#min_instances AppEngineStandardAppVersion#min_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#min_instances AppEngineStandardAppVersion#min_instances}
         '''
         result = self._values.get("min_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1180,7 +1180,7 @@ class AppEngineStandardAppVersionAutomaticScalingStandardSchedulerSettings:
 
         Should be a value in the range [0.50, 0.95], zero, or a negative value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#target_cpu_utilization AppEngineStandardAppVersion#target_cpu_utilization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#target_cpu_utilization AppEngineStandardAppVersion#target_cpu_utilization}
         '''
         result = self._values.get("target_cpu_utilization")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1191,7 +1191,7 @@ class AppEngineStandardAppVersionAutomaticScalingStandardSchedulerSettings:
 
         Should be a value in the range [0.50, 0.95], zero, or a negative value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#target_throughput_utilization AppEngineStandardAppVersion#target_throughput_utilization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#target_throughput_utilization AppEngineStandardAppVersion#target_throughput_utilization}
         '''
         result = self._values.get("target_throughput_utilization")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1343,8 +1343,8 @@ class AppEngineStandardAppVersionBasicScaling:
         idle_timeout: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_instances: Maximum number of instances to create for this version. Must be in the range [1.0, 200.0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#max_instances AppEngineStandardAppVersion#max_instances}
-        :param idle_timeout: Duration of time after the last request that an instance must wait before the instance is shut down. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Defaults to 900s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#idle_timeout AppEngineStandardAppVersion#idle_timeout}
+        :param max_instances: Maximum number of instances to create for this version. Must be in the range [1.0, 200.0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#max_instances AppEngineStandardAppVersion#max_instances}
+        :param idle_timeout: Duration of time after the last request that an instance must wait before the instance is shut down. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Defaults to 900s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#idle_timeout AppEngineStandardAppVersion#idle_timeout}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__26ff08810f9dd0a6c813defb040a51bf94ed3f904c21aee4224559856719c1eb)
@@ -1360,7 +1360,7 @@ class AppEngineStandardAppVersionBasicScaling:
     def max_instances(self) -> jsii.Number:
         '''Maximum number of instances to create for this version. Must be in the range [1.0, 200.0].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#max_instances AppEngineStandardAppVersion#max_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#max_instances AppEngineStandardAppVersion#max_instances}
         '''
         result = self._values.get("max_instances")
         assert result is not None, "Required property 'max_instances' is missing"
@@ -1372,7 +1372,7 @@ class AppEngineStandardAppVersionBasicScaling:
 
         A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Defaults to 900s.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#idle_timeout AppEngineStandardAppVersion#idle_timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#idle_timeout AppEngineStandardAppVersion#idle_timeout}
         '''
         result = self._values.get("idle_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1544,29 +1544,29 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param deployment: deployment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#deployment AppEngineStandardAppVersion#deployment}
-        :param entrypoint: entrypoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#entrypoint AppEngineStandardAppVersion#entrypoint}
-        :param runtime: Desired runtime. Example python27. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#runtime AppEngineStandardAppVersion#runtime}
-        :param service: AppEngine service resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#service AppEngineStandardAppVersion#service}
-        :param app_engine_apis: Allows App Engine second generation runtimes to access the legacy bundled services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#app_engine_apis AppEngineStandardAppVersion#app_engine_apis}
-        :param automatic_scaling: automatic_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#automatic_scaling AppEngineStandardAppVersion#automatic_scaling}
-        :param basic_scaling: basic_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#basic_scaling AppEngineStandardAppVersion#basic_scaling}
-        :param delete_service_on_destroy: If set to 'true', the service will be deleted if it is the last version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#delete_service_on_destroy AppEngineStandardAppVersion#delete_service_on_destroy}
-        :param env_variables: Environment variables available to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#env_variables AppEngineStandardAppVersion#env_variables}
-        :param handlers: handlers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#handlers AppEngineStandardAppVersion#handlers}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#id AppEngineStandardAppVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param inbound_services: A list of the types of messages that this application is able to receive. Possible values: ["INBOUND_SERVICE_MAIL", "INBOUND_SERVICE_MAIL_BOUNCE", "INBOUND_SERVICE_XMPP_ERROR", "INBOUND_SERVICE_XMPP_MESSAGE", "INBOUND_SERVICE_XMPP_SUBSCRIBE", "INBOUND_SERVICE_XMPP_PRESENCE", "INBOUND_SERVICE_CHANNEL_PRESENCE", "INBOUND_SERVICE_WARMUP"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#inbound_services AppEngineStandardAppVersion#inbound_services}
-        :param instance_class: Instance class that is used to run this version. Valid values are AutomaticScaling: F1, F2, F4, F4_1G BasicScaling or ManualScaling: B1, B2, B4, B4_1G, B8 Defaults to F1 for AutomaticScaling and B2 for ManualScaling and BasicScaling. If no scaling is specified, AutomaticScaling is chosen. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#instance_class AppEngineStandardAppVersion#instance_class}
-        :param libraries: libraries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#libraries AppEngineStandardAppVersion#libraries}
-        :param manual_scaling: manual_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#manual_scaling AppEngineStandardAppVersion#manual_scaling}
-        :param noop_on_destroy: If set to 'true', the application version will not be deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#noop_on_destroy AppEngineStandardAppVersion#noop_on_destroy}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#project AppEngineStandardAppVersion#project}.
-        :param runtime_api_version: The version of the API in the given runtime environment. Please see the app.yaml reference for valid values at 'https://cloud.google.com/appengine/docs/standard//config/appref' Substitute '' with 'python', 'java', 'php', 'ruby', 'go' or 'nodejs'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#runtime_api_version AppEngineStandardAppVersion#runtime_api_version}
-        :param service_account: The identity that the deployed version will run as. Admin API will use the App Engine Appspot service account as default if this field is neither provided in app.yaml file nor through CLI flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#service_account AppEngineStandardAppVersion#service_account}
-        :param threadsafe: Whether multiple requests can be dispatched to this version at once. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#threadsafe AppEngineStandardAppVersion#threadsafe}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#timeouts AppEngineStandardAppVersion#timeouts}
-        :param version_id: Relative name of the version within the service. For example, 'v1'. Version names can contain only lowercase letters, numbers, or hyphens. Reserved names,"default", "latest", and any name with the prefix "ah-". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#version_id AppEngineStandardAppVersion#version_id}
-        :param vpc_access_connector: vpc_access_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#vpc_access_connector AppEngineStandardAppVersion#vpc_access_connector}
+        :param deployment: deployment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#deployment AppEngineStandardAppVersion#deployment}
+        :param entrypoint: entrypoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#entrypoint AppEngineStandardAppVersion#entrypoint}
+        :param runtime: Desired runtime. Example python27. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#runtime AppEngineStandardAppVersion#runtime}
+        :param service: AppEngine service resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#service AppEngineStandardAppVersion#service}
+        :param app_engine_apis: Allows App Engine second generation runtimes to access the legacy bundled services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#app_engine_apis AppEngineStandardAppVersion#app_engine_apis}
+        :param automatic_scaling: automatic_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#automatic_scaling AppEngineStandardAppVersion#automatic_scaling}
+        :param basic_scaling: basic_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#basic_scaling AppEngineStandardAppVersion#basic_scaling}
+        :param delete_service_on_destroy: If set to 'true', the service will be deleted if it is the last version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#delete_service_on_destroy AppEngineStandardAppVersion#delete_service_on_destroy}
+        :param env_variables: Environment variables available to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#env_variables AppEngineStandardAppVersion#env_variables}
+        :param handlers: handlers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#handlers AppEngineStandardAppVersion#handlers}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#id AppEngineStandardAppVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param inbound_services: A list of the types of messages that this application is able to receive. Possible values: ["INBOUND_SERVICE_MAIL", "INBOUND_SERVICE_MAIL_BOUNCE", "INBOUND_SERVICE_XMPP_ERROR", "INBOUND_SERVICE_XMPP_MESSAGE", "INBOUND_SERVICE_XMPP_SUBSCRIBE", "INBOUND_SERVICE_XMPP_PRESENCE", "INBOUND_SERVICE_CHANNEL_PRESENCE", "INBOUND_SERVICE_WARMUP"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#inbound_services AppEngineStandardAppVersion#inbound_services}
+        :param instance_class: Instance class that is used to run this version. Valid values are AutomaticScaling: F1, F2, F4, F4_1G BasicScaling or ManualScaling: B1, B2, B4, B4_1G, B8 Defaults to F1 for AutomaticScaling and B2 for ManualScaling and BasicScaling. If no scaling is specified, AutomaticScaling is chosen. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#instance_class AppEngineStandardAppVersion#instance_class}
+        :param libraries: libraries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#libraries AppEngineStandardAppVersion#libraries}
+        :param manual_scaling: manual_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#manual_scaling AppEngineStandardAppVersion#manual_scaling}
+        :param noop_on_destroy: If set to 'true', the application version will not be deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#noop_on_destroy AppEngineStandardAppVersion#noop_on_destroy}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#project AppEngineStandardAppVersion#project}.
+        :param runtime_api_version: The version of the API in the given runtime environment. Please see the app.yaml reference for valid values at 'https://cloud.google.com/appengine/docs/standard//config/appref' Substitute '' with 'python', 'java', 'php', 'ruby', 'go' or 'nodejs'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#runtime_api_version AppEngineStandardAppVersion#runtime_api_version}
+        :param service_account: The identity that the deployed version will run as. Admin API will use the App Engine Appspot service account as default if this field is neither provided in app.yaml file nor through CLI flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#service_account AppEngineStandardAppVersion#service_account}
+        :param threadsafe: Whether multiple requests can be dispatched to this version at once. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#threadsafe AppEngineStandardAppVersion#threadsafe}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#timeouts AppEngineStandardAppVersion#timeouts}
+        :param version_id: Relative name of the version within the service. For example, 'v1'. Version names can contain only lowercase letters, numbers, or hyphens. Reserved names,"default", "latest", and any name with the prefix "ah-". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#version_id AppEngineStandardAppVersion#version_id}
+        :param vpc_access_connector: vpc_access_connector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#vpc_access_connector AppEngineStandardAppVersion#vpc_access_connector}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1743,7 +1743,7 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def deployment(self) -> "AppEngineStandardAppVersionDeployment":
         '''deployment block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#deployment AppEngineStandardAppVersion#deployment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#deployment AppEngineStandardAppVersion#deployment}
         '''
         result = self._values.get("deployment")
         assert result is not None, "Required property 'deployment' is missing"
@@ -1753,7 +1753,7 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def entrypoint(self) -> "AppEngineStandardAppVersionEntrypoint":
         '''entrypoint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#entrypoint AppEngineStandardAppVersion#entrypoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#entrypoint AppEngineStandardAppVersion#entrypoint}
         '''
         result = self._values.get("entrypoint")
         assert result is not None, "Required property 'entrypoint' is missing"
@@ -1763,7 +1763,7 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def runtime(self) -> builtins.str:
         '''Desired runtime. Example python27.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#runtime AppEngineStandardAppVersion#runtime}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#runtime AppEngineStandardAppVersion#runtime}
         '''
         result = self._values.get("runtime")
         assert result is not None, "Required property 'runtime' is missing"
@@ -1773,7 +1773,7 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service(self) -> builtins.str:
         '''AppEngine service resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#service AppEngineStandardAppVersion#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#service AppEngineStandardAppVersion#service}
         '''
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
@@ -1785,7 +1785,7 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Allows App Engine second generation runtimes to access the legacy bundled services.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#app_engine_apis AppEngineStandardAppVersion#app_engine_apis}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#app_engine_apis AppEngineStandardAppVersion#app_engine_apis}
         '''
         result = self._values.get("app_engine_apis")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1796,7 +1796,7 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[AppEngineStandardAppVersionAutomaticScaling]:
         '''automatic_scaling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#automatic_scaling AppEngineStandardAppVersion#automatic_scaling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#automatic_scaling AppEngineStandardAppVersion#automatic_scaling}
         '''
         result = self._values.get("automatic_scaling")
         return typing.cast(typing.Optional[AppEngineStandardAppVersionAutomaticScaling], result)
@@ -1805,7 +1805,7 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def basic_scaling(self) -> typing.Optional[AppEngineStandardAppVersionBasicScaling]:
         '''basic_scaling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#basic_scaling AppEngineStandardAppVersion#basic_scaling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#basic_scaling AppEngineStandardAppVersion#basic_scaling}
         '''
         result = self._values.get("basic_scaling")
         return typing.cast(typing.Optional[AppEngineStandardAppVersionBasicScaling], result)
@@ -1816,7 +1816,7 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to 'true', the service will be deleted if it is the last version.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#delete_service_on_destroy AppEngineStandardAppVersion#delete_service_on_destroy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#delete_service_on_destroy AppEngineStandardAppVersion#delete_service_on_destroy}
         '''
         result = self._values.get("delete_service_on_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1827,7 +1827,7 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Environment variables available to the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#env_variables AppEngineStandardAppVersion#env_variables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#env_variables AppEngineStandardAppVersion#env_variables}
         '''
         result = self._values.get("env_variables")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1838,14 +1838,14 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppEngineStandardAppVersionHandlers"]]]:
         '''handlers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#handlers AppEngineStandardAppVersion#handlers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#handlers AppEngineStandardAppVersion#handlers}
         '''
         result = self._values.get("handlers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppEngineStandardAppVersionHandlers"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#id AppEngineStandardAppVersion#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#id AppEngineStandardAppVersion#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1859,7 +1859,7 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Possible values: ["INBOUND_SERVICE_MAIL", "INBOUND_SERVICE_MAIL_BOUNCE", "INBOUND_SERVICE_XMPP_ERROR", "INBOUND_SERVICE_XMPP_MESSAGE", "INBOUND_SERVICE_XMPP_SUBSCRIBE", "INBOUND_SERVICE_XMPP_PRESENCE", "INBOUND_SERVICE_CHANNEL_PRESENCE", "INBOUND_SERVICE_WARMUP"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#inbound_services AppEngineStandardAppVersion#inbound_services}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#inbound_services AppEngineStandardAppVersion#inbound_services}
         '''
         result = self._values.get("inbound_services")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1873,7 +1873,7 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         BasicScaling or ManualScaling: B1, B2, B4, B4_1G, B8
         Defaults to F1 for AutomaticScaling and B2 for ManualScaling and BasicScaling. If no scaling is specified, AutomaticScaling is chosen.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#instance_class AppEngineStandardAppVersion#instance_class}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#instance_class AppEngineStandardAppVersion#instance_class}
         '''
         result = self._values.get("instance_class")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1884,7 +1884,7 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppEngineStandardAppVersionLibraries"]]]:
         '''libraries block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#libraries AppEngineStandardAppVersion#libraries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#libraries AppEngineStandardAppVersion#libraries}
         '''
         result = self._values.get("libraries")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppEngineStandardAppVersionLibraries"]]], result)
@@ -1895,7 +1895,7 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["AppEngineStandardAppVersionManualScaling"]:
         '''manual_scaling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#manual_scaling AppEngineStandardAppVersion#manual_scaling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#manual_scaling AppEngineStandardAppVersion#manual_scaling}
         '''
         result = self._values.get("manual_scaling")
         return typing.cast(typing.Optional["AppEngineStandardAppVersionManualScaling"], result)
@@ -1906,14 +1906,14 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to 'true', the application version will not be deleted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#noop_on_destroy AppEngineStandardAppVersion#noop_on_destroy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#noop_on_destroy AppEngineStandardAppVersion#noop_on_destroy}
         '''
         result = self._values.get("noop_on_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#project AppEngineStandardAppVersion#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#project AppEngineStandardAppVersion#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1924,7 +1924,7 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Please see the app.yaml reference for valid values at 'https://cloud.google.com/appengine/docs/standard//config/appref'
         Substitute '' with 'python', 'java', 'php', 'ruby', 'go' or 'nodejs'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#runtime_api_version AppEngineStandardAppVersion#runtime_api_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#runtime_api_version AppEngineStandardAppVersion#runtime_api_version}
         '''
         result = self._values.get("runtime_api_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1935,7 +1935,7 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Admin API will use the App Engine Appspot service account as default if this field is neither provided in app.yaml file nor through CLI flag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#service_account AppEngineStandardAppVersion#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#service_account AppEngineStandardAppVersion#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1946,7 +1946,7 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether multiple requests can be dispatched to this version at once.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#threadsafe AppEngineStandardAppVersion#threadsafe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#threadsafe AppEngineStandardAppVersion#threadsafe}
         '''
         result = self._values.get("threadsafe")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1955,7 +1955,7 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["AppEngineStandardAppVersionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#timeouts AppEngineStandardAppVersion#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#timeouts AppEngineStandardAppVersion#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["AppEngineStandardAppVersionTimeouts"], result)
@@ -1966,7 +1966,7 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For example, 'v1'. Version names can contain only lowercase letters, numbers, or hyphens. Reserved names,"default", "latest", and any name with the prefix "ah-".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#version_id AppEngineStandardAppVersion#version_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#version_id AppEngineStandardAppVersion#version_id}
         '''
         result = self._values.get("version_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1977,7 +1977,7 @@ class AppEngineStandardAppVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["AppEngineStandardAppVersionVpcAccessConnector"]:
         '''vpc_access_connector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#vpc_access_connector AppEngineStandardAppVersion#vpc_access_connector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#vpc_access_connector AppEngineStandardAppVersion#vpc_access_connector}
         '''
         result = self._values.get("vpc_access_connector")
         return typing.cast(typing.Optional["AppEngineStandardAppVersionVpcAccessConnector"], result)
@@ -2007,8 +2007,8 @@ class AppEngineStandardAppVersionDeployment:
         zip: typing.Optional[typing.Union["AppEngineStandardAppVersionDeploymentZip", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param files: files block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#files AppEngineStandardAppVersion#files}
-        :param zip: zip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#zip AppEngineStandardAppVersion#zip}
+        :param files: files block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#files AppEngineStandardAppVersion#files}
+        :param zip: zip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#zip AppEngineStandardAppVersion#zip}
         '''
         if isinstance(zip, dict):
             zip = AppEngineStandardAppVersionDeploymentZip(**zip)
@@ -2028,7 +2028,7 @@ class AppEngineStandardAppVersionDeployment:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppEngineStandardAppVersionDeploymentFiles"]]]:
         '''files block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#files AppEngineStandardAppVersion#files}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#files AppEngineStandardAppVersion#files}
         '''
         result = self._values.get("files")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppEngineStandardAppVersionDeploymentFiles"]]], result)
@@ -2037,7 +2037,7 @@ class AppEngineStandardAppVersionDeployment:
     def zip(self) -> typing.Optional["AppEngineStandardAppVersionDeploymentZip"]:
         '''zip block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#zip AppEngineStandardAppVersion#zip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#zip AppEngineStandardAppVersion#zip}
         '''
         result = self._values.get("zip")
         return typing.cast(typing.Optional["AppEngineStandardAppVersionDeploymentZip"], result)
@@ -2068,9 +2068,9 @@ class AppEngineStandardAppVersionDeploymentFiles:
         sha1_sum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#name AppEngineStandardAppVersion#name}.
-        :param source_url: Source URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#source_url AppEngineStandardAppVersion#source_url}
-        :param sha1_sum: SHA1 checksum of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#sha1_sum AppEngineStandardAppVersion#sha1_sum}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#name AppEngineStandardAppVersion#name}.
+        :param source_url: Source URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#source_url AppEngineStandardAppVersion#source_url}
+        :param sha1_sum: SHA1 checksum of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#sha1_sum AppEngineStandardAppVersion#sha1_sum}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b37e3c4318816f9103317834d040a0217c9991be1e676bae032f287d0be26fe6)
@@ -2086,7 +2086,7 @@ class AppEngineStandardAppVersionDeploymentFiles:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#name AppEngineStandardAppVersion#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#name AppEngineStandardAppVersion#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -2095,7 +2095,7 @@ class AppEngineStandardAppVersionDeploymentFiles:
     def source_url(self) -> builtins.str:
         '''Source URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#source_url AppEngineStandardAppVersion#source_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#source_url AppEngineStandardAppVersion#source_url}
         '''
         result = self._values.get("source_url")
         assert result is not None, "Required property 'source_url' is missing"
@@ -2105,7 +2105,7 @@ class AppEngineStandardAppVersionDeploymentFiles:
     def sha1_sum(self) -> typing.Optional[builtins.str]:
         '''SHA1 checksum of the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#sha1_sum AppEngineStandardAppVersion#sha1_sum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#sha1_sum AppEngineStandardAppVersion#sha1_sum}
         '''
         result = self._values.get("sha1_sum")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2355,8 +2355,8 @@ class AppEngineStandardAppVersionDeploymentOutputReference(
         files_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param source_url: Source URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#source_url AppEngineStandardAppVersion#source_url}
-        :param files_count: files count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#files_count AppEngineStandardAppVersion#files_count}
+        :param source_url: Source URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#source_url AppEngineStandardAppVersion#source_url}
+        :param files_count: files count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#files_count AppEngineStandardAppVersion#files_count}
         '''
         value = AppEngineStandardAppVersionDeploymentZip(
             source_url=source_url, files_count=files_count
@@ -2423,8 +2423,8 @@ class AppEngineStandardAppVersionDeploymentZip:
         files_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param source_url: Source URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#source_url AppEngineStandardAppVersion#source_url}
-        :param files_count: files count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#files_count AppEngineStandardAppVersion#files_count}
+        :param source_url: Source URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#source_url AppEngineStandardAppVersion#source_url}
+        :param files_count: files count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#files_count AppEngineStandardAppVersion#files_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e9e01d08e0a7156037d412cf46174570fd3cd6fd8a8b38fd1bc5fefea212fdb0)
@@ -2440,7 +2440,7 @@ class AppEngineStandardAppVersionDeploymentZip:
     def source_url(self) -> builtins.str:
         '''Source URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#source_url AppEngineStandardAppVersion#source_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#source_url AppEngineStandardAppVersion#source_url}
         '''
         result = self._values.get("source_url")
         assert result is not None, "Required property 'source_url' is missing"
@@ -2450,7 +2450,7 @@ class AppEngineStandardAppVersionDeploymentZip:
     def files_count(self) -> typing.Optional[jsii.Number]:
         '''files count.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#files_count AppEngineStandardAppVersion#files_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#files_count AppEngineStandardAppVersion#files_count}
         '''
         result = self._values.get("files_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2551,7 +2551,7 @@ class AppEngineStandardAppVersionDeploymentZipOutputReference(
 class AppEngineStandardAppVersionEntrypoint:
     def __init__(self, *, shell: builtins.str) -> None:
         '''
-        :param shell: The format should be a shell command that can be fed to bash -c. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#shell AppEngineStandardAppVersion#shell}
+        :param shell: The format should be a shell command that can be fed to bash -c. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#shell AppEngineStandardAppVersion#shell}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f5b8e3dd84635f0da6d4f46e4879d669df7d0031fa7d89cd7d065befe348f494)
@@ -2564,7 +2564,7 @@ class AppEngineStandardAppVersionEntrypoint:
     def shell(self) -> builtins.str:
         '''The format should be a shell command that can be fed to bash -c.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#shell AppEngineStandardAppVersion#shell}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#shell AppEngineStandardAppVersion#shell}
         '''
         result = self._values.get("shell")
         assert result is not None, "Required property 'shell' is missing"
@@ -2661,13 +2661,13 @@ class AppEngineStandardAppVersionHandlers:
         url_regex: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_fail_action: Actions to take when the user is not logged in. Possible values: ["AUTH_FAIL_ACTION_REDIRECT", "AUTH_FAIL_ACTION_UNAUTHORIZED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#auth_fail_action AppEngineStandardAppVersion#auth_fail_action}
-        :param login: Methods to restrict access to a URL based on login status. Possible values: ["LOGIN_OPTIONAL", "LOGIN_ADMIN", "LOGIN_REQUIRED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#login AppEngineStandardAppVersion#login}
-        :param redirect_http_response_code: 30x code to use when performing redirects for the secure field. Possible values: ["REDIRECT_HTTP_RESPONSE_CODE_301", "REDIRECT_HTTP_RESPONSE_CODE_302", "REDIRECT_HTTP_RESPONSE_CODE_303", "REDIRECT_HTTP_RESPONSE_CODE_307"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#redirect_http_response_code AppEngineStandardAppVersion#redirect_http_response_code}
-        :param script: script block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#script AppEngineStandardAppVersion#script}
-        :param security_level: Security (HTTPS) enforcement for this URL. Possible values: ["SECURE_DEFAULT", "SECURE_NEVER", "SECURE_OPTIONAL", "SECURE_ALWAYS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#security_level AppEngineStandardAppVersion#security_level}
-        :param static_files: static_files block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#static_files AppEngineStandardAppVersion#static_files}
-        :param url_regex: URL prefix. Uses regular expression syntax, which means regexp special characters must be escaped, but should not contain groupings. All URLs that begin with this prefix are handled by this handler, using the portion of the URL after the prefix as part of the file path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#url_regex AppEngineStandardAppVersion#url_regex}
+        :param auth_fail_action: Actions to take when the user is not logged in. Possible values: ["AUTH_FAIL_ACTION_REDIRECT", "AUTH_FAIL_ACTION_UNAUTHORIZED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#auth_fail_action AppEngineStandardAppVersion#auth_fail_action}
+        :param login: Methods to restrict access to a URL based on login status. Possible values: ["LOGIN_OPTIONAL", "LOGIN_ADMIN", "LOGIN_REQUIRED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#login AppEngineStandardAppVersion#login}
+        :param redirect_http_response_code: 30x code to use when performing redirects for the secure field. Possible values: ["REDIRECT_HTTP_RESPONSE_CODE_301", "REDIRECT_HTTP_RESPONSE_CODE_302", "REDIRECT_HTTP_RESPONSE_CODE_303", "REDIRECT_HTTP_RESPONSE_CODE_307"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#redirect_http_response_code AppEngineStandardAppVersion#redirect_http_response_code}
+        :param script: script block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#script AppEngineStandardAppVersion#script}
+        :param security_level: Security (HTTPS) enforcement for this URL. Possible values: ["SECURE_DEFAULT", "SECURE_NEVER", "SECURE_OPTIONAL", "SECURE_ALWAYS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#security_level AppEngineStandardAppVersion#security_level}
+        :param static_files: static_files block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#static_files AppEngineStandardAppVersion#static_files}
+        :param url_regex: URL prefix. Uses regular expression syntax, which means regexp special characters must be escaped, but should not contain groupings. All URLs that begin with this prefix are handled by this handler, using the portion of the URL after the prefix as part of the file path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#url_regex AppEngineStandardAppVersion#url_regex}
         '''
         if isinstance(script, dict):
             script = AppEngineStandardAppVersionHandlersScript(**script)
@@ -2702,7 +2702,7 @@ class AppEngineStandardAppVersionHandlers:
     def auth_fail_action(self) -> typing.Optional[builtins.str]:
         '''Actions to take when the user is not logged in. Possible values: ["AUTH_FAIL_ACTION_REDIRECT", "AUTH_FAIL_ACTION_UNAUTHORIZED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#auth_fail_action AppEngineStandardAppVersion#auth_fail_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#auth_fail_action AppEngineStandardAppVersion#auth_fail_action}
         '''
         result = self._values.get("auth_fail_action")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2711,7 +2711,7 @@ class AppEngineStandardAppVersionHandlers:
     def login(self) -> typing.Optional[builtins.str]:
         '''Methods to restrict access to a URL based on login status. Possible values: ["LOGIN_OPTIONAL", "LOGIN_ADMIN", "LOGIN_REQUIRED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#login AppEngineStandardAppVersion#login}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#login AppEngineStandardAppVersion#login}
         '''
         result = self._values.get("login")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2720,7 +2720,7 @@ class AppEngineStandardAppVersionHandlers:
     def redirect_http_response_code(self) -> typing.Optional[builtins.str]:
         '''30x code to use when performing redirects for the secure field. Possible values: ["REDIRECT_HTTP_RESPONSE_CODE_301", "REDIRECT_HTTP_RESPONSE_CODE_302", "REDIRECT_HTTP_RESPONSE_CODE_303", "REDIRECT_HTTP_RESPONSE_CODE_307"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#redirect_http_response_code AppEngineStandardAppVersion#redirect_http_response_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#redirect_http_response_code AppEngineStandardAppVersion#redirect_http_response_code}
         '''
         result = self._values.get("redirect_http_response_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2729,7 +2729,7 @@ class AppEngineStandardAppVersionHandlers:
     def script(self) -> typing.Optional["AppEngineStandardAppVersionHandlersScript"]:
         '''script block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#script AppEngineStandardAppVersion#script}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#script AppEngineStandardAppVersion#script}
         '''
         result = self._values.get("script")
         return typing.cast(typing.Optional["AppEngineStandardAppVersionHandlersScript"], result)
@@ -2738,7 +2738,7 @@ class AppEngineStandardAppVersionHandlers:
     def security_level(self) -> typing.Optional[builtins.str]:
         '''Security (HTTPS) enforcement for this URL. Possible values: ["SECURE_DEFAULT", "SECURE_NEVER", "SECURE_OPTIONAL", "SECURE_ALWAYS"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#security_level AppEngineStandardAppVersion#security_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#security_level AppEngineStandardAppVersion#security_level}
         '''
         result = self._values.get("security_level")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2749,7 +2749,7 @@ class AppEngineStandardAppVersionHandlers:
     ) -> typing.Optional["AppEngineStandardAppVersionHandlersStaticFiles"]:
         '''static_files block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#static_files AppEngineStandardAppVersion#static_files}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#static_files AppEngineStandardAppVersion#static_files}
         '''
         result = self._values.get("static_files")
         return typing.cast(typing.Optional["AppEngineStandardAppVersionHandlersStaticFiles"], result)
@@ -2761,7 +2761,7 @@ class AppEngineStandardAppVersionHandlers:
         Uses regular expression syntax, which means regexp special characters must be escaped, but should not contain groupings.
         All URLs that begin with this prefix are handled by this handler, using the portion of the URL after the prefix as part of the file path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#url_regex AppEngineStandardAppVersion#url_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#url_regex AppEngineStandardAppVersion#url_regex}
         '''
         result = self._values.get("url_regex")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2900,7 +2900,7 @@ class AppEngineStandardAppVersionHandlersOutputReference(
     @jsii.member(jsii_name="putScript")
     def put_script(self, *, script_path: builtins.str) -> None:
         '''
-        :param script_path: Path to the script from the application root directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#script_path AppEngineStandardAppVersion#script_path}
+        :param script_path: Path to the script from the application root directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#script_path AppEngineStandardAppVersion#script_path}
         '''
         value = AppEngineStandardAppVersionHandlersScript(script_path=script_path)
 
@@ -2919,13 +2919,13 @@ class AppEngineStandardAppVersionHandlersOutputReference(
         upload_path_regex: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param application_readable: Whether files should also be uploaded as code data. By default, files declared in static file handlers are uploaded as static data and are only served to end users; they cannot be read by the application. If enabled, uploads are charged against both your code and static data storage resource quotas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#application_readable AppEngineStandardAppVersion#application_readable}
-        :param expiration: Time a static file served by this handler should be cached by web proxies and browsers. A duration in seconds with up to nine fractional digits, terminated by 's'. Example "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#expiration AppEngineStandardAppVersion#expiration}
-        :param http_headers: HTTP headers to use for all responses from these URLs. An object containing a list of "key:value" value pairs.". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#http_headers AppEngineStandardAppVersion#http_headers}
-        :param mime_type: MIME type used to serve all files served by this handler. Defaults to file-specific MIME types, which are derived from each file's filename extension. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#mime_type AppEngineStandardAppVersion#mime_type}
-        :param path: Path to the static files matched by the URL pattern, from the application root directory. The path can refer to text matched in groupings in the URL pattern. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#path AppEngineStandardAppVersion#path}
-        :param require_matching_file: Whether this handler should match the request if the file referenced by the handler does not exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#require_matching_file AppEngineStandardAppVersion#require_matching_file}
-        :param upload_path_regex: Regular expression that matches the file paths for all files that should be referenced by this handler. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#upload_path_regex AppEngineStandardAppVersion#upload_path_regex}
+        :param application_readable: Whether files should also be uploaded as code data. By default, files declared in static file handlers are uploaded as static data and are only served to end users; they cannot be read by the application. If enabled, uploads are charged against both your code and static data storage resource quotas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#application_readable AppEngineStandardAppVersion#application_readable}
+        :param expiration: Time a static file served by this handler should be cached by web proxies and browsers. A duration in seconds with up to nine fractional digits, terminated by 's'. Example "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#expiration AppEngineStandardAppVersion#expiration}
+        :param http_headers: HTTP headers to use for all responses from these URLs. An object containing a list of "key:value" value pairs.". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#http_headers AppEngineStandardAppVersion#http_headers}
+        :param mime_type: MIME type used to serve all files served by this handler. Defaults to file-specific MIME types, which are derived from each file's filename extension. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#mime_type AppEngineStandardAppVersion#mime_type}
+        :param path: Path to the static files matched by the URL pattern, from the application root directory. The path can refer to text matched in groupings in the URL pattern. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#path AppEngineStandardAppVersion#path}
+        :param require_matching_file: Whether this handler should match the request if the file referenced by the handler does not exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#require_matching_file AppEngineStandardAppVersion#require_matching_file}
+        :param upload_path_regex: Regular expression that matches the file paths for all files that should be referenced by this handler. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#upload_path_regex AppEngineStandardAppVersion#upload_path_regex}
         '''
         value = AppEngineStandardAppVersionHandlersStaticFiles(
             application_readable=application_readable,
@@ -3104,7 +3104,7 @@ class AppEngineStandardAppVersionHandlersOutputReference(
 class AppEngineStandardAppVersionHandlersScript:
     def __init__(self, *, script_path: builtins.str) -> None:
         '''
-        :param script_path: Path to the script from the application root directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#script_path AppEngineStandardAppVersion#script_path}
+        :param script_path: Path to the script from the application root directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#script_path AppEngineStandardAppVersion#script_path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__82c12fbaa554385eed5b131055803073f2270ae9bfb6561fb8af1a9e2b7a29e6)
@@ -3117,7 +3117,7 @@ class AppEngineStandardAppVersionHandlersScript:
     def script_path(self) -> builtins.str:
         '''Path to the script from the application root directory.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#script_path AppEngineStandardAppVersion#script_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#script_path AppEngineStandardAppVersion#script_path}
         '''
         result = self._values.get("script_path")
         assert result is not None, "Required property 'script_path' is missing"
@@ -3216,13 +3216,13 @@ class AppEngineStandardAppVersionHandlersStaticFiles:
         upload_path_regex: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param application_readable: Whether files should also be uploaded as code data. By default, files declared in static file handlers are uploaded as static data and are only served to end users; they cannot be read by the application. If enabled, uploads are charged against both your code and static data storage resource quotas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#application_readable AppEngineStandardAppVersion#application_readable}
-        :param expiration: Time a static file served by this handler should be cached by web proxies and browsers. A duration in seconds with up to nine fractional digits, terminated by 's'. Example "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#expiration AppEngineStandardAppVersion#expiration}
-        :param http_headers: HTTP headers to use for all responses from these URLs. An object containing a list of "key:value" value pairs.". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#http_headers AppEngineStandardAppVersion#http_headers}
-        :param mime_type: MIME type used to serve all files served by this handler. Defaults to file-specific MIME types, which are derived from each file's filename extension. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#mime_type AppEngineStandardAppVersion#mime_type}
-        :param path: Path to the static files matched by the URL pattern, from the application root directory. The path can refer to text matched in groupings in the URL pattern. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#path AppEngineStandardAppVersion#path}
-        :param require_matching_file: Whether this handler should match the request if the file referenced by the handler does not exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#require_matching_file AppEngineStandardAppVersion#require_matching_file}
-        :param upload_path_regex: Regular expression that matches the file paths for all files that should be referenced by this handler. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#upload_path_regex AppEngineStandardAppVersion#upload_path_regex}
+        :param application_readable: Whether files should also be uploaded as code data. By default, files declared in static file handlers are uploaded as static data and are only served to end users; they cannot be read by the application. If enabled, uploads are charged against both your code and static data storage resource quotas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#application_readable AppEngineStandardAppVersion#application_readable}
+        :param expiration: Time a static file served by this handler should be cached by web proxies and browsers. A duration in seconds with up to nine fractional digits, terminated by 's'. Example "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#expiration AppEngineStandardAppVersion#expiration}
+        :param http_headers: HTTP headers to use for all responses from these URLs. An object containing a list of "key:value" value pairs.". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#http_headers AppEngineStandardAppVersion#http_headers}
+        :param mime_type: MIME type used to serve all files served by this handler. Defaults to file-specific MIME types, which are derived from each file's filename extension. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#mime_type AppEngineStandardAppVersion#mime_type}
+        :param path: Path to the static files matched by the URL pattern, from the application root directory. The path can refer to text matched in groupings in the URL pattern. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#path AppEngineStandardAppVersion#path}
+        :param require_matching_file: Whether this handler should match the request if the file referenced by the handler does not exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#require_matching_file AppEngineStandardAppVersion#require_matching_file}
+        :param upload_path_regex: Regular expression that matches the file paths for all files that should be referenced by this handler. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#upload_path_regex AppEngineStandardAppVersion#upload_path_regex}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__375cc957045c8f074d165ffc0d85be6877739049440bf20dd754061e98d9cc24)
@@ -3259,7 +3259,7 @@ class AppEngineStandardAppVersionHandlersStaticFiles:
         static data and are only served to end users; they cannot be read by the application. If enabled, uploads are charged
         against both your code and static data storage resource quotas.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#application_readable AppEngineStandardAppVersion#application_readable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#application_readable AppEngineStandardAppVersion#application_readable}
         '''
         result = self._values.get("application_readable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3270,7 +3270,7 @@ class AppEngineStandardAppVersionHandlersStaticFiles:
 
         A duration in seconds with up to nine fractional digits, terminated by 's'. Example "3.5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#expiration AppEngineStandardAppVersion#expiration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#expiration AppEngineStandardAppVersion#expiration}
         '''
         result = self._values.get("expiration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3281,7 +3281,7 @@ class AppEngineStandardAppVersionHandlersStaticFiles:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''HTTP headers to use for all responses from these URLs. An object containing a list of "key:value" value pairs.".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#http_headers AppEngineStandardAppVersion#http_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#http_headers AppEngineStandardAppVersion#http_headers}
         '''
         result = self._values.get("http_headers")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3292,7 +3292,7 @@ class AppEngineStandardAppVersionHandlersStaticFiles:
 
         Defaults to file-specific MIME types, which are derived from each file's filename extension.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#mime_type AppEngineStandardAppVersion#mime_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#mime_type AppEngineStandardAppVersion#mime_type}
         '''
         result = self._values.get("mime_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3303,7 +3303,7 @@ class AppEngineStandardAppVersionHandlersStaticFiles:
 
         The path can refer to text matched in groupings in the URL pattern.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#path AppEngineStandardAppVersion#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#path AppEngineStandardAppVersion#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3314,7 +3314,7 @@ class AppEngineStandardAppVersionHandlersStaticFiles:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this handler should match the request if the file referenced by the handler does not exist.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#require_matching_file AppEngineStandardAppVersion#require_matching_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#require_matching_file AppEngineStandardAppVersion#require_matching_file}
         '''
         result = self._values.get("require_matching_file")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3323,7 +3323,7 @@ class AppEngineStandardAppVersionHandlersStaticFiles:
     def upload_path_regex(self) -> typing.Optional[builtins.str]:
         '''Regular expression that matches the file paths for all files that should be referenced by this handler.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#upload_path_regex AppEngineStandardAppVersion#upload_path_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#upload_path_regex AppEngineStandardAppVersion#upload_path_regex}
         '''
         result = self._values.get("upload_path_regex")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3554,8 +3554,8 @@ class AppEngineStandardAppVersionLibraries:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the library. Example "django". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#name AppEngineStandardAppVersion#name}
-        :param version: Version of the library to select, or "latest". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#version AppEngineStandardAppVersion#version}
+        :param name: Name of the library. Example "django". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#name AppEngineStandardAppVersion#name}
+        :param version: Version of the library to select, or "latest". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#version AppEngineStandardAppVersion#version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4bb9069ef98909d4e0000e36e62616223eaa9b83d14e93b4cf0ff210a3dff3ec)
@@ -3571,7 +3571,7 @@ class AppEngineStandardAppVersionLibraries:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the library. Example "django".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#name AppEngineStandardAppVersion#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#name AppEngineStandardAppVersion#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3580,7 +3580,7 @@ class AppEngineStandardAppVersionLibraries:
     def version(self) -> typing.Optional[builtins.str]:
         '''Version of the library to select, or "latest".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#version AppEngineStandardAppVersion#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#version AppEngineStandardAppVersion#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3784,7 +3784,7 @@ class AppEngineStandardAppVersionLibrariesOutputReference(
 class AppEngineStandardAppVersionManualScaling:
     def __init__(self, *, instances: jsii.Number) -> None:
         '''
-        :param instances: Number of instances to assign to the service at the start. **Note:** When managing the number of instances at runtime through the App Engine Admin API or the (now deprecated) Python 2 Modules API set_num_instances() you must use 'lifecycle.ignore_changes = ["manual_scaling"[0].instances]' to prevent drift detection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#instances AppEngineStandardAppVersion#instances}
+        :param instances: Number of instances to assign to the service at the start. **Note:** When managing the number of instances at runtime through the App Engine Admin API or the (now deprecated) Python 2 Modules API set_num_instances() you must use 'lifecycle.ignore_changes = ["manual_scaling"[0].instances]' to prevent drift detection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#instances AppEngineStandardAppVersion#instances}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a58dccc50a06068071d593f5717910fabe5310896264e819d3cdc5b0302ca08)
@@ -3800,7 +3800,7 @@ class AppEngineStandardAppVersionManualScaling:
         **Note:** When managing the number of instances at runtime through the App Engine Admin API or the (now deprecated) Python 2
         Modules API set_num_instances() you must use 'lifecycle.ignore_changes = ["manual_scaling"[0].instances]' to prevent drift detection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#instances AppEngineStandardAppVersion#instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#instances AppEngineStandardAppVersion#instances}
         '''
         result = self._values.get("instances")
         assert result is not None, "Required property 'instances' is missing"
@@ -3887,9 +3887,9 @@ class AppEngineStandardAppVersionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#create AppEngineStandardAppVersion#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#delete AppEngineStandardAppVersion#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#update AppEngineStandardAppVersion#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#create AppEngineStandardAppVersion#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#delete AppEngineStandardAppVersion#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#update AppEngineStandardAppVersion#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__017b47b3f5bdc6b459903bfc6b6b8161c558a1ba7f12714fa7377b0e5ae012f3)
@@ -3906,19 +3906,19 @@ class AppEngineStandardAppVersionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#create AppEngineStandardAppVersion#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#create AppEngineStandardAppVersion#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#delete AppEngineStandardAppVersion#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#delete AppEngineStandardAppVersion#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#update AppEngineStandardAppVersion#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#update AppEngineStandardAppVersion#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4048,8 +4048,8 @@ class AppEngineStandardAppVersionVpcAccessConnector:
         egress_setting: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Full Serverless VPC Access Connector name e.g. /projects/my-project/locations/us-central1/connectors/c1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#name AppEngineStandardAppVersion#name}
-        :param egress_setting: The egress setting for the connector, controlling what traffic is diverted through it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#egress_setting AppEngineStandardAppVersion#egress_setting}
+        :param name: Full Serverless VPC Access Connector name e.g. /projects/my-project/locations/us-central1/connectors/c1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#name AppEngineStandardAppVersion#name}
+        :param egress_setting: The egress setting for the connector, controlling what traffic is diverted through it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#egress_setting AppEngineStandardAppVersion#egress_setting}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b4c94b8f8b82cf12f02e6d5e4c82c15e2002ff62a3fe8f858c95d84c47a9f205)
@@ -4065,7 +4065,7 @@ class AppEngineStandardAppVersionVpcAccessConnector:
     def name(self) -> builtins.str:
         '''Full Serverless VPC Access Connector name e.g. /projects/my-project/locations/us-central1/connectors/c1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#name AppEngineStandardAppVersion#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#name AppEngineStandardAppVersion#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -4075,7 +4075,7 @@ class AppEngineStandardAppVersionVpcAccessConnector:
     def egress_setting(self) -> typing.Optional[builtins.str]:
         '''The egress setting for the connector, controlling what traffic is diverted through it.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/app_engine_standard_app_version#egress_setting AppEngineStandardAppVersion#egress_setting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/app_engine_standard_app_version#egress_setting AppEngineStandardAppVersion#egress_setting}
         '''
         result = self._values.get("egress_setting")
         return typing.cast(typing.Optional[builtins.str], result)

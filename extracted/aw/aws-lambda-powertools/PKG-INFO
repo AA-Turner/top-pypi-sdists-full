@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: aws_lambda_powertools
-Version: 3.11.0
+Version: 3.12.0
 Summary: Powertools for AWS Lambda (Python) is a developer toolkit to implement Serverless best practices and increase developer velocity.
 License: MIT
 Keywords: aws_lambda_powertools,aws,tracing,logging,lambda,powertools,feature_flags,idempotency,middleware

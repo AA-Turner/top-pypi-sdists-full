@@ -992,6 +992,7 @@ class StreamResolver(_message.Message):
         "machine_type",
         "function",
         "source_v2",
+        "updates_materialized_aggregations",
     )
     FQN_FIELD_NUMBER: _ClassVar[int]
     PARAMS_FIELD_NUMBER: _ClassVar[int]
@@ -1009,6 +1010,7 @@ class StreamResolver(_message.Message):
     MACHINE_TYPE_FIELD_NUMBER: _ClassVar[int]
     FUNCTION_FIELD_NUMBER: _ClassVar[int]
     SOURCE_V2_FIELD_NUMBER: _ClassVar[int]
+    UPDATES_MATERIALIZED_AGGREGATIONS_FIELD_NUMBER: _ClassVar[int]
     fqn: str
     params: _containers.RepeatedCompositeFieldContainer[StreamResolverParam]
     outputs: _containers.RepeatedCompositeFieldContainer[ResolverOutput]
@@ -1025,6 +1027,7 @@ class StreamResolver(_message.Message):
     machine_type: str
     function: FunctionReference
     source_v2: _sources_pb2_1.StreamSourceReference
+    updates_materialized_aggregations: bool
     def __init__(
         self,
         fqn: _Optional[str] = ...,
@@ -1043,6 +1046,7 @@ class StreamResolver(_message.Message):
         machine_type: _Optional[str] = ...,
         function: _Optional[_Union[FunctionReference, _Mapping]] = ...,
         source_v2: _Optional[_Union[_sources_pb2_1.StreamSourceReference, _Mapping]] = ...,
+        updates_materialized_aggregations: bool = ...,
     ) -> None: ...
 
 class ResolverState(_message.Message):

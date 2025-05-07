@@ -1,7 +1,7 @@
 r'''
 # `google_cloud_run_domain_mapping`
 
-Refer to the Terraform Registry for docs: [`google_cloud_run_domain_mapping`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping).
+Refer to the Terraform Registry for docs: [`google_cloud_run_domain_mapping`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudRunDomainMapping(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.cloudRunDomainMapping.CloudRunDomainMapping",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping google_cloud_run_domain_mapping}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping google_cloud_run_domain_mapping}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class CloudRunDomainMapping(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping google_cloud_run_domain_mapping} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping google_cloud_run_domain_mapping} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location of the cloud run instance. eg us-central1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#location CloudRunDomainMapping#location}
-        :param name: Name should be a `verified <https://support.google.com/webmasters/answer/9008080>`_ domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#name CloudRunDomainMapping#name}
-        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#spec CloudRunDomainMapping#spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#id CloudRunDomainMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#metadata CloudRunDomainMapping#metadata}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#project CloudRunDomainMapping#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#timeouts CloudRunDomainMapping#timeouts}
+        :param location: The location of the cloud run instance. eg us-central1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#location CloudRunDomainMapping#location}
+        :param name: Name should be a `verified <https://support.google.com/webmasters/answer/9008080>`_ domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#name CloudRunDomainMapping#name}
+        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#spec CloudRunDomainMapping#spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#id CloudRunDomainMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#metadata CloudRunDomainMapping#metadata}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#project CloudRunDomainMapping#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#timeouts CloudRunDomainMapping#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class CloudRunDomainMapping(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudRunDomainMapping to import.
-        :param import_from_id: The id of the existing CloudRunDomainMapping that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudRunDomainMapping that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudRunDomainMapping to import is found.
         '''
         if __debug__:
@@ -141,9 +141,9 @@ class CloudRunDomainMapping(
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param namespace: In Cloud Run the namespace must be equal to either the project ID or project number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#namespace CloudRunDomainMapping#namespace}
-        :param annotations: Annotations is a key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations **Note**: The Cloud Run API may add additional annotations that were not provided in your config. If terraform plan shows a diff where a server-side annotation is added, you can add it to your config or apply the lifecycle.ignore_changes rule to the metadata.0.annotations field. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#annotations CloudRunDomainMapping#annotations}
-        :param labels: Map of string keys and values that can be used to organize and categorize (scope and select) objects. May match selectors of replication controllers and routes. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#labels CloudRunDomainMapping#labels}
+        :param namespace: In Cloud Run the namespace must be equal to either the project ID or project number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#namespace CloudRunDomainMapping#namespace}
+        :param annotations: Annotations is a key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations **Note**: The Cloud Run API may add additional annotations that were not provided in your config. If terraform plan shows a diff where a server-side annotation is added, you can add it to your config or apply the lifecycle.ignore_changes rule to the metadata.0.annotations field. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#annotations CloudRunDomainMapping#annotations}
+        :param labels: Map of string keys and values that can be used to organize and categorize (scope and select) objects. May match selectors of replication controllers and routes. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#labels CloudRunDomainMapping#labels}
         '''
         value = CloudRunDomainMappingMetadata(
             namespace=namespace, annotations=annotations, labels=labels
@@ -160,9 +160,9 @@ class CloudRunDomainMapping(
         force_override: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param route_name: The name of the Cloud Run Service that this DomainMapping applies to. The route must exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#route_name CloudRunDomainMapping#route_name}
-        :param certificate_mode: The mode of the certificate. Default value: "AUTOMATIC" Possible values: ["NONE", "AUTOMATIC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#certificate_mode CloudRunDomainMapping#certificate_mode}
-        :param force_override: If set, the mapping will override any mapping set before this spec was set. It is recommended that the user leaves this empty to receive an error warning about a potential conflict and only set it once the respective UI has given such a warning. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#force_override CloudRunDomainMapping#force_override}
+        :param route_name: The name of the Cloud Run Service that this DomainMapping applies to. The route must exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#route_name CloudRunDomainMapping#route_name}
+        :param certificate_mode: The mode of the certificate. Default value: "AUTOMATIC" Possible values: ["NONE", "AUTOMATIC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#certificate_mode CloudRunDomainMapping#certificate_mode}
+        :param force_override: If set, the mapping will override any mapping set before this spec was set. It is recommended that the user leaves this empty to receive an error warning about a potential conflict and only set it once the respective UI has given such a warning. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#force_override CloudRunDomainMapping#force_override}
         '''
         value = CloudRunDomainMappingSpec(
             route_name=route_name,
@@ -180,8 +180,8 @@ class CloudRunDomainMapping(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#create CloudRunDomainMapping#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#delete CloudRunDomainMapping#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#create CloudRunDomainMapping#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#delete CloudRunDomainMapping#delete}.
         '''
         value = CloudRunDomainMappingTimeouts(create=create, delete=delete)
 
@@ -369,13 +369,13 @@ class CloudRunDomainMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location of the cloud run instance. eg us-central1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#location CloudRunDomainMapping#location}
-        :param name: Name should be a `verified <https://support.google.com/webmasters/answer/9008080>`_ domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#name CloudRunDomainMapping#name}
-        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#spec CloudRunDomainMapping#spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#id CloudRunDomainMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#metadata CloudRunDomainMapping#metadata}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#project CloudRunDomainMapping#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#timeouts CloudRunDomainMapping#timeouts}
+        :param location: The location of the cloud run instance. eg us-central1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#location CloudRunDomainMapping#location}
+        :param name: Name should be a `verified <https://support.google.com/webmasters/answer/9008080>`_ domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#name CloudRunDomainMapping#name}
+        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#spec CloudRunDomainMapping#spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#id CloudRunDomainMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#metadata CloudRunDomainMapping#metadata}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#project CloudRunDomainMapping#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#timeouts CloudRunDomainMapping#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -497,7 +497,7 @@ class CloudRunDomainMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location of the cloud run instance. eg us-central1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#location CloudRunDomainMapping#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#location CloudRunDomainMapping#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -507,7 +507,7 @@ class CloudRunDomainMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name should be a `verified <https://support.google.com/webmasters/answer/9008080>`_ domain.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#name CloudRunDomainMapping#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#name CloudRunDomainMapping#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -517,7 +517,7 @@ class CloudRunDomainMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def spec(self) -> "CloudRunDomainMappingSpec":
         '''spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#spec CloudRunDomainMapping#spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#spec CloudRunDomainMapping#spec}
         '''
         result = self._values.get("spec")
         assert result is not None, "Required property 'spec' is missing"
@@ -525,7 +525,7 @@ class CloudRunDomainMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#id CloudRunDomainMapping#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#id CloudRunDomainMapping#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -537,14 +537,14 @@ class CloudRunDomainMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def metadata(self) -> typing.Optional["CloudRunDomainMappingMetadata"]:
         '''metadata block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#metadata CloudRunDomainMapping#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#metadata CloudRunDomainMapping#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional["CloudRunDomainMappingMetadata"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#project CloudRunDomainMapping#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#project CloudRunDomainMapping#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -552,7 +552,7 @@ class CloudRunDomainMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CloudRunDomainMappingTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#timeouts CloudRunDomainMapping#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#timeouts CloudRunDomainMapping#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CloudRunDomainMappingTimeouts"], result)
@@ -587,9 +587,9 @@ class CloudRunDomainMappingMetadata:
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param namespace: In Cloud Run the namespace must be equal to either the project ID or project number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#namespace CloudRunDomainMapping#namespace}
-        :param annotations: Annotations is a key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations **Note**: The Cloud Run API may add additional annotations that were not provided in your config. If terraform plan shows a diff where a server-side annotation is added, you can add it to your config or apply the lifecycle.ignore_changes rule to the metadata.0.annotations field. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#annotations CloudRunDomainMapping#annotations}
-        :param labels: Map of string keys and values that can be used to organize and categorize (scope and select) objects. May match selectors of replication controllers and routes. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#labels CloudRunDomainMapping#labels}
+        :param namespace: In Cloud Run the namespace must be equal to either the project ID or project number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#namespace CloudRunDomainMapping#namespace}
+        :param annotations: Annotations is a key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations **Note**: The Cloud Run API may add additional annotations that were not provided in your config. If terraform plan shows a diff where a server-side annotation is added, you can add it to your config or apply the lifecycle.ignore_changes rule to the metadata.0.annotations field. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#annotations CloudRunDomainMapping#annotations}
+        :param labels: Map of string keys and values that can be used to organize and categorize (scope and select) objects. May match selectors of replication controllers and routes. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#labels CloudRunDomainMapping#labels}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__932df79c452cb52ff8f379406241d0dbc24a1ae038ca21c51260b9bc5e6899a2)
@@ -608,7 +608,7 @@ class CloudRunDomainMappingMetadata:
     def namespace(self) -> builtins.str:
         '''In Cloud Run the namespace must be equal to either the project ID or project number.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#namespace CloudRunDomainMapping#namespace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#namespace CloudRunDomainMapping#namespace}
         '''
         result = self._values.get("namespace")
         assert result is not None, "Required property 'namespace' is missing"
@@ -629,7 +629,7 @@ class CloudRunDomainMappingMetadata:
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
         Please refer to the field 'effective_annotations' for all of the annotations present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#annotations CloudRunDomainMapping#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#annotations CloudRunDomainMapping#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -645,7 +645,7 @@ class CloudRunDomainMappingMetadata:
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#labels CloudRunDomainMapping#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#labels CloudRunDomainMapping#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -814,9 +814,9 @@ class CloudRunDomainMappingSpec:
         force_override: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param route_name: The name of the Cloud Run Service that this DomainMapping applies to. The route must exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#route_name CloudRunDomainMapping#route_name}
-        :param certificate_mode: The mode of the certificate. Default value: "AUTOMATIC" Possible values: ["NONE", "AUTOMATIC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#certificate_mode CloudRunDomainMapping#certificate_mode}
-        :param force_override: If set, the mapping will override any mapping set before this spec was set. It is recommended that the user leaves this empty to receive an error warning about a potential conflict and only set it once the respective UI has given such a warning. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#force_override CloudRunDomainMapping#force_override}
+        :param route_name: The name of the Cloud Run Service that this DomainMapping applies to. The route must exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#route_name CloudRunDomainMapping#route_name}
+        :param certificate_mode: The mode of the certificate. Default value: "AUTOMATIC" Possible values: ["NONE", "AUTOMATIC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#certificate_mode CloudRunDomainMapping#certificate_mode}
+        :param force_override: If set, the mapping will override any mapping set before this spec was set. It is recommended that the user leaves this empty to receive an error warning about a potential conflict and only set it once the respective UI has given such a warning. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#force_override CloudRunDomainMapping#force_override}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f53c754311916975c311528d36a3c9178745add1d4b1db2476710b541b85a0a9)
@@ -835,7 +835,7 @@ class CloudRunDomainMappingSpec:
     def route_name(self) -> builtins.str:
         '''The name of the Cloud Run Service that this DomainMapping applies to. The route must exist.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#route_name CloudRunDomainMapping#route_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#route_name CloudRunDomainMapping#route_name}
         '''
         result = self._values.get("route_name")
         assert result is not None, "Required property 'route_name' is missing"
@@ -845,7 +845,7 @@ class CloudRunDomainMappingSpec:
     def certificate_mode(self) -> typing.Optional[builtins.str]:
         '''The mode of the certificate. Default value: "AUTOMATIC" Possible values: ["NONE", "AUTOMATIC"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#certificate_mode CloudRunDomainMapping#certificate_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#certificate_mode CloudRunDomainMapping#certificate_mode}
         '''
         result = self._values.get("certificate_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -860,7 +860,7 @@ class CloudRunDomainMappingSpec:
         warning about a potential conflict and only set it once the respective UI
         has given such a warning.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#force_override CloudRunDomainMapping#force_override}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#force_override CloudRunDomainMapping#force_override}
         '''
         result = self._values.get("force_override")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1460,8 +1460,8 @@ class CloudRunDomainMappingTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#create CloudRunDomainMapping#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#delete CloudRunDomainMapping#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#create CloudRunDomainMapping#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#delete CloudRunDomainMapping#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1e1fac6e4d15f6731eebe7a3957e5d4cdaa3365488857a84d7f39cb382767bdb)
@@ -1475,13 +1475,13 @@ class CloudRunDomainMappingTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#create CloudRunDomainMapping#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#create CloudRunDomainMapping#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_run_domain_mapping#delete CloudRunDomainMapping#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_run_domain_mapping#delete CloudRunDomainMapping#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

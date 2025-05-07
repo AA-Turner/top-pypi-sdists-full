@@ -1,7 +1,7 @@
 r'''
 # `google_iam_oauth_client`
 
-Refer to the Terraform Registry for docs: [`google_iam_oauth_client`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client).
+Refer to the Terraform Registry for docs: [`google_iam_oauth_client`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IamOauthClient(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.iamOauthClient.IamOauthClient",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client google_iam_oauth_client}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client google_iam_oauth_client}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class IamOauthClient(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client google_iam_oauth_client} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client google_iam_oauth_client} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param allowed_grant_types: Required. The list of OAuth grant types is allowed for the OauthClient. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#allowed_grant_types IamOauthClient#allowed_grant_types}
-        :param allowed_redirect_uris: Required. The list of redirect uris that is allowed to redirect back when authorization process is completed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#allowed_redirect_uris IamOauthClient#allowed_redirect_uris}
-        :param allowed_scopes: Required. The list of scopes that the OauthClient is allowed to request during OAuth flows. The following scopes are supported: - 'https://www.googleapis.com/auth/cloud-platform': See, edit, configure, and delete your Google Cloud data and see the email address for your Google Account. - 'openid': The OAuth client can associate you with your personal information on Google Cloud. - 'email': The OAuth client can read a federated identity's email address. - 'groups': The OAuth client can read a federated identity's groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#allowed_scopes IamOauthClient#allowed_scopes}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#location IamOauthClient#location}
-        :param oauth_client_id: Required. The ID to use for the OauthClient, which becomes the final component of the resource name. This value should be a string of 6 to 63 lowercase letters, digits, or hyphens. It must start with a letter, and cannot have a trailing hyphen. The prefix 'gcp-' is reserved for use by Google, and may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#oauth_client_id IamOauthClient#oauth_client_id}
-        :param client_type: Immutable. The type of OauthClient. Either public or private. For private clients, the client secret can be managed using the dedicated OauthClientCredential resource. Possible values: CLIENT_TYPE_UNSPECIFIED PUBLIC_CLIENT CONFIDENTIAL_CLIENT Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#client_type IamOauthClient#client_type}
-        :param description: A user-specified description of the OauthClient. Cannot exceed 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#description IamOauthClient#description}
-        :param disabled: Whether the OauthClient is disabled. You cannot use a disabled OAuth client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#disabled IamOauthClient#disabled}
-        :param display_name: A user-specified display name of the OauthClient. Cannot exceed 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#display_name IamOauthClient#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#id IamOauthClient#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#project IamOauthClient#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#timeouts IamOauthClient#timeouts}
+        :param allowed_grant_types: Required. The list of OAuth grant types is allowed for the OauthClient. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#allowed_grant_types IamOauthClient#allowed_grant_types}
+        :param allowed_redirect_uris: Required. The list of redirect uris that is allowed to redirect back when authorization process is completed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#allowed_redirect_uris IamOauthClient#allowed_redirect_uris}
+        :param allowed_scopes: Required. The list of scopes that the OauthClient is allowed to request during OAuth flows. The following scopes are supported: - 'https://www.googleapis.com/auth/cloud-platform': See, edit, configure, and delete your Google Cloud data and see the email address for your Google Account. - 'openid': The OAuth client can associate you with your personal information on Google Cloud. - 'email': The OAuth client can read a federated identity's email address. - 'groups': The OAuth client can read a federated identity's groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#allowed_scopes IamOauthClient#allowed_scopes}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#location IamOauthClient#location}
+        :param oauth_client_id: Required. The ID to use for the OauthClient, which becomes the final component of the resource name. This value should be a string of 6 to 63 lowercase letters, digits, or hyphens. It must start with a letter, and cannot have a trailing hyphen. The prefix 'gcp-' is reserved for use by Google, and may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#oauth_client_id IamOauthClient#oauth_client_id}
+        :param client_type: Immutable. The type of OauthClient. Either public or private. For private clients, the client secret can be managed using the dedicated OauthClientCredential resource. Possible values: CLIENT_TYPE_UNSPECIFIED PUBLIC_CLIENT CONFIDENTIAL_CLIENT Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#client_type IamOauthClient#client_type}
+        :param description: A user-specified description of the OauthClient. Cannot exceed 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#description IamOauthClient#description}
+        :param disabled: Whether the OauthClient is disabled. You cannot use a disabled OAuth client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#disabled IamOauthClient#disabled}
+        :param display_name: A user-specified display name of the OauthClient. Cannot exceed 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#display_name IamOauthClient#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#id IamOauthClient#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#project IamOauthClient#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#timeouts IamOauthClient#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class IamOauthClient(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IamOauthClient to import.
-        :param import_from_id: The id of the existing IamOauthClient that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IamOauthClient that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IamOauthClient to import is found.
         '''
         if __debug__:
@@ -156,9 +156,9 @@ class IamOauthClient(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#create IamOauthClient#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#delete IamOauthClient#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#update IamOauthClient#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#create IamOauthClient#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#delete IamOauthClient#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#update IamOauthClient#update}.
         '''
         value = IamOauthClientTimeouts(create=create, delete=delete, update=update)
 
@@ -487,18 +487,18 @@ class IamOauthClientConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param allowed_grant_types: Required. The list of OAuth grant types is allowed for the OauthClient. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#allowed_grant_types IamOauthClient#allowed_grant_types}
-        :param allowed_redirect_uris: Required. The list of redirect uris that is allowed to redirect back when authorization process is completed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#allowed_redirect_uris IamOauthClient#allowed_redirect_uris}
-        :param allowed_scopes: Required. The list of scopes that the OauthClient is allowed to request during OAuth flows. The following scopes are supported: - 'https://www.googleapis.com/auth/cloud-platform': See, edit, configure, and delete your Google Cloud data and see the email address for your Google Account. - 'openid': The OAuth client can associate you with your personal information on Google Cloud. - 'email': The OAuth client can read a federated identity's email address. - 'groups': The OAuth client can read a federated identity's groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#allowed_scopes IamOauthClient#allowed_scopes}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#location IamOauthClient#location}
-        :param oauth_client_id: Required. The ID to use for the OauthClient, which becomes the final component of the resource name. This value should be a string of 6 to 63 lowercase letters, digits, or hyphens. It must start with a letter, and cannot have a trailing hyphen. The prefix 'gcp-' is reserved for use by Google, and may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#oauth_client_id IamOauthClient#oauth_client_id}
-        :param client_type: Immutable. The type of OauthClient. Either public or private. For private clients, the client secret can be managed using the dedicated OauthClientCredential resource. Possible values: CLIENT_TYPE_UNSPECIFIED PUBLIC_CLIENT CONFIDENTIAL_CLIENT Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#client_type IamOauthClient#client_type}
-        :param description: A user-specified description of the OauthClient. Cannot exceed 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#description IamOauthClient#description}
-        :param disabled: Whether the OauthClient is disabled. You cannot use a disabled OAuth client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#disabled IamOauthClient#disabled}
-        :param display_name: A user-specified display name of the OauthClient. Cannot exceed 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#display_name IamOauthClient#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#id IamOauthClient#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#project IamOauthClient#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#timeouts IamOauthClient#timeouts}
+        :param allowed_grant_types: Required. The list of OAuth grant types is allowed for the OauthClient. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#allowed_grant_types IamOauthClient#allowed_grant_types}
+        :param allowed_redirect_uris: Required. The list of redirect uris that is allowed to redirect back when authorization process is completed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#allowed_redirect_uris IamOauthClient#allowed_redirect_uris}
+        :param allowed_scopes: Required. The list of scopes that the OauthClient is allowed to request during OAuth flows. The following scopes are supported: - 'https://www.googleapis.com/auth/cloud-platform': See, edit, configure, and delete your Google Cloud data and see the email address for your Google Account. - 'openid': The OAuth client can associate you with your personal information on Google Cloud. - 'email': The OAuth client can read a federated identity's email address. - 'groups': The OAuth client can read a federated identity's groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#allowed_scopes IamOauthClient#allowed_scopes}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#location IamOauthClient#location}
+        :param oauth_client_id: Required. The ID to use for the OauthClient, which becomes the final component of the resource name. This value should be a string of 6 to 63 lowercase letters, digits, or hyphens. It must start with a letter, and cannot have a trailing hyphen. The prefix 'gcp-' is reserved for use by Google, and may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#oauth_client_id IamOauthClient#oauth_client_id}
+        :param client_type: Immutable. The type of OauthClient. Either public or private. For private clients, the client secret can be managed using the dedicated OauthClientCredential resource. Possible values: CLIENT_TYPE_UNSPECIFIED PUBLIC_CLIENT CONFIDENTIAL_CLIENT Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#client_type IamOauthClient#client_type}
+        :param description: A user-specified description of the OauthClient. Cannot exceed 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#description IamOauthClient#description}
+        :param disabled: Whether the OauthClient is disabled. You cannot use a disabled OAuth client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#disabled IamOauthClient#disabled}
+        :param display_name: A user-specified display name of the OauthClient. Cannot exceed 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#display_name IamOauthClient#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#id IamOauthClient#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#project IamOauthClient#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#timeouts IamOauthClient#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -629,7 +629,7 @@ class IamOauthClientConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def allowed_grant_types(self) -> typing.List[builtins.str]:
         '''Required. The list of OAuth grant types is allowed for the OauthClient.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#allowed_grant_types IamOauthClient#allowed_grant_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#allowed_grant_types IamOauthClient#allowed_grant_types}
         '''
         result = self._values.get("allowed_grant_types")
         assert result is not None, "Required property 'allowed_grant_types' is missing"
@@ -639,7 +639,7 @@ class IamOauthClientConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def allowed_redirect_uris(self) -> typing.List[builtins.str]:
         '''Required. The list of redirect uris that is allowed to redirect back when authorization process is completed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#allowed_redirect_uris IamOauthClient#allowed_redirect_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#allowed_redirect_uris IamOauthClient#allowed_redirect_uris}
         '''
         result = self._values.get("allowed_redirect_uris")
         assert result is not None, "Required property 'allowed_redirect_uris' is missing"
@@ -659,7 +659,7 @@ class IamOauthClientConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - 'email': The OAuth client can read a federated identity's email address.
         - 'groups': The OAuth client can read a federated identity's groups.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#allowed_scopes IamOauthClient#allowed_scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#allowed_scopes IamOauthClient#allowed_scopes}
         '''
         result = self._values.get("allowed_scopes")
         assert result is not None, "Required property 'allowed_scopes' is missing"
@@ -669,7 +669,7 @@ class IamOauthClientConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#location IamOauthClient#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#location IamOauthClient#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -685,7 +685,7 @@ class IamOauthClientConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         trailing hyphen. The prefix 'gcp-' is reserved for use by Google, and may
         not be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#oauth_client_id IamOauthClient#oauth_client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#oauth_client_id IamOauthClient#oauth_client_id}
         '''
         result = self._values.get("oauth_client_id")
         assert result is not None, "Required property 'oauth_client_id' is missing"
@@ -703,7 +703,7 @@ class IamOauthClientConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         PUBLIC_CLIENT
         CONFIDENTIAL_CLIENT
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#client_type IamOauthClient#client_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#client_type IamOauthClient#client_type}
         '''
         result = self._values.get("client_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -714,7 +714,7 @@ class IamOauthClientConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Cannot exceed 256 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#description IamOauthClient#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#description IamOauthClient#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -725,7 +725,7 @@ class IamOauthClientConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the OauthClient is disabled. You cannot use a disabled OAuth client.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#disabled IamOauthClient#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#disabled IamOauthClient#disabled}
         '''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -736,14 +736,14 @@ class IamOauthClientConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Cannot exceed 32 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#display_name IamOauthClient#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#display_name IamOauthClient#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#id IamOauthClient#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#id IamOauthClient#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -753,7 +753,7 @@ class IamOauthClientConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#project IamOauthClient#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#project IamOauthClient#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -761,7 +761,7 @@ class IamOauthClientConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["IamOauthClientTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#timeouts IamOauthClient#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#timeouts IamOauthClient#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["IamOauthClientTimeouts"], result)
@@ -792,9 +792,9 @@ class IamOauthClientTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#create IamOauthClient#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#delete IamOauthClient#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#update IamOauthClient#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#create IamOauthClient#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#delete IamOauthClient#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#update IamOauthClient#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4f8c6a0ccaf01f91cef17d4cd61d8d089ec8dbbf4e8fa832fc024aef52ccf742)
@@ -811,19 +811,19 @@ class IamOauthClientTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#create IamOauthClient#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#create IamOauthClient#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#delete IamOauthClient#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#delete IamOauthClient#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client#update IamOauthClient#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client#update IamOauthClient#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

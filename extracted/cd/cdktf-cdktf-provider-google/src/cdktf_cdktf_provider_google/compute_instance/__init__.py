@@ -1,7 +1,7 @@
 r'''
 # `google_compute_instance`
 
-Refer to the Terraform Registry for docs: [`google_compute_instance`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance).
+Refer to the Terraform Registry for docs: [`google_compute_instance`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeInstance.ComputeInstance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance google_compute_instance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance google_compute_instance}.'''
 
     def __init__(
         self,
@@ -93,44 +93,44 @@ class ComputeInstance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance google_compute_instance} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance google_compute_instance} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param boot_disk: boot_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#boot_disk ComputeInstance#boot_disk}
-        :param machine_type: The machine type to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#machine_type ComputeInstance#machine_type}
-        :param name: The name of the instance. One of name or self_link must be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#name ComputeInstance#name}
-        :param network_interface: network_interface block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#network_interface ComputeInstance#network_interface}
-        :param advanced_machine_features: advanced_machine_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#advanced_machine_features ComputeInstance#advanced_machine_features}
-        :param allow_stopping_for_update: If true, allows Terraform to stop the instance to update its properties. If you try to update a property that requires stopping the instance without setting this field, the update will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#allow_stopping_for_update ComputeInstance#allow_stopping_for_update}
-        :param attached_disk: attached_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#attached_disk ComputeInstance#attached_disk}
-        :param can_ip_forward: Whether sending and receiving of packets with non-matching source or destination IPs is allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#can_ip_forward ComputeInstance#can_ip_forward}
-        :param confidential_instance_config: confidential_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#confidential_instance_config ComputeInstance#confidential_instance_config}
-        :param deletion_protection: Whether deletion protection is enabled on this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#deletion_protection ComputeInstance#deletion_protection}
-        :param description: A brief description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#description ComputeInstance#description}
-        :param desired_status: Desired status of the instance. Either "RUNNING", "SUSPENDED" or "TERMINATED". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#desired_status ComputeInstance#desired_status}
-        :param enable_display: Whether the instance has virtual displays enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_display ComputeInstance#enable_display}
-        :param guest_accelerator: guest_accelerator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#guest_accelerator ComputeInstance#guest_accelerator}
-        :param hostname: A custom hostname for the instance. Must be a fully qualified DNS name and RFC-1035-valid. Valid format is a series of labels 1-63 characters long matching the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_, concatenated with periods. The entire hostname must not exceed 253 characters. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#hostname ComputeInstance#hostname}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#id ComputeInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_encryption_key: instance_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#instance_encryption_key ComputeInstance#instance_encryption_key}
-        :param key_revocation_action_type: Action to be taken when a customer's encryption key is revoked. Supports "STOP" and "NONE", with "NONE" being the default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#key_revocation_action_type ComputeInstance#key_revocation_action_type}
-        :param labels: A set of key/value label pairs assigned to the instance. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#labels ComputeInstance#labels}
-        :param metadata: Metadata key/value pairs made available within the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#metadata ComputeInstance#metadata}
-        :param metadata_startup_script: Metadata startup scripts made available within the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#metadata_startup_script ComputeInstance#metadata_startup_script}
-        :param min_cpu_platform: The minimum CPU platform specified for the VM instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#min_cpu_platform ComputeInstance#min_cpu_platform}
-        :param network_performance_config: network_performance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#network_performance_config ComputeInstance#network_performance_config}
-        :param params: params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#params ComputeInstance#params}
-        :param project: The ID of the project in which the resource belongs. If self_link is provided, this value is ignored. If neither self_link nor project are provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#project ComputeInstance#project}
-        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#reservation_affinity ComputeInstance#reservation_affinity}
-        :param resource_policies: A list of self_links of resource policies to attach to the instance. Currently a max of 1 resource policy is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#resource_policies ComputeInstance#resource_policies}
-        :param scheduling: scheduling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#scheduling ComputeInstance#scheduling}
-        :param scratch_disk: scratch_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#scratch_disk ComputeInstance#scratch_disk}
-        :param service_account: service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#service_account ComputeInstance#service_account}
-        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#shielded_instance_config ComputeInstance#shielded_instance_config}
-        :param tags: The list of tags attached to the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#tags ComputeInstance#tags}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#timeouts ComputeInstance#timeouts}
-        :param zone: The zone of the instance. If self_link is provided, this value is ignored. If neither self_link nor zone are provided, the provider zone is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#zone ComputeInstance#zone}
+        :param boot_disk: boot_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#boot_disk ComputeInstance#boot_disk}
+        :param machine_type: The machine type to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#machine_type ComputeInstance#machine_type}
+        :param name: The name of the instance. One of name or self_link must be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#name ComputeInstance#name}
+        :param network_interface: network_interface block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#network_interface ComputeInstance#network_interface}
+        :param advanced_machine_features: advanced_machine_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#advanced_machine_features ComputeInstance#advanced_machine_features}
+        :param allow_stopping_for_update: If true, allows Terraform to stop the instance to update its properties. If you try to update a property that requires stopping the instance without setting this field, the update will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#allow_stopping_for_update ComputeInstance#allow_stopping_for_update}
+        :param attached_disk: attached_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#attached_disk ComputeInstance#attached_disk}
+        :param can_ip_forward: Whether sending and receiving of packets with non-matching source or destination IPs is allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#can_ip_forward ComputeInstance#can_ip_forward}
+        :param confidential_instance_config: confidential_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#confidential_instance_config ComputeInstance#confidential_instance_config}
+        :param deletion_protection: Whether deletion protection is enabled on this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#deletion_protection ComputeInstance#deletion_protection}
+        :param description: A brief description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#description ComputeInstance#description}
+        :param desired_status: Desired status of the instance. Either "RUNNING", "SUSPENDED" or "TERMINATED". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#desired_status ComputeInstance#desired_status}
+        :param enable_display: Whether the instance has virtual displays enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_display ComputeInstance#enable_display}
+        :param guest_accelerator: guest_accelerator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#guest_accelerator ComputeInstance#guest_accelerator}
+        :param hostname: A custom hostname for the instance. Must be a fully qualified DNS name and RFC-1035-valid. Valid format is a series of labels 1-63 characters long matching the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_, concatenated with periods. The entire hostname must not exceed 253 characters. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#hostname ComputeInstance#hostname}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#id ComputeInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_encryption_key: instance_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#instance_encryption_key ComputeInstance#instance_encryption_key}
+        :param key_revocation_action_type: Action to be taken when a customer's encryption key is revoked. Supports "STOP" and "NONE", with "NONE" being the default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#key_revocation_action_type ComputeInstance#key_revocation_action_type}
+        :param labels: A set of key/value label pairs assigned to the instance. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#labels ComputeInstance#labels}
+        :param metadata: Metadata key/value pairs made available within the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#metadata ComputeInstance#metadata}
+        :param metadata_startup_script: Metadata startup scripts made available within the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#metadata_startup_script ComputeInstance#metadata_startup_script}
+        :param min_cpu_platform: The minimum CPU platform specified for the VM instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#min_cpu_platform ComputeInstance#min_cpu_platform}
+        :param network_performance_config: network_performance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#network_performance_config ComputeInstance#network_performance_config}
+        :param params: params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#params ComputeInstance#params}
+        :param project: The ID of the project in which the resource belongs. If self_link is provided, this value is ignored. If neither self_link nor project are provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#project ComputeInstance#project}
+        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#reservation_affinity ComputeInstance#reservation_affinity}
+        :param resource_policies: A list of self_links of resource policies to attach to the instance. Currently a max of 1 resource policy is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#resource_policies ComputeInstance#resource_policies}
+        :param scheduling: scheduling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#scheduling ComputeInstance#scheduling}
+        :param scratch_disk: scratch_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#scratch_disk ComputeInstance#scratch_disk}
+        :param service_account: service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#service_account ComputeInstance#service_account}
+        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#shielded_instance_config ComputeInstance#shielded_instance_config}
+        :param tags: The list of tags attached to the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#tags ComputeInstance#tags}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#timeouts ComputeInstance#timeouts}
+        :param zone: The zone of the instance. If self_link is provided, this value is ignored. If neither self_link nor zone are provided, the provider zone is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#zone ComputeInstance#zone}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -202,7 +202,7 @@ class ComputeInstance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeInstance to import.
-        :param import_from_id: The id of the existing ComputeInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeInstance to import is found.
         '''
         if __debug__:
@@ -225,12 +225,12 @@ class ComputeInstance(
         visible_core_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enable_nested_virtualization: Whether to enable nested virtualization or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_nested_virtualization ComputeInstance#enable_nested_virtualization}
-        :param enable_uefi_networking: Whether to enable UEFI networking for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_uefi_networking ComputeInstance#enable_uefi_networking}
-        :param performance_monitoring_unit: The PMU is a hardware component within the CPU core that monitors how the processor runs code. Valid values for the level of PMU are "STANDARD", "ENHANCED", and "ARCHITECTURAL". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#performance_monitoring_unit ComputeInstance#performance_monitoring_unit}
-        :param threads_per_core: The number of threads per physical core. To disable simultaneous multithreading (SMT) set this to 1. If unset, the maximum number of threads supported per core by the underlying processor is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#threads_per_core ComputeInstance#threads_per_core}
-        :param turbo_mode: Turbo frequency mode to use for the instance. Currently supported modes is "ALL_CORE_MAX". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#turbo_mode ComputeInstance#turbo_mode}
-        :param visible_core_count: The number of physical cores to expose to an instance. Multiply by the number of threads per core to compute the total number of virtual CPUs to expose to the instance. If unset, the number of cores is inferred from the instance's nominal CPU count and the underlying platform's SMT width. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#visible_core_count ComputeInstance#visible_core_count}
+        :param enable_nested_virtualization: Whether to enable nested virtualization or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_nested_virtualization ComputeInstance#enable_nested_virtualization}
+        :param enable_uefi_networking: Whether to enable UEFI networking for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_uefi_networking ComputeInstance#enable_uefi_networking}
+        :param performance_monitoring_unit: The PMU is a hardware component within the CPU core that monitors how the processor runs code. Valid values for the level of PMU are "STANDARD", "ENHANCED", and "ARCHITECTURAL". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#performance_monitoring_unit ComputeInstance#performance_monitoring_unit}
+        :param threads_per_core: The number of threads per physical core. To disable simultaneous multithreading (SMT) set this to 1. If unset, the maximum number of threads supported per core by the underlying processor is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#threads_per_core ComputeInstance#threads_per_core}
+        :param turbo_mode: Turbo frequency mode to use for the instance. Currently supported modes is "ALL_CORE_MAX". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#turbo_mode ComputeInstance#turbo_mode}
+        :param visible_core_count: The number of physical cores to expose to an instance. Multiply by the number of threads per core to compute the total number of virtual CPUs to expose to the instance. If unset, the number of cores is inferred from the instance's nominal CPU count and the underlying platform's SMT width. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#visible_core_count ComputeInstance#visible_core_count}
         '''
         value = ComputeInstanceAdvancedMachineFeatures(
             enable_nested_virtualization=enable_nested_virtualization,
@@ -273,17 +273,17 @@ class ComputeInstance(
         source: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auto_delete: Whether the disk will be auto-deleted when the instance is deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#auto_delete ComputeInstance#auto_delete}
-        :param device_name: Name with which attached disk will be accessible under /dev/disk/by-id/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#device_name ComputeInstance#device_name}
-        :param disk_encryption_key_raw: A 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to encrypt this disk. Only one of kms_key_self_link, disk_encryption_key_raw and disk_encryption_key_rsa may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#disk_encryption_key_raw ComputeInstance#disk_encryption_key_raw}
-        :param disk_encryption_key_rsa: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, disk_encryption_key_raw and disk_encryption_key_rsa may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#disk_encryption_key_rsa ComputeInstance#disk_encryption_key_rsa}
-        :param disk_encryption_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#disk_encryption_service_account ComputeInstance#disk_encryption_service_account}
-        :param guest_os_features: A list of features to enable on the guest operating system. Applicable only for bootable images. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#guest_os_features ComputeInstance#guest_os_features}
-        :param initialize_params: initialize_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#initialize_params ComputeInstance#initialize_params}
-        :param interface: The disk interface used for attaching this disk. One of SCSI or NVME. (This field is shared with attached_disk and only used for specific cases, please don't specify this field without advice from Google.) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#interface ComputeInstance#interface}
-        :param kms_key_self_link: The self_link of the encryption key that is stored in Google Cloud KMS to encrypt this disk. Only one of kms_key_self_link, disk_encryption_key_raw and disk_encryption_key_rsa may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
-        :param mode: Read/write mode for the disk. One of "READ_ONLY" or "READ_WRITE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#mode ComputeInstance#mode}
-        :param source: The name or self_link of the disk attached to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#source ComputeInstance#source}
+        :param auto_delete: Whether the disk will be auto-deleted when the instance is deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#auto_delete ComputeInstance#auto_delete}
+        :param device_name: Name with which attached disk will be accessible under /dev/disk/by-id/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#device_name ComputeInstance#device_name}
+        :param disk_encryption_key_raw: A 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to encrypt this disk. Only one of kms_key_self_link, disk_encryption_key_raw and disk_encryption_key_rsa may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#disk_encryption_key_raw ComputeInstance#disk_encryption_key_raw}
+        :param disk_encryption_key_rsa: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, disk_encryption_key_raw and disk_encryption_key_rsa may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#disk_encryption_key_rsa ComputeInstance#disk_encryption_key_rsa}
+        :param disk_encryption_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#disk_encryption_service_account ComputeInstance#disk_encryption_service_account}
+        :param guest_os_features: A list of features to enable on the guest operating system. Applicable only for bootable images. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#guest_os_features ComputeInstance#guest_os_features}
+        :param initialize_params: initialize_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#initialize_params ComputeInstance#initialize_params}
+        :param interface: The disk interface used for attaching this disk. One of SCSI or NVME. (This field is shared with attached_disk and only used for specific cases, please don't specify this field without advice from Google.) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#interface ComputeInstance#interface}
+        :param kms_key_self_link: The self_link of the encryption key that is stored in Google Cloud KMS to encrypt this disk. Only one of kms_key_self_link, disk_encryption_key_raw and disk_encryption_key_rsa may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
+        :param mode: Read/write mode for the disk. One of "READ_ONLY" or "READ_WRITE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#mode ComputeInstance#mode}
+        :param source: The name or self_link of the disk attached to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#source ComputeInstance#source}
         '''
         value = ComputeInstanceBootDisk(
             auto_delete=auto_delete,
@@ -309,8 +309,8 @@ class ComputeInstance(
         enable_confidential_compute: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param confidential_instance_type: The confidential computing technology the instance uses. SEV is an AMD feature. TDX is an Intel feature. One of the following values is required: SEV, SEV_SNP, TDX. If SEV_SNP, min_cpu_platform = "AMD Milan" is currently required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#confidential_instance_type ComputeInstance#confidential_instance_type}
-        :param enable_confidential_compute: Defines whether the instance should have confidential compute enabled. Field will be deprecated in a future release. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_confidential_compute ComputeInstance#enable_confidential_compute}
+        :param confidential_instance_type: The confidential computing technology the instance uses. SEV is an AMD feature. TDX is an Intel feature. One of the following values is required: SEV, SEV_SNP, TDX. If SEV_SNP, min_cpu_platform = "AMD Milan" is currently required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#confidential_instance_type ComputeInstance#confidential_instance_type}
+        :param enable_confidential_compute: Defines whether the instance should have confidential compute enabled. Field will be deprecated in a future release. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_confidential_compute ComputeInstance#enable_confidential_compute}
         '''
         value = ComputeInstanceConfidentialInstanceConfig(
             confidential_instance_type=confidential_instance_type,
@@ -340,8 +340,8 @@ class ComputeInstance(
         kms_key_service_account: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_self_link: The self link of the encryption key that is stored in Google Cloud KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
-        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_service_account ComputeInstance#kms_key_service_account}
+        :param kms_key_self_link: The self link of the encryption key that is stored in Google Cloud KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
+        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_service_account ComputeInstance#kms_key_service_account}
         '''
         value = ComputeInstanceInstanceEncryptionKey(
             kms_key_self_link=kms_key_self_link,
@@ -370,7 +370,7 @@ class ComputeInstance(
         total_egress_bandwidth_tier: builtins.str,
     ) -> None:
         '''
-        :param total_egress_bandwidth_tier: The egress bandwidth tier to enable. Possible values:TIER_1, DEFAULT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#total_egress_bandwidth_tier ComputeInstance#total_egress_bandwidth_tier}
+        :param total_egress_bandwidth_tier: The egress bandwidth tier to enable. Possible values:TIER_1, DEFAULT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#total_egress_bandwidth_tier ComputeInstance#total_egress_bandwidth_tier}
         '''
         value = ComputeInstanceNetworkPerformanceConfig(
             total_egress_bandwidth_tier=total_egress_bandwidth_tier
@@ -385,7 +385,7 @@ class ComputeInstance(
         resource_manager_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#resource_manager_tags ComputeInstance#resource_manager_tags}
+        :param resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#resource_manager_tags ComputeInstance#resource_manager_tags}
         '''
         value = ComputeInstanceParams(resource_manager_tags=resource_manager_tags)
 
@@ -399,8 +399,8 @@ class ComputeInstance(
         specific_reservation: typing.Optional[typing.Union["ComputeInstanceReservationAffinitySpecificReservation", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param type: The type of reservation from which this instance can consume resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#type ComputeInstance#type}
-        :param specific_reservation: specific_reservation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#specific_reservation ComputeInstance#specific_reservation}
+        :param type: The type of reservation from which this instance can consume resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#type ComputeInstance#type}
+        :param specific_reservation: specific_reservation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#specific_reservation ComputeInstance#specific_reservation}
         '''
         value = ComputeInstanceReservationAffinity(
             type=type, specific_reservation=specific_reservation
@@ -426,18 +426,18 @@ class ComputeInstance(
         termination_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param automatic_restart: Specifies if the instance should be restarted if it was terminated by Compute Engine (not a user). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#automatic_restart ComputeInstance#automatic_restart}
-        :param availability_domain: Specifies the availability domain, which this instance should be scheduled on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#availability_domain ComputeInstance#availability_domain}
-        :param instance_termination_action: Specifies the action GCE should take when SPOT VM is preempted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#instance_termination_action ComputeInstance#instance_termination_action}
-        :param local_ssd_recovery_timeout: local_ssd_recovery_timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#local_ssd_recovery_timeout ComputeInstance#local_ssd_recovery_timeout}
-        :param max_run_duration: max_run_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#max_run_duration ComputeInstance#max_run_duration}
-        :param min_node_cpus: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#min_node_cpus ComputeInstance#min_node_cpus}.
-        :param node_affinities: node_affinities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#node_affinities ComputeInstance#node_affinities}
-        :param on_host_maintenance: Describes maintenance behavior for the instance. One of MIGRATE or TERMINATE,. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#on_host_maintenance ComputeInstance#on_host_maintenance}
-        :param on_instance_stop_action: on_instance_stop_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#on_instance_stop_action ComputeInstance#on_instance_stop_action}
-        :param preemptible: Whether the instance is preemptible. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#preemptible ComputeInstance#preemptible}
-        :param provisioning_model: Whether the instance is spot. If this is set as SPOT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#provisioning_model ComputeInstance#provisioning_model}
-        :param termination_time: Specifies the timestamp, when the instance will be terminated, in RFC3339 text format. If specified, the instance termination action will be performed at the termination time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#termination_time ComputeInstance#termination_time}
+        :param automatic_restart: Specifies if the instance should be restarted if it was terminated by Compute Engine (not a user). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#automatic_restart ComputeInstance#automatic_restart}
+        :param availability_domain: Specifies the availability domain, which this instance should be scheduled on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#availability_domain ComputeInstance#availability_domain}
+        :param instance_termination_action: Specifies the action GCE should take when SPOT VM is preempted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#instance_termination_action ComputeInstance#instance_termination_action}
+        :param local_ssd_recovery_timeout: local_ssd_recovery_timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#local_ssd_recovery_timeout ComputeInstance#local_ssd_recovery_timeout}
+        :param max_run_duration: max_run_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#max_run_duration ComputeInstance#max_run_duration}
+        :param min_node_cpus: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#min_node_cpus ComputeInstance#min_node_cpus}.
+        :param node_affinities: node_affinities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#node_affinities ComputeInstance#node_affinities}
+        :param on_host_maintenance: Describes maintenance behavior for the instance. One of MIGRATE or TERMINATE,. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#on_host_maintenance ComputeInstance#on_host_maintenance}
+        :param on_instance_stop_action: on_instance_stop_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#on_instance_stop_action ComputeInstance#on_instance_stop_action}
+        :param preemptible: Whether the instance is preemptible. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#preemptible ComputeInstance#preemptible}
+        :param provisioning_model: Whether the instance is spot. If this is set as SPOT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#provisioning_model ComputeInstance#provisioning_model}
+        :param termination_time: Specifies the timestamp, when the instance will be terminated, in RFC3339 text format. If specified, the instance termination action will be performed at the termination time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#termination_time ComputeInstance#termination_time}
         '''
         value = ComputeInstanceScheduling(
             automatic_restart=automatic_restart,
@@ -477,8 +477,8 @@ class ComputeInstance(
         email: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param scopes: A list of service scopes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#scopes ComputeInstance#scopes}
-        :param email: The service account e-mail address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#email ComputeInstance#email}
+        :param scopes: A list of service scopes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#scopes ComputeInstance#scopes}
+        :param email: The service account e-mail address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#email ComputeInstance#email}
         '''
         value = ComputeInstanceServiceAccount(scopes=scopes, email=email)
 
@@ -493,9 +493,9 @@ class ComputeInstance(
         enable_vtpm: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_integrity_monitoring: Whether integrity monitoring is enabled for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_integrity_monitoring ComputeInstance#enable_integrity_monitoring}
-        :param enable_secure_boot: Whether secure boot is enabled for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_secure_boot ComputeInstance#enable_secure_boot}
-        :param enable_vtpm: Whether the instance uses vTPM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_vtpm ComputeInstance#enable_vtpm}
+        :param enable_integrity_monitoring: Whether integrity monitoring is enabled for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_integrity_monitoring ComputeInstance#enable_integrity_monitoring}
+        :param enable_secure_boot: Whether secure boot is enabled for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_secure_boot ComputeInstance#enable_secure_boot}
+        :param enable_vtpm: Whether the instance uses vTPM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_vtpm ComputeInstance#enable_vtpm}
         '''
         value = ComputeInstanceShieldedInstanceConfig(
             enable_integrity_monitoring=enable_integrity_monitoring,
@@ -514,9 +514,9 @@ class ComputeInstance(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#create ComputeInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#delete ComputeInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#update ComputeInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#create ComputeInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#delete ComputeInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#update ComputeInstance#update}.
         '''
         value = ComputeInstanceTimeouts(create=create, delete=delete, update=update)
 
@@ -1269,12 +1269,12 @@ class ComputeInstanceAdvancedMachineFeatures:
         visible_core_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enable_nested_virtualization: Whether to enable nested virtualization or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_nested_virtualization ComputeInstance#enable_nested_virtualization}
-        :param enable_uefi_networking: Whether to enable UEFI networking for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_uefi_networking ComputeInstance#enable_uefi_networking}
-        :param performance_monitoring_unit: The PMU is a hardware component within the CPU core that monitors how the processor runs code. Valid values for the level of PMU are "STANDARD", "ENHANCED", and "ARCHITECTURAL". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#performance_monitoring_unit ComputeInstance#performance_monitoring_unit}
-        :param threads_per_core: The number of threads per physical core. To disable simultaneous multithreading (SMT) set this to 1. If unset, the maximum number of threads supported per core by the underlying processor is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#threads_per_core ComputeInstance#threads_per_core}
-        :param turbo_mode: Turbo frequency mode to use for the instance. Currently supported modes is "ALL_CORE_MAX". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#turbo_mode ComputeInstance#turbo_mode}
-        :param visible_core_count: The number of physical cores to expose to an instance. Multiply by the number of threads per core to compute the total number of virtual CPUs to expose to the instance. If unset, the number of cores is inferred from the instance's nominal CPU count and the underlying platform's SMT width. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#visible_core_count ComputeInstance#visible_core_count}
+        :param enable_nested_virtualization: Whether to enable nested virtualization or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_nested_virtualization ComputeInstance#enable_nested_virtualization}
+        :param enable_uefi_networking: Whether to enable UEFI networking for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_uefi_networking ComputeInstance#enable_uefi_networking}
+        :param performance_monitoring_unit: The PMU is a hardware component within the CPU core that monitors how the processor runs code. Valid values for the level of PMU are "STANDARD", "ENHANCED", and "ARCHITECTURAL". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#performance_monitoring_unit ComputeInstance#performance_monitoring_unit}
+        :param threads_per_core: The number of threads per physical core. To disable simultaneous multithreading (SMT) set this to 1. If unset, the maximum number of threads supported per core by the underlying processor is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#threads_per_core ComputeInstance#threads_per_core}
+        :param turbo_mode: Turbo frequency mode to use for the instance. Currently supported modes is "ALL_CORE_MAX". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#turbo_mode ComputeInstance#turbo_mode}
+        :param visible_core_count: The number of physical cores to expose to an instance. Multiply by the number of threads per core to compute the total number of virtual CPUs to expose to the instance. If unset, the number of cores is inferred from the instance's nominal CPU count and the underlying platform's SMT width. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#visible_core_count ComputeInstance#visible_core_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__db1f1f06dbd218092332eec29815353905478360269f95dc2c873e35932ad042)
@@ -1304,7 +1304,7 @@ class ComputeInstanceAdvancedMachineFeatures:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to enable nested virtualization or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_nested_virtualization ComputeInstance#enable_nested_virtualization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_nested_virtualization ComputeInstance#enable_nested_virtualization}
         '''
         result = self._values.get("enable_nested_virtualization")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1315,7 +1315,7 @@ class ComputeInstanceAdvancedMachineFeatures:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to enable UEFI networking for the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_uefi_networking ComputeInstance#enable_uefi_networking}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_uefi_networking ComputeInstance#enable_uefi_networking}
         '''
         result = self._values.get("enable_uefi_networking")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1326,7 +1326,7 @@ class ComputeInstanceAdvancedMachineFeatures:
 
         Valid values for the level of PMU are "STANDARD", "ENHANCED", and "ARCHITECTURAL".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#performance_monitoring_unit ComputeInstance#performance_monitoring_unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#performance_monitoring_unit ComputeInstance#performance_monitoring_unit}
         '''
         result = self._values.get("performance_monitoring_unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1337,7 +1337,7 @@ class ComputeInstanceAdvancedMachineFeatures:
 
         To disable simultaneous multithreading (SMT) set this to 1. If unset, the maximum number of threads supported per core by the underlying processor is assumed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#threads_per_core ComputeInstance#threads_per_core}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#threads_per_core ComputeInstance#threads_per_core}
         '''
         result = self._values.get("threads_per_core")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1346,7 +1346,7 @@ class ComputeInstanceAdvancedMachineFeatures:
     def turbo_mode(self) -> typing.Optional[builtins.str]:
         '''Turbo frequency mode to use for the instance. Currently supported modes is "ALL_CORE_MAX".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#turbo_mode ComputeInstance#turbo_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#turbo_mode ComputeInstance#turbo_mode}
         '''
         result = self._values.get("turbo_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1357,7 +1357,7 @@ class ComputeInstanceAdvancedMachineFeatures:
 
         Multiply by the number of threads per core to compute the total number of virtual CPUs to expose to the instance. If unset, the number of cores is inferred from the instance's nominal CPU count and the underlying platform's SMT width.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#visible_core_count ComputeInstance#visible_core_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#visible_core_count ComputeInstance#visible_core_count}
         '''
         result = self._values.get("visible_core_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1576,13 +1576,13 @@ class ComputeInstanceAttachedDisk:
         mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source: The name or self_link of the disk attached to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#source ComputeInstance#source}
-        :param device_name: Name with which the attached disk is accessible under /dev/disk/by-id/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#device_name ComputeInstance#device_name}
-        :param disk_encryption_key_raw: A 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to encrypt this disk. Only one of kms_key_self_link, disk_encryption_key_rsa and disk_encryption_key_raw may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#disk_encryption_key_raw ComputeInstance#disk_encryption_key_raw}
-        :param disk_encryption_key_rsa: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, disk_encryption_key_rsa and disk_encryption_key_raw may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#disk_encryption_key_rsa ComputeInstance#disk_encryption_key_rsa}
-        :param disk_encryption_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#disk_encryption_service_account ComputeInstance#disk_encryption_service_account}
-        :param kms_key_self_link: The self_link of the encryption key that is stored in Google Cloud KMS to encrypt this disk. Only one of kms_key_self_link, disk_encryption_key_rsa and disk_encryption_key_raw may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
-        :param mode: Read/write mode for the disk. One of "READ_ONLY" or "READ_WRITE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#mode ComputeInstance#mode}
+        :param source: The name or self_link of the disk attached to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#source ComputeInstance#source}
+        :param device_name: Name with which the attached disk is accessible under /dev/disk/by-id/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#device_name ComputeInstance#device_name}
+        :param disk_encryption_key_raw: A 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to encrypt this disk. Only one of kms_key_self_link, disk_encryption_key_rsa and disk_encryption_key_raw may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#disk_encryption_key_raw ComputeInstance#disk_encryption_key_raw}
+        :param disk_encryption_key_rsa: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, disk_encryption_key_rsa and disk_encryption_key_raw may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#disk_encryption_key_rsa ComputeInstance#disk_encryption_key_rsa}
+        :param disk_encryption_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#disk_encryption_service_account ComputeInstance#disk_encryption_service_account}
+        :param kms_key_self_link: The self_link of the encryption key that is stored in Google Cloud KMS to encrypt this disk. Only one of kms_key_self_link, disk_encryption_key_rsa and disk_encryption_key_raw may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
+        :param mode: Read/write mode for the disk. One of "READ_ONLY" or "READ_WRITE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#mode ComputeInstance#mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5791174c7096db26469e7488aef666a0a68f8e3aae2a4ac8e91a705149be4377)
@@ -1613,7 +1613,7 @@ class ComputeInstanceAttachedDisk:
     def source(self) -> builtins.str:
         '''The name or self_link of the disk attached to this instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#source ComputeInstance#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#source ComputeInstance#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -1623,7 +1623,7 @@ class ComputeInstanceAttachedDisk:
     def device_name(self) -> typing.Optional[builtins.str]:
         '''Name with which the attached disk is accessible under /dev/disk/by-id/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#device_name ComputeInstance#device_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#device_name ComputeInstance#device_name}
         '''
         result = self._values.get("device_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1634,7 +1634,7 @@ class ComputeInstanceAttachedDisk:
 
         Only one of kms_key_self_link, disk_encryption_key_rsa and disk_encryption_key_raw may be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#disk_encryption_key_raw ComputeInstance#disk_encryption_key_raw}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#disk_encryption_key_raw ComputeInstance#disk_encryption_key_raw}
         '''
         result = self._values.get("disk_encryption_key_raw")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1645,7 +1645,7 @@ class ComputeInstanceAttachedDisk:
 
         Only one of kms_key_self_link, disk_encryption_key_rsa and disk_encryption_key_raw may be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#disk_encryption_key_rsa ComputeInstance#disk_encryption_key_rsa}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#disk_encryption_key_rsa ComputeInstance#disk_encryption_key_rsa}
         '''
         result = self._values.get("disk_encryption_key_rsa")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1656,7 +1656,7 @@ class ComputeInstanceAttachedDisk:
 
         If absent, the Compute Engine default service account is used
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#disk_encryption_service_account ComputeInstance#disk_encryption_service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#disk_encryption_service_account ComputeInstance#disk_encryption_service_account}
         '''
         result = self._values.get("disk_encryption_service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1667,7 +1667,7 @@ class ComputeInstanceAttachedDisk:
 
         Only one of kms_key_self_link, disk_encryption_key_rsa and disk_encryption_key_raw may be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
         '''
         result = self._values.get("kms_key_self_link")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1676,7 +1676,7 @@ class ComputeInstanceAttachedDisk:
     def mode(self) -> typing.Optional[builtins.str]:
         '''Read/write mode for the disk. One of "READ_ONLY" or "READ_WRITE".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#mode ComputeInstance#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#mode ComputeInstance#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2009,17 +2009,17 @@ class ComputeInstanceBootDisk:
         source: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auto_delete: Whether the disk will be auto-deleted when the instance is deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#auto_delete ComputeInstance#auto_delete}
-        :param device_name: Name with which attached disk will be accessible under /dev/disk/by-id/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#device_name ComputeInstance#device_name}
-        :param disk_encryption_key_raw: A 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to encrypt this disk. Only one of kms_key_self_link, disk_encryption_key_raw and disk_encryption_key_rsa may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#disk_encryption_key_raw ComputeInstance#disk_encryption_key_raw}
-        :param disk_encryption_key_rsa: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, disk_encryption_key_raw and disk_encryption_key_rsa may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#disk_encryption_key_rsa ComputeInstance#disk_encryption_key_rsa}
-        :param disk_encryption_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#disk_encryption_service_account ComputeInstance#disk_encryption_service_account}
-        :param guest_os_features: A list of features to enable on the guest operating system. Applicable only for bootable images. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#guest_os_features ComputeInstance#guest_os_features}
-        :param initialize_params: initialize_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#initialize_params ComputeInstance#initialize_params}
-        :param interface: The disk interface used for attaching this disk. One of SCSI or NVME. (This field is shared with attached_disk and only used for specific cases, please don't specify this field without advice from Google.) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#interface ComputeInstance#interface}
-        :param kms_key_self_link: The self_link of the encryption key that is stored in Google Cloud KMS to encrypt this disk. Only one of kms_key_self_link, disk_encryption_key_raw and disk_encryption_key_rsa may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
-        :param mode: Read/write mode for the disk. One of "READ_ONLY" or "READ_WRITE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#mode ComputeInstance#mode}
-        :param source: The name or self_link of the disk attached to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#source ComputeInstance#source}
+        :param auto_delete: Whether the disk will be auto-deleted when the instance is deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#auto_delete ComputeInstance#auto_delete}
+        :param device_name: Name with which attached disk will be accessible under /dev/disk/by-id/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#device_name ComputeInstance#device_name}
+        :param disk_encryption_key_raw: A 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to encrypt this disk. Only one of kms_key_self_link, disk_encryption_key_raw and disk_encryption_key_rsa may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#disk_encryption_key_raw ComputeInstance#disk_encryption_key_raw}
+        :param disk_encryption_key_rsa: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, disk_encryption_key_raw and disk_encryption_key_rsa may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#disk_encryption_key_rsa ComputeInstance#disk_encryption_key_rsa}
+        :param disk_encryption_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#disk_encryption_service_account ComputeInstance#disk_encryption_service_account}
+        :param guest_os_features: A list of features to enable on the guest operating system. Applicable only for bootable images. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#guest_os_features ComputeInstance#guest_os_features}
+        :param initialize_params: initialize_params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#initialize_params ComputeInstance#initialize_params}
+        :param interface: The disk interface used for attaching this disk. One of SCSI or NVME. (This field is shared with attached_disk and only used for specific cases, please don't specify this field without advice from Google.) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#interface ComputeInstance#interface}
+        :param kms_key_self_link: The self_link of the encryption key that is stored in Google Cloud KMS to encrypt this disk. Only one of kms_key_self_link, disk_encryption_key_raw and disk_encryption_key_rsa may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
+        :param mode: Read/write mode for the disk. One of "READ_ONLY" or "READ_WRITE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#mode ComputeInstance#mode}
+        :param source: The name or self_link of the disk attached to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#source ComputeInstance#source}
         '''
         if isinstance(initialize_params, dict):
             initialize_params = ComputeInstanceBootDiskInitializeParams(**initialize_params)
@@ -2066,7 +2066,7 @@ class ComputeInstanceBootDisk:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the disk will be auto-deleted when the instance is deleted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#auto_delete ComputeInstance#auto_delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#auto_delete ComputeInstance#auto_delete}
         '''
         result = self._values.get("auto_delete")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2075,7 +2075,7 @@ class ComputeInstanceBootDisk:
     def device_name(self) -> typing.Optional[builtins.str]:
         '''Name with which attached disk will be accessible under /dev/disk/by-id/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#device_name ComputeInstance#device_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#device_name ComputeInstance#device_name}
         '''
         result = self._values.get("device_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2086,7 +2086,7 @@ class ComputeInstanceBootDisk:
 
         Only one of kms_key_self_link, disk_encryption_key_raw and disk_encryption_key_rsa may be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#disk_encryption_key_raw ComputeInstance#disk_encryption_key_raw}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#disk_encryption_key_raw ComputeInstance#disk_encryption_key_raw}
         '''
         result = self._values.get("disk_encryption_key_raw")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2097,7 +2097,7 @@ class ComputeInstanceBootDisk:
 
         Only one of kms_key_self_link, disk_encryption_key_raw and disk_encryption_key_rsa may be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#disk_encryption_key_rsa ComputeInstance#disk_encryption_key_rsa}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#disk_encryption_key_rsa ComputeInstance#disk_encryption_key_rsa}
         '''
         result = self._values.get("disk_encryption_key_rsa")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2108,7 +2108,7 @@ class ComputeInstanceBootDisk:
 
         If absent, the Compute Engine default service account is used
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#disk_encryption_service_account ComputeInstance#disk_encryption_service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#disk_encryption_service_account ComputeInstance#disk_encryption_service_account}
         '''
         result = self._values.get("disk_encryption_service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2117,7 +2117,7 @@ class ComputeInstanceBootDisk:
     def guest_os_features(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of features to enable on the guest operating system. Applicable only for bootable images.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#guest_os_features ComputeInstance#guest_os_features}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#guest_os_features ComputeInstance#guest_os_features}
         '''
         result = self._values.get("guest_os_features")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2128,7 +2128,7 @@ class ComputeInstanceBootDisk:
     ) -> typing.Optional["ComputeInstanceBootDiskInitializeParams"]:
         '''initialize_params block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#initialize_params ComputeInstance#initialize_params}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#initialize_params ComputeInstance#initialize_params}
         '''
         result = self._values.get("initialize_params")
         return typing.cast(typing.Optional["ComputeInstanceBootDiskInitializeParams"], result)
@@ -2139,7 +2139,7 @@ class ComputeInstanceBootDisk:
 
         One of SCSI or NVME. (This field is shared with attached_disk and only used for specific cases, please don't specify this field without advice from Google.)
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#interface ComputeInstance#interface}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#interface ComputeInstance#interface}
         '''
         result = self._values.get("interface")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2150,7 +2150,7 @@ class ComputeInstanceBootDisk:
 
         Only one of kms_key_self_link, disk_encryption_key_raw and disk_encryption_key_rsa may be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
         '''
         result = self._values.get("kms_key_self_link")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2159,7 +2159,7 @@ class ComputeInstanceBootDisk:
     def mode(self) -> typing.Optional[builtins.str]:
         '''Read/write mode for the disk. One of "READ_ONLY" or "READ_WRITE".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#mode ComputeInstance#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#mode ComputeInstance#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2168,7 +2168,7 @@ class ComputeInstanceBootDisk:
     def source(self) -> typing.Optional[builtins.str]:
         '''The name or self_link of the disk attached to this instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#source ComputeInstance#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#source ComputeInstance#source}
         '''
         result = self._values.get("source")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2225,20 +2225,20 @@ class ComputeInstanceBootDiskInitializeParams:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param architecture: The architecture of the disk. One of "X86_64" or "ARM64". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#architecture ComputeInstance#architecture}
-        :param enable_confidential_compute: A flag to enable confidential compute mode on boot disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_confidential_compute ComputeInstance#enable_confidential_compute}
-        :param image: The image from which this disk was initialised. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#image ComputeInstance#image}
-        :param labels: A set of key/value label pairs assigned to the disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#labels ComputeInstance#labels}
-        :param provisioned_iops: Indicates how many IOPS to provision for the disk. This sets the number of I/O operations per second that the disk can handle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#provisioned_iops ComputeInstance#provisioned_iops}
-        :param provisioned_throughput: Indicates how much throughput to provision for the disk. This sets the number of throughput mb per second that the disk can handle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#provisioned_throughput ComputeInstance#provisioned_throughput}
-        :param resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#resource_manager_tags ComputeInstance#resource_manager_tags}
-        :param resource_policies: A list of self_links of resource policies to attach to the instance's boot disk. Modifying this list will cause the instance to recreate. Currently a max of 1 resource policy is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#resource_policies ComputeInstance#resource_policies}
-        :param size: The size of the image in gigabytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#size ComputeInstance#size}
-        :param snapshot: The snapshot from which this disk was initialised. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#snapshot ComputeInstance#snapshot}
-        :param source_image_encryption_key: source_image_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#source_image_encryption_key ComputeInstance#source_image_encryption_key}
-        :param source_snapshot_encryption_key: source_snapshot_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#source_snapshot_encryption_key ComputeInstance#source_snapshot_encryption_key}
-        :param storage_pool: The URL of the storage pool in which the new disk is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#storage_pool ComputeInstance#storage_pool}
-        :param type: The Google Compute Engine disk type. Such as pd-standard, pd-ssd or pd-balanced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#type ComputeInstance#type}
+        :param architecture: The architecture of the disk. One of "X86_64" or "ARM64". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#architecture ComputeInstance#architecture}
+        :param enable_confidential_compute: A flag to enable confidential compute mode on boot disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_confidential_compute ComputeInstance#enable_confidential_compute}
+        :param image: The image from which this disk was initialised. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#image ComputeInstance#image}
+        :param labels: A set of key/value label pairs assigned to the disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#labels ComputeInstance#labels}
+        :param provisioned_iops: Indicates how many IOPS to provision for the disk. This sets the number of I/O operations per second that the disk can handle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#provisioned_iops ComputeInstance#provisioned_iops}
+        :param provisioned_throughput: Indicates how much throughput to provision for the disk. This sets the number of throughput mb per second that the disk can handle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#provisioned_throughput ComputeInstance#provisioned_throughput}
+        :param resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#resource_manager_tags ComputeInstance#resource_manager_tags}
+        :param resource_policies: A list of self_links of resource policies to attach to the instance's boot disk. Modifying this list will cause the instance to recreate. Currently a max of 1 resource policy is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#resource_policies ComputeInstance#resource_policies}
+        :param size: The size of the image in gigabytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#size ComputeInstance#size}
+        :param snapshot: The snapshot from which this disk was initialised. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#snapshot ComputeInstance#snapshot}
+        :param source_image_encryption_key: source_image_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#source_image_encryption_key ComputeInstance#source_image_encryption_key}
+        :param source_snapshot_encryption_key: source_snapshot_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#source_snapshot_encryption_key ComputeInstance#source_snapshot_encryption_key}
+        :param storage_pool: The URL of the storage pool in which the new disk is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#storage_pool ComputeInstance#storage_pool}
+        :param type: The Google Compute Engine disk type. Such as pd-standard, pd-ssd or pd-balanced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#type ComputeInstance#type}
         '''
         if isinstance(source_image_encryption_key, dict):
             source_image_encryption_key = ComputeInstanceBootDiskInitializeParamsSourceImageEncryptionKey(**source_image_encryption_key)
@@ -2294,7 +2294,7 @@ class ComputeInstanceBootDiskInitializeParams:
     def architecture(self) -> typing.Optional[builtins.str]:
         '''The architecture of the disk. One of "X86_64" or "ARM64".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#architecture ComputeInstance#architecture}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#architecture ComputeInstance#architecture}
         '''
         result = self._values.get("architecture")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2305,7 +2305,7 @@ class ComputeInstanceBootDiskInitializeParams:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''A flag to enable confidential compute mode on boot disk.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_confidential_compute ComputeInstance#enable_confidential_compute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_confidential_compute ComputeInstance#enable_confidential_compute}
         '''
         result = self._values.get("enable_confidential_compute")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2314,7 +2314,7 @@ class ComputeInstanceBootDiskInitializeParams:
     def image(self) -> typing.Optional[builtins.str]:
         '''The image from which this disk was initialised.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#image ComputeInstance#image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#image ComputeInstance#image}
         '''
         result = self._values.get("image")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2323,7 +2323,7 @@ class ComputeInstanceBootDiskInitializeParams:
     def labels(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A set of key/value label pairs assigned to the disk.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#labels ComputeInstance#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#labels ComputeInstance#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2334,7 +2334,7 @@ class ComputeInstanceBootDiskInitializeParams:
 
         This sets the number of I/O operations per second that the disk can handle.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#provisioned_iops ComputeInstance#provisioned_iops}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#provisioned_iops ComputeInstance#provisioned_iops}
         '''
         result = self._values.get("provisioned_iops")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2345,7 +2345,7 @@ class ComputeInstanceBootDiskInitializeParams:
 
         This sets the number of throughput mb per second that the disk can handle.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#provisioned_throughput ComputeInstance#provisioned_throughput}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#provisioned_throughput ComputeInstance#provisioned_throughput}
         '''
         result = self._values.get("provisioned_throughput")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2358,7 +2358,7 @@ class ComputeInstanceBootDiskInitializeParams:
 
         Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#resource_manager_tags ComputeInstance#resource_manager_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#resource_manager_tags ComputeInstance#resource_manager_tags}
         '''
         result = self._values.get("resource_manager_tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2369,7 +2369,7 @@ class ComputeInstanceBootDiskInitializeParams:
 
         Modifying this list will cause the instance to recreate. Currently a max of 1 resource policy is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#resource_policies ComputeInstance#resource_policies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#resource_policies ComputeInstance#resource_policies}
         '''
         result = self._values.get("resource_policies")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2378,7 +2378,7 @@ class ComputeInstanceBootDiskInitializeParams:
     def size(self) -> typing.Optional[jsii.Number]:
         '''The size of the image in gigabytes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#size ComputeInstance#size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#size ComputeInstance#size}
         '''
         result = self._values.get("size")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2387,7 +2387,7 @@ class ComputeInstanceBootDiskInitializeParams:
     def snapshot(self) -> typing.Optional[builtins.str]:
         '''The snapshot from which this disk was initialised.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#snapshot ComputeInstance#snapshot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#snapshot ComputeInstance#snapshot}
         '''
         result = self._values.get("snapshot")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2398,7 +2398,7 @@ class ComputeInstanceBootDiskInitializeParams:
     ) -> typing.Optional["ComputeInstanceBootDiskInitializeParamsSourceImageEncryptionKey"]:
         '''source_image_encryption_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#source_image_encryption_key ComputeInstance#source_image_encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#source_image_encryption_key ComputeInstance#source_image_encryption_key}
         '''
         result = self._values.get("source_image_encryption_key")
         return typing.cast(typing.Optional["ComputeInstanceBootDiskInitializeParamsSourceImageEncryptionKey"], result)
@@ -2409,7 +2409,7 @@ class ComputeInstanceBootDiskInitializeParams:
     ) -> typing.Optional["ComputeInstanceBootDiskInitializeParamsSourceSnapshotEncryptionKey"]:
         '''source_snapshot_encryption_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#source_snapshot_encryption_key ComputeInstance#source_snapshot_encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#source_snapshot_encryption_key ComputeInstance#source_snapshot_encryption_key}
         '''
         result = self._values.get("source_snapshot_encryption_key")
         return typing.cast(typing.Optional["ComputeInstanceBootDiskInitializeParamsSourceSnapshotEncryptionKey"], result)
@@ -2418,7 +2418,7 @@ class ComputeInstanceBootDiskInitializeParams:
     def storage_pool(self) -> typing.Optional[builtins.str]:
         '''The URL of the storage pool in which the new disk is created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#storage_pool ComputeInstance#storage_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#storage_pool ComputeInstance#storage_pool}
         '''
         result = self._values.get("storage_pool")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2427,7 +2427,7 @@ class ComputeInstanceBootDiskInitializeParams:
     def type(self) -> typing.Optional[builtins.str]:
         '''The Google Compute Engine disk type. Such as pd-standard, pd-ssd or pd-balanced.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#type ComputeInstance#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#type ComputeInstance#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2474,10 +2474,10 @@ class ComputeInstanceBootDiskInitializeParamsOutputReference(
         rsa_encrypted_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_self_link: The self link of the encryption key that is stored in Google Cloud KMS. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
-        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_service_account ComputeInstance#kms_key_service_account}
-        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#raw_key ComputeInstance#raw_key}
-        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#rsa_encrypted_key ComputeInstance#rsa_encrypted_key}
+        :param kms_key_self_link: The self link of the encryption key that is stored in Google Cloud KMS. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
+        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_service_account ComputeInstance#kms_key_service_account}
+        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#raw_key ComputeInstance#raw_key}
+        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#rsa_encrypted_key ComputeInstance#rsa_encrypted_key}
         '''
         value = ComputeInstanceBootDiskInitializeParamsSourceImageEncryptionKey(
             kms_key_self_link=kms_key_self_link,
@@ -2498,10 +2498,10 @@ class ComputeInstanceBootDiskInitializeParamsOutputReference(
         rsa_encrypted_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_self_link: The self link of the encryption key that is stored in Google Cloud KMS. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
-        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_service_account ComputeInstance#kms_key_service_account}
-        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#raw_key ComputeInstance#raw_key}
-        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#rsa_encrypted_key ComputeInstance#rsa_encrypted_key}
+        :param kms_key_self_link: The self link of the encryption key that is stored in Google Cloud KMS. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
+        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_service_account ComputeInstance#kms_key_service_account}
+        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#raw_key ComputeInstance#raw_key}
+        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#rsa_encrypted_key ComputeInstance#rsa_encrypted_key}
         '''
         value = ComputeInstanceBootDiskInitializeParamsSourceSnapshotEncryptionKey(
             kms_key_self_link=kms_key_self_link,
@@ -2852,10 +2852,10 @@ class ComputeInstanceBootDiskInitializeParamsSourceImageEncryptionKey:
         rsa_encrypted_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_self_link: The self link of the encryption key that is stored in Google Cloud KMS. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
-        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_service_account ComputeInstance#kms_key_service_account}
-        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#raw_key ComputeInstance#raw_key}
-        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#rsa_encrypted_key ComputeInstance#rsa_encrypted_key}
+        :param kms_key_self_link: The self link of the encryption key that is stored in Google Cloud KMS. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
+        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_service_account ComputeInstance#kms_key_service_account}
+        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#raw_key ComputeInstance#raw_key}
+        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#rsa_encrypted_key ComputeInstance#rsa_encrypted_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa1ea19c6983271410c306dd298bd766e885d01a4db3291c97b8b1a92b8e21d1)
@@ -2879,7 +2879,7 @@ class ComputeInstanceBootDiskInitializeParamsSourceImageEncryptionKey:
 
         Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
         '''
         result = self._values.get("kms_key_self_link")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2890,7 +2890,7 @@ class ComputeInstanceBootDiskInitializeParamsSourceImageEncryptionKey:
 
         If absent, the Compute Engine default service account is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_service_account ComputeInstance#kms_key_service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_service_account ComputeInstance#kms_key_service_account}
         '''
         result = self._values.get("kms_key_service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2901,7 +2901,7 @@ class ComputeInstanceBootDiskInitializeParamsSourceImageEncryptionKey:
 
         Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#raw_key ComputeInstance#raw_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#raw_key ComputeInstance#raw_key}
         '''
         result = self._values.get("raw_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2912,7 +2912,7 @@ class ComputeInstanceBootDiskInitializeParamsSourceImageEncryptionKey:
 
         Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#rsa_encrypted_key ComputeInstance#rsa_encrypted_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#rsa_encrypted_key ComputeInstance#rsa_encrypted_key}
         '''
         result = self._values.get("rsa_encrypted_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3076,10 +3076,10 @@ class ComputeInstanceBootDiskInitializeParamsSourceSnapshotEncryptionKey:
         rsa_encrypted_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_self_link: The self link of the encryption key that is stored in Google Cloud KMS. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
-        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_service_account ComputeInstance#kms_key_service_account}
-        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#raw_key ComputeInstance#raw_key}
-        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#rsa_encrypted_key ComputeInstance#rsa_encrypted_key}
+        :param kms_key_self_link: The self link of the encryption key that is stored in Google Cloud KMS. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
+        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_service_account ComputeInstance#kms_key_service_account}
+        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#raw_key ComputeInstance#raw_key}
+        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#rsa_encrypted_key ComputeInstance#rsa_encrypted_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0143667c9510f954bcf1b048a0a79f91c3ccc2349ceb3c4b9d0fda2a4073d769)
@@ -3103,7 +3103,7 @@ class ComputeInstanceBootDiskInitializeParamsSourceSnapshotEncryptionKey:
 
         Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
         '''
         result = self._values.get("kms_key_self_link")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3114,7 +3114,7 @@ class ComputeInstanceBootDiskInitializeParamsSourceSnapshotEncryptionKey:
 
         If absent, the Compute Engine default service account is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_service_account ComputeInstance#kms_key_service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_service_account ComputeInstance#kms_key_service_account}
         '''
         result = self._values.get("kms_key_service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3125,7 +3125,7 @@ class ComputeInstanceBootDiskInitializeParamsSourceSnapshotEncryptionKey:
 
         Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#raw_key ComputeInstance#raw_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#raw_key ComputeInstance#raw_key}
         '''
         result = self._values.get("raw_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3136,7 +3136,7 @@ class ComputeInstanceBootDiskInitializeParamsSourceSnapshotEncryptionKey:
 
         Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#rsa_encrypted_key ComputeInstance#rsa_encrypted_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#rsa_encrypted_key ComputeInstance#rsa_encrypted_key}
         '''
         result = self._values.get("rsa_encrypted_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3320,20 +3320,20 @@ class ComputeInstanceBootDiskOutputReference(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param architecture: The architecture of the disk. One of "X86_64" or "ARM64". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#architecture ComputeInstance#architecture}
-        :param enable_confidential_compute: A flag to enable confidential compute mode on boot disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_confidential_compute ComputeInstance#enable_confidential_compute}
-        :param image: The image from which this disk was initialised. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#image ComputeInstance#image}
-        :param labels: A set of key/value label pairs assigned to the disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#labels ComputeInstance#labels}
-        :param provisioned_iops: Indicates how many IOPS to provision for the disk. This sets the number of I/O operations per second that the disk can handle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#provisioned_iops ComputeInstance#provisioned_iops}
-        :param provisioned_throughput: Indicates how much throughput to provision for the disk. This sets the number of throughput mb per second that the disk can handle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#provisioned_throughput ComputeInstance#provisioned_throughput}
-        :param resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#resource_manager_tags ComputeInstance#resource_manager_tags}
-        :param resource_policies: A list of self_links of resource policies to attach to the instance's boot disk. Modifying this list will cause the instance to recreate. Currently a max of 1 resource policy is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#resource_policies ComputeInstance#resource_policies}
-        :param size: The size of the image in gigabytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#size ComputeInstance#size}
-        :param snapshot: The snapshot from which this disk was initialised. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#snapshot ComputeInstance#snapshot}
-        :param source_image_encryption_key: source_image_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#source_image_encryption_key ComputeInstance#source_image_encryption_key}
-        :param source_snapshot_encryption_key: source_snapshot_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#source_snapshot_encryption_key ComputeInstance#source_snapshot_encryption_key}
-        :param storage_pool: The URL of the storage pool in which the new disk is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#storage_pool ComputeInstance#storage_pool}
-        :param type: The Google Compute Engine disk type. Such as pd-standard, pd-ssd or pd-balanced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#type ComputeInstance#type}
+        :param architecture: The architecture of the disk. One of "X86_64" or "ARM64". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#architecture ComputeInstance#architecture}
+        :param enable_confidential_compute: A flag to enable confidential compute mode on boot disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_confidential_compute ComputeInstance#enable_confidential_compute}
+        :param image: The image from which this disk was initialised. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#image ComputeInstance#image}
+        :param labels: A set of key/value label pairs assigned to the disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#labels ComputeInstance#labels}
+        :param provisioned_iops: Indicates how many IOPS to provision for the disk. This sets the number of I/O operations per second that the disk can handle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#provisioned_iops ComputeInstance#provisioned_iops}
+        :param provisioned_throughput: Indicates how much throughput to provision for the disk. This sets the number of throughput mb per second that the disk can handle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#provisioned_throughput ComputeInstance#provisioned_throughput}
+        :param resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#resource_manager_tags ComputeInstance#resource_manager_tags}
+        :param resource_policies: A list of self_links of resource policies to attach to the instance's boot disk. Modifying this list will cause the instance to recreate. Currently a max of 1 resource policy is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#resource_policies ComputeInstance#resource_policies}
+        :param size: The size of the image in gigabytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#size ComputeInstance#size}
+        :param snapshot: The snapshot from which this disk was initialised. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#snapshot ComputeInstance#snapshot}
+        :param source_image_encryption_key: source_image_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#source_image_encryption_key ComputeInstance#source_image_encryption_key}
+        :param source_snapshot_encryption_key: source_snapshot_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#source_snapshot_encryption_key ComputeInstance#source_snapshot_encryption_key}
+        :param storage_pool: The URL of the storage pool in which the new disk is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#storage_pool ComputeInstance#storage_pool}
+        :param type: The Google Compute Engine disk type. Such as pd-standard, pd-ssd or pd-balanced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#type ComputeInstance#type}
         '''
         value = ComputeInstanceBootDiskInitializeParams(
             architecture=architecture,
@@ -3621,8 +3621,8 @@ class ComputeInstanceConfidentialInstanceConfig:
         enable_confidential_compute: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param confidential_instance_type: The confidential computing technology the instance uses. SEV is an AMD feature. TDX is an Intel feature. One of the following values is required: SEV, SEV_SNP, TDX. If SEV_SNP, min_cpu_platform = "AMD Milan" is currently required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#confidential_instance_type ComputeInstance#confidential_instance_type}
-        :param enable_confidential_compute: Defines whether the instance should have confidential compute enabled. Field will be deprecated in a future release. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_confidential_compute ComputeInstance#enable_confidential_compute}
+        :param confidential_instance_type: The confidential computing technology the instance uses. SEV is an AMD feature. TDX is an Intel feature. One of the following values is required: SEV, SEV_SNP, TDX. If SEV_SNP, min_cpu_platform = "AMD Milan" is currently required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#confidential_instance_type ComputeInstance#confidential_instance_type}
+        :param enable_confidential_compute: Defines whether the instance should have confidential compute enabled. Field will be deprecated in a future release. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_confidential_compute ComputeInstance#enable_confidential_compute}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1f97210661d238da5afbc3935a612adff197fadad31e26f79150f3f12e00c2a4)
@@ -3642,7 +3642,7 @@ class ComputeInstanceConfidentialInstanceConfig:
         values is required: SEV, SEV_SNP, TDX. If SEV_SNP, min_cpu_platform =
         "AMD Milan" is currently required.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#confidential_instance_type ComputeInstance#confidential_instance_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#confidential_instance_type ComputeInstance#confidential_instance_type}
         '''
         result = self._values.get("confidential_instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3653,7 +3653,7 @@ class ComputeInstanceConfidentialInstanceConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Defines whether the instance should have confidential compute enabled. Field will be deprecated in a future release.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_confidential_compute ComputeInstance#enable_confidential_compute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_confidential_compute ComputeInstance#enable_confidential_compute}
         '''
         result = self._values.get("enable_confidential_compute")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3858,40 +3858,40 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param boot_disk: boot_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#boot_disk ComputeInstance#boot_disk}
-        :param machine_type: The machine type to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#machine_type ComputeInstance#machine_type}
-        :param name: The name of the instance. One of name or self_link must be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#name ComputeInstance#name}
-        :param network_interface: network_interface block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#network_interface ComputeInstance#network_interface}
-        :param advanced_machine_features: advanced_machine_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#advanced_machine_features ComputeInstance#advanced_machine_features}
-        :param allow_stopping_for_update: If true, allows Terraform to stop the instance to update its properties. If you try to update a property that requires stopping the instance without setting this field, the update will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#allow_stopping_for_update ComputeInstance#allow_stopping_for_update}
-        :param attached_disk: attached_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#attached_disk ComputeInstance#attached_disk}
-        :param can_ip_forward: Whether sending and receiving of packets with non-matching source or destination IPs is allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#can_ip_forward ComputeInstance#can_ip_forward}
-        :param confidential_instance_config: confidential_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#confidential_instance_config ComputeInstance#confidential_instance_config}
-        :param deletion_protection: Whether deletion protection is enabled on this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#deletion_protection ComputeInstance#deletion_protection}
-        :param description: A brief description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#description ComputeInstance#description}
-        :param desired_status: Desired status of the instance. Either "RUNNING", "SUSPENDED" or "TERMINATED". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#desired_status ComputeInstance#desired_status}
-        :param enable_display: Whether the instance has virtual displays enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_display ComputeInstance#enable_display}
-        :param guest_accelerator: guest_accelerator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#guest_accelerator ComputeInstance#guest_accelerator}
-        :param hostname: A custom hostname for the instance. Must be a fully qualified DNS name and RFC-1035-valid. Valid format is a series of labels 1-63 characters long matching the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_, concatenated with periods. The entire hostname must not exceed 253 characters. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#hostname ComputeInstance#hostname}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#id ComputeInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_encryption_key: instance_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#instance_encryption_key ComputeInstance#instance_encryption_key}
-        :param key_revocation_action_type: Action to be taken when a customer's encryption key is revoked. Supports "STOP" and "NONE", with "NONE" being the default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#key_revocation_action_type ComputeInstance#key_revocation_action_type}
-        :param labels: A set of key/value label pairs assigned to the instance. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#labels ComputeInstance#labels}
-        :param metadata: Metadata key/value pairs made available within the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#metadata ComputeInstance#metadata}
-        :param metadata_startup_script: Metadata startup scripts made available within the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#metadata_startup_script ComputeInstance#metadata_startup_script}
-        :param min_cpu_platform: The minimum CPU platform specified for the VM instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#min_cpu_platform ComputeInstance#min_cpu_platform}
-        :param network_performance_config: network_performance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#network_performance_config ComputeInstance#network_performance_config}
-        :param params: params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#params ComputeInstance#params}
-        :param project: The ID of the project in which the resource belongs. If self_link is provided, this value is ignored. If neither self_link nor project are provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#project ComputeInstance#project}
-        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#reservation_affinity ComputeInstance#reservation_affinity}
-        :param resource_policies: A list of self_links of resource policies to attach to the instance. Currently a max of 1 resource policy is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#resource_policies ComputeInstance#resource_policies}
-        :param scheduling: scheduling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#scheduling ComputeInstance#scheduling}
-        :param scratch_disk: scratch_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#scratch_disk ComputeInstance#scratch_disk}
-        :param service_account: service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#service_account ComputeInstance#service_account}
-        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#shielded_instance_config ComputeInstance#shielded_instance_config}
-        :param tags: The list of tags attached to the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#tags ComputeInstance#tags}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#timeouts ComputeInstance#timeouts}
-        :param zone: The zone of the instance. If self_link is provided, this value is ignored. If neither self_link nor zone are provided, the provider zone is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#zone ComputeInstance#zone}
+        :param boot_disk: boot_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#boot_disk ComputeInstance#boot_disk}
+        :param machine_type: The machine type to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#machine_type ComputeInstance#machine_type}
+        :param name: The name of the instance. One of name or self_link must be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#name ComputeInstance#name}
+        :param network_interface: network_interface block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#network_interface ComputeInstance#network_interface}
+        :param advanced_machine_features: advanced_machine_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#advanced_machine_features ComputeInstance#advanced_machine_features}
+        :param allow_stopping_for_update: If true, allows Terraform to stop the instance to update its properties. If you try to update a property that requires stopping the instance without setting this field, the update will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#allow_stopping_for_update ComputeInstance#allow_stopping_for_update}
+        :param attached_disk: attached_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#attached_disk ComputeInstance#attached_disk}
+        :param can_ip_forward: Whether sending and receiving of packets with non-matching source or destination IPs is allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#can_ip_forward ComputeInstance#can_ip_forward}
+        :param confidential_instance_config: confidential_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#confidential_instance_config ComputeInstance#confidential_instance_config}
+        :param deletion_protection: Whether deletion protection is enabled on this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#deletion_protection ComputeInstance#deletion_protection}
+        :param description: A brief description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#description ComputeInstance#description}
+        :param desired_status: Desired status of the instance. Either "RUNNING", "SUSPENDED" or "TERMINATED". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#desired_status ComputeInstance#desired_status}
+        :param enable_display: Whether the instance has virtual displays enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_display ComputeInstance#enable_display}
+        :param guest_accelerator: guest_accelerator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#guest_accelerator ComputeInstance#guest_accelerator}
+        :param hostname: A custom hostname for the instance. Must be a fully qualified DNS name and RFC-1035-valid. Valid format is a series of labels 1-63 characters long matching the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_, concatenated with periods. The entire hostname must not exceed 253 characters. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#hostname ComputeInstance#hostname}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#id ComputeInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_encryption_key: instance_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#instance_encryption_key ComputeInstance#instance_encryption_key}
+        :param key_revocation_action_type: Action to be taken when a customer's encryption key is revoked. Supports "STOP" and "NONE", with "NONE" being the default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#key_revocation_action_type ComputeInstance#key_revocation_action_type}
+        :param labels: A set of key/value label pairs assigned to the instance. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#labels ComputeInstance#labels}
+        :param metadata: Metadata key/value pairs made available within the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#metadata ComputeInstance#metadata}
+        :param metadata_startup_script: Metadata startup scripts made available within the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#metadata_startup_script ComputeInstance#metadata_startup_script}
+        :param min_cpu_platform: The minimum CPU platform specified for the VM instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#min_cpu_platform ComputeInstance#min_cpu_platform}
+        :param network_performance_config: network_performance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#network_performance_config ComputeInstance#network_performance_config}
+        :param params: params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#params ComputeInstance#params}
+        :param project: The ID of the project in which the resource belongs. If self_link is provided, this value is ignored. If neither self_link nor project are provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#project ComputeInstance#project}
+        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#reservation_affinity ComputeInstance#reservation_affinity}
+        :param resource_policies: A list of self_links of resource policies to attach to the instance. Currently a max of 1 resource policy is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#resource_policies ComputeInstance#resource_policies}
+        :param scheduling: scheduling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#scheduling ComputeInstance#scheduling}
+        :param scratch_disk: scratch_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#scratch_disk ComputeInstance#scratch_disk}
+        :param service_account: service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#service_account ComputeInstance#service_account}
+        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#shielded_instance_config ComputeInstance#shielded_instance_config}
+        :param tags: The list of tags attached to the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#tags ComputeInstance#tags}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#timeouts ComputeInstance#timeouts}
+        :param zone: The zone of the instance. If self_link is provided, this value is ignored. If neither self_link nor zone are provided, the provider zone is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#zone ComputeInstance#zone}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -4109,7 +4109,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def boot_disk(self) -> ComputeInstanceBootDisk:
         '''boot_disk block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#boot_disk ComputeInstance#boot_disk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#boot_disk ComputeInstance#boot_disk}
         '''
         result = self._values.get("boot_disk")
         assert result is not None, "Required property 'boot_disk' is missing"
@@ -4119,7 +4119,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def machine_type(self) -> builtins.str:
         '''The machine type to create.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#machine_type ComputeInstance#machine_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#machine_type ComputeInstance#machine_type}
         '''
         result = self._values.get("machine_type")
         assert result is not None, "Required property 'machine_type' is missing"
@@ -4129,7 +4129,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the instance. One of name or self_link must be provided.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#name ComputeInstance#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#name ComputeInstance#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -4141,7 +4141,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeInstanceNetworkInterface"]]:
         '''network_interface block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#network_interface ComputeInstance#network_interface}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#network_interface ComputeInstance#network_interface}
         '''
         result = self._values.get("network_interface")
         assert result is not None, "Required property 'network_interface' is missing"
@@ -4153,7 +4153,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[ComputeInstanceAdvancedMachineFeatures]:
         '''advanced_machine_features block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#advanced_machine_features ComputeInstance#advanced_machine_features}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#advanced_machine_features ComputeInstance#advanced_machine_features}
         '''
         result = self._values.get("advanced_machine_features")
         return typing.cast(typing.Optional[ComputeInstanceAdvancedMachineFeatures], result)
@@ -4166,7 +4166,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If you try to update a property that requires stopping the instance without setting this field, the update will fail.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#allow_stopping_for_update ComputeInstance#allow_stopping_for_update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#allow_stopping_for_update ComputeInstance#allow_stopping_for_update}
         '''
         result = self._values.get("allow_stopping_for_update")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4177,7 +4177,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ComputeInstanceAttachedDisk]]]:
         '''attached_disk block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#attached_disk ComputeInstance#attached_disk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#attached_disk ComputeInstance#attached_disk}
         '''
         result = self._values.get("attached_disk")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ComputeInstanceAttachedDisk]]], result)
@@ -4188,7 +4188,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether sending and receiving of packets with non-matching source or destination IPs is allowed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#can_ip_forward ComputeInstance#can_ip_forward}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#can_ip_forward ComputeInstance#can_ip_forward}
         '''
         result = self._values.get("can_ip_forward")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4199,7 +4199,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[ComputeInstanceConfidentialInstanceConfig]:
         '''confidential_instance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#confidential_instance_config ComputeInstance#confidential_instance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#confidential_instance_config ComputeInstance#confidential_instance_config}
         '''
         result = self._values.get("confidential_instance_config")
         return typing.cast(typing.Optional[ComputeInstanceConfidentialInstanceConfig], result)
@@ -4210,7 +4210,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether deletion protection is enabled on this instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#deletion_protection ComputeInstance#deletion_protection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#deletion_protection ComputeInstance#deletion_protection}
         '''
         result = self._values.get("deletion_protection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4219,7 +4219,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A brief description of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#description ComputeInstance#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#description ComputeInstance#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4228,7 +4228,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def desired_status(self) -> typing.Optional[builtins.str]:
         '''Desired status of the instance. Either "RUNNING", "SUSPENDED" or "TERMINATED".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#desired_status ComputeInstance#desired_status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#desired_status ComputeInstance#desired_status}
         '''
         result = self._values.get("desired_status")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4239,7 +4239,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the instance has virtual displays enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_display ComputeInstance#enable_display}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_display ComputeInstance#enable_display}
         '''
         result = self._values.get("enable_display")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4250,7 +4250,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeInstanceGuestAccelerator"]]]:
         '''guest_accelerator block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#guest_accelerator ComputeInstance#guest_accelerator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#guest_accelerator ComputeInstance#guest_accelerator}
         '''
         result = self._values.get("guest_accelerator")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeInstanceGuestAccelerator"]]], result)
@@ -4261,14 +4261,14 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Must be a fully qualified DNS name and RFC-1035-valid. Valid format is a series of labels 1-63 characters long matching the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_, concatenated with periods. The entire hostname must not exceed 253 characters. Changing this forces a new resource to be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#hostname ComputeInstance#hostname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#hostname ComputeInstance#hostname}
         '''
         result = self._values.get("hostname")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#id ComputeInstance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#id ComputeInstance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -4282,7 +4282,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ComputeInstanceInstanceEncryptionKey"]:
         '''instance_encryption_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#instance_encryption_key ComputeInstance#instance_encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#instance_encryption_key ComputeInstance#instance_encryption_key}
         '''
         result = self._values.get("instance_encryption_key")
         return typing.cast(typing.Optional["ComputeInstanceInstanceEncryptionKey"], result)
@@ -4293,7 +4293,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Supports "STOP" and "NONE", with "NONE" being the default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#key_revocation_action_type ComputeInstance#key_revocation_action_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#key_revocation_action_type ComputeInstance#key_revocation_action_type}
         '''
         result = self._values.get("key_revocation_action_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4305,7 +4305,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#labels ComputeInstance#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#labels ComputeInstance#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -4314,7 +4314,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Metadata key/value pairs made available within the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#metadata ComputeInstance#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#metadata ComputeInstance#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -4323,7 +4323,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def metadata_startup_script(self) -> typing.Optional[builtins.str]:
         '''Metadata startup scripts made available within the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#metadata_startup_script ComputeInstance#metadata_startup_script}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#metadata_startup_script ComputeInstance#metadata_startup_script}
         '''
         result = self._values.get("metadata_startup_script")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4332,7 +4332,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def min_cpu_platform(self) -> typing.Optional[builtins.str]:
         '''The minimum CPU platform specified for the VM instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#min_cpu_platform ComputeInstance#min_cpu_platform}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#min_cpu_platform ComputeInstance#min_cpu_platform}
         '''
         result = self._values.get("min_cpu_platform")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4343,7 +4343,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ComputeInstanceNetworkPerformanceConfig"]:
         '''network_performance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#network_performance_config ComputeInstance#network_performance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#network_performance_config ComputeInstance#network_performance_config}
         '''
         result = self._values.get("network_performance_config")
         return typing.cast(typing.Optional["ComputeInstanceNetworkPerformanceConfig"], result)
@@ -4352,7 +4352,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def params(self) -> typing.Optional["ComputeInstanceParams"]:
         '''params block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#params ComputeInstance#params}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#params ComputeInstance#params}
         '''
         result = self._values.get("params")
         return typing.cast(typing.Optional["ComputeInstanceParams"], result)
@@ -4363,7 +4363,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If self_link is provided, this value is ignored. If neither self_link nor project are provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#project ComputeInstance#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#project ComputeInstance#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4374,7 +4374,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ComputeInstanceReservationAffinity"]:
         '''reservation_affinity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#reservation_affinity ComputeInstance#reservation_affinity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#reservation_affinity ComputeInstance#reservation_affinity}
         '''
         result = self._values.get("reservation_affinity")
         return typing.cast(typing.Optional["ComputeInstanceReservationAffinity"], result)
@@ -4385,7 +4385,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Currently a max of 1 resource policy is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#resource_policies ComputeInstance#resource_policies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#resource_policies ComputeInstance#resource_policies}
         '''
         result = self._values.get("resource_policies")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4394,7 +4394,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def scheduling(self) -> typing.Optional["ComputeInstanceScheduling"]:
         '''scheduling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#scheduling ComputeInstance#scheduling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#scheduling ComputeInstance#scheduling}
         '''
         result = self._values.get("scheduling")
         return typing.cast(typing.Optional["ComputeInstanceScheduling"], result)
@@ -4405,7 +4405,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeInstanceScratchDisk"]]]:
         '''scratch_disk block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#scratch_disk ComputeInstance#scratch_disk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#scratch_disk ComputeInstance#scratch_disk}
         '''
         result = self._values.get("scratch_disk")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeInstanceScratchDisk"]]], result)
@@ -4414,7 +4414,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_account(self) -> typing.Optional["ComputeInstanceServiceAccount"]:
         '''service_account block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#service_account ComputeInstance#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#service_account ComputeInstance#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional["ComputeInstanceServiceAccount"], result)
@@ -4425,7 +4425,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ComputeInstanceShieldedInstanceConfig"]:
         '''shielded_instance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#shielded_instance_config ComputeInstance#shielded_instance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#shielded_instance_config ComputeInstance#shielded_instance_config}
         '''
         result = self._values.get("shielded_instance_config")
         return typing.cast(typing.Optional["ComputeInstanceShieldedInstanceConfig"], result)
@@ -4434,7 +4434,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of tags attached to the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#tags ComputeInstance#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#tags ComputeInstance#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4443,7 +4443,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeInstanceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#timeouts ComputeInstance#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#timeouts ComputeInstance#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeInstanceTimeouts"], result)
@@ -4454,7 +4454,7 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If self_link is provided, this value is ignored. If neither self_link nor zone are provided, the provider zone is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#zone ComputeInstance#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#zone ComputeInstance#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4479,8 +4479,8 @@ class ComputeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class ComputeInstanceGuestAccelerator:
     def __init__(self, *, count: jsii.Number, type: builtins.str) -> None:
         '''
-        :param count: The number of the guest accelerator cards exposed to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#count ComputeInstance#count}
-        :param type: The accelerator type resource exposed to this instance. E.g. nvidia-tesla-k80. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#type ComputeInstance#type}
+        :param count: The number of the guest accelerator cards exposed to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#count ComputeInstance#count}
+        :param type: The accelerator type resource exposed to this instance. E.g. nvidia-tesla-k80. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#type ComputeInstance#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e8f59522513e66eebe5e3db09bad32c21944eb00ba774d0752b52e17cab2e615)
@@ -4495,7 +4495,7 @@ class ComputeInstanceGuestAccelerator:
     def count(self) -> jsii.Number:
         '''The number of the guest accelerator cards exposed to this instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#count ComputeInstance#count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#count ComputeInstance#count}
         '''
         result = self._values.get("count")
         assert result is not None, "Required property 'count' is missing"
@@ -4505,7 +4505,7 @@ class ComputeInstanceGuestAccelerator:
     def type(self) -> builtins.str:
         '''The accelerator type resource exposed to this instance. E.g. nvidia-tesla-k80.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#type ComputeInstance#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#type ComputeInstance#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -4710,8 +4710,8 @@ class ComputeInstanceInstanceEncryptionKey:
         kms_key_service_account: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_self_link: The self link of the encryption key that is stored in Google Cloud KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
-        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_service_account ComputeInstance#kms_key_service_account}
+        :param kms_key_self_link: The self link of the encryption key that is stored in Google Cloud KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
+        :param kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_service_account ComputeInstance#kms_key_service_account}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__25aebf5c11cb172bca0891060ba91689876a78195b833c114fdd0a253a98b42c)
@@ -4727,7 +4727,7 @@ class ComputeInstanceInstanceEncryptionKey:
     def kms_key_self_link(self) -> typing.Optional[builtins.str]:
         '''The self link of the encryption key that is stored in Google Cloud KMS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_self_link ComputeInstance#kms_key_self_link}
         '''
         result = self._values.get("kms_key_self_link")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4738,7 +4738,7 @@ class ComputeInstanceInstanceEncryptionKey:
 
         If absent, the Compute Engine default service account is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#kms_key_service_account ComputeInstance#kms_key_service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#kms_key_service_account ComputeInstance#kms_key_service_account}
         '''
         result = self._values.get("kms_key_service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4876,19 +4876,19 @@ class ComputeInstanceNetworkInterface:
         subnetwork_project: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#access_config ComputeInstance#access_config}
-        :param alias_ip_range: alias_ip_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#alias_ip_range ComputeInstance#alias_ip_range}
-        :param internal_ipv6_prefix_length: The prefix length of the primary internal IPv6 range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#internal_ipv6_prefix_length ComputeInstance#internal_ipv6_prefix_length}
-        :param ipv6_access_config: ipv6_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#ipv6_access_config ComputeInstance#ipv6_access_config}
-        :param ipv6_address: An IPv6 internal network address for this network interface. If not specified, Google Cloud will automatically assign an internal IPv6 address from the instance's subnetwork. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#ipv6_address ComputeInstance#ipv6_address}
-        :param network: The name or self_link of the network attached to this interface. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#network ComputeInstance#network}
-        :param network_attachment: The URL of the network attachment that this interface should connect to in the following format: projects/{projectNumber}/regions/{region_name}/networkAttachments/{network_attachment_name}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#network_attachment ComputeInstance#network_attachment}
-        :param network_ip: The private IP address assigned to the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#network_ip ComputeInstance#network_ip}
-        :param nic_type: The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, IDPF, MRDMA, and IRDMA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#nic_type ComputeInstance#nic_type}
-        :param queue_count: The networking queue count that's specified by users for the network interface. Both Rx and Tx queues will be set to this number. It will be empty if not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#queue_count ComputeInstance#queue_count}
-        :param stack_type: The stack type for this network interface to identify whether the IPv6 feature is enabled or not. If not specified, IPV4_ONLY will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#stack_type ComputeInstance#stack_type}
-        :param subnetwork: The name or self_link of the subnetwork attached to this interface. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#subnetwork ComputeInstance#subnetwork}
-        :param subnetwork_project: The project in which the subnetwork belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#subnetwork_project ComputeInstance#subnetwork_project}
+        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#access_config ComputeInstance#access_config}
+        :param alias_ip_range: alias_ip_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#alias_ip_range ComputeInstance#alias_ip_range}
+        :param internal_ipv6_prefix_length: The prefix length of the primary internal IPv6 range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#internal_ipv6_prefix_length ComputeInstance#internal_ipv6_prefix_length}
+        :param ipv6_access_config: ipv6_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#ipv6_access_config ComputeInstance#ipv6_access_config}
+        :param ipv6_address: An IPv6 internal network address for this network interface. If not specified, Google Cloud will automatically assign an internal IPv6 address from the instance's subnetwork. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#ipv6_address ComputeInstance#ipv6_address}
+        :param network: The name or self_link of the network attached to this interface. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#network ComputeInstance#network}
+        :param network_attachment: The URL of the network attachment that this interface should connect to in the following format: projects/{projectNumber}/regions/{region_name}/networkAttachments/{network_attachment_name}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#network_attachment ComputeInstance#network_attachment}
+        :param network_ip: The private IP address assigned to the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#network_ip ComputeInstance#network_ip}
+        :param nic_type: The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, IDPF, MRDMA, and IRDMA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#nic_type ComputeInstance#nic_type}
+        :param queue_count: The networking queue count that's specified by users for the network interface. Both Rx and Tx queues will be set to this number. It will be empty if not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#queue_count ComputeInstance#queue_count}
+        :param stack_type: The stack type for this network interface to identify whether the IPv6 feature is enabled or not. If not specified, IPV4_ONLY will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#stack_type ComputeInstance#stack_type}
+        :param subnetwork: The name or self_link of the subnetwork attached to this interface. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#subnetwork ComputeInstance#subnetwork}
+        :param subnetwork_project: The project in which the subnetwork belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#subnetwork_project ComputeInstance#subnetwork_project}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f46c619ee9726afb3cf6ea4aa1e6dec0518d9caed52ea6feda9d6195d6d37243)
@@ -4939,7 +4939,7 @@ class ComputeInstanceNetworkInterface:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeInstanceNetworkInterfaceAccessConfig"]]]:
         '''access_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#access_config ComputeInstance#access_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#access_config ComputeInstance#access_config}
         '''
         result = self._values.get("access_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeInstanceNetworkInterfaceAccessConfig"]]], result)
@@ -4950,7 +4950,7 @@ class ComputeInstanceNetworkInterface:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeInstanceNetworkInterfaceAliasIpRange"]]]:
         '''alias_ip_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#alias_ip_range ComputeInstance#alias_ip_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#alias_ip_range ComputeInstance#alias_ip_range}
         '''
         result = self._values.get("alias_ip_range")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeInstanceNetworkInterfaceAliasIpRange"]]], result)
@@ -4959,7 +4959,7 @@ class ComputeInstanceNetworkInterface:
     def internal_ipv6_prefix_length(self) -> typing.Optional[jsii.Number]:
         '''The prefix length of the primary internal IPv6 range.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#internal_ipv6_prefix_length ComputeInstance#internal_ipv6_prefix_length}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#internal_ipv6_prefix_length ComputeInstance#internal_ipv6_prefix_length}
         '''
         result = self._values.get("internal_ipv6_prefix_length")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4970,7 +4970,7 @@ class ComputeInstanceNetworkInterface:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeInstanceNetworkInterfaceIpv6AccessConfig"]]]:
         '''ipv6_access_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#ipv6_access_config ComputeInstance#ipv6_access_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#ipv6_access_config ComputeInstance#ipv6_access_config}
         '''
         result = self._values.get("ipv6_access_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeInstanceNetworkInterfaceIpv6AccessConfig"]]], result)
@@ -4981,7 +4981,7 @@ class ComputeInstanceNetworkInterface:
 
         If not specified, Google Cloud will automatically assign an internal IPv6 address from the instance's subnetwork.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#ipv6_address ComputeInstance#ipv6_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#ipv6_address ComputeInstance#ipv6_address}
         '''
         result = self._values.get("ipv6_address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4990,7 +4990,7 @@ class ComputeInstanceNetworkInterface:
     def network(self) -> typing.Optional[builtins.str]:
         '''The name or self_link of the network attached to this interface.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#network ComputeInstance#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#network ComputeInstance#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4999,7 +4999,7 @@ class ComputeInstanceNetworkInterface:
     def network_attachment(self) -> typing.Optional[builtins.str]:
         '''The URL of the network attachment that this interface should connect to in the following format: projects/{projectNumber}/regions/{region_name}/networkAttachments/{network_attachment_name}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#network_attachment ComputeInstance#network_attachment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#network_attachment ComputeInstance#network_attachment}
         '''
         result = self._values.get("network_attachment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5008,7 +5008,7 @@ class ComputeInstanceNetworkInterface:
     def network_ip(self) -> typing.Optional[builtins.str]:
         '''The private IP address assigned to the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#network_ip ComputeInstance#network_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#network_ip ComputeInstance#network_ip}
         '''
         result = self._values.get("network_ip")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5017,7 +5017,7 @@ class ComputeInstanceNetworkInterface:
     def nic_type(self) -> typing.Optional[builtins.str]:
         '''The type of vNIC to be used on this interface. Possible values:GVNIC, VIRTIO_NET, IDPF, MRDMA, and IRDMA.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#nic_type ComputeInstance#nic_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#nic_type ComputeInstance#nic_type}
         '''
         result = self._values.get("nic_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5028,7 +5028,7 @@ class ComputeInstanceNetworkInterface:
 
         Both Rx and Tx queues will be set to this number. It will be empty if not specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#queue_count ComputeInstance#queue_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#queue_count ComputeInstance#queue_count}
         '''
         result = self._values.get("queue_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5039,7 +5039,7 @@ class ComputeInstanceNetworkInterface:
 
         If not specified, IPV4_ONLY will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#stack_type ComputeInstance#stack_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#stack_type ComputeInstance#stack_type}
         '''
         result = self._values.get("stack_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5048,7 +5048,7 @@ class ComputeInstanceNetworkInterface:
     def subnetwork(self) -> typing.Optional[builtins.str]:
         '''The name or self_link of the subnetwork attached to this interface.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#subnetwork ComputeInstance#subnetwork}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#subnetwork ComputeInstance#subnetwork}
         '''
         result = self._values.get("subnetwork")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5057,7 +5057,7 @@ class ComputeInstanceNetworkInterface:
     def subnetwork_project(self) -> typing.Optional[builtins.str]:
         '''The project in which the subnetwork belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#subnetwork_project ComputeInstance#subnetwork_project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#subnetwork_project ComputeInstance#subnetwork_project}
         '''
         result = self._values.get("subnetwork_project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5092,9 +5092,9 @@ class ComputeInstanceNetworkInterfaceAccessConfig:
         public_ptr_domain_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param nat_ip: The IP address that is be 1:1 mapped to the instance's network ip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#nat_ip ComputeInstance#nat_ip}
-        :param network_tier: The networking tier used for configuring this instance. One of PREMIUM or STANDARD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#network_tier ComputeInstance#network_tier}
-        :param public_ptr_domain_name: The DNS domain name for the public PTR record. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#public_ptr_domain_name ComputeInstance#public_ptr_domain_name}
+        :param nat_ip: The IP address that is be 1:1 mapped to the instance's network ip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#nat_ip ComputeInstance#nat_ip}
+        :param network_tier: The networking tier used for configuring this instance. One of PREMIUM or STANDARD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#network_tier ComputeInstance#network_tier}
+        :param public_ptr_domain_name: The DNS domain name for the public PTR record. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#public_ptr_domain_name ComputeInstance#public_ptr_domain_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__af5a74f41cd882ec3e43040bc3cf3e4c94eb017f10bd81b7f46b329e59a3ebae)
@@ -5113,7 +5113,7 @@ class ComputeInstanceNetworkInterfaceAccessConfig:
     def nat_ip(self) -> typing.Optional[builtins.str]:
         '''The IP address that is be 1:1 mapped to the instance's network ip.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#nat_ip ComputeInstance#nat_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#nat_ip ComputeInstance#nat_ip}
         '''
         result = self._values.get("nat_ip")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5122,7 +5122,7 @@ class ComputeInstanceNetworkInterfaceAccessConfig:
     def network_tier(self) -> typing.Optional[builtins.str]:
         '''The networking tier used for configuring this instance. One of PREMIUM or STANDARD.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#network_tier ComputeInstance#network_tier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#network_tier ComputeInstance#network_tier}
         '''
         result = self._values.get("network_tier")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5131,7 +5131,7 @@ class ComputeInstanceNetworkInterfaceAccessConfig:
     def public_ptr_domain_name(self) -> typing.Optional[builtins.str]:
         '''The DNS domain name for the public PTR record.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#public_ptr_domain_name ComputeInstance#public_ptr_domain_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#public_ptr_domain_name ComputeInstance#public_ptr_domain_name}
         '''
         result = self._values.get("public_ptr_domain_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5364,8 +5364,8 @@ class ComputeInstanceNetworkInterfaceAliasIpRange:
         subnetwork_range_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ip_cidr_range: The IP CIDR range represented by this alias IP range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#ip_cidr_range ComputeInstance#ip_cidr_range}
-        :param subnetwork_range_name: The subnetwork secondary range name specifying the secondary range from which to allocate the IP CIDR range for this alias IP range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#subnetwork_range_name ComputeInstance#subnetwork_range_name}
+        :param ip_cidr_range: The IP CIDR range represented by this alias IP range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#ip_cidr_range ComputeInstance#ip_cidr_range}
+        :param subnetwork_range_name: The subnetwork secondary range name specifying the secondary range from which to allocate the IP CIDR range for this alias IP range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#subnetwork_range_name ComputeInstance#subnetwork_range_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e1e339b7cf5a7f16cc9875edfb1f8c943997c95394317ce701775ad17d044369)
@@ -5381,7 +5381,7 @@ class ComputeInstanceNetworkInterfaceAliasIpRange:
     def ip_cidr_range(self) -> builtins.str:
         '''The IP CIDR range represented by this alias IP range.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#ip_cidr_range ComputeInstance#ip_cidr_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#ip_cidr_range ComputeInstance#ip_cidr_range}
         '''
         result = self._values.get("ip_cidr_range")
         assert result is not None, "Required property 'ip_cidr_range' is missing"
@@ -5391,7 +5391,7 @@ class ComputeInstanceNetworkInterfaceAliasIpRange:
     def subnetwork_range_name(self) -> typing.Optional[builtins.str]:
         '''The subnetwork secondary range name specifying the secondary range from which to allocate the IP CIDR range for this alias IP range.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#subnetwork_range_name ComputeInstance#subnetwork_range_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#subnetwork_range_name ComputeInstance#subnetwork_range_name}
         '''
         result = self._values.get("subnetwork_range_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5605,11 +5605,11 @@ class ComputeInstanceNetworkInterfaceIpv6AccessConfig:
         public_ptr_domain_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param network_tier: The service-level to be provided for IPv6 traffic when the subnet has an external subnet. Only PREMIUM tier is valid for IPv6 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#network_tier ComputeInstance#network_tier}
-        :param external_ipv6: The first IPv6 address of the external IPv6 range associated with this instance, prefix length is stored in externalIpv6PrefixLength in ipv6AccessConfig. To use a static external IP address, it must be unused and in the same region as the instance's zone. If not specified, Google Cloud will automatically assign an external IPv6 address from the instance's subnetwork. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#external_ipv6 ComputeInstance#external_ipv6}
-        :param external_ipv6_prefix_length: The prefix length of the external IPv6 range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#external_ipv6_prefix_length ComputeInstance#external_ipv6_prefix_length}
-        :param name: The name of this access configuration. In ipv6AccessConfigs, the recommended name is External IPv6. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#name ComputeInstance#name}
-        :param public_ptr_domain_name: The domain name to be used when creating DNSv6 records for the external IPv6 ranges. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#public_ptr_domain_name ComputeInstance#public_ptr_domain_name}
+        :param network_tier: The service-level to be provided for IPv6 traffic when the subnet has an external subnet. Only PREMIUM tier is valid for IPv6 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#network_tier ComputeInstance#network_tier}
+        :param external_ipv6: The first IPv6 address of the external IPv6 range associated with this instance, prefix length is stored in externalIpv6PrefixLength in ipv6AccessConfig. To use a static external IP address, it must be unused and in the same region as the instance's zone. If not specified, Google Cloud will automatically assign an external IPv6 address from the instance's subnetwork. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#external_ipv6 ComputeInstance#external_ipv6}
+        :param external_ipv6_prefix_length: The prefix length of the external IPv6 range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#external_ipv6_prefix_length ComputeInstance#external_ipv6_prefix_length}
+        :param name: The name of this access configuration. In ipv6AccessConfigs, the recommended name is External IPv6. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#name ComputeInstance#name}
+        :param public_ptr_domain_name: The domain name to be used when creating DNSv6 records for the external IPv6 ranges. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#public_ptr_domain_name ComputeInstance#public_ptr_domain_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4891a0cc8ae15a81b18b2feaf13e08184e683605f10ba54b6306549c9c529329)
@@ -5636,7 +5636,7 @@ class ComputeInstanceNetworkInterfaceIpv6AccessConfig:
 
         Only PREMIUM tier is valid for IPv6
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#network_tier ComputeInstance#network_tier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#network_tier ComputeInstance#network_tier}
         '''
         result = self._values.get("network_tier")
         assert result is not None, "Required property 'network_tier' is missing"
@@ -5648,7 +5648,7 @@ class ComputeInstanceNetworkInterfaceIpv6AccessConfig:
 
         To use a static external IP address, it must be unused and in the same region as the instance's zone. If not specified, Google Cloud will automatically assign an external IPv6 address from the instance's subnetwork.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#external_ipv6 ComputeInstance#external_ipv6}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#external_ipv6 ComputeInstance#external_ipv6}
         '''
         result = self._values.get("external_ipv6")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5657,7 +5657,7 @@ class ComputeInstanceNetworkInterfaceIpv6AccessConfig:
     def external_ipv6_prefix_length(self) -> typing.Optional[builtins.str]:
         '''The prefix length of the external IPv6 range.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#external_ipv6_prefix_length ComputeInstance#external_ipv6_prefix_length}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#external_ipv6_prefix_length ComputeInstance#external_ipv6_prefix_length}
         '''
         result = self._values.get("external_ipv6_prefix_length")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5666,7 +5666,7 @@ class ComputeInstanceNetworkInterfaceIpv6AccessConfig:
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of this access configuration. In ipv6AccessConfigs, the recommended name is External IPv6.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#name ComputeInstance#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#name ComputeInstance#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5675,7 +5675,7 @@ class ComputeInstanceNetworkInterfaceIpv6AccessConfig:
     def public_ptr_domain_name(self) -> typing.Optional[builtins.str]:
         '''The domain name to be used when creating DNSv6 records for the external IPv6 ranges.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#public_ptr_domain_name ComputeInstance#public_ptr_domain_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#public_ptr_domain_name ComputeInstance#public_ptr_domain_name}
         '''
         result = self._values.get("public_ptr_domain_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6382,7 +6382,7 @@ class ComputeInstanceNetworkInterfaceOutputReference(
 class ComputeInstanceNetworkPerformanceConfig:
     def __init__(self, *, total_egress_bandwidth_tier: builtins.str) -> None:
         '''
-        :param total_egress_bandwidth_tier: The egress bandwidth tier to enable. Possible values:TIER_1, DEFAULT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#total_egress_bandwidth_tier ComputeInstance#total_egress_bandwidth_tier}
+        :param total_egress_bandwidth_tier: The egress bandwidth tier to enable. Possible values:TIER_1, DEFAULT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#total_egress_bandwidth_tier ComputeInstance#total_egress_bandwidth_tier}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d07d90409299aa4763de1508aed0efbf930280ffe749579f0e53dafc412e52d6)
@@ -6395,7 +6395,7 @@ class ComputeInstanceNetworkPerformanceConfig:
     def total_egress_bandwidth_tier(self) -> builtins.str:
         '''The egress bandwidth tier to enable. Possible values:TIER_1, DEFAULT.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#total_egress_bandwidth_tier ComputeInstance#total_egress_bandwidth_tier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#total_egress_bandwidth_tier ComputeInstance#total_egress_bandwidth_tier}
         '''
         result = self._values.get("total_egress_bandwidth_tier")
         assert result is not None, "Required property 'total_egress_bandwidth_tier' is missing"
@@ -6480,7 +6480,7 @@ class ComputeInstanceParams:
         resource_manager_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#resource_manager_tags ComputeInstance#resource_manager_tags}
+        :param resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#resource_manager_tags ComputeInstance#resource_manager_tags}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8f16cf8c4a06f819fd3970bb06e665d5b77367370bba6b09c9ed7236844685b4)
@@ -6497,7 +6497,7 @@ class ComputeInstanceParams:
 
         Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#resource_manager_tags ComputeInstance#resource_manager_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#resource_manager_tags ComputeInstance#resource_manager_tags}
         '''
         result = self._values.get("resource_manager_tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -6586,8 +6586,8 @@ class ComputeInstanceReservationAffinity:
         specific_reservation: typing.Optional[typing.Union["ComputeInstanceReservationAffinitySpecificReservation", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param type: The type of reservation from which this instance can consume resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#type ComputeInstance#type}
-        :param specific_reservation: specific_reservation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#specific_reservation ComputeInstance#specific_reservation}
+        :param type: The type of reservation from which this instance can consume resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#type ComputeInstance#type}
+        :param specific_reservation: specific_reservation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#specific_reservation ComputeInstance#specific_reservation}
         '''
         if isinstance(specific_reservation, dict):
             specific_reservation = ComputeInstanceReservationAffinitySpecificReservation(**specific_reservation)
@@ -6605,7 +6605,7 @@ class ComputeInstanceReservationAffinity:
     def type(self) -> builtins.str:
         '''The type of reservation from which this instance can consume resources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#type ComputeInstance#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#type ComputeInstance#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -6617,7 +6617,7 @@ class ComputeInstanceReservationAffinity:
     ) -> typing.Optional["ComputeInstanceReservationAffinitySpecificReservation"]:
         '''specific_reservation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#specific_reservation ComputeInstance#specific_reservation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#specific_reservation ComputeInstance#specific_reservation}
         '''
         result = self._values.get("specific_reservation")
         return typing.cast(typing.Optional["ComputeInstanceReservationAffinitySpecificReservation"], result)
@@ -6662,8 +6662,8 @@ class ComputeInstanceReservationAffinityOutputReference(
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param key: Corresponds to the label key of a reservation resource. To target a SPECIFIC_RESERVATION by name, specify compute.googleapis.com/reservation-name as the key and specify the name of your reservation as the only value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#key ComputeInstance#key}
-        :param values: Corresponds to the label values of a reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#values ComputeInstance#values}
+        :param key: Corresponds to the label key of a reservation resource. To target a SPECIFIC_RESERVATION by name, specify compute.googleapis.com/reservation-name as the key and specify the name of your reservation as the only value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#key ComputeInstance#key}
+        :param values: Corresponds to the label values of a reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#values ComputeInstance#values}
         '''
         value = ComputeInstanceReservationAffinitySpecificReservation(
             key=key, values=values
@@ -6735,8 +6735,8 @@ class ComputeInstanceReservationAffinitySpecificReservation:
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param key: Corresponds to the label key of a reservation resource. To target a SPECIFIC_RESERVATION by name, specify compute.googleapis.com/reservation-name as the key and specify the name of your reservation as the only value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#key ComputeInstance#key}
-        :param values: Corresponds to the label values of a reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#values ComputeInstance#values}
+        :param key: Corresponds to the label key of a reservation resource. To target a SPECIFIC_RESERVATION by name, specify compute.googleapis.com/reservation-name as the key and specify the name of your reservation as the only value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#key ComputeInstance#key}
+        :param values: Corresponds to the label values of a reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#values ComputeInstance#values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e0b7d1a5c53bed5aaf0a08b9d3b70d9779b82e0c14c8a2be0a11f33ca60b0e0a)
@@ -6753,7 +6753,7 @@ class ComputeInstanceReservationAffinitySpecificReservation:
 
         To target a SPECIFIC_RESERVATION by name, specify compute.googleapis.com/reservation-name as the key and specify the name of your reservation as the only value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#key ComputeInstance#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#key ComputeInstance#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -6763,7 +6763,7 @@ class ComputeInstanceReservationAffinitySpecificReservation:
     def values(self) -> typing.List[builtins.str]:
         '''Corresponds to the label values of a reservation resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#values ComputeInstance#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#values ComputeInstance#values}
         '''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
@@ -6889,18 +6889,18 @@ class ComputeInstanceScheduling:
         termination_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param automatic_restart: Specifies if the instance should be restarted if it was terminated by Compute Engine (not a user). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#automatic_restart ComputeInstance#automatic_restart}
-        :param availability_domain: Specifies the availability domain, which this instance should be scheduled on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#availability_domain ComputeInstance#availability_domain}
-        :param instance_termination_action: Specifies the action GCE should take when SPOT VM is preempted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#instance_termination_action ComputeInstance#instance_termination_action}
-        :param local_ssd_recovery_timeout: local_ssd_recovery_timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#local_ssd_recovery_timeout ComputeInstance#local_ssd_recovery_timeout}
-        :param max_run_duration: max_run_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#max_run_duration ComputeInstance#max_run_duration}
-        :param min_node_cpus: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#min_node_cpus ComputeInstance#min_node_cpus}.
-        :param node_affinities: node_affinities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#node_affinities ComputeInstance#node_affinities}
-        :param on_host_maintenance: Describes maintenance behavior for the instance. One of MIGRATE or TERMINATE,. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#on_host_maintenance ComputeInstance#on_host_maintenance}
-        :param on_instance_stop_action: on_instance_stop_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#on_instance_stop_action ComputeInstance#on_instance_stop_action}
-        :param preemptible: Whether the instance is preemptible. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#preemptible ComputeInstance#preemptible}
-        :param provisioning_model: Whether the instance is spot. If this is set as SPOT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#provisioning_model ComputeInstance#provisioning_model}
-        :param termination_time: Specifies the timestamp, when the instance will be terminated, in RFC3339 text format. If specified, the instance termination action will be performed at the termination time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#termination_time ComputeInstance#termination_time}
+        :param automatic_restart: Specifies if the instance should be restarted if it was terminated by Compute Engine (not a user). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#automatic_restart ComputeInstance#automatic_restart}
+        :param availability_domain: Specifies the availability domain, which this instance should be scheduled on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#availability_domain ComputeInstance#availability_domain}
+        :param instance_termination_action: Specifies the action GCE should take when SPOT VM is preempted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#instance_termination_action ComputeInstance#instance_termination_action}
+        :param local_ssd_recovery_timeout: local_ssd_recovery_timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#local_ssd_recovery_timeout ComputeInstance#local_ssd_recovery_timeout}
+        :param max_run_duration: max_run_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#max_run_duration ComputeInstance#max_run_duration}
+        :param min_node_cpus: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#min_node_cpus ComputeInstance#min_node_cpus}.
+        :param node_affinities: node_affinities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#node_affinities ComputeInstance#node_affinities}
+        :param on_host_maintenance: Describes maintenance behavior for the instance. One of MIGRATE or TERMINATE,. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#on_host_maintenance ComputeInstance#on_host_maintenance}
+        :param on_instance_stop_action: on_instance_stop_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#on_instance_stop_action ComputeInstance#on_instance_stop_action}
+        :param preemptible: Whether the instance is preemptible. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#preemptible ComputeInstance#preemptible}
+        :param provisioning_model: Whether the instance is spot. If this is set as SPOT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#provisioning_model ComputeInstance#provisioning_model}
+        :param termination_time: Specifies the timestamp, when the instance will be terminated, in RFC3339 text format. If specified, the instance termination action will be performed at the termination time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#termination_time ComputeInstance#termination_time}
         '''
         if isinstance(local_ssd_recovery_timeout, dict):
             local_ssd_recovery_timeout = ComputeInstanceSchedulingLocalSsdRecoveryTimeout(**local_ssd_recovery_timeout)
@@ -6954,7 +6954,7 @@ class ComputeInstanceScheduling:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Specifies if the instance should be restarted if it was terminated by Compute Engine (not a user).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#automatic_restart ComputeInstance#automatic_restart}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#automatic_restart ComputeInstance#automatic_restart}
         '''
         result = self._values.get("automatic_restart")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6963,7 +6963,7 @@ class ComputeInstanceScheduling:
     def availability_domain(self) -> typing.Optional[jsii.Number]:
         '''Specifies the availability domain, which this instance should be scheduled on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#availability_domain ComputeInstance#availability_domain}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#availability_domain ComputeInstance#availability_domain}
         '''
         result = self._values.get("availability_domain")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6972,7 +6972,7 @@ class ComputeInstanceScheduling:
     def instance_termination_action(self) -> typing.Optional[builtins.str]:
         '''Specifies the action GCE should take when SPOT VM is preempted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#instance_termination_action ComputeInstance#instance_termination_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#instance_termination_action ComputeInstance#instance_termination_action}
         '''
         result = self._values.get("instance_termination_action")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6983,7 +6983,7 @@ class ComputeInstanceScheduling:
     ) -> typing.Optional["ComputeInstanceSchedulingLocalSsdRecoveryTimeout"]:
         '''local_ssd_recovery_timeout block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#local_ssd_recovery_timeout ComputeInstance#local_ssd_recovery_timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#local_ssd_recovery_timeout ComputeInstance#local_ssd_recovery_timeout}
         '''
         result = self._values.get("local_ssd_recovery_timeout")
         return typing.cast(typing.Optional["ComputeInstanceSchedulingLocalSsdRecoveryTimeout"], result)
@@ -6994,14 +6994,14 @@ class ComputeInstanceScheduling:
     ) -> typing.Optional["ComputeInstanceSchedulingMaxRunDuration"]:
         '''max_run_duration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#max_run_duration ComputeInstance#max_run_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#max_run_duration ComputeInstance#max_run_duration}
         '''
         result = self._values.get("max_run_duration")
         return typing.cast(typing.Optional["ComputeInstanceSchedulingMaxRunDuration"], result)
 
     @builtins.property
     def min_node_cpus(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#min_node_cpus ComputeInstance#min_node_cpus}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#min_node_cpus ComputeInstance#min_node_cpus}.'''
         result = self._values.get("min_node_cpus")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -7011,7 +7011,7 @@ class ComputeInstanceScheduling:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeInstanceSchedulingNodeAffinities"]]]:
         '''node_affinities block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#node_affinities ComputeInstance#node_affinities}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#node_affinities ComputeInstance#node_affinities}
         '''
         result = self._values.get("node_affinities")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeInstanceSchedulingNodeAffinities"]]], result)
@@ -7020,7 +7020,7 @@ class ComputeInstanceScheduling:
     def on_host_maintenance(self) -> typing.Optional[builtins.str]:
         '''Describes maintenance behavior for the instance. One of MIGRATE or TERMINATE,.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#on_host_maintenance ComputeInstance#on_host_maintenance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#on_host_maintenance ComputeInstance#on_host_maintenance}
         '''
         result = self._values.get("on_host_maintenance")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7031,7 +7031,7 @@ class ComputeInstanceScheduling:
     ) -> typing.Optional["ComputeInstanceSchedulingOnInstanceStopAction"]:
         '''on_instance_stop_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#on_instance_stop_action ComputeInstance#on_instance_stop_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#on_instance_stop_action ComputeInstance#on_instance_stop_action}
         '''
         result = self._values.get("on_instance_stop_action")
         return typing.cast(typing.Optional["ComputeInstanceSchedulingOnInstanceStopAction"], result)
@@ -7042,7 +7042,7 @@ class ComputeInstanceScheduling:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the instance is preemptible.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#preemptible ComputeInstance#preemptible}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#preemptible ComputeInstance#preemptible}
         '''
         result = self._values.get("preemptible")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7051,7 +7051,7 @@ class ComputeInstanceScheduling:
     def provisioning_model(self) -> typing.Optional[builtins.str]:
         '''Whether the instance is spot. If this is set as SPOT.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#provisioning_model ComputeInstance#provisioning_model}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#provisioning_model ComputeInstance#provisioning_model}
         '''
         result = self._values.get("provisioning_model")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7063,7 +7063,7 @@ class ComputeInstanceScheduling:
         If specified, the instance termination action
         will be performed at the termination time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#termination_time ComputeInstance#termination_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#termination_time ComputeInstance#termination_time}
         '''
         result = self._values.get("termination_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7093,8 +7093,8 @@ class ComputeInstanceSchedulingLocalSsdRecoveryTimeout:
         nanos: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#seconds ComputeInstance#seconds}
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#nanos ComputeInstance#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#seconds ComputeInstance#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#nanos ComputeInstance#nanos}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4399ca954db5594624c615abae7958492641cba94276f59a10474f8244c9cc75)
@@ -7110,7 +7110,7 @@ class ComputeInstanceSchedulingLocalSsdRecoveryTimeout:
     def seconds(self) -> jsii.Number:
         '''Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#seconds ComputeInstance#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#seconds ComputeInstance#seconds}
         '''
         result = self._values.get("seconds")
         assert result is not None, "Required property 'seconds' is missing"
@@ -7124,7 +7124,7 @@ class ComputeInstanceSchedulingLocalSsdRecoveryTimeout:
         with a 0 seconds field and a positive nanos field. Must
         be from 0 to 999,999,999 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#nanos ComputeInstance#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#nanos ComputeInstance#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7230,8 +7230,8 @@ class ComputeInstanceSchedulingMaxRunDuration:
         nanos: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#seconds ComputeInstance#seconds}
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#nanos ComputeInstance#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#seconds ComputeInstance#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#nanos ComputeInstance#nanos}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c63447458be67be8dc5010dba2c13183fff2546ced7ecf30a0478e4537a2054b)
@@ -7247,7 +7247,7 @@ class ComputeInstanceSchedulingMaxRunDuration:
     def seconds(self) -> jsii.Number:
         '''Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#seconds ComputeInstance#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#seconds ComputeInstance#seconds}
         '''
         result = self._values.get("seconds")
         assert result is not None, "Required property 'seconds' is missing"
@@ -7261,7 +7261,7 @@ class ComputeInstanceSchedulingMaxRunDuration:
         with a 0 seconds field and a positive nanos field. Must
         be from 0 to 999,999,999 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#nanos ComputeInstance#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#nanos ComputeInstance#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7368,9 +7368,9 @@ class ComputeInstanceSchedulingNodeAffinities:
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#key ComputeInstance#key}.
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#operator ComputeInstance#operator}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#values ComputeInstance#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#key ComputeInstance#key}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#operator ComputeInstance#operator}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#values ComputeInstance#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e2c36cf12b647b6f9cae5fa365ed3ec5cbbaf1318928d4e6baff69f04851d22c)
@@ -7385,21 +7385,21 @@ class ComputeInstanceSchedulingNodeAffinities:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#key ComputeInstance#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#key ComputeInstance#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#operator ComputeInstance#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#operator ComputeInstance#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#values ComputeInstance#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#values ComputeInstance#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -7616,7 +7616,7 @@ class ComputeInstanceSchedulingOnInstanceStopAction:
         discard_local_ssd: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param discard_local_ssd: If true, the contents of any attached Local SSD disks will be discarded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#discard_local_ssd ComputeInstance#discard_local_ssd}
+        :param discard_local_ssd: If true, the contents of any attached Local SSD disks will be discarded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#discard_local_ssd ComputeInstance#discard_local_ssd}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__db58d7f982ee370edfdd5525ce1dc0729d236995c044b37c31240199f5d2bb2e)
@@ -7631,7 +7631,7 @@ class ComputeInstanceSchedulingOnInstanceStopAction:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, the contents of any attached Local SSD disks will be discarded.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#discard_local_ssd ComputeInstance#discard_local_ssd}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#discard_local_ssd ComputeInstance#discard_local_ssd}
         '''
         result = self._values.get("discard_local_ssd")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7742,8 +7742,8 @@ class ComputeInstanceSchedulingOutputReference(
         nanos: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#seconds ComputeInstance#seconds}
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#nanos ComputeInstance#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#seconds ComputeInstance#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#nanos ComputeInstance#nanos}
         '''
         value = ComputeInstanceSchedulingLocalSsdRecoveryTimeout(
             seconds=seconds, nanos=nanos
@@ -7759,8 +7759,8 @@ class ComputeInstanceSchedulingOutputReference(
         nanos: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#seconds ComputeInstance#seconds}
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#nanos ComputeInstance#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#seconds ComputeInstance#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#nanos ComputeInstance#nanos}
         '''
         value = ComputeInstanceSchedulingMaxRunDuration(seconds=seconds, nanos=nanos)
 
@@ -7786,7 +7786,7 @@ class ComputeInstanceSchedulingOutputReference(
         discard_local_ssd: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param discard_local_ssd: If true, the contents of any attached Local SSD disks will be discarded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#discard_local_ssd ComputeInstance#discard_local_ssd}
+        :param discard_local_ssd: If true, the contents of any attached Local SSD disks will be discarded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#discard_local_ssd ComputeInstance#discard_local_ssd}
         '''
         value = ComputeInstanceSchedulingOnInstanceStopAction(
             discard_local_ssd=discard_local_ssd
@@ -8075,9 +8075,9 @@ class ComputeInstanceScratchDisk:
         size: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param interface: The disk interface used for attaching this disk. One of SCSI or NVME. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#interface ComputeInstance#interface}
-        :param device_name: Name with which the attached disk is accessible under /dev/disk/by-id/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#device_name ComputeInstance#device_name}
-        :param size: The size of the disk in gigabytes. One of 375 or 3000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#size ComputeInstance#size}
+        :param interface: The disk interface used for attaching this disk. One of SCSI or NVME. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#interface ComputeInstance#interface}
+        :param device_name: Name with which the attached disk is accessible under /dev/disk/by-id/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#device_name ComputeInstance#device_name}
+        :param size: The size of the disk in gigabytes. One of 375 or 3000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#size ComputeInstance#size}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1779424e4b080267967c867b43cf73426056fb47afb43fb4f96f3723a931c47d)
@@ -8096,7 +8096,7 @@ class ComputeInstanceScratchDisk:
     def interface(self) -> builtins.str:
         '''The disk interface used for attaching this disk. One of SCSI or NVME.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#interface ComputeInstance#interface}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#interface ComputeInstance#interface}
         '''
         result = self._values.get("interface")
         assert result is not None, "Required property 'interface' is missing"
@@ -8106,7 +8106,7 @@ class ComputeInstanceScratchDisk:
     def device_name(self) -> typing.Optional[builtins.str]:
         '''Name with which the attached disk is accessible under /dev/disk/by-id/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#device_name ComputeInstance#device_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#device_name ComputeInstance#device_name}
         '''
         result = self._values.get("device_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8115,7 +8115,7 @@ class ComputeInstanceScratchDisk:
     def size(self) -> typing.Optional[jsii.Number]:
         '''The size of the disk in gigabytes. One of 375 or 3000.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#size ComputeInstance#size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#size ComputeInstance#size}
         '''
         result = self._values.get("size")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8338,8 +8338,8 @@ class ComputeInstanceServiceAccount:
         email: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param scopes: A list of service scopes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#scopes ComputeInstance#scopes}
-        :param email: The service account e-mail address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#email ComputeInstance#email}
+        :param scopes: A list of service scopes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#scopes ComputeInstance#scopes}
+        :param email: The service account e-mail address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#email ComputeInstance#email}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fb64214dc111d98c4183535bf85b7bf478108dc2d4ce481e5bbec174e9850f4f)
@@ -8355,7 +8355,7 @@ class ComputeInstanceServiceAccount:
     def scopes(self) -> typing.List[builtins.str]:
         '''A list of service scopes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#scopes ComputeInstance#scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#scopes ComputeInstance#scopes}
         '''
         result = self._values.get("scopes")
         assert result is not None, "Required property 'scopes' is missing"
@@ -8365,7 +8365,7 @@ class ComputeInstanceServiceAccount:
     def email(self) -> typing.Optional[builtins.str]:
         '''The service account e-mail address.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#email ComputeInstance#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#email ComputeInstance#email}
         '''
         result = self._values.get("email")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8474,9 +8474,9 @@ class ComputeInstanceShieldedInstanceConfig:
         enable_vtpm: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_integrity_monitoring: Whether integrity monitoring is enabled for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_integrity_monitoring ComputeInstance#enable_integrity_monitoring}
-        :param enable_secure_boot: Whether secure boot is enabled for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_secure_boot ComputeInstance#enable_secure_boot}
-        :param enable_vtpm: Whether the instance uses vTPM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_vtpm ComputeInstance#enable_vtpm}
+        :param enable_integrity_monitoring: Whether integrity monitoring is enabled for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_integrity_monitoring ComputeInstance#enable_integrity_monitoring}
+        :param enable_secure_boot: Whether secure boot is enabled for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_secure_boot ComputeInstance#enable_secure_boot}
+        :param enable_vtpm: Whether the instance uses vTPM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_vtpm ComputeInstance#enable_vtpm}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d07d22eb4cb5ee6aecf46170783fbbdd3b972fa46ec38b667708307e8aa782fe)
@@ -8497,7 +8497,7 @@ class ComputeInstanceShieldedInstanceConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether integrity monitoring is enabled for the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_integrity_monitoring ComputeInstance#enable_integrity_monitoring}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_integrity_monitoring ComputeInstance#enable_integrity_monitoring}
         '''
         result = self._values.get("enable_integrity_monitoring")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8508,7 +8508,7 @@ class ComputeInstanceShieldedInstanceConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether secure boot is enabled for the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_secure_boot ComputeInstance#enable_secure_boot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_secure_boot ComputeInstance#enable_secure_boot}
         '''
         result = self._values.get("enable_secure_boot")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8519,7 +8519,7 @@ class ComputeInstanceShieldedInstanceConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the instance uses vTPM.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#enable_vtpm ComputeInstance#enable_vtpm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#enable_vtpm ComputeInstance#enable_vtpm}
         '''
         result = self._values.get("enable_vtpm")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8668,9 +8668,9 @@ class ComputeInstanceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#create ComputeInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#delete ComputeInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#update ComputeInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#create ComputeInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#delete ComputeInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#update ComputeInstance#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e223aa44362252401bfff74a2718429a880c337a0b15340c918f03be0bd33e36)
@@ -8687,19 +8687,19 @@ class ComputeInstanceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#create ComputeInstance#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#create ComputeInstance#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#delete ComputeInstance#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#delete ComputeInstance#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance#update ComputeInstance#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance#update ComputeInstance#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

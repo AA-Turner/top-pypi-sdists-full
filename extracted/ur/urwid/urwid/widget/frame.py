@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import typing
 import warnings
+from collections.abc import MutableMapping
 
 from urwid.canvas import CanvasCombine, CompositeCanvas
 from urwid.split_repr import remove_defaults
@@ -13,7 +14,7 @@ from .filler import Filler
 from .widget import Widget, WidgetError
 
 if typing.TYPE_CHECKING:
-    from collections.abc import Iterator, MutableMapping
+    from collections.abc import Iterator
 
     from typing_extensions import Literal
 
@@ -121,8 +122,9 @@ class Frame(Widget, WidgetContainerMixin, typing.Generic[BodyWidget, HeaderWidge
     def get_header(self) -> HeaderWidget:
         warnings.warn(
             f"method `{self.__class__.__name__}.get_header` is deprecated, "
-            f"standard property `{self.__class__.__name__}.header` should be used instead",
-            PendingDeprecationWarning,
+            f"standard property `{self.__class__.__name__}.header` should be used instead."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         return self.header
@@ -130,8 +132,9 @@ class Frame(Widget, WidgetContainerMixin, typing.Generic[BodyWidget, HeaderWidge
     def set_header(self, header: HeaderWidget) -> None:
         warnings.warn(
             f"method `{self.__class__.__name__}.set_header` is deprecated, "
-            f"standard property `{self.__class__.__name__}.header` should be used instead",
-            PendingDeprecationWarning,
+            f"standard property `{self.__class__.__name__}.header` should be used instead."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         self.header = header
@@ -149,8 +152,9 @@ class Frame(Widget, WidgetContainerMixin, typing.Generic[BodyWidget, HeaderWidge
     def get_body(self) -> BodyWidget:
         warnings.warn(
             f"method `{self.__class__.__name__}.get_body` is deprecated, "
-            f"standard property {self.__class__.__name__}.body should be used instead",
-            PendingDeprecationWarning,
+            f"standard property {self.__class__.__name__}.body should be used instead."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         return self.body
@@ -158,8 +162,9 @@ class Frame(Widget, WidgetContainerMixin, typing.Generic[BodyWidget, HeaderWidge
     def set_body(self, body: BodyWidget) -> None:
         warnings.warn(
             f"method `{self.__class__.__name__}.set_body` is deprecated, "
-            f"standard property `{self.__class__.__name__}.body` should be used instead",
-            PendingDeprecationWarning,
+            f"standard property `{self.__class__.__name__}.body` should be used instead."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         self.body = body
@@ -179,8 +184,9 @@ class Frame(Widget, WidgetContainerMixin, typing.Generic[BodyWidget, HeaderWidge
     def get_footer(self) -> FooterWidget:
         warnings.warn(
             f"method `{self.__class__.__name__}.get_footer` is deprecated, "
-            f"standard property `{self.__class__.__name__}.footer` should be used instead",
-            PendingDeprecationWarning,
+            f"standard property `{self.__class__.__name__}.footer` should be used instead."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         return self.footer
@@ -188,8 +194,9 @@ class Frame(Widget, WidgetContainerMixin, typing.Generic[BodyWidget, HeaderWidge
     def set_footer(self, footer: FooterWidget) -> None:
         warnings.warn(
             f"method `{self.__class__.__name__}.set_footer` is deprecated, "
-            f"standard property `{self.__class__.__name__}.footer` should be used instead",
-            PendingDeprecationWarning,
+            f"standard property `{self.__class__.__name__}.footer` should be used instead."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         self.footer = footer
@@ -233,8 +240,9 @@ class Frame(Widget, WidgetContainerMixin, typing.Generic[BodyWidget, HeaderWidge
         """
         warnings.warn(
             "included for backwards compatibility."
-            "You should rather use the container property `.focus_position` to get this value.",
-            PendingDeprecationWarning,
+            "You should rather use the container property `.focus_position` to get this value."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         return self.focus_position
@@ -242,8 +250,9 @@ class Frame(Widget, WidgetContainerMixin, typing.Generic[BodyWidget, HeaderWidge
     def set_focus(self, part: Literal["header", "footer", "body"]) -> None:
         warnings.warn(
             "included for backwards compatibility."
-            "You should rather use the container property `.focus_position` to set this value.",
-            PendingDeprecationWarning,
+            "You should rather use the container property `.focus_position` to set this value."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         self.focus_position = part
@@ -253,15 +262,6 @@ class Frame(Widget, WidgetContainerMixin, typing.Generic[BodyWidget, HeaderWidge
         """
         child :class:`Widget` in focus: the body, header or footer widget.
         This is a read-only property."""
-        return {"header": self._header, "footer": self._footer, "body": self._body}[self.focus_part]
-
-    def _get_focus(self) -> BodyWidget | HeaderWidget | FooterWidget:
-        warnings.warn(
-            f"method `{self.__class__.__name__}._get_focus` is deprecated, "
-            f"please use `{self.__class__.__name__}.focus` property",
-            DeprecationWarning,
-            stacklevel=3,
-        )
         return {"header": self._header, "footer": self._footer, "body": self._body}[self.focus_part]
 
     @property
@@ -294,9 +294,9 @@ class Frame(Widget, WidgetContainerMixin, typing.Generic[BodyWidget, HeaderWidge
 
         # noinspection PyMethodParameters
         class FrameContents(
-            typing.MutableMapping[
+            MutableMapping[
                 str,
-                typing.Tuple[typing.Union[BodyWidget, HeaderWidget, FooterWidget], None],
+                tuple[typing.Union[BodyWidget, HeaderWidget, FooterWidget], None],
             ]
         ):
             # pylint: disable=no-self-argument
@@ -387,15 +387,6 @@ class Frame(Widget, WidgetContainerMixin, typing.Generic[BodyWidget, HeaderWidge
             self.header = None
         else:
             self.footer = None
-
-    def _contents(self):
-        warnings.warn(
-            f"method `{self.__class__.__name__}._contents` is deprecated, "
-            f"please use property `{self.__class__.__name__}.contents`",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        return self.contents
 
     def options(self) -> None:
         """

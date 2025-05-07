@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dify_plugin
-Version: 0.2.1
+Version: 0.2.2
 Summary: Dify Plugin SDK
 Keywords: dify,plugin,sdk
 Author-Email: langgenius <hello@dify.ai>
@@ -43,6 +43,6 @@ When depending on this SDK, it's recommended to specify version constraints that
 Example in your project's dependency management:
 
 ```
-dify_plugin>=0.1.0,<0.2.0
+dify_plugin>=0.2.0,<0.3.0
 ```
 

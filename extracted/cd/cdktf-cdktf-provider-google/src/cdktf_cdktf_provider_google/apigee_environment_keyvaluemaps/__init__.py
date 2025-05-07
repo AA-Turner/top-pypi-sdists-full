@@ -1,7 +1,7 @@
 r'''
 # `google_apigee_environment_keyvaluemaps`
 
-Refer to the Terraform Registry for docs: [`google_apigee_environment_keyvaluemaps`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps).
+Refer to the Terraform Registry for docs: [`google_apigee_environment_keyvaluemaps`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApigeeEnvironmentKeyvaluemaps(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.apigeeEnvironmentKeyvaluemaps.ApigeeEnvironmentKeyvaluemaps",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps google_apigee_environment_keyvaluemaps}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps google_apigee_environment_keyvaluemaps}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class ApigeeEnvironmentKeyvaluemaps(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps google_apigee_environment_keyvaluemaps} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps google_apigee_environment_keyvaluemaps} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param env_id: The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps#env_id ApigeeEnvironmentKeyvaluemaps#env_id}
-        :param name: Required. ID of the key value map. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps#name ApigeeEnvironmentKeyvaluemaps#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps#id ApigeeEnvironmentKeyvaluemaps#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps#timeouts ApigeeEnvironmentKeyvaluemaps#timeouts}
+        :param env_id: The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps#env_id ApigeeEnvironmentKeyvaluemaps#env_id}
+        :param name: Required. ID of the key value map. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps#name ApigeeEnvironmentKeyvaluemaps#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps#id ApigeeEnvironmentKeyvaluemaps#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps#timeouts ApigeeEnvironmentKeyvaluemaps#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class ApigeeEnvironmentKeyvaluemaps(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApigeeEnvironmentKeyvaluemaps to import.
-        :param import_from_id: The id of the existing ApigeeEnvironmentKeyvaluemaps that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApigeeEnvironmentKeyvaluemaps that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApigeeEnvironmentKeyvaluemaps to import is found.
         '''
         if __debug__:
@@ -131,8 +131,8 @@ class ApigeeEnvironmentKeyvaluemaps(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps#create ApigeeEnvironmentKeyvaluemaps#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps#delete ApigeeEnvironmentKeyvaluemaps#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps#create ApigeeEnvironmentKeyvaluemaps#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps#delete ApigeeEnvironmentKeyvaluemaps#delete}.
         '''
         value = ApigeeEnvironmentKeyvaluemapsTimeouts(create=create, delete=delete)
 
@@ -264,10 +264,10 @@ class ApigeeEnvironmentKeyvaluemapsConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param env_id: The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps#env_id ApigeeEnvironmentKeyvaluemaps#env_id}
-        :param name: Required. ID of the key value map. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps#name ApigeeEnvironmentKeyvaluemaps#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps#id ApigeeEnvironmentKeyvaluemaps#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps#timeouts ApigeeEnvironmentKeyvaluemaps#timeouts}
+        :param env_id: The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps#env_id ApigeeEnvironmentKeyvaluemaps#env_id}
+        :param name: Required. ID of the key value map. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps#name ApigeeEnvironmentKeyvaluemaps#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps#id ApigeeEnvironmentKeyvaluemaps#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps#timeouts ApigeeEnvironmentKeyvaluemaps#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -377,7 +377,7 @@ class ApigeeEnvironmentKeyvaluemapsConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def env_id(self) -> builtins.str:
         '''The Apigee environment group associated with the Apigee environment, in the format 'organizations/{{org_name}}/environments/{{env_name}}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps#env_id ApigeeEnvironmentKeyvaluemaps#env_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps#env_id ApigeeEnvironmentKeyvaluemaps#env_id}
         '''
         result = self._values.get("env_id")
         assert result is not None, "Required property 'env_id' is missing"
@@ -387,7 +387,7 @@ class ApigeeEnvironmentKeyvaluemapsConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def name(self) -> builtins.str:
         '''Required. ID of the key value map.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps#name ApigeeEnvironmentKeyvaluemaps#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps#name ApigeeEnvironmentKeyvaluemaps#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -395,7 +395,7 @@ class ApigeeEnvironmentKeyvaluemapsConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps#id ApigeeEnvironmentKeyvaluemaps#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps#id ApigeeEnvironmentKeyvaluemaps#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -407,7 +407,7 @@ class ApigeeEnvironmentKeyvaluemapsConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def timeouts(self) -> typing.Optional["ApigeeEnvironmentKeyvaluemapsTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps#timeouts ApigeeEnvironmentKeyvaluemaps#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps#timeouts ApigeeEnvironmentKeyvaluemaps#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApigeeEnvironmentKeyvaluemapsTimeouts"], result)
@@ -437,8 +437,8 @@ class ApigeeEnvironmentKeyvaluemapsTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps#create ApigeeEnvironmentKeyvaluemaps#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps#delete ApigeeEnvironmentKeyvaluemaps#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps#create ApigeeEnvironmentKeyvaluemaps#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps#delete ApigeeEnvironmentKeyvaluemaps#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0950065e61809e77dfc0a9ae2ff4f73fc3ebcd1e68b9e136e8f6390def453e01)
@@ -452,13 +452,13 @@ class ApigeeEnvironmentKeyvaluemapsTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps#create ApigeeEnvironmentKeyvaluemaps#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps#create ApigeeEnvironmentKeyvaluemaps#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apigee_environment_keyvaluemaps#delete ApigeeEnvironmentKeyvaluemaps#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apigee_environment_keyvaluemaps#delete ApigeeEnvironmentKeyvaluemaps#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

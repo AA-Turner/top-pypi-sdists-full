@@ -160,7 +160,7 @@ class DashxApisClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/managementdashboard/change_management_dashboards_compartment.py.html>`__ to see an example of how to use change_management_dashboards_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/managementdashboard/change_management_dashboards_compartment.py.html>`__ to see an example of how to use change_management_dashboards_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managementDashboardId']
@@ -280,7 +280,7 @@ class DashxApisClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/managementdashboard/change_management_saved_searches_compartment.py.html>`__ to see an example of how to use change_management_saved_searches_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/managementdashboard/change_management_saved_searches_compartment.py.html>`__ to see an example of how to use change_management_saved_searches_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managementSavedSearchId']
@@ -393,7 +393,7 @@ class DashxApisClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/managementdashboard/create_management_dashboard.py.html>`__ to see an example of how to use create_management_dashboard API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/managementdashboard/create_management_dashboard.py.html>`__ to see an example of how to use create_management_dashboard API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -492,7 +492,7 @@ class DashxApisClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/managementdashboard/create_management_saved_search.py.html>`__ to see an example of how to use create_management_saved_search API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/managementdashboard/create_management_saved_search.py.html>`__ to see an example of how to use create_management_saved_search API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -588,7 +588,7 @@ class DashxApisClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/managementdashboard/delete_management_dashboard.py.html>`__ to see an example of how to use delete_management_dashboard API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/managementdashboard/delete_management_dashboard.py.html>`__ to see an example of how to use delete_management_dashboard API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managementDashboardId']
@@ -691,7 +691,7 @@ class DashxApisClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/managementdashboard/delete_management_saved_search.py.html>`__ to see an example of how to use delete_management_saved_search API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/managementdashboard/delete_management_saved_search.py.html>`__ to see an example of how to use delete_management_saved_search API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managementSavedSearchId']
@@ -796,7 +796,7 @@ class DashxApisClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/managementdashboard/export_dashboard.py.html>`__ to see an example of how to use export_dashboard API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/managementdashboard/export_dashboard.py.html>`__ to see an example of how to use export_dashboard API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['exportDashboardId']
@@ -902,7 +902,7 @@ class DashxApisClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/managementdashboard/get_management_dashboard.py.html>`__ to see an example of how to use get_management_dashboard API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/managementdashboard/get_management_dashboard.py.html>`__ to see an example of how to use get_management_dashboard API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managementDashboardId']
@@ -1008,7 +1008,7 @@ class DashxApisClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/managementdashboard/get_management_saved_search.py.html>`__ to see an example of how to use get_management_saved_search API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/managementdashboard/get_management_saved_search.py.html>`__ to see an example of how to use get_management_saved_search API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managementSavedSearchId']
@@ -1126,7 +1126,7 @@ class DashxApisClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/managementdashboard/import_dashboard.py.html>`__ to see an example of how to use import_dashboard API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/managementdashboard/import_dashboard.py.html>`__ to see an example of how to use import_dashboard API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1234,7 +1234,7 @@ class DashxApisClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/managementdashboard/list_management_dashboards.py.html>`__ to see an example of how to use list_management_dashboards API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/managementdashboard/list_management_dashboards.py.html>`__ to see an example of how to use list_management_dashboards API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1368,7 +1368,7 @@ class DashxApisClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/managementdashboard/list_management_saved_searches.py.html>`__ to see an example of how to use list_management_saved_searches API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/managementdashboard/list_management_saved_searches.py.html>`__ to see an example of how to use list_management_saved_searches API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1500,7 +1500,7 @@ class DashxApisClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/managementdashboard/update_management_dashboard.py.html>`__ to see an example of how to use update_management_dashboard API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/managementdashboard/update_management_dashboard.py.html>`__ to see an example of how to use update_management_dashboard API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managementDashboardId']
@@ -1620,7 +1620,7 @@ class DashxApisClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/managementdashboard/update_management_saved_search.py.html>`__ to see an example of how to use update_management_saved_search API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/managementdashboard/update_management_saved_search.py.html>`__ to see an example of how to use update_management_saved_search API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managementSavedSearchId']

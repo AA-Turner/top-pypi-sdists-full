@@ -517,15 +517,13 @@ def load_modules(
 @t.overload
 def dump_module(
     module: Module, target: t.Union[str, t.IO[str]], dumper: t.Callable[[t.Any, t.IO[str]], None] = json.dump
-) -> None:
-    ...
+) -> None: ...
 
 
 @t.overload
 def dump_module(
     module: Module, target: None = None, dumper: t.Callable[[t.Any, t.IO[str]], None] = json.dump
-) -> t.Dict[str, t.Any]:
-    ...
+) -> t.Dict[str, t.Any]: ...
 
 
 def dump_module(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-events-notify
-Version: 2.2.467
+Version: 2.2.468
 Summary: The Events Notify AWS Construct lib for AWS CDK
 Home-page: https://github.com/neilkuan/cdk-events-notify.git
 Author: Neil Kuan<guan840912@gmail.com>

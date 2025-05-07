@@ -1,7 +1,7 @@
 r'''
 # `data_google_vmwareengine_subnet`
 
-Refer to the Terraform Registry for docs: [`data_google_vmwareengine_subnet`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/vmwareengine_subnet).
+Refer to the Terraform Registry for docs: [`data_google_vmwareengine_subnet`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/vmwareengine_subnet).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleVmwareengineSubnet(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleVmwareengineSubnet.DataGoogleVmwareengineSubnet",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/vmwareengine_subnet google_vmwareengine_subnet}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/vmwareengine_subnet google_vmwareengine_subnet}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataGoogleVmwareengineSubnet(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/vmwareengine_subnet google_vmwareengine_subnet} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/vmwareengine_subnet google_vmwareengine_subnet} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The ID of the subnet. For userDefined subnets, this name should be in the format of "service-n", where n ranges from 1 to 5. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/vmwareengine_subnet#name DataGoogleVmwareengineSubnet#name}
-        :param parent: The resource name of the private cloud to create a new subnet in. Resource names are schemeless URIs that follow the conventions in https://cloud.google.com/apis/design/resource_names. For example: projects/my-project/locations/us-west1-a/privateClouds/my-cloud Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/vmwareengine_subnet#parent DataGoogleVmwareengineSubnet#parent}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/vmwareengine_subnet#id DataGoogleVmwareengineSubnet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The ID of the subnet. For userDefined subnets, this name should be in the format of "service-n", where n ranges from 1 to 5. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/vmwareengine_subnet#name DataGoogleVmwareengineSubnet#name}
+        :param parent: The resource name of the private cloud to create a new subnet in. Resource names are schemeless URIs that follow the conventions in https://cloud.google.com/apis/design/resource_names. For example: projects/my-project/locations/us-west1-a/privateClouds/my-cloud Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/vmwareengine_subnet#parent DataGoogleVmwareengineSubnet#parent}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/vmwareengine_subnet#id DataGoogleVmwareengineSubnet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataGoogleVmwareengineSubnet(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleVmwareengineSubnet to import.
-        :param import_from_id: The id of the existing DataGoogleVmwareengineSubnet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/vmwareengine_subnet#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleVmwareengineSubnet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/vmwareengine_subnet#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleVmwareengineSubnet to import is found.
         '''
         if __debug__:
@@ -285,9 +285,9 @@ class DataGoogleVmwareengineSubnetConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The ID of the subnet. For userDefined subnets, this name should be in the format of "service-n", where n ranges from 1 to 5. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/vmwareengine_subnet#name DataGoogleVmwareengineSubnet#name}
-        :param parent: The resource name of the private cloud to create a new subnet in. Resource names are schemeless URIs that follow the conventions in https://cloud.google.com/apis/design/resource_names. For example: projects/my-project/locations/us-west1-a/privateClouds/my-cloud Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/vmwareengine_subnet#parent DataGoogleVmwareengineSubnet#parent}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/vmwareengine_subnet#id DataGoogleVmwareengineSubnet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The ID of the subnet. For userDefined subnets, this name should be in the format of "service-n", where n ranges from 1 to 5. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/vmwareengine_subnet#name DataGoogleVmwareengineSubnet#name}
+        :param parent: The resource name of the private cloud to create a new subnet in. Resource names are schemeless URIs that follow the conventions in https://cloud.google.com/apis/design/resource_names. For example: projects/my-project/locations/us-west1-a/privateClouds/my-cloud Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/vmwareengine_subnet#parent DataGoogleVmwareengineSubnet#parent}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/vmwareengine_subnet#id DataGoogleVmwareengineSubnet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -395,7 +395,7 @@ class DataGoogleVmwareengineSubnetConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         For userDefined subnets, this name should be in the format of "service-n",
         where n ranges from 1 to 5.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/vmwareengine_subnet#name DataGoogleVmwareengineSubnet#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/vmwareengine_subnet#name DataGoogleVmwareengineSubnet#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -408,7 +408,7 @@ class DataGoogleVmwareengineSubnetConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         Resource names are schemeless URIs that follow the conventions in https://cloud.google.com/apis/design/resource_names.
         For example: projects/my-project/locations/us-west1-a/privateClouds/my-cloud
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/vmwareengine_subnet#parent DataGoogleVmwareengineSubnet#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/vmwareengine_subnet#parent DataGoogleVmwareengineSubnet#parent}
         '''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
@@ -416,7 +416,7 @@ class DataGoogleVmwareengineSubnetConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/vmwareengine_subnet#id DataGoogleVmwareengineSubnet#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/vmwareengine_subnet#id DataGoogleVmwareengineSubnet#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

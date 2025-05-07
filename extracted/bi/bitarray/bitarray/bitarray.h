@@ -4,7 +4,7 @@
 
    Author: Ilan Schnell
 */
-#define BITARRAY_VERSION  "3.3.2"
+#define BITARRAY_VERSION  "3.4.0"
 
 #ifdef STDC_HEADERS
 #  include <stddef.h>
@@ -214,6 +214,18 @@ builtin_bswap64(uint64_t word)
 #endif
 }
 
+/* reverse order of first n bytes of p */
+static inline void
+swap_bytes(char *p, Py_ssize_t n)
+{
+    Py_ssize_t i, j;
+    for (i = 0, j = n - 1; i < j; i++, j--) {
+        char t = p[i];
+        p[i] = p[j];
+        p[j] = t;
+    }
+}
+
 /* Return distance [0..3] to next aligned pointer.
    While on modern compilers uint64_t pointers may be misaligned, it may
    cause problems on older ones.  Moreover, it may lead to slowdown (even
@@ -235,48 +247,6 @@ popcnt_words(uint64_t *w, Py_ssize_t n)
     while (n--)
         cnt += popcnt_64(*w++);
     return cnt;
-}
-
-/* adjust index in a manner consistent with the handling of normal slices */
-static inline void
-adjust_index(Py_ssize_t length, Py_ssize_t *i, Py_ssize_t step)
-{
-    if (*i < 0) {
-        *i += length;
-        if (*i < 0)
-            *i = (step < 0) ? -1 : 0;
-    }
-    else if (*i >= length) {
-        *i = (step < 0) ? length - 1 : length;
-    }
-}
-
-/* same as PySlice_AdjustIndices() which was introduced in Python 3.6.1 */
-static inline Py_ssize_t
-adjust_indices(Py_ssize_t length, Py_ssize_t *start, Py_ssize_t *stop,
-               Py_ssize_t step)
-{
-#if PY_VERSION_HEX >= 0x03060100
-    return PySlice_AdjustIndices(length, start, stop, step);
-#else
-    assert(step != 0);
-    adjust_index(length, start, step);
-    adjust_index(length, stop, step);
-    /*
-      a / b does integer division.  If either a or b is negative, the result
-      depends on the compiler (rounding can go toward 0 or negative infinity).
-      Therefore, we are careful that both a and b are always positive.
-    */
-    if (step < 0) {
-        if (*stop < *start)
-            return (*start - *stop - 1) / (-step) + 1;
-    }
-    else {
-        if (*start < *stop)
-            return (*stop - *start - 1) / step + 1;
-    }
-    return 0;
-#endif
 }
 
 /* adjust slice parameters such that step is always positive; produces

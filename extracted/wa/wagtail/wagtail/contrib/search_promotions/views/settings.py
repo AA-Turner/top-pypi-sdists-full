@@ -53,7 +53,7 @@ class IndexView(generic.IndexView):
         ),
         Column(
             "views",
-            label=gettext_lazy("Views (past week)"),
+            label=gettext_lazy("Views"),
             width="20%",
             sort_key="views",
         ),
@@ -87,7 +87,6 @@ class SearchPromotionCreateEditMixin:
     edit_url_name = "wagtailsearchpromotions:edit"
     form_class = forms.QueryForm
     header_icon = "pick"
-    _show_breadcrumbs = True
     page_subtitle = gettext_lazy("Promoted search result")
 
     def get_success_message(self, instance=None):

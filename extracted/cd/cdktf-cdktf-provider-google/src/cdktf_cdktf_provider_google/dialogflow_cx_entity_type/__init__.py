@@ -1,7 +1,7 @@
 r'''
 # `google_dialogflow_cx_entity_type`
 
-Refer to the Terraform Registry for docs: [`google_dialogflow_cx_entity_type`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type).
+Refer to the Terraform Registry for docs: [`google_dialogflow_cx_entity_type`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DialogflowCxEntityType(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dialogflowCxEntityType.DialogflowCxEntityType",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type google_dialogflow_cx_entity_type}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type google_dialogflow_cx_entity_type}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class DialogflowCxEntityType(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type google_dialogflow_cx_entity_type} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type google_dialogflow_cx_entity_type} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The human-readable name of the entity type, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#display_name DialogflowCxEntityType#display_name}
-        :param entities: entities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#entities DialogflowCxEntityType#entities}
-        :param kind: Indicates whether the entity type can be automatically expanded. - KIND_MAP: Map entity types allow mapping of a group of synonyms to a canonical value. - KIND_LIST: List entity types contain a set of entries that do not map to canonical values. However, list entity types can contain references to other entity types (with or without aliases). - KIND_REGEXP: Regexp entity types allow to specify regular expressions in entries values. Possible values: ["KIND_MAP", "KIND_LIST", "KIND_REGEXP"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#kind DialogflowCxEntityType#kind}
-        :param auto_expansion_mode: Represents kinds of entities. - AUTO_EXPANSION_MODE_UNSPECIFIED: Auto expansion disabled for the entity. - AUTO_EXPANSION_MODE_DEFAULT: Allows an agent to recognize values that have not been explicitly listed in the entity. Possible values: ["AUTO_EXPANSION_MODE_DEFAULT", "AUTO_EXPANSION_MODE_UNSPECIFIED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#auto_expansion_mode DialogflowCxEntityType#auto_expansion_mode}
-        :param enable_fuzzy_extraction: Enables fuzzy entity extraction during classification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#enable_fuzzy_extraction DialogflowCxEntityType#enable_fuzzy_extraction}
-        :param excluded_phrases: excluded_phrases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#excluded_phrases DialogflowCxEntityType#excluded_phrases}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#id DialogflowCxEntityType#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param language_code: The language of the following fields in entityType: EntityType.entities.value EntityType.entities.synonyms EntityType.excluded_phrases.value If not specified, the agent's default language is used. Many languages are supported. Note: languages must be enabled in the agent before they can be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#language_code DialogflowCxEntityType#language_code}
-        :param parent: The agent to create a entity type for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#parent DialogflowCxEntityType#parent}
-        :param redact: Indicates whether parameters of the entity type should be redacted in log. If redaction is enabled, page parameters and intent parameters referring to the entity type will be replaced by parameter name when logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#redact DialogflowCxEntityType#redact}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#timeouts DialogflowCxEntityType#timeouts}
+        :param display_name: The human-readable name of the entity type, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#display_name DialogflowCxEntityType#display_name}
+        :param entities: entities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#entities DialogflowCxEntityType#entities}
+        :param kind: Indicates whether the entity type can be automatically expanded. - KIND_MAP: Map entity types allow mapping of a group of synonyms to a canonical value. - KIND_LIST: List entity types contain a set of entries that do not map to canonical values. However, list entity types can contain references to other entity types (with or without aliases). - KIND_REGEXP: Regexp entity types allow to specify regular expressions in entries values. Possible values: ["KIND_MAP", "KIND_LIST", "KIND_REGEXP"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#kind DialogflowCxEntityType#kind}
+        :param auto_expansion_mode: Represents kinds of entities. - AUTO_EXPANSION_MODE_UNSPECIFIED: Auto expansion disabled for the entity. - AUTO_EXPANSION_MODE_DEFAULT: Allows an agent to recognize values that have not been explicitly listed in the entity. Possible values: ["AUTO_EXPANSION_MODE_DEFAULT", "AUTO_EXPANSION_MODE_UNSPECIFIED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#auto_expansion_mode DialogflowCxEntityType#auto_expansion_mode}
+        :param enable_fuzzy_extraction: Enables fuzzy entity extraction during classification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#enable_fuzzy_extraction DialogflowCxEntityType#enable_fuzzy_extraction}
+        :param excluded_phrases: excluded_phrases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#excluded_phrases DialogflowCxEntityType#excluded_phrases}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#id DialogflowCxEntityType#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param language_code: The language of the following fields in entityType: EntityType.entities.value EntityType.entities.synonyms EntityType.excluded_phrases.value If not specified, the agent's default language is used. Many languages are supported. Note: languages must be enabled in the agent before they can be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#language_code DialogflowCxEntityType#language_code}
+        :param parent: The agent to create a entity type for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#parent DialogflowCxEntityType#parent}
+        :param redact: Indicates whether parameters of the entity type should be redacted in log. If redaction is enabled, page parameters and intent parameters referring to the entity type will be replaced by parameter name when logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#redact DialogflowCxEntityType#redact}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#timeouts DialogflowCxEntityType#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class DialogflowCxEntityType(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DialogflowCxEntityType to import.
-        :param import_from_id: The id of the existing DialogflowCxEntityType that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DialogflowCxEntityType that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DialogflowCxEntityType to import is found.
         '''
         if __debug__:
@@ -179,9 +179,9 @@ class DialogflowCxEntityType(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#create DialogflowCxEntityType#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#delete DialogflowCxEntityType#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#update DialogflowCxEntityType#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#create DialogflowCxEntityType#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#delete DialogflowCxEntityType#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#update DialogflowCxEntityType#update}.
         '''
         value = DialogflowCxEntityTypeTimeouts(
             create=create, delete=delete, update=update
@@ -479,17 +479,17 @@ class DialogflowCxEntityTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The human-readable name of the entity type, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#display_name DialogflowCxEntityType#display_name}
-        :param entities: entities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#entities DialogflowCxEntityType#entities}
-        :param kind: Indicates whether the entity type can be automatically expanded. - KIND_MAP: Map entity types allow mapping of a group of synonyms to a canonical value. - KIND_LIST: List entity types contain a set of entries that do not map to canonical values. However, list entity types can contain references to other entity types (with or without aliases). - KIND_REGEXP: Regexp entity types allow to specify regular expressions in entries values. Possible values: ["KIND_MAP", "KIND_LIST", "KIND_REGEXP"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#kind DialogflowCxEntityType#kind}
-        :param auto_expansion_mode: Represents kinds of entities. - AUTO_EXPANSION_MODE_UNSPECIFIED: Auto expansion disabled for the entity. - AUTO_EXPANSION_MODE_DEFAULT: Allows an agent to recognize values that have not been explicitly listed in the entity. Possible values: ["AUTO_EXPANSION_MODE_DEFAULT", "AUTO_EXPANSION_MODE_UNSPECIFIED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#auto_expansion_mode DialogflowCxEntityType#auto_expansion_mode}
-        :param enable_fuzzy_extraction: Enables fuzzy entity extraction during classification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#enable_fuzzy_extraction DialogflowCxEntityType#enable_fuzzy_extraction}
-        :param excluded_phrases: excluded_phrases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#excluded_phrases DialogflowCxEntityType#excluded_phrases}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#id DialogflowCxEntityType#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param language_code: The language of the following fields in entityType: EntityType.entities.value EntityType.entities.synonyms EntityType.excluded_phrases.value If not specified, the agent's default language is used. Many languages are supported. Note: languages must be enabled in the agent before they can be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#language_code DialogflowCxEntityType#language_code}
-        :param parent: The agent to create a entity type for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#parent DialogflowCxEntityType#parent}
-        :param redact: Indicates whether parameters of the entity type should be redacted in log. If redaction is enabled, page parameters and intent parameters referring to the entity type will be replaced by parameter name when logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#redact DialogflowCxEntityType#redact}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#timeouts DialogflowCxEntityType#timeouts}
+        :param display_name: The human-readable name of the entity type, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#display_name DialogflowCxEntityType#display_name}
+        :param entities: entities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#entities DialogflowCxEntityType#entities}
+        :param kind: Indicates whether the entity type can be automatically expanded. - KIND_MAP: Map entity types allow mapping of a group of synonyms to a canonical value. - KIND_LIST: List entity types contain a set of entries that do not map to canonical values. However, list entity types can contain references to other entity types (with or without aliases). - KIND_REGEXP: Regexp entity types allow to specify regular expressions in entries values. Possible values: ["KIND_MAP", "KIND_LIST", "KIND_REGEXP"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#kind DialogflowCxEntityType#kind}
+        :param auto_expansion_mode: Represents kinds of entities. - AUTO_EXPANSION_MODE_UNSPECIFIED: Auto expansion disabled for the entity. - AUTO_EXPANSION_MODE_DEFAULT: Allows an agent to recognize values that have not been explicitly listed in the entity. Possible values: ["AUTO_EXPANSION_MODE_DEFAULT", "AUTO_EXPANSION_MODE_UNSPECIFIED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#auto_expansion_mode DialogflowCxEntityType#auto_expansion_mode}
+        :param enable_fuzzy_extraction: Enables fuzzy entity extraction during classification. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#enable_fuzzy_extraction DialogflowCxEntityType#enable_fuzzy_extraction}
+        :param excluded_phrases: excluded_phrases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#excluded_phrases DialogflowCxEntityType#excluded_phrases}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#id DialogflowCxEntityType#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param language_code: The language of the following fields in entityType: EntityType.entities.value EntityType.entities.synonyms EntityType.excluded_phrases.value If not specified, the agent's default language is used. Many languages are supported. Note: languages must be enabled in the agent before they can be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#language_code DialogflowCxEntityType#language_code}
+        :param parent: The agent to create a entity type for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#parent DialogflowCxEntityType#parent}
+        :param redact: Indicates whether parameters of the entity type should be redacted in log. If redaction is enabled, page parameters and intent parameters referring to the entity type will be replaced by parameter name when logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#redact DialogflowCxEntityType#redact}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#timeouts DialogflowCxEntityType#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -619,7 +619,7 @@ class DialogflowCxEntityTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The human-readable name of the entity type, unique within the agent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#display_name DialogflowCxEntityType#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#display_name DialogflowCxEntityType#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -631,7 +631,7 @@ class DialogflowCxEntityTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxEntityTypeEntities"]]:
         '''entities block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#entities DialogflowCxEntityType#entities}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#entities DialogflowCxEntityType#entities}
         '''
         result = self._values.get("entities")
         assert result is not None, "Required property 'entities' is missing"
@@ -645,7 +645,7 @@ class DialogflowCxEntityTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - KIND_LIST: List entity types contain a set of entries that do not map to canonical values. However, list entity types can contain references to other entity types (with or without aliases).
         - KIND_REGEXP: Regexp entity types allow to specify regular expressions in entries values. Possible values: ["KIND_MAP", "KIND_LIST", "KIND_REGEXP"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#kind DialogflowCxEntityType#kind}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#kind DialogflowCxEntityType#kind}
         '''
         result = self._values.get("kind")
         assert result is not None, "Required property 'kind' is missing"
@@ -658,7 +658,7 @@ class DialogflowCxEntityTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - AUTO_EXPANSION_MODE_UNSPECIFIED: Auto expansion disabled for the entity.
         - AUTO_EXPANSION_MODE_DEFAULT: Allows an agent to recognize values that have not been explicitly listed in the entity. Possible values: ["AUTO_EXPANSION_MODE_DEFAULT", "AUTO_EXPANSION_MODE_UNSPECIFIED"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#auto_expansion_mode DialogflowCxEntityType#auto_expansion_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#auto_expansion_mode DialogflowCxEntityType#auto_expansion_mode}
         '''
         result = self._values.get("auto_expansion_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -669,7 +669,7 @@ class DialogflowCxEntityTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enables fuzzy entity extraction during classification.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#enable_fuzzy_extraction DialogflowCxEntityType#enable_fuzzy_extraction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#enable_fuzzy_extraction DialogflowCxEntityType#enable_fuzzy_extraction}
         '''
         result = self._values.get("enable_fuzzy_extraction")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -680,14 +680,14 @@ class DialogflowCxEntityTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxEntityTypeExcludedPhrases"]]]:
         '''excluded_phrases block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#excluded_phrases DialogflowCxEntityType#excluded_phrases}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#excluded_phrases DialogflowCxEntityType#excluded_phrases}
         '''
         result = self._values.get("excluded_phrases")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxEntityTypeExcludedPhrases"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#id DialogflowCxEntityType#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#id DialogflowCxEntityType#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -699,7 +699,7 @@ class DialogflowCxEntityTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def language_code(self) -> typing.Optional[builtins.str]:
         '''The language of the following fields in entityType: EntityType.entities.value EntityType.entities.synonyms EntityType.excluded_phrases.value If not specified, the agent's default language is used. Many languages are supported. Note: languages must be enabled in the agent before they can be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#language_code DialogflowCxEntityType#language_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#language_code DialogflowCxEntityType#language_code}
         '''
         result = self._values.get("language_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -708,7 +708,7 @@ class DialogflowCxEntityTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parent(self) -> typing.Optional[builtins.str]:
         '''The agent to create a entity type for. Format: projects//locations//agents/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#parent DialogflowCxEntityType#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#parent DialogflowCxEntityType#parent}
         '''
         result = self._values.get("parent")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -721,7 +721,7 @@ class DialogflowCxEntityTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If redaction is enabled, page parameters and intent parameters referring to the entity type will be replaced by parameter name when logging.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#redact DialogflowCxEntityType#redact}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#redact DialogflowCxEntityType#redact}
         '''
         result = self._values.get("redact")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -730,7 +730,7 @@ class DialogflowCxEntityTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DialogflowCxEntityTypeTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#timeouts DialogflowCxEntityType#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#timeouts DialogflowCxEntityType#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DialogflowCxEntityTypeTimeouts"], result)
@@ -760,8 +760,8 @@ class DialogflowCxEntityTypeEntities:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param synonyms: A collection of value synonyms. For example, if the entity type is vegetable, and value is scallions, a synonym could be green onions. For KIND_LIST entity types: This collection must contain exactly one synonym equal to value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#synonyms DialogflowCxEntityType#synonyms}
-        :param value: The primary value associated with this entity entry. For example, if the entity type is vegetable, the value could be scallions. For KIND_MAP entity types: A canonical value to be used in place of synonyms. For KIND_LIST entity types: A string that can contain references to other entity types (with or without aliases). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#value DialogflowCxEntityType#value}
+        :param synonyms: A collection of value synonyms. For example, if the entity type is vegetable, and value is scallions, a synonym could be green onions. For KIND_LIST entity types: This collection must contain exactly one synonym equal to value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#synonyms DialogflowCxEntityType#synonyms}
+        :param value: The primary value associated with this entity entry. For example, if the entity type is vegetable, the value could be scallions. For KIND_MAP entity types: A canonical value to be used in place of synonyms. For KIND_LIST entity types: A string that can contain references to other entity types (with or without aliases). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#value DialogflowCxEntityType#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8710ca1a8c7d7d023f8bacf435f4a8de92c2751931096c23fd8ec1d0efc8cc0c)
@@ -780,7 +780,7 @@ class DialogflowCxEntityTypeEntities:
         For example, if the entity type is vegetable, and value is scallions, a synonym could be green onions.
         For KIND_LIST entity types: This collection must contain exactly one synonym equal to value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#synonyms DialogflowCxEntityType#synonyms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#synonyms DialogflowCxEntityType#synonyms}
         '''
         result = self._values.get("synonyms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -793,7 +793,7 @@ class DialogflowCxEntityTypeEntities:
         For KIND_MAP entity types: A canonical value to be used in place of synonyms.
         For KIND_LIST entity types: A string that can contain references to other entity types (with or without aliases).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#value DialogflowCxEntityType#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#value DialogflowCxEntityType#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -997,7 +997,7 @@ class DialogflowCxEntityTypeEntitiesOutputReference(
 class DialogflowCxEntityTypeExcludedPhrases:
     def __init__(self, *, value: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param value: The word or phrase to be excluded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#value DialogflowCxEntityType#value}
+        :param value: The word or phrase to be excluded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#value DialogflowCxEntityType#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4cc4f04ecb3e53ce0f4dd9b060d6d1e4be346121fc3bf716319da4862a423b46)
@@ -1010,7 +1010,7 @@ class DialogflowCxEntityTypeExcludedPhrases:
     def value(self) -> typing.Optional[builtins.str]:
         '''The word or phrase to be excluded.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#value DialogflowCxEntityType#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#value DialogflowCxEntityType#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1199,9 +1199,9 @@ class DialogflowCxEntityTypeTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#create DialogflowCxEntityType#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#delete DialogflowCxEntityType#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#update DialogflowCxEntityType#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#create DialogflowCxEntityType#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#delete DialogflowCxEntityType#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#update DialogflowCxEntityType#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__71a784e179aacebfd92ae09d53ea4086cf82d188b08c584025770719addde0d8)
@@ -1218,19 +1218,19 @@ class DialogflowCxEntityTypeTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#create DialogflowCxEntityType#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#create DialogflowCxEntityType#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#delete DialogflowCxEntityType#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#delete DialogflowCxEntityType#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_entity_type#update DialogflowCxEntityType#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_entity_type#update DialogflowCxEntityType#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

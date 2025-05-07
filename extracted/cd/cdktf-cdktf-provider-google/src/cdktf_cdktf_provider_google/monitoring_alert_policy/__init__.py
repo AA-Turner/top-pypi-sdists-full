@@ -1,7 +1,7 @@
 r'''
 # `google_monitoring_alert_policy`
 
-Refer to the Terraform Registry for docs: [`google_monitoring_alert_policy`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy).
+Refer to the Terraform Registry for docs: [`google_monitoring_alert_policy`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MonitoringAlertPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.monitoringAlertPolicy.MonitoringAlertPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy google_monitoring_alert_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy google_monitoring_alert_policy}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class MonitoringAlertPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy google_monitoring_alert_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy google_monitoring_alert_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param combiner: How to combine the results of multiple conditions to determine if an incident should be opened. Possible values: ["AND", "OR", "AND_WITH_MATCHING_RESOURCE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#combiner MonitoringAlertPolicy#combiner}
-        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#conditions MonitoringAlertPolicy#conditions}
-        :param display_name: A short name or phrase used to identify the policy in dashboards, notifications, and incidents. To avoid confusion, don't use the same display name for multiple policies in the same project. The name is limited to 512 Unicode characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#display_name MonitoringAlertPolicy#display_name}
-        :param alert_strategy: alert_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#alert_strategy MonitoringAlertPolicy#alert_strategy}
-        :param documentation: documentation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#documentation MonitoringAlertPolicy#documentation}
-        :param enabled: Whether or not the policy is enabled. The default is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#enabled MonitoringAlertPolicy#enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#id MonitoringAlertPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notification_channels: Identifies the notification channels to which notifications should be sent when incidents are opened or closed or when new violations occur on an already opened incident. Each element of this array corresponds to the name field in each of the NotificationChannel objects that are returned from the notificationChannels.list method. The syntax of the entries in this field is 'projects/[PROJECT_ID]/notificationChannels/[CHANNEL_ID]' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#notification_channels MonitoringAlertPolicy#notification_channels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#project MonitoringAlertPolicy#project}.
-        :param severity: The severity of an alert policy indicates how important incidents generated by that policy are. The severity level will be displayed on the Incident detail page and in notifications. Possible values: ["CRITICAL", "ERROR", "WARNING"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#severity MonitoringAlertPolicy#severity}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#timeouts MonitoringAlertPolicy#timeouts}
-        :param user_labels: This field is intended to be used for organizing and identifying the AlertPolicy objects.The field can contain up to 64 entries. Each key and value is limited to 63 Unicode characters or 128 bytes, whichever is smaller. Labels and values can contain only lowercase letters, numerals, underscores, and dashes. Keys must begin with a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#user_labels MonitoringAlertPolicy#user_labels}
+        :param combiner: How to combine the results of multiple conditions to determine if an incident should be opened. Possible values: ["AND", "OR", "AND_WITH_MATCHING_RESOURCE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#combiner MonitoringAlertPolicy#combiner}
+        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#conditions MonitoringAlertPolicy#conditions}
+        :param display_name: A short name or phrase used to identify the policy in dashboards, notifications, and incidents. To avoid confusion, don't use the same display name for multiple policies in the same project. The name is limited to 512 Unicode characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#display_name MonitoringAlertPolicy#display_name}
+        :param alert_strategy: alert_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#alert_strategy MonitoringAlertPolicy#alert_strategy}
+        :param documentation: documentation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#documentation MonitoringAlertPolicy#documentation}
+        :param enabled: Whether or not the policy is enabled. The default is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#enabled MonitoringAlertPolicy#enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#id MonitoringAlertPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notification_channels: Identifies the notification channels to which notifications should be sent when incidents are opened or closed or when new violations occur on an already opened incident. Each element of this array corresponds to the name field in each of the NotificationChannel objects that are returned from the notificationChannels.list method. The syntax of the entries in this field is 'projects/[PROJECT_ID]/notificationChannels/[CHANNEL_ID]' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#notification_channels MonitoringAlertPolicy#notification_channels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#project MonitoringAlertPolicy#project}.
+        :param severity: The severity of an alert policy indicates how important incidents generated by that policy are. The severity level will be displayed on the Incident detail page and in notifications. Possible values: ["CRITICAL", "ERROR", "WARNING"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#severity MonitoringAlertPolicy#severity}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#timeouts MonitoringAlertPolicy#timeouts}
+        :param user_labels: This field is intended to be used for organizing and identifying the AlertPolicy objects.The field can contain up to 64 entries. Each key and value is limited to 63 Unicode characters or 128 bytes, whichever is smaller. Labels and values can contain only lowercase letters, numerals, underscores, and dashes. Keys must begin with a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#user_labels MonitoringAlertPolicy#user_labels}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class MonitoringAlertPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MonitoringAlertPolicy to import.
-        :param import_from_id: The id of the existing MonitoringAlertPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MonitoringAlertPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MonitoringAlertPolicy to import is found.
         '''
         if __debug__:
@@ -157,10 +157,10 @@ class MonitoringAlertPolicy(
         notification_rate_limit: typing.Optional[typing.Union["MonitoringAlertPolicyAlertStrategyNotificationRateLimit", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param auto_close: If an alert policy that was active has no data for this long, any open incidents will close. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#auto_close MonitoringAlertPolicy#auto_close}
-        :param notification_channel_strategy: notification_channel_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#notification_channel_strategy MonitoringAlertPolicy#notification_channel_strategy}
-        :param notification_prompts: Control when notifications will be sent out. Possible values: ["NOTIFICATION_PROMPT_UNSPECIFIED", "OPENED", "CLOSED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#notification_prompts MonitoringAlertPolicy#notification_prompts}
-        :param notification_rate_limit: notification_rate_limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#notification_rate_limit MonitoringAlertPolicy#notification_rate_limit}
+        :param auto_close: If an alert policy that was active has no data for this long, any open incidents will close. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#auto_close MonitoringAlertPolicy#auto_close}
+        :param notification_channel_strategy: notification_channel_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#notification_channel_strategy MonitoringAlertPolicy#notification_channel_strategy}
+        :param notification_prompts: Control when notifications will be sent out. Possible values: ["NOTIFICATION_PROMPT_UNSPECIFIED", "OPENED", "CLOSED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#notification_prompts MonitoringAlertPolicy#notification_prompts}
+        :param notification_rate_limit: notification_rate_limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#notification_rate_limit MonitoringAlertPolicy#notification_rate_limit}
         '''
         value = MonitoringAlertPolicyAlertStrategy(
             auto_close=auto_close,
@@ -194,10 +194,10 @@ class MonitoringAlertPolicy(
         subject: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param content: The text of the documentation, interpreted according to mimeType. The content may not exceed 8,192 Unicode characters and may not exceed more than 10,240 bytes when encoded in UTF-8 format, whichever is smaller. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#content MonitoringAlertPolicy#content}
-        :param links: links block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#links MonitoringAlertPolicy#links}
-        :param mime_type: The format of the content field. Presently, only the value "text/markdown" is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#mime_type MonitoringAlertPolicy#mime_type}
-        :param subject: The subject line of the notification. The subject line may not exceed 10,240 bytes. In notifications generated by this policy the contents of the subject line after variable expansion will be truncated to 255 bytes or shorter at the latest UTF-8 character boundary. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#subject MonitoringAlertPolicy#subject}
+        :param content: The text of the documentation, interpreted according to mimeType. The content may not exceed 8,192 Unicode characters and may not exceed more than 10,240 bytes when encoded in UTF-8 format, whichever is smaller. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#content MonitoringAlertPolicy#content}
+        :param links: links block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#links MonitoringAlertPolicy#links}
+        :param mime_type: The format of the content field. Presently, only the value "text/markdown" is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#mime_type MonitoringAlertPolicy#mime_type}
+        :param subject: The subject line of the notification. The subject line may not exceed 10,240 bytes. In notifications generated by this policy the contents of the subject line after variable expansion will be truncated to 255 bytes or shorter at the latest UTF-8 character boundary. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#subject MonitoringAlertPolicy#subject}
         '''
         value = MonitoringAlertPolicyDocumentation(
             content=content, links=links, mime_type=mime_type, subject=subject
@@ -214,9 +214,9 @@ class MonitoringAlertPolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#create MonitoringAlertPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#delete MonitoringAlertPolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#update MonitoringAlertPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#create MonitoringAlertPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#delete MonitoringAlertPolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#update MonitoringAlertPolicy#update}.
         '''
         value = MonitoringAlertPolicyTimeouts(
             create=create, delete=delete, update=update
@@ -495,10 +495,10 @@ class MonitoringAlertPolicyAlertStrategy:
         notification_rate_limit: typing.Optional[typing.Union["MonitoringAlertPolicyAlertStrategyNotificationRateLimit", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param auto_close: If an alert policy that was active has no data for this long, any open incidents will close. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#auto_close MonitoringAlertPolicy#auto_close}
-        :param notification_channel_strategy: notification_channel_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#notification_channel_strategy MonitoringAlertPolicy#notification_channel_strategy}
-        :param notification_prompts: Control when notifications will be sent out. Possible values: ["NOTIFICATION_PROMPT_UNSPECIFIED", "OPENED", "CLOSED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#notification_prompts MonitoringAlertPolicy#notification_prompts}
-        :param notification_rate_limit: notification_rate_limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#notification_rate_limit MonitoringAlertPolicy#notification_rate_limit}
+        :param auto_close: If an alert policy that was active has no data for this long, any open incidents will close. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#auto_close MonitoringAlertPolicy#auto_close}
+        :param notification_channel_strategy: notification_channel_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#notification_channel_strategy MonitoringAlertPolicy#notification_channel_strategy}
+        :param notification_prompts: Control when notifications will be sent out. Possible values: ["NOTIFICATION_PROMPT_UNSPECIFIED", "OPENED", "CLOSED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#notification_prompts MonitoringAlertPolicy#notification_prompts}
+        :param notification_rate_limit: notification_rate_limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#notification_rate_limit MonitoringAlertPolicy#notification_rate_limit}
         '''
         if isinstance(notification_rate_limit, dict):
             notification_rate_limit = MonitoringAlertPolicyAlertStrategyNotificationRateLimit(**notification_rate_limit)
@@ -522,7 +522,7 @@ class MonitoringAlertPolicyAlertStrategy:
     def auto_close(self) -> typing.Optional[builtins.str]:
         '''If an alert policy that was active has no data for this long, any open incidents will close.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#auto_close MonitoringAlertPolicy#auto_close}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#auto_close MonitoringAlertPolicy#auto_close}
         '''
         result = self._values.get("auto_close")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -533,7 +533,7 @@ class MonitoringAlertPolicyAlertStrategy:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitoringAlertPolicyAlertStrategyNotificationChannelStrategy"]]]:
         '''notification_channel_strategy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#notification_channel_strategy MonitoringAlertPolicy#notification_channel_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#notification_channel_strategy MonitoringAlertPolicy#notification_channel_strategy}
         '''
         result = self._values.get("notification_channel_strategy")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitoringAlertPolicyAlertStrategyNotificationChannelStrategy"]]], result)
@@ -542,7 +542,7 @@ class MonitoringAlertPolicyAlertStrategy:
     def notification_prompts(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Control when notifications will be sent out. Possible values: ["NOTIFICATION_PROMPT_UNSPECIFIED", "OPENED", "CLOSED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#notification_prompts MonitoringAlertPolicy#notification_prompts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#notification_prompts MonitoringAlertPolicy#notification_prompts}
         '''
         result = self._values.get("notification_prompts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -553,7 +553,7 @@ class MonitoringAlertPolicyAlertStrategy:
     ) -> typing.Optional["MonitoringAlertPolicyAlertStrategyNotificationRateLimit"]:
         '''notification_rate_limit block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#notification_rate_limit MonitoringAlertPolicy#notification_rate_limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#notification_rate_limit MonitoringAlertPolicy#notification_rate_limit}
         '''
         result = self._values.get("notification_rate_limit")
         return typing.cast(typing.Optional["MonitoringAlertPolicyAlertStrategyNotificationRateLimit"], result)
@@ -586,8 +586,8 @@ class MonitoringAlertPolicyAlertStrategyNotificationChannelStrategy:
         renotify_interval: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param notification_channel_names: The notification channels that these settings apply to. Each of these correspond to the name field in one of the NotificationChannel objects referenced in the notification_channels field of this AlertPolicy. The format is 'projects/[PROJECT_ID_OR_NUMBER]/notificationChannels/[CHANNEL_ID]' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#notification_channel_names MonitoringAlertPolicy#notification_channel_names}
-        :param renotify_interval: The frequency at which to send reminder notifications for open incidents. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#renotify_interval MonitoringAlertPolicy#renotify_interval}
+        :param notification_channel_names: The notification channels that these settings apply to. Each of these correspond to the name field in one of the NotificationChannel objects referenced in the notification_channels field of this AlertPolicy. The format is 'projects/[PROJECT_ID_OR_NUMBER]/notificationChannels/[CHANNEL_ID]' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#notification_channel_names MonitoringAlertPolicy#notification_channel_names}
+        :param renotify_interval: The frequency at which to send reminder notifications for open incidents. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#renotify_interval MonitoringAlertPolicy#renotify_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bbe63f07a35fd07911f07d53c9e0b21a2cc31763b74543e873a14a016945b671)
@@ -608,7 +608,7 @@ class MonitoringAlertPolicyAlertStrategyNotificationChannelStrategy:
         referenced in the notification_channels field of this AlertPolicy. The format is
         'projects/[PROJECT_ID_OR_NUMBER]/notificationChannels/[CHANNEL_ID]'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#notification_channel_names MonitoringAlertPolicy#notification_channel_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#notification_channel_names MonitoringAlertPolicy#notification_channel_names}
         '''
         result = self._values.get("notification_channel_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -617,7 +617,7 @@ class MonitoringAlertPolicyAlertStrategyNotificationChannelStrategy:
     def renotify_interval(self) -> typing.Optional[builtins.str]:
         '''The frequency at which to send reminder notifications for open incidents.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#renotify_interval MonitoringAlertPolicy#renotify_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#renotify_interval MonitoringAlertPolicy#renotify_interval}
         '''
         result = self._values.get("renotify_interval")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -823,7 +823,7 @@ class MonitoringAlertPolicyAlertStrategyNotificationChannelStrategyOutputReferen
 class MonitoringAlertPolicyAlertStrategyNotificationRateLimit:
     def __init__(self, *, period: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param period: Not more than one notification per period. A duration in seconds with up to nine fractional digits, terminated by 's'. Example "60.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#period MonitoringAlertPolicy#period}
+        :param period: Not more than one notification per period. A duration in seconds with up to nine fractional digits, terminated by 's'. Example "60.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#period MonitoringAlertPolicy#period}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__084f3c444b7a690363c4356877bebe5ebc426259fcfb7ad3943703c9ab0c9f50)
@@ -838,7 +838,7 @@ class MonitoringAlertPolicyAlertStrategyNotificationRateLimit:
 
         A duration in seconds with up to nine fractional digits, terminated by 's'. Example "60.5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#period MonitoringAlertPolicy#period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#period MonitoringAlertPolicy#period}
         '''
         result = self._values.get("period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -954,7 +954,7 @@ class MonitoringAlertPolicyAlertStrategyOutputReference(
         period: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param period: Not more than one notification per period. A duration in seconds with up to nine fractional digits, terminated by 's'. Example "60.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#period MonitoringAlertPolicy#period}
+        :param period: Not more than one notification per period. A duration in seconds with up to nine fractional digits, terminated by 's'. Example "60.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#period MonitoringAlertPolicy#period}
         '''
         value = MonitoringAlertPolicyAlertStrategyNotificationRateLimit(period=period)
 
@@ -1080,13 +1080,13 @@ class MonitoringAlertPolicyConditions:
         condition_threshold: typing.Optional[typing.Union["MonitoringAlertPolicyConditionsConditionThreshold", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param display_name: A short name or phrase used to identify the condition in dashboards, notifications, and incidents. To avoid confusion, don't use the same display name for multiple conditions in the same policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#display_name MonitoringAlertPolicy#display_name}
-        :param condition_absent: condition_absent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#condition_absent MonitoringAlertPolicy#condition_absent}
-        :param condition_matched_log: condition_matched_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#condition_matched_log MonitoringAlertPolicy#condition_matched_log}
-        :param condition_monitoring_query_language: condition_monitoring_query_language block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#condition_monitoring_query_language MonitoringAlertPolicy#condition_monitoring_query_language}
-        :param condition_prometheus_query_language: condition_prometheus_query_language block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#condition_prometheus_query_language MonitoringAlertPolicy#condition_prometheus_query_language}
-        :param condition_sql: condition_sql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#condition_sql MonitoringAlertPolicy#condition_sql}
-        :param condition_threshold: condition_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#condition_threshold MonitoringAlertPolicy#condition_threshold}
+        :param display_name: A short name or phrase used to identify the condition in dashboards, notifications, and incidents. To avoid confusion, don't use the same display name for multiple conditions in the same policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#display_name MonitoringAlertPolicy#display_name}
+        :param condition_absent: condition_absent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#condition_absent MonitoringAlertPolicy#condition_absent}
+        :param condition_matched_log: condition_matched_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#condition_matched_log MonitoringAlertPolicy#condition_matched_log}
+        :param condition_monitoring_query_language: condition_monitoring_query_language block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#condition_monitoring_query_language MonitoringAlertPolicy#condition_monitoring_query_language}
+        :param condition_prometheus_query_language: condition_prometheus_query_language block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#condition_prometheus_query_language MonitoringAlertPolicy#condition_prometheus_query_language}
+        :param condition_sql: condition_sql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#condition_sql MonitoringAlertPolicy#condition_sql}
+        :param condition_threshold: condition_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#condition_threshold MonitoringAlertPolicy#condition_threshold}
         '''
         if isinstance(condition_absent, dict):
             condition_absent = MonitoringAlertPolicyConditionsConditionAbsent(**condition_absent)
@@ -1133,7 +1133,7 @@ class MonitoringAlertPolicyConditions:
         display name for multiple conditions in the same
         policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#display_name MonitoringAlertPolicy#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#display_name MonitoringAlertPolicy#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -1145,7 +1145,7 @@ class MonitoringAlertPolicyConditions:
     ) -> typing.Optional["MonitoringAlertPolicyConditionsConditionAbsent"]:
         '''condition_absent block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#condition_absent MonitoringAlertPolicy#condition_absent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#condition_absent MonitoringAlertPolicy#condition_absent}
         '''
         result = self._values.get("condition_absent")
         return typing.cast(typing.Optional["MonitoringAlertPolicyConditionsConditionAbsent"], result)
@@ -1156,7 +1156,7 @@ class MonitoringAlertPolicyConditions:
     ) -> typing.Optional["MonitoringAlertPolicyConditionsConditionMatchedLog"]:
         '''condition_matched_log block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#condition_matched_log MonitoringAlertPolicy#condition_matched_log}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#condition_matched_log MonitoringAlertPolicy#condition_matched_log}
         '''
         result = self._values.get("condition_matched_log")
         return typing.cast(typing.Optional["MonitoringAlertPolicyConditionsConditionMatchedLog"], result)
@@ -1167,7 +1167,7 @@ class MonitoringAlertPolicyConditions:
     ) -> typing.Optional["MonitoringAlertPolicyConditionsConditionMonitoringQueryLanguage"]:
         '''condition_monitoring_query_language block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#condition_monitoring_query_language MonitoringAlertPolicy#condition_monitoring_query_language}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#condition_monitoring_query_language MonitoringAlertPolicy#condition_monitoring_query_language}
         '''
         result = self._values.get("condition_monitoring_query_language")
         return typing.cast(typing.Optional["MonitoringAlertPolicyConditionsConditionMonitoringQueryLanguage"], result)
@@ -1178,7 +1178,7 @@ class MonitoringAlertPolicyConditions:
     ) -> typing.Optional["MonitoringAlertPolicyConditionsConditionPrometheusQueryLanguage"]:
         '''condition_prometheus_query_language block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#condition_prometheus_query_language MonitoringAlertPolicy#condition_prometheus_query_language}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#condition_prometheus_query_language MonitoringAlertPolicy#condition_prometheus_query_language}
         '''
         result = self._values.get("condition_prometheus_query_language")
         return typing.cast(typing.Optional["MonitoringAlertPolicyConditionsConditionPrometheusQueryLanguage"], result)
@@ -1189,7 +1189,7 @@ class MonitoringAlertPolicyConditions:
     ) -> typing.Optional["MonitoringAlertPolicyConditionsConditionSql"]:
         '''condition_sql block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#condition_sql MonitoringAlertPolicy#condition_sql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#condition_sql MonitoringAlertPolicy#condition_sql}
         '''
         result = self._values.get("condition_sql")
         return typing.cast(typing.Optional["MonitoringAlertPolicyConditionsConditionSql"], result)
@@ -1200,7 +1200,7 @@ class MonitoringAlertPolicyConditions:
     ) -> typing.Optional["MonitoringAlertPolicyConditionsConditionThreshold"]:
         '''condition_threshold block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#condition_threshold MonitoringAlertPolicy#condition_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#condition_threshold MonitoringAlertPolicy#condition_threshold}
         '''
         result = self._values.get("condition_threshold")
         return typing.cast(typing.Optional["MonitoringAlertPolicyConditionsConditionThreshold"], result)
@@ -1237,10 +1237,10 @@ class MonitoringAlertPolicyConditionsConditionAbsent:
         trigger: typing.Optional[typing.Union["MonitoringAlertPolicyConditionsConditionAbsentTrigger", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param duration: The amount of time that a time series must fail to report new data to be considered failing. Currently, only values that are a multiple of a minute--e.g. 60s, 120s, or 300s --are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
-        :param aggregations: aggregations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#aggregations MonitoringAlertPolicy#aggregations}
-        :param filter: A filter that identifies which time series should be compared with the threshold.The filter is similar to the one that is specified in the MetricService.ListTimeSeries request (that call is useful to verify the time series that will be retrieved / processed) and must specify the metric type and optionally may contain restrictions on resource type, resource labels, and metric labels. This field may not exceed 2048 Unicode characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#filter MonitoringAlertPolicy#filter}
-        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#trigger MonitoringAlertPolicy#trigger}
+        :param duration: The amount of time that a time series must fail to report new data to be considered failing. Currently, only values that are a multiple of a minute--e.g. 60s, 120s, or 300s --are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
+        :param aggregations: aggregations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#aggregations MonitoringAlertPolicy#aggregations}
+        :param filter: A filter that identifies which time series should be compared with the threshold.The filter is similar to the one that is specified in the MetricService.ListTimeSeries request (that call is useful to verify the time series that will be retrieved / processed) and must specify the metric type and optionally may contain restrictions on resource type, resource labels, and metric labels. This field may not exceed 2048 Unicode characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#filter MonitoringAlertPolicy#filter}
+        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#trigger MonitoringAlertPolicy#trigger}
         '''
         if isinstance(trigger, dict):
             trigger = MonitoringAlertPolicyConditionsConditionAbsentTrigger(**trigger)
@@ -1268,7 +1268,7 @@ class MonitoringAlertPolicyConditionsConditionAbsent:
         multiple of a minute--e.g. 60s, 120s, or 300s
         --are supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
         '''
         result = self._values.get("duration")
         assert result is not None, "Required property 'duration' is missing"
@@ -1280,7 +1280,7 @@ class MonitoringAlertPolicyConditionsConditionAbsent:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitoringAlertPolicyConditionsConditionAbsentAggregations"]]]:
         '''aggregations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#aggregations MonitoringAlertPolicy#aggregations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#aggregations MonitoringAlertPolicy#aggregations}
         '''
         result = self._values.get("aggregations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitoringAlertPolicyConditionsConditionAbsentAggregations"]]], result)
@@ -1289,7 +1289,7 @@ class MonitoringAlertPolicyConditionsConditionAbsent:
     def filter(self) -> typing.Optional[builtins.str]:
         '''A filter that identifies which time series should be compared with the threshold.The filter is similar to the one that is specified in the MetricService.ListTimeSeries request (that call is useful to verify the time series that will be retrieved / processed) and must specify the metric type and optionally may contain restrictions on resource type, resource labels, and metric labels. This field may not exceed 2048 Unicode characters in length.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#filter MonitoringAlertPolicy#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#filter MonitoringAlertPolicy#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1300,7 +1300,7 @@ class MonitoringAlertPolicyConditionsConditionAbsent:
     ) -> typing.Optional["MonitoringAlertPolicyConditionsConditionAbsentTrigger"]:
         '''trigger block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#trigger MonitoringAlertPolicy#trigger}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#trigger MonitoringAlertPolicy#trigger}
         '''
         result = self._values.get("trigger")
         return typing.cast(typing.Optional["MonitoringAlertPolicyConditionsConditionAbsentTrigger"], result)
@@ -1337,10 +1337,10 @@ class MonitoringAlertPolicyConditionsConditionAbsentAggregations:
         per_series_aligner: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param alignment_period: The alignment period for per-time series alignment. If present, alignmentPeriod must be at least 60 seconds. After per-time series alignment, each time series will contain data points only on the period boundaries. If perSeriesAligner is not specified or equals ALIGN_NONE, then this field is ignored. If perSeriesAligner is specified and does not equal ALIGN_NONE, then this field must be defined; otherwise an error is returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#alignment_period MonitoringAlertPolicy#alignment_period}
-        :param cross_series_reducer: The approach to be used to combine time series. Not all reducer functions may be applied to all time series, depending on the metric type and the value type of the original time series. Reduction may change the metric type of value type of the time series.Time series data must be aligned in order to perform cross- time series reduction. If crossSeriesReducer is specified, then perSeriesAligner must be specified and not equal ALIGN_NONE and alignmentPeriod must be specified; otherwise, an error is returned. Possible values: ["REDUCE_NONE", "REDUCE_MEAN", "REDUCE_MIN", "REDUCE_MAX", "REDUCE_SUM", "REDUCE_STDDEV", "REDUCE_COUNT", "REDUCE_COUNT_TRUE", "REDUCE_COUNT_FALSE", "REDUCE_FRACTION_TRUE", "REDUCE_PERCENTILE_99", "REDUCE_PERCENTILE_95", "REDUCE_PERCENTILE_50", "REDUCE_PERCENTILE_05"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#cross_series_reducer MonitoringAlertPolicy#cross_series_reducer}
-        :param group_by_fields: The set of fields to preserve when crossSeriesReducer is specified. The groupByFields determine how the time series are partitioned into subsets prior to applying the aggregation function. Each subset contains time series that have the same value for each of the grouping fields. Each individual time series is a member of exactly one subset. The crossSeriesReducer is applied to each subset of time series. It is not possible to reduce across different resource types, so this field implicitly contains resource.type. Fields not specified in groupByFields are aggregated away. If groupByFields is not specified and all the time series have the same resource type, then the time series are aggregated into a single output time series. If crossSeriesReducer is not defined, this field is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#group_by_fields MonitoringAlertPolicy#group_by_fields}
-        :param per_series_aligner: The approach to be used to align individual time series. Not all alignment functions may be applied to all time series, depending on the metric type and value type of the original time series. Alignment may change the metric type or the value type of the time series.Time series data must be aligned in order to perform cross- time series reduction. If crossSeriesReducer is specified, then perSeriesAligner must be specified and not equal ALIGN_NONE and alignmentPeriod must be specified; otherwise, an error is returned. Possible values: ["ALIGN_NONE", "ALIGN_DELTA", "ALIGN_RATE", "ALIGN_INTERPOLATE", "ALIGN_NEXT_OLDER", "ALIGN_MIN", "ALIGN_MAX", "ALIGN_MEAN", "ALIGN_COUNT", "ALIGN_SUM", "ALIGN_STDDEV", "ALIGN_COUNT_TRUE", "ALIGN_COUNT_FALSE", "ALIGN_FRACTION_TRUE", "ALIGN_PERCENTILE_99", "ALIGN_PERCENTILE_95", "ALIGN_PERCENTILE_50", "ALIGN_PERCENTILE_05", "ALIGN_PERCENT_CHANGE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#per_series_aligner MonitoringAlertPolicy#per_series_aligner}
+        :param alignment_period: The alignment period for per-time series alignment. If present, alignmentPeriod must be at least 60 seconds. After per-time series alignment, each time series will contain data points only on the period boundaries. If perSeriesAligner is not specified or equals ALIGN_NONE, then this field is ignored. If perSeriesAligner is specified and does not equal ALIGN_NONE, then this field must be defined; otherwise an error is returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#alignment_period MonitoringAlertPolicy#alignment_period}
+        :param cross_series_reducer: The approach to be used to combine time series. Not all reducer functions may be applied to all time series, depending on the metric type and the value type of the original time series. Reduction may change the metric type of value type of the time series.Time series data must be aligned in order to perform cross- time series reduction. If crossSeriesReducer is specified, then perSeriesAligner must be specified and not equal ALIGN_NONE and alignmentPeriod must be specified; otherwise, an error is returned. Possible values: ["REDUCE_NONE", "REDUCE_MEAN", "REDUCE_MIN", "REDUCE_MAX", "REDUCE_SUM", "REDUCE_STDDEV", "REDUCE_COUNT", "REDUCE_COUNT_TRUE", "REDUCE_COUNT_FALSE", "REDUCE_FRACTION_TRUE", "REDUCE_PERCENTILE_99", "REDUCE_PERCENTILE_95", "REDUCE_PERCENTILE_50", "REDUCE_PERCENTILE_05"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#cross_series_reducer MonitoringAlertPolicy#cross_series_reducer}
+        :param group_by_fields: The set of fields to preserve when crossSeriesReducer is specified. The groupByFields determine how the time series are partitioned into subsets prior to applying the aggregation function. Each subset contains time series that have the same value for each of the grouping fields. Each individual time series is a member of exactly one subset. The crossSeriesReducer is applied to each subset of time series. It is not possible to reduce across different resource types, so this field implicitly contains resource.type. Fields not specified in groupByFields are aggregated away. If groupByFields is not specified and all the time series have the same resource type, then the time series are aggregated into a single output time series. If crossSeriesReducer is not defined, this field is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#group_by_fields MonitoringAlertPolicy#group_by_fields}
+        :param per_series_aligner: The approach to be used to align individual time series. Not all alignment functions may be applied to all time series, depending on the metric type and value type of the original time series. Alignment may change the metric type or the value type of the time series.Time series data must be aligned in order to perform cross- time series reduction. If crossSeriesReducer is specified, then perSeriesAligner must be specified and not equal ALIGN_NONE and alignmentPeriod must be specified; otherwise, an error is returned. Possible values: ["ALIGN_NONE", "ALIGN_DELTA", "ALIGN_RATE", "ALIGN_INTERPOLATE", "ALIGN_NEXT_OLDER", "ALIGN_MIN", "ALIGN_MAX", "ALIGN_MEAN", "ALIGN_COUNT", "ALIGN_SUM", "ALIGN_STDDEV", "ALIGN_COUNT_TRUE", "ALIGN_COUNT_FALSE", "ALIGN_FRACTION_TRUE", "ALIGN_PERCENTILE_99", "ALIGN_PERCENTILE_95", "ALIGN_PERCENTILE_50", "ALIGN_PERCENTILE_05", "ALIGN_PERCENT_CHANGE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#per_series_aligner MonitoringAlertPolicy#per_series_aligner}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2b3e08d55a94fa994436873c2070762ab9690de187fc1a7774a3dcd84252d1d6)
@@ -1376,7 +1376,7 @@ class MonitoringAlertPolicyConditionsConditionAbsentAggregations:
         this field must be defined;
         otherwise an error is returned.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#alignment_period MonitoringAlertPolicy#alignment_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#alignment_period MonitoringAlertPolicy#alignment_period}
         '''
         result = self._values.get("alignment_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1402,7 +1402,7 @@ class MonitoringAlertPolicyConditionsConditionAbsentAggregations:
         specified; otherwise, an error is
         returned. Possible values: ["REDUCE_NONE", "REDUCE_MEAN", "REDUCE_MIN", "REDUCE_MAX", "REDUCE_SUM", "REDUCE_STDDEV", "REDUCE_COUNT", "REDUCE_COUNT_TRUE", "REDUCE_COUNT_FALSE", "REDUCE_FRACTION_TRUE", "REDUCE_PERCENTILE_99", "REDUCE_PERCENTILE_95", "REDUCE_PERCENTILE_50", "REDUCE_PERCENTILE_05"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#cross_series_reducer MonitoringAlertPolicy#cross_series_reducer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#cross_series_reducer MonitoringAlertPolicy#cross_series_reducer}
         '''
         result = self._values.get("cross_series_reducer")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1435,7 +1435,7 @@ class MonitoringAlertPolicyConditionsConditionAbsentAggregations:
         is not defined, this field is
         ignored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#group_by_fields MonitoringAlertPolicy#group_by_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#group_by_fields MonitoringAlertPolicy#group_by_fields}
         '''
         result = self._values.get("group_by_fields")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1461,7 +1461,7 @@ class MonitoringAlertPolicyConditionsConditionAbsentAggregations:
         specified; otherwise, an error is
         returned. Possible values: ["ALIGN_NONE", "ALIGN_DELTA", "ALIGN_RATE", "ALIGN_INTERPOLATE", "ALIGN_NEXT_OLDER", "ALIGN_MIN", "ALIGN_MAX", "ALIGN_MEAN", "ALIGN_COUNT", "ALIGN_SUM", "ALIGN_STDDEV", "ALIGN_COUNT_TRUE", "ALIGN_COUNT_FALSE", "ALIGN_FRACTION_TRUE", "ALIGN_PERCENTILE_99", "ALIGN_PERCENTILE_95", "ALIGN_PERCENTILE_50", "ALIGN_PERCENTILE_05", "ALIGN_PERCENT_CHANGE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#per_series_aligner MonitoringAlertPolicy#per_series_aligner}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#per_series_aligner MonitoringAlertPolicy#per_series_aligner}
         '''
         result = self._values.get("per_series_aligner")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1740,8 +1740,8 @@ class MonitoringAlertPolicyConditionsConditionAbsentOutputReference(
         percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param count: The absolute number of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#count MonitoringAlertPolicy#count}
-        :param percent: The percentage of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#percent MonitoringAlertPolicy#percent}
+        :param count: The absolute number of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#count MonitoringAlertPolicy#count}
+        :param percent: The percentage of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#percent MonitoringAlertPolicy#percent}
         '''
         value = MonitoringAlertPolicyConditionsConditionAbsentTrigger(
             count=count, percent=percent
@@ -1854,8 +1854,8 @@ class MonitoringAlertPolicyConditionsConditionAbsentTrigger:
         percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param count: The absolute number of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#count MonitoringAlertPolicy#count}
-        :param percent: The percentage of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#percent MonitoringAlertPolicy#percent}
+        :param count: The absolute number of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#count MonitoringAlertPolicy#count}
+        :param percent: The percentage of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#percent MonitoringAlertPolicy#percent}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e7a1f5daefceaa164a95b07da04c060fa9bf602d2c9b51882604cd470b93c0af)
@@ -1871,7 +1871,7 @@ class MonitoringAlertPolicyConditionsConditionAbsentTrigger:
     def count(self) -> typing.Optional[jsii.Number]:
         '''The absolute number of time series that must fail the predicate for the condition to be triggered.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#count MonitoringAlertPolicy#count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#count MonitoringAlertPolicy#count}
         '''
         result = self._values.get("count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1880,7 +1880,7 @@ class MonitoringAlertPolicyConditionsConditionAbsentTrigger:
     def percent(self) -> typing.Optional[jsii.Number]:
         '''The percentage of time series that must fail the predicate for the condition to be triggered.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#percent MonitoringAlertPolicy#percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#percent MonitoringAlertPolicy#percent}
         '''
         result = self._values.get("percent")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1990,8 +1990,8 @@ class MonitoringAlertPolicyConditionsConditionMatchedLog:
         label_extractors: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param filter: A logs-based filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#filter MonitoringAlertPolicy#filter}
-        :param label_extractors: A map from a label key to an extractor expression, which is used to extract the value for this label key. Each entry in this map is a specification for how data should be extracted from log entries that match filter. Each combination of extracted values is treated as a separate rule for the purposes of triggering notifications. Label keys and corresponding values can be used in notifications generated by this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#label_extractors MonitoringAlertPolicy#label_extractors}
+        :param filter: A logs-based filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#filter MonitoringAlertPolicy#filter}
+        :param label_extractors: A map from a label key to an extractor expression, which is used to extract the value for this label key. Each entry in this map is a specification for how data should be extracted from log entries that match filter. Each combination of extracted values is treated as a separate rule for the purposes of triggering notifications. Label keys and corresponding values can be used in notifications generated by this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#label_extractors MonitoringAlertPolicy#label_extractors}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fe545dc7153670ced08e4e26d712983aa566e5e036a59f8aeb91ae2706721935)
@@ -2007,7 +2007,7 @@ class MonitoringAlertPolicyConditionsConditionMatchedLog:
     def filter(self) -> builtins.str:
         '''A logs-based filter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#filter MonitoringAlertPolicy#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#filter MonitoringAlertPolicy#filter}
         '''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
@@ -2026,7 +2026,7 @@ class MonitoringAlertPolicyConditionsConditionMatchedLog:
         Label keys and corresponding values can be used in notifications
         generated by this condition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#label_extractors MonitoringAlertPolicy#label_extractors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#label_extractors MonitoringAlertPolicy#label_extractors}
         '''
         result = self._values.get("label_extractors")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2144,10 +2144,10 @@ class MonitoringAlertPolicyConditionsConditionMonitoringQueryLanguage:
         trigger: typing.Optional[typing.Union["MonitoringAlertPolicyConditionsConditionMonitoringQueryLanguageTrigger", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param duration: The amount of time that a time series must violate the threshold to be considered failing. Currently, only values that are a multiple of a minute--e.g., 0, 60, 120, or 300 seconds--are supported. If an invalid value is given, an error will be returned. When choosing a duration, it is useful to keep in mind the frequency of the underlying time series data (which may also be affected by any alignments specified in the aggregations field); a good duration is long enough so that a single outlier does not generate spurious alerts, but short enough that unhealthy states are detected and alerted on quickly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
-        :param query: Monitoring Query Language query that outputs a boolean stream. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#query MonitoringAlertPolicy#query}
-        :param evaluation_missing_data: A condition control that determines how metric-threshold conditions are evaluated when data stops arriving. Possible values: ["EVALUATION_MISSING_DATA_INACTIVE", "EVALUATION_MISSING_DATA_ACTIVE", "EVALUATION_MISSING_DATA_NO_OP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#evaluation_missing_data MonitoringAlertPolicy#evaluation_missing_data}
-        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#trigger MonitoringAlertPolicy#trigger}
+        :param duration: The amount of time that a time series must violate the threshold to be considered failing. Currently, only values that are a multiple of a minute--e.g., 0, 60, 120, or 300 seconds--are supported. If an invalid value is given, an error will be returned. When choosing a duration, it is useful to keep in mind the frequency of the underlying time series data (which may also be affected by any alignments specified in the aggregations field); a good duration is long enough so that a single outlier does not generate spurious alerts, but short enough that unhealthy states are detected and alerted on quickly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
+        :param query: Monitoring Query Language query that outputs a boolean stream. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#query MonitoringAlertPolicy#query}
+        :param evaluation_missing_data: A condition control that determines how metric-threshold conditions are evaluated when data stops arriving. Possible values: ["EVALUATION_MISSING_DATA_INACTIVE", "EVALUATION_MISSING_DATA_ACTIVE", "EVALUATION_MISSING_DATA_NO_OP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#evaluation_missing_data MonitoringAlertPolicy#evaluation_missing_data}
+        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#trigger MonitoringAlertPolicy#trigger}
         '''
         if isinstance(trigger, dict):
             trigger = MonitoringAlertPolicyConditionsConditionMonitoringQueryLanguageTrigger(**trigger)
@@ -2184,7 +2184,7 @@ class MonitoringAlertPolicyConditionsConditionMonitoringQueryLanguage:
         that unhealthy states are detected and
         alerted on quickly.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
         '''
         result = self._values.get("duration")
         assert result is not None, "Required property 'duration' is missing"
@@ -2194,7 +2194,7 @@ class MonitoringAlertPolicyConditionsConditionMonitoringQueryLanguage:
     def query(self) -> builtins.str:
         '''Monitoring Query Language query that outputs a boolean stream.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#query MonitoringAlertPolicy#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#query MonitoringAlertPolicy#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -2204,7 +2204,7 @@ class MonitoringAlertPolicyConditionsConditionMonitoringQueryLanguage:
     def evaluation_missing_data(self) -> typing.Optional[builtins.str]:
         '''A condition control that determines how metric-threshold conditions are evaluated when data stops arriving. Possible values: ["EVALUATION_MISSING_DATA_INACTIVE", "EVALUATION_MISSING_DATA_ACTIVE", "EVALUATION_MISSING_DATA_NO_OP"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#evaluation_missing_data MonitoringAlertPolicy#evaluation_missing_data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#evaluation_missing_data MonitoringAlertPolicy#evaluation_missing_data}
         '''
         result = self._values.get("evaluation_missing_data")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2215,7 +2215,7 @@ class MonitoringAlertPolicyConditionsConditionMonitoringQueryLanguage:
     ) -> typing.Optional["MonitoringAlertPolicyConditionsConditionMonitoringQueryLanguageTrigger"]:
         '''trigger block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#trigger MonitoringAlertPolicy#trigger}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#trigger MonitoringAlertPolicy#trigger}
         '''
         result = self._values.get("trigger")
         return typing.cast(typing.Optional["MonitoringAlertPolicyConditionsConditionMonitoringQueryLanguageTrigger"], result)
@@ -2260,8 +2260,8 @@ class MonitoringAlertPolicyConditionsConditionMonitoringQueryLanguageOutputRefer
         percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param count: The absolute number of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#count MonitoringAlertPolicy#count}
-        :param percent: The percentage of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#percent MonitoringAlertPolicy#percent}
+        :param count: The absolute number of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#count MonitoringAlertPolicy#count}
+        :param percent: The percentage of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#percent MonitoringAlertPolicy#percent}
         '''
         value = MonitoringAlertPolicyConditionsConditionMonitoringQueryLanguageTrigger(
             count=count, percent=percent
@@ -2373,8 +2373,8 @@ class MonitoringAlertPolicyConditionsConditionMonitoringQueryLanguageTrigger:
         percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param count: The absolute number of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#count MonitoringAlertPolicy#count}
-        :param percent: The percentage of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#percent MonitoringAlertPolicy#percent}
+        :param count: The absolute number of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#count MonitoringAlertPolicy#count}
+        :param percent: The percentage of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#percent MonitoringAlertPolicy#percent}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__853a1c44faf1ca74bf50f298c7f09e1a7840360b9ba0cf14d597298bd8bd9a00)
@@ -2390,7 +2390,7 @@ class MonitoringAlertPolicyConditionsConditionMonitoringQueryLanguageTrigger:
     def count(self) -> typing.Optional[jsii.Number]:
         '''The absolute number of time series that must fail the predicate for the condition to be triggered.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#count MonitoringAlertPolicy#count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#count MonitoringAlertPolicy#count}
         '''
         result = self._values.get("count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2399,7 +2399,7 @@ class MonitoringAlertPolicyConditionsConditionMonitoringQueryLanguageTrigger:
     def percent(self) -> typing.Optional[jsii.Number]:
         '''The percentage of time series that must fail the predicate for the condition to be triggered.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#percent MonitoringAlertPolicy#percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#percent MonitoringAlertPolicy#percent}
         '''
         result = self._values.get("percent")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2522,13 +2522,13 @@ class MonitoringAlertPolicyConditionsConditionPrometheusQueryLanguage:
         rule_group: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param query: The PromQL expression to evaluate. Every evaluation cycle this expression is evaluated at the current time, and all resultant time series become pending/firing alerts. This field must not be empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#query MonitoringAlertPolicy#query}
-        :param alert_rule: The alerting rule name of this alert in the corresponding Prometheus configuration file. Some external tools may require this field to be populated correctly in order to refer to the original Prometheus configuration file. The rule group name and the alert name are necessary to update the relevant AlertPolicies in case the definition of the rule group changes in the future. This field is optional. If this field is not empty, then it must be a valid Prometheus label name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#alert_rule MonitoringAlertPolicy#alert_rule}
-        :param disable_metric_validation: Whether to disable metric existence validation for this condition. This allows alerting policies to be defined on metrics that do not yet exist, improving advanced customer workflows such as configuring alerting policies using Terraform. Users with the 'monitoring.alertPolicyViewer' role are able to see the name of the non-existent metric in the alerting policy condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#disable_metric_validation MonitoringAlertPolicy#disable_metric_validation}
-        :param duration: Alerts are considered firing once their PromQL expression evaluated to be "true" for this long. Alerts whose PromQL expression was not evaluated to be "true" for long enough are considered pending. The default value is zero. Must be zero or positive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
-        :param evaluation_interval: How often this rule should be evaluated. Must be a positive multiple of 30 seconds or missing. The default value is 30 seconds. If this PrometheusQueryLanguageCondition was generated from a Prometheus alerting rule, then this value should be taken from the enclosing rule group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#evaluation_interval MonitoringAlertPolicy#evaluation_interval}
-        :param labels: Labels to add to or overwrite in the PromQL query result. Label names must be valid. Label values can be templatized by using variables. The only available variable names are the names of the labels in the PromQL result, although label names beginning with __ (two "_") are reserved for internal use. "labels" may be empty. This field is intended to be used for organizing and identifying the AlertPolicy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#labels MonitoringAlertPolicy#labels}
-        :param rule_group: The rule group name of this alert in the corresponding Prometheus configuration file. Some external tools may require this field to be populated correctly in order to refer to the original Prometheus configuration file. The rule group name and the alert name are necessary to update the relevant AlertPolicies in case the definition of the rule group changes in the future. This field is optional. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#rule_group MonitoringAlertPolicy#rule_group}
+        :param query: The PromQL expression to evaluate. Every evaluation cycle this expression is evaluated at the current time, and all resultant time series become pending/firing alerts. This field must not be empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#query MonitoringAlertPolicy#query}
+        :param alert_rule: The alerting rule name of this alert in the corresponding Prometheus configuration file. Some external tools may require this field to be populated correctly in order to refer to the original Prometheus configuration file. The rule group name and the alert name are necessary to update the relevant AlertPolicies in case the definition of the rule group changes in the future. This field is optional. If this field is not empty, then it must be a valid Prometheus label name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#alert_rule MonitoringAlertPolicy#alert_rule}
+        :param disable_metric_validation: Whether to disable metric existence validation for this condition. This allows alerting policies to be defined on metrics that do not yet exist, improving advanced customer workflows such as configuring alerting policies using Terraform. Users with the 'monitoring.alertPolicyViewer' role are able to see the name of the non-existent metric in the alerting policy condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#disable_metric_validation MonitoringAlertPolicy#disable_metric_validation}
+        :param duration: Alerts are considered firing once their PromQL expression evaluated to be "true" for this long. Alerts whose PromQL expression was not evaluated to be "true" for long enough are considered pending. The default value is zero. Must be zero or positive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
+        :param evaluation_interval: How often this rule should be evaluated. Must be a positive multiple of 30 seconds or missing. The default value is 30 seconds. If this PrometheusQueryLanguageCondition was generated from a Prometheus alerting rule, then this value should be taken from the enclosing rule group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#evaluation_interval MonitoringAlertPolicy#evaluation_interval}
+        :param labels: Labels to add to or overwrite in the PromQL query result. Label names must be valid. Label values can be templatized by using variables. The only available variable names are the names of the labels in the PromQL result, although label names beginning with __ (two "_") are reserved for internal use. "labels" may be empty. This field is intended to be used for organizing and identifying the AlertPolicy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#labels MonitoringAlertPolicy#labels}
+        :param rule_group: The rule group name of this alert in the corresponding Prometheus configuration file. Some external tools may require this field to be populated correctly in order to refer to the original Prometheus configuration file. The rule group name and the alert name are necessary to update the relevant AlertPolicies in case the definition of the rule group changes in the future. This field is optional. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#rule_group MonitoringAlertPolicy#rule_group}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__32e562a361bddebe1ebc086f98e2ac63df84652a6f9d19a66a95920accf88c7f)
@@ -2563,7 +2563,7 @@ class MonitoringAlertPolicyConditionsConditionPrometheusQueryLanguage:
         expression is evaluated at the current time, and all resultant time
         series become pending/firing alerts. This field must not be empty.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#query MonitoringAlertPolicy#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#query MonitoringAlertPolicy#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -2582,7 +2582,7 @@ class MonitoringAlertPolicyConditionsConditionPrometheusQueryLanguage:
         This field is optional. If this field is not empty, then it must be a
         valid Prometheus label name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#alert_rule MonitoringAlertPolicy#alert_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#alert_rule MonitoringAlertPolicy#alert_rule}
         '''
         result = self._values.get("alert_rule")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2600,7 +2600,7 @@ class MonitoringAlertPolicyConditionsConditionPrometheusQueryLanguage:
         Users with the 'monitoring.alertPolicyViewer' role are able to see the
         name of the non-existent metric in the alerting policy condition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#disable_metric_validation MonitoringAlertPolicy#disable_metric_validation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#disable_metric_validation MonitoringAlertPolicy#disable_metric_validation}
         '''
         result = self._values.get("disable_metric_validation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2613,7 +2613,7 @@ class MonitoringAlertPolicyConditionsConditionPrometheusQueryLanguage:
         evaluated to be "true" for long enough are considered pending. The
         default value is zero. Must be zero or positive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
         '''
         result = self._values.get("duration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2628,7 +2628,7 @@ class MonitoringAlertPolicyConditionsConditionPrometheusQueryLanguage:
         alerting rule, then this value should be taken from the enclosing
         rule group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#evaluation_interval MonitoringAlertPolicy#evaluation_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#evaluation_interval MonitoringAlertPolicy#evaluation_interval}
         '''
         result = self._values.get("evaluation_interval")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2643,7 +2643,7 @@ class MonitoringAlertPolicyConditionsConditionPrometheusQueryLanguage:
         internal use. "labels" may be empty. This field is intended to be used
         for organizing and identifying the AlertPolicy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#labels MonitoringAlertPolicy#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#labels MonitoringAlertPolicy#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2658,7 +2658,7 @@ class MonitoringAlertPolicyConditionsConditionPrometheusQueryLanguage:
         relevant AlertPolicies in case the definition of the rule group changes
         in the future. This field is optional.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#rule_group MonitoringAlertPolicy#rule_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#rule_group MonitoringAlertPolicy#rule_group}
         '''
         result = self._values.get("rule_group")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2889,12 +2889,12 @@ class MonitoringAlertPolicyConditionsConditionSql:
         row_count_test: typing.Optional[typing.Union["MonitoringAlertPolicyConditionsConditionSqlRowCountTest", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param query: The Log Analytics SQL query to run, as a string. The query must conform to the required shape. Specifically, the query must not try to filter the input by time. A filter will automatically be applied to filter the input so that the query receives all rows received since the last time the query was run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#query MonitoringAlertPolicy#query}
-        :param boolean_test: boolean_test block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#boolean_test MonitoringAlertPolicy#boolean_test}
-        :param daily: daily block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#daily MonitoringAlertPolicy#daily}
-        :param hourly: hourly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#hourly MonitoringAlertPolicy#hourly}
-        :param minutes: minutes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#minutes MonitoringAlertPolicy#minutes}
-        :param row_count_test: row_count_test block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#row_count_test MonitoringAlertPolicy#row_count_test}
+        :param query: The Log Analytics SQL query to run, as a string. The query must conform to the required shape. Specifically, the query must not try to filter the input by time. A filter will automatically be applied to filter the input so that the query receives all rows received since the last time the query was run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#query MonitoringAlertPolicy#query}
+        :param boolean_test: boolean_test block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#boolean_test MonitoringAlertPolicy#boolean_test}
+        :param daily: daily block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#daily MonitoringAlertPolicy#daily}
+        :param hourly: hourly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#hourly MonitoringAlertPolicy#hourly}
+        :param minutes: minutes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#minutes MonitoringAlertPolicy#minutes}
+        :param row_count_test: row_count_test block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#row_count_test MonitoringAlertPolicy#row_count_test}
         '''
         if isinstance(boolean_test, dict):
             boolean_test = MonitoringAlertPolicyConditionsConditionSqlBooleanTest(**boolean_test)
@@ -2938,7 +2938,7 @@ class MonitoringAlertPolicyConditionsConditionSql:
         to filter the input so that the query receives all rows received
         since the last time the query was run.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#query MonitoringAlertPolicy#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#query MonitoringAlertPolicy#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -2950,7 +2950,7 @@ class MonitoringAlertPolicyConditionsConditionSql:
     ) -> typing.Optional["MonitoringAlertPolicyConditionsConditionSqlBooleanTest"]:
         '''boolean_test block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#boolean_test MonitoringAlertPolicy#boolean_test}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#boolean_test MonitoringAlertPolicy#boolean_test}
         '''
         result = self._values.get("boolean_test")
         return typing.cast(typing.Optional["MonitoringAlertPolicyConditionsConditionSqlBooleanTest"], result)
@@ -2961,7 +2961,7 @@ class MonitoringAlertPolicyConditionsConditionSql:
     ) -> typing.Optional["MonitoringAlertPolicyConditionsConditionSqlDaily"]:
         '''daily block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#daily MonitoringAlertPolicy#daily}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#daily MonitoringAlertPolicy#daily}
         '''
         result = self._values.get("daily")
         return typing.cast(typing.Optional["MonitoringAlertPolicyConditionsConditionSqlDaily"], result)
@@ -2972,7 +2972,7 @@ class MonitoringAlertPolicyConditionsConditionSql:
     ) -> typing.Optional["MonitoringAlertPolicyConditionsConditionSqlHourly"]:
         '''hourly block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#hourly MonitoringAlertPolicy#hourly}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#hourly MonitoringAlertPolicy#hourly}
         '''
         result = self._values.get("hourly")
         return typing.cast(typing.Optional["MonitoringAlertPolicyConditionsConditionSqlHourly"], result)
@@ -2983,7 +2983,7 @@ class MonitoringAlertPolicyConditionsConditionSql:
     ) -> typing.Optional["MonitoringAlertPolicyConditionsConditionSqlMinutes"]:
         '''minutes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#minutes MonitoringAlertPolicy#minutes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#minutes MonitoringAlertPolicy#minutes}
         '''
         result = self._values.get("minutes")
         return typing.cast(typing.Optional["MonitoringAlertPolicyConditionsConditionSqlMinutes"], result)
@@ -2994,7 +2994,7 @@ class MonitoringAlertPolicyConditionsConditionSql:
     ) -> typing.Optional["MonitoringAlertPolicyConditionsConditionSqlRowCountTest"]:
         '''row_count_test block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#row_count_test MonitoringAlertPolicy#row_count_test}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#row_count_test MonitoringAlertPolicy#row_count_test}
         '''
         result = self._values.get("row_count_test")
         return typing.cast(typing.Optional["MonitoringAlertPolicyConditionsConditionSqlRowCountTest"], result)
@@ -3019,7 +3019,7 @@ class MonitoringAlertPolicyConditionsConditionSql:
 class MonitoringAlertPolicyConditionsConditionSqlBooleanTest:
     def __init__(self, *, column: builtins.str) -> None:
         '''
-        :param column: The name of the column containing the boolean value. If the value in a row is NULL, that row is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#column MonitoringAlertPolicy#column}
+        :param column: The name of the column containing the boolean value. If the value in a row is NULL, that row is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#column MonitoringAlertPolicy#column}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__28db9944d38b66a80a7746145289bd10c4d638320ae8bd5167c50f157f001aed)
@@ -3035,7 +3035,7 @@ class MonitoringAlertPolicyConditionsConditionSqlBooleanTest:
         If the value in a row is
         NULL, that row is ignored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#column MonitoringAlertPolicy#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#column MonitoringAlertPolicy#column}
         '''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
@@ -3121,8 +3121,8 @@ class MonitoringAlertPolicyConditionsConditionSqlDaily:
         execution_time: typing.Optional[typing.Union["MonitoringAlertPolicyConditionsConditionSqlDailyExecutionTime", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param periodicity: The number of days between runs. Must be greater than or equal to 1 day and less than or equal to 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#periodicity MonitoringAlertPolicy#periodicity}
-        :param execution_time: execution_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#execution_time MonitoringAlertPolicy#execution_time}
+        :param periodicity: The number of days between runs. Must be greater than or equal to 1 day and less than or equal to 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#periodicity MonitoringAlertPolicy#periodicity}
+        :param execution_time: execution_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#execution_time MonitoringAlertPolicy#execution_time}
         '''
         if isinstance(execution_time, dict):
             execution_time = MonitoringAlertPolicyConditionsConditionSqlDailyExecutionTime(**execution_time)
@@ -3143,7 +3143,7 @@ class MonitoringAlertPolicyConditionsConditionSqlDaily:
         Must be greater than or equal
         to 1 day and less than or equal to 30 days.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#periodicity MonitoringAlertPolicy#periodicity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#periodicity MonitoringAlertPolicy#periodicity}
         '''
         result = self._values.get("periodicity")
         assert result is not None, "Required property 'periodicity' is missing"
@@ -3155,7 +3155,7 @@ class MonitoringAlertPolicyConditionsConditionSqlDaily:
     ) -> typing.Optional["MonitoringAlertPolicyConditionsConditionSqlDailyExecutionTime"]:
         '''execution_time block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#execution_time MonitoringAlertPolicy#execution_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#execution_time MonitoringAlertPolicy#execution_time}
         '''
         result = self._values.get("execution_time")
         return typing.cast(typing.Optional["MonitoringAlertPolicyConditionsConditionSqlDailyExecutionTime"], result)
@@ -3192,10 +3192,10 @@ class MonitoringAlertPolicyConditionsConditionSqlDailyExecutionTime:
         seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hours: Hours of a day in 24 hour format. Must be greater than or equal to 0 and typically must be less than or equal to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#hours MonitoringAlertPolicy#hours}
-        :param minutes: Minutes of an hour. Must be greater than or equal to 0 and less than or equal to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#minutes MonitoringAlertPolicy#minutes}
-        :param nanos: Fractions of seconds, in nanoseconds. Must be greater than or equal to 0 and less than or equal to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#nanos MonitoringAlertPolicy#nanos}
-        :param seconds: Seconds of a minute. Must be greater than or equal to 0 and typically must be less than or equal to 59. An API may allow the value 60 if it allows leap-seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#seconds MonitoringAlertPolicy#seconds}
+        :param hours: Hours of a day in 24 hour format. Must be greater than or equal to 0 and typically must be less than or equal to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#hours MonitoringAlertPolicy#hours}
+        :param minutes: Minutes of an hour. Must be greater than or equal to 0 and less than or equal to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#minutes MonitoringAlertPolicy#minutes}
+        :param nanos: Fractions of seconds, in nanoseconds. Must be greater than or equal to 0 and less than or equal to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#nanos MonitoringAlertPolicy#nanos}
+        :param seconds: Seconds of a minute. Must be greater than or equal to 0 and typically must be less than or equal to 59. An API may allow the value 60 if it allows leap-seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#seconds MonitoringAlertPolicy#seconds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eb40c66f443382c05329412b25ac86d83b740330889e0d89cb0d14d32e7fdabd)
@@ -3222,7 +3222,7 @@ class MonitoringAlertPolicyConditionsConditionSqlDailyExecutionTime:
         choose to allow the value "24:00:00" for scenarios like business
         closing time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#hours MonitoringAlertPolicy#hours}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#hours MonitoringAlertPolicy#hours}
         '''
         result = self._values.get("hours")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3231,7 +3231,7 @@ class MonitoringAlertPolicyConditionsConditionSqlDailyExecutionTime:
     def minutes(self) -> typing.Optional[jsii.Number]:
         '''Minutes of an hour. Must be greater than or equal to 0 and less than or equal to 59.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#minutes MonitoringAlertPolicy#minutes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#minutes MonitoringAlertPolicy#minutes}
         '''
         result = self._values.get("minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3240,7 +3240,7 @@ class MonitoringAlertPolicyConditionsConditionSqlDailyExecutionTime:
     def nanos(self) -> typing.Optional[jsii.Number]:
         '''Fractions of seconds, in nanoseconds. Must be greater than or equal to 0 and less than or equal to 999,999,999.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#nanos MonitoringAlertPolicy#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#nanos MonitoringAlertPolicy#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3253,7 +3253,7 @@ class MonitoringAlertPolicyConditionsConditionSqlDailyExecutionTime:
         typically must be less than or equal to 59. An API may allow the
         value 60 if it allows leap-seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#seconds MonitoringAlertPolicy#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#seconds MonitoringAlertPolicy#seconds}
         '''
         result = self._values.get("seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3422,10 +3422,10 @@ class MonitoringAlertPolicyConditionsConditionSqlDailyOutputReference(
         seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hours: Hours of a day in 24 hour format. Must be greater than or equal to 0 and typically must be less than or equal to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#hours MonitoringAlertPolicy#hours}
-        :param minutes: Minutes of an hour. Must be greater than or equal to 0 and less than or equal to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#minutes MonitoringAlertPolicy#minutes}
-        :param nanos: Fractions of seconds, in nanoseconds. Must be greater than or equal to 0 and less than or equal to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#nanos MonitoringAlertPolicy#nanos}
-        :param seconds: Seconds of a minute. Must be greater than or equal to 0 and typically must be less than or equal to 59. An API may allow the value 60 if it allows leap-seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#seconds MonitoringAlertPolicy#seconds}
+        :param hours: Hours of a day in 24 hour format. Must be greater than or equal to 0 and typically must be less than or equal to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#hours MonitoringAlertPolicy#hours}
+        :param minutes: Minutes of an hour. Must be greater than or equal to 0 and less than or equal to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#minutes MonitoringAlertPolicy#minutes}
+        :param nanos: Fractions of seconds, in nanoseconds. Must be greater than or equal to 0 and less than or equal to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#nanos MonitoringAlertPolicy#nanos}
+        :param seconds: Seconds of a minute. Must be greater than or equal to 0 and typically must be less than or equal to 59. An API may allow the value 60 if it allows leap-seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#seconds MonitoringAlertPolicy#seconds}
         '''
         value = MonitoringAlertPolicyConditionsConditionSqlDailyExecutionTime(
             hours=hours, minutes=minutes, nanos=nanos, seconds=seconds
@@ -3499,8 +3499,8 @@ class MonitoringAlertPolicyConditionsConditionSqlHourly:
         minute_offset: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param periodicity: Number of hours between runs. The interval must be greater than or equal to 1 hour and less than or equal to 48 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#periodicity MonitoringAlertPolicy#periodicity}
-        :param minute_offset: The number of minutes after the hour (in UTC) to run the query. Must be greater than or equal to 0 minutes and less than or equal to 59 minutes. If left unspecified, then an arbitrary offset is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#minute_offset MonitoringAlertPolicy#minute_offset}
+        :param periodicity: Number of hours between runs. The interval must be greater than or equal to 1 hour and less than or equal to 48 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#periodicity MonitoringAlertPolicy#periodicity}
+        :param minute_offset: The number of minutes after the hour (in UTC) to run the query. Must be greater than or equal to 0 minutes and less than or equal to 59 minutes. If left unspecified, then an arbitrary offset is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#minute_offset MonitoringAlertPolicy#minute_offset}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5670a64c32630b519851ee7ef2939f61a326f52f451a3c36d64ea11aded6a30b)
@@ -3519,7 +3519,7 @@ class MonitoringAlertPolicyConditionsConditionSqlHourly:
         The interval must be greater than or
         equal to 1 hour and less than or equal to 48 hours.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#periodicity MonitoringAlertPolicy#periodicity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#periodicity MonitoringAlertPolicy#periodicity}
         '''
         result = self._values.get("periodicity")
         assert result is not None, "Required property 'periodicity' is missing"
@@ -3532,7 +3532,7 @@ class MonitoringAlertPolicyConditionsConditionSqlHourly:
         Must be greater than or equal to 0 minutes and less than or equal to
         59 minutes.  If left unspecified, then an arbitrary offset is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#minute_offset MonitoringAlertPolicy#minute_offset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#minute_offset MonitoringAlertPolicy#minute_offset}
         '''
         result = self._values.get("minute_offset")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3633,7 +3633,7 @@ class MonitoringAlertPolicyConditionsConditionSqlHourlyOutputReference(
 class MonitoringAlertPolicyConditionsConditionSqlMinutes:
     def __init__(self, *, periodicity: jsii.Number) -> None:
         '''
-        :param periodicity: Number of minutes between runs. The interval must be greater than or equal to 5 minutes and less than or equal to 1440 minutes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#periodicity MonitoringAlertPolicy#periodicity}
+        :param periodicity: Number of minutes between runs. The interval must be greater than or equal to 5 minutes and less than or equal to 1440 minutes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#periodicity MonitoringAlertPolicy#periodicity}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8101a2b03918fad47f8f046d6f241ce605a8b288530cd3760a8b48bc31078a60)
@@ -3649,7 +3649,7 @@ class MonitoringAlertPolicyConditionsConditionSqlMinutes:
         The interval must be greater than or
         equal to 5 minutes and less than or equal to 1440 minutes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#periodicity MonitoringAlertPolicy#periodicity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#periodicity MonitoringAlertPolicy#periodicity}
         '''
         result = self._values.get("periodicity")
         assert result is not None, "Required property 'periodicity' is missing"
@@ -3745,7 +3745,7 @@ class MonitoringAlertPolicyConditionsConditionSqlOutputReference(
     @jsii.member(jsii_name="putBooleanTest")
     def put_boolean_test(self, *, column: builtins.str) -> None:
         '''
-        :param column: The name of the column containing the boolean value. If the value in a row is NULL, that row is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#column MonitoringAlertPolicy#column}
+        :param column: The name of the column containing the boolean value. If the value in a row is NULL, that row is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#column MonitoringAlertPolicy#column}
         '''
         value = MonitoringAlertPolicyConditionsConditionSqlBooleanTest(column=column)
 
@@ -3759,8 +3759,8 @@ class MonitoringAlertPolicyConditionsConditionSqlOutputReference(
         execution_time: typing.Optional[typing.Union[MonitoringAlertPolicyConditionsConditionSqlDailyExecutionTime, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param periodicity: The number of days between runs. Must be greater than or equal to 1 day and less than or equal to 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#periodicity MonitoringAlertPolicy#periodicity}
-        :param execution_time: execution_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#execution_time MonitoringAlertPolicy#execution_time}
+        :param periodicity: The number of days between runs. Must be greater than or equal to 1 day and less than or equal to 30 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#periodicity MonitoringAlertPolicy#periodicity}
+        :param execution_time: execution_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#execution_time MonitoringAlertPolicy#execution_time}
         '''
         value = MonitoringAlertPolicyConditionsConditionSqlDaily(
             periodicity=periodicity, execution_time=execution_time
@@ -3776,8 +3776,8 @@ class MonitoringAlertPolicyConditionsConditionSqlOutputReference(
         minute_offset: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param periodicity: Number of hours between runs. The interval must be greater than or equal to 1 hour and less than or equal to 48 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#periodicity MonitoringAlertPolicy#periodicity}
-        :param minute_offset: The number of minutes after the hour (in UTC) to run the query. Must be greater than or equal to 0 minutes and less than or equal to 59 minutes. If left unspecified, then an arbitrary offset is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#minute_offset MonitoringAlertPolicy#minute_offset}
+        :param periodicity: Number of hours between runs. The interval must be greater than or equal to 1 hour and less than or equal to 48 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#periodicity MonitoringAlertPolicy#periodicity}
+        :param minute_offset: The number of minutes after the hour (in UTC) to run the query. Must be greater than or equal to 0 minutes and less than or equal to 59 minutes. If left unspecified, then an arbitrary offset is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#minute_offset MonitoringAlertPolicy#minute_offset}
         '''
         value = MonitoringAlertPolicyConditionsConditionSqlHourly(
             periodicity=periodicity, minute_offset=minute_offset
@@ -3788,7 +3788,7 @@ class MonitoringAlertPolicyConditionsConditionSqlOutputReference(
     @jsii.member(jsii_name="putMinutes")
     def put_minutes(self, *, periodicity: jsii.Number) -> None:
         '''
-        :param periodicity: Number of minutes between runs. The interval must be greater than or equal to 5 minutes and less than or equal to 1440 minutes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#periodicity MonitoringAlertPolicy#periodicity}
+        :param periodicity: Number of minutes between runs. The interval must be greater than or equal to 5 minutes and less than or equal to 1440 minutes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#periodicity MonitoringAlertPolicy#periodicity}
         '''
         value = MonitoringAlertPolicyConditionsConditionSqlMinutes(
             periodicity=periodicity
@@ -3804,8 +3804,8 @@ class MonitoringAlertPolicyConditionsConditionSqlOutputReference(
         threshold: jsii.Number,
     ) -> None:
         '''
-        :param comparison: The comparison to apply between the time series (indicated by filter and aggregation) and the threshold (indicated by threshold_value). The comparison is applied on each time series, with the time series on the left-hand side and the threshold on the right-hand side. Only COMPARISON_LT and COMPARISON_GT are supported currently. Possible values: ["COMPARISON_GT", "COMPARISON_GE", "COMPARISON_LT", "COMPARISON_LE", "COMPARISON_EQ", "COMPARISON_NE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#comparison MonitoringAlertPolicy#comparison}
-        :param threshold: The value against which to compare the row count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#threshold MonitoringAlertPolicy#threshold}
+        :param comparison: The comparison to apply between the time series (indicated by filter and aggregation) and the threshold (indicated by threshold_value). The comparison is applied on each time series, with the time series on the left-hand side and the threshold on the right-hand side. Only COMPARISON_LT and COMPARISON_GT are supported currently. Possible values: ["COMPARISON_GT", "COMPARISON_GE", "COMPARISON_LT", "COMPARISON_LE", "COMPARISON_EQ", "COMPARISON_NE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#comparison MonitoringAlertPolicy#comparison}
+        :param threshold: The value against which to compare the row count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#threshold MonitoringAlertPolicy#threshold}
         '''
         value = MonitoringAlertPolicyConditionsConditionSqlRowCountTest(
             comparison=comparison, threshold=threshold
@@ -3944,8 +3944,8 @@ class MonitoringAlertPolicyConditionsConditionSqlOutputReference(
 class MonitoringAlertPolicyConditionsConditionSqlRowCountTest:
     def __init__(self, *, comparison: builtins.str, threshold: jsii.Number) -> None:
         '''
-        :param comparison: The comparison to apply between the time series (indicated by filter and aggregation) and the threshold (indicated by threshold_value). The comparison is applied on each time series, with the time series on the left-hand side and the threshold on the right-hand side. Only COMPARISON_LT and COMPARISON_GT are supported currently. Possible values: ["COMPARISON_GT", "COMPARISON_GE", "COMPARISON_LT", "COMPARISON_LE", "COMPARISON_EQ", "COMPARISON_NE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#comparison MonitoringAlertPolicy#comparison}
-        :param threshold: The value against which to compare the row count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#threshold MonitoringAlertPolicy#threshold}
+        :param comparison: The comparison to apply between the time series (indicated by filter and aggregation) and the threshold (indicated by threshold_value). The comparison is applied on each time series, with the time series on the left-hand side and the threshold on the right-hand side. Only COMPARISON_LT and COMPARISON_GT are supported currently. Possible values: ["COMPARISON_GT", "COMPARISON_GE", "COMPARISON_LT", "COMPARISON_LE", "COMPARISON_EQ", "COMPARISON_NE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#comparison MonitoringAlertPolicy#comparison}
+        :param threshold: The value against which to compare the row count. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#threshold MonitoringAlertPolicy#threshold}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e5a0fbb39df4f0b7f7db5e3ae79996a4f294034b175aecd1db121cb5ab04845)
@@ -3966,7 +3966,7 @@ class MonitoringAlertPolicyConditionsConditionSqlRowCountTest:
         right-hand side. Only COMPARISON_LT and
         COMPARISON_GT are supported currently. Possible values: ["COMPARISON_GT", "COMPARISON_GE", "COMPARISON_LT", "COMPARISON_LE", "COMPARISON_EQ", "COMPARISON_NE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#comparison MonitoringAlertPolicy#comparison}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#comparison MonitoringAlertPolicy#comparison}
         '''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
@@ -3976,7 +3976,7 @@ class MonitoringAlertPolicyConditionsConditionSqlRowCountTest:
     def threshold(self) -> jsii.Number:
         '''The value against which to compare the row count.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#threshold MonitoringAlertPolicy#threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#threshold MonitoringAlertPolicy#threshold}
         '''
         result = self._values.get("threshold")
         assert result is not None, "Required property 'threshold' is missing"
@@ -4098,16 +4098,16 @@ class MonitoringAlertPolicyConditionsConditionThreshold:
         trigger: typing.Optional[typing.Union["MonitoringAlertPolicyConditionsConditionThresholdTrigger", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param comparison: The comparison to apply between the time series (indicated by filter and aggregation) and the threshold (indicated by threshold_value). The comparison is applied on each time series, with the time series on the left-hand side and the threshold on the right-hand side. Only COMPARISON_LT and COMPARISON_GT are supported currently. Possible values: ["COMPARISON_GT", "COMPARISON_GE", "COMPARISON_LT", "COMPARISON_LE", "COMPARISON_EQ", "COMPARISON_NE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#comparison MonitoringAlertPolicy#comparison}
-        :param duration: The amount of time that a time series must violate the threshold to be considered failing. Currently, only values that are a multiple of a minute--e.g., 0, 60, 120, or 300 seconds--are supported. If an invalid value is given, an error will be returned. When choosing a duration, it is useful to keep in mind the frequency of the underlying time series data (which may also be affected by any alignments specified in the aggregations field); a good duration is long enough so that a single outlier does not generate spurious alerts, but short enough that unhealthy states are detected and alerted on quickly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
-        :param aggregations: aggregations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#aggregations MonitoringAlertPolicy#aggregations}
-        :param denominator_aggregations: denominator_aggregations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#denominator_aggregations MonitoringAlertPolicy#denominator_aggregations}
-        :param denominator_filter: A filter that identifies a time series that should be used as the denominator of a ratio that will be compared with the threshold. If a denominator_filter is specified, the time series specified by the filter field will be used as the numerator.The filter is similar to the one that is specified in the MetricService.ListTimeSeries request (that call is useful to verify the time series that will be retrieved / processed) and must specify the metric type and optionally may contain restrictions on resource type, resource labels, and metric labels. This field may not exceed 2048 Unicode characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#denominator_filter MonitoringAlertPolicy#denominator_filter}
-        :param evaluation_missing_data: A condition control that determines how metric-threshold conditions are evaluated when data stops arriving. Possible values: ["EVALUATION_MISSING_DATA_INACTIVE", "EVALUATION_MISSING_DATA_ACTIVE", "EVALUATION_MISSING_DATA_NO_OP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#evaluation_missing_data MonitoringAlertPolicy#evaluation_missing_data}
-        :param filter: A filter that identifies which time series should be compared with the threshold.The filter is similar to the one that is specified in the MetricService.ListTimeSeries request (that call is useful to verify the time series that will be retrieved / processed) and must specify the metric type and optionally may contain restrictions on resource type, resource labels, and metric labels. This field may not exceed 2048 Unicode characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#filter MonitoringAlertPolicy#filter}
-        :param forecast_options: forecast_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#forecast_options MonitoringAlertPolicy#forecast_options}
-        :param threshold_value: A value against which to compare the time series. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#threshold_value MonitoringAlertPolicy#threshold_value}
-        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#trigger MonitoringAlertPolicy#trigger}
+        :param comparison: The comparison to apply between the time series (indicated by filter and aggregation) and the threshold (indicated by threshold_value). The comparison is applied on each time series, with the time series on the left-hand side and the threshold on the right-hand side. Only COMPARISON_LT and COMPARISON_GT are supported currently. Possible values: ["COMPARISON_GT", "COMPARISON_GE", "COMPARISON_LT", "COMPARISON_LE", "COMPARISON_EQ", "COMPARISON_NE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#comparison MonitoringAlertPolicy#comparison}
+        :param duration: The amount of time that a time series must violate the threshold to be considered failing. Currently, only values that are a multiple of a minute--e.g., 0, 60, 120, or 300 seconds--are supported. If an invalid value is given, an error will be returned. When choosing a duration, it is useful to keep in mind the frequency of the underlying time series data (which may also be affected by any alignments specified in the aggregations field); a good duration is long enough so that a single outlier does not generate spurious alerts, but short enough that unhealthy states are detected and alerted on quickly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
+        :param aggregations: aggregations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#aggregations MonitoringAlertPolicy#aggregations}
+        :param denominator_aggregations: denominator_aggregations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#denominator_aggregations MonitoringAlertPolicy#denominator_aggregations}
+        :param denominator_filter: A filter that identifies a time series that should be used as the denominator of a ratio that will be compared with the threshold. If a denominator_filter is specified, the time series specified by the filter field will be used as the numerator.The filter is similar to the one that is specified in the MetricService.ListTimeSeries request (that call is useful to verify the time series that will be retrieved / processed) and must specify the metric type and optionally may contain restrictions on resource type, resource labels, and metric labels. This field may not exceed 2048 Unicode characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#denominator_filter MonitoringAlertPolicy#denominator_filter}
+        :param evaluation_missing_data: A condition control that determines how metric-threshold conditions are evaluated when data stops arriving. Possible values: ["EVALUATION_MISSING_DATA_INACTIVE", "EVALUATION_MISSING_DATA_ACTIVE", "EVALUATION_MISSING_DATA_NO_OP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#evaluation_missing_data MonitoringAlertPolicy#evaluation_missing_data}
+        :param filter: A filter that identifies which time series should be compared with the threshold.The filter is similar to the one that is specified in the MetricService.ListTimeSeries request (that call is useful to verify the time series that will be retrieved / processed) and must specify the metric type and optionally may contain restrictions on resource type, resource labels, and metric labels. This field may not exceed 2048 Unicode characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#filter MonitoringAlertPolicy#filter}
+        :param forecast_options: forecast_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#forecast_options MonitoringAlertPolicy#forecast_options}
+        :param threshold_value: A value against which to compare the time series. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#threshold_value MonitoringAlertPolicy#threshold_value}
+        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#trigger MonitoringAlertPolicy#trigger}
         '''
         if isinstance(forecast_options, dict):
             forecast_options = MonitoringAlertPolicyConditionsConditionThresholdForecastOptions(**forecast_options)
@@ -4156,7 +4156,7 @@ class MonitoringAlertPolicyConditionsConditionThreshold:
         right-hand side. Only COMPARISON_LT and
         COMPARISON_GT are supported currently. Possible values: ["COMPARISON_GT", "COMPARISON_GE", "COMPARISON_LT", "COMPARISON_LE", "COMPARISON_EQ", "COMPARISON_NE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#comparison MonitoringAlertPolicy#comparison}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#comparison MonitoringAlertPolicy#comparison}
         '''
         result = self._values.get("comparison")
         assert result is not None, "Required property 'comparison' is missing"
@@ -4180,7 +4180,7 @@ class MonitoringAlertPolicyConditionsConditionThreshold:
         that unhealthy states are detected and
         alerted on quickly.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
         '''
         result = self._values.get("duration")
         assert result is not None, "Required property 'duration' is missing"
@@ -4192,7 +4192,7 @@ class MonitoringAlertPolicyConditionsConditionThreshold:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitoringAlertPolicyConditionsConditionThresholdAggregations"]]]:
         '''aggregations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#aggregations MonitoringAlertPolicy#aggregations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#aggregations MonitoringAlertPolicy#aggregations}
         '''
         result = self._values.get("aggregations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitoringAlertPolicyConditionsConditionThresholdAggregations"]]], result)
@@ -4203,7 +4203,7 @@ class MonitoringAlertPolicyConditionsConditionThreshold:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitoringAlertPolicyConditionsConditionThresholdDenominatorAggregations"]]]:
         '''denominator_aggregations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#denominator_aggregations MonitoringAlertPolicy#denominator_aggregations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#denominator_aggregations MonitoringAlertPolicy#denominator_aggregations}
         '''
         result = self._values.get("denominator_aggregations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitoringAlertPolicyConditionsConditionThresholdDenominatorAggregations"]]], result)
@@ -4226,7 +4226,7 @@ class MonitoringAlertPolicyConditionsConditionThreshold:
         field may not exceed 2048 Unicode characters
         in length.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#denominator_filter MonitoringAlertPolicy#denominator_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#denominator_filter MonitoringAlertPolicy#denominator_filter}
         '''
         result = self._values.get("denominator_filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4235,7 +4235,7 @@ class MonitoringAlertPolicyConditionsConditionThreshold:
     def evaluation_missing_data(self) -> typing.Optional[builtins.str]:
         '''A condition control that determines how metric-threshold conditions are evaluated when data stops arriving. Possible values: ["EVALUATION_MISSING_DATA_INACTIVE", "EVALUATION_MISSING_DATA_ACTIVE", "EVALUATION_MISSING_DATA_NO_OP"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#evaluation_missing_data MonitoringAlertPolicy#evaluation_missing_data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#evaluation_missing_data MonitoringAlertPolicy#evaluation_missing_data}
         '''
         result = self._values.get("evaluation_missing_data")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4244,7 +4244,7 @@ class MonitoringAlertPolicyConditionsConditionThreshold:
     def filter(self) -> typing.Optional[builtins.str]:
         '''A filter that identifies which time series should be compared with the threshold.The filter is similar to the one that is specified in the MetricService.ListTimeSeries request (that call is useful to verify the time series that will be retrieved / processed) and must specify the metric type and optionally may contain restrictions on resource type, resource labels, and metric labels. This field may not exceed 2048 Unicode characters in length.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#filter MonitoringAlertPolicy#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#filter MonitoringAlertPolicy#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4255,7 +4255,7 @@ class MonitoringAlertPolicyConditionsConditionThreshold:
     ) -> typing.Optional["MonitoringAlertPolicyConditionsConditionThresholdForecastOptions"]:
         '''forecast_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#forecast_options MonitoringAlertPolicy#forecast_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#forecast_options MonitoringAlertPolicy#forecast_options}
         '''
         result = self._values.get("forecast_options")
         return typing.cast(typing.Optional["MonitoringAlertPolicyConditionsConditionThresholdForecastOptions"], result)
@@ -4264,7 +4264,7 @@ class MonitoringAlertPolicyConditionsConditionThreshold:
     def threshold_value(self) -> typing.Optional[jsii.Number]:
         '''A value against which to compare the time series.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#threshold_value MonitoringAlertPolicy#threshold_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#threshold_value MonitoringAlertPolicy#threshold_value}
         '''
         result = self._values.get("threshold_value")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4275,7 +4275,7 @@ class MonitoringAlertPolicyConditionsConditionThreshold:
     ) -> typing.Optional["MonitoringAlertPolicyConditionsConditionThresholdTrigger"]:
         '''trigger block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#trigger MonitoringAlertPolicy#trigger}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#trigger MonitoringAlertPolicy#trigger}
         '''
         result = self._values.get("trigger")
         return typing.cast(typing.Optional["MonitoringAlertPolicyConditionsConditionThresholdTrigger"], result)
@@ -4312,10 +4312,10 @@ class MonitoringAlertPolicyConditionsConditionThresholdAggregations:
         per_series_aligner: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param alignment_period: The alignment period for per-time series alignment. If present, alignmentPeriod must be at least 60 seconds. After per-time series alignment, each time series will contain data points only on the period boundaries. If perSeriesAligner is not specified or equals ALIGN_NONE, then this field is ignored. If perSeriesAligner is specified and does not equal ALIGN_NONE, then this field must be defined; otherwise an error is returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#alignment_period MonitoringAlertPolicy#alignment_period}
-        :param cross_series_reducer: The approach to be used to combine time series. Not all reducer functions may be applied to all time series, depending on the metric type and the value type of the original time series. Reduction may change the metric type of value type of the time series.Time series data must be aligned in order to perform cross- time series reduction. If crossSeriesReducer is specified, then perSeriesAligner must be specified and not equal ALIGN_NONE and alignmentPeriod must be specified; otherwise, an error is returned. Possible values: ["REDUCE_NONE", "REDUCE_MEAN", "REDUCE_MIN", "REDUCE_MAX", "REDUCE_SUM", "REDUCE_STDDEV", "REDUCE_COUNT", "REDUCE_COUNT_TRUE", "REDUCE_COUNT_FALSE", "REDUCE_FRACTION_TRUE", "REDUCE_PERCENTILE_99", "REDUCE_PERCENTILE_95", "REDUCE_PERCENTILE_50", "REDUCE_PERCENTILE_05"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#cross_series_reducer MonitoringAlertPolicy#cross_series_reducer}
-        :param group_by_fields: The set of fields to preserve when crossSeriesReducer is specified. The groupByFields determine how the time series are partitioned into subsets prior to applying the aggregation function. Each subset contains time series that have the same value for each of the grouping fields. Each individual time series is a member of exactly one subset. The crossSeriesReducer is applied to each subset of time series. It is not possible to reduce across different resource types, so this field implicitly contains resource.type. Fields not specified in groupByFields are aggregated away. If groupByFields is not specified and all the time series have the same resource type, then the time series are aggregated into a single output time series. If crossSeriesReducer is not defined, this field is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#group_by_fields MonitoringAlertPolicy#group_by_fields}
-        :param per_series_aligner: The approach to be used to align individual time series. Not all alignment functions may be applied to all time series, depending on the metric type and value type of the original time series. Alignment may change the metric type or the value type of the time series.Time series data must be aligned in order to perform cross- time series reduction. If crossSeriesReducer is specified, then perSeriesAligner must be specified and not equal ALIGN_NONE and alignmentPeriod must be specified; otherwise, an error is returned. Possible values: ["ALIGN_NONE", "ALIGN_DELTA", "ALIGN_RATE", "ALIGN_INTERPOLATE", "ALIGN_NEXT_OLDER", "ALIGN_MIN", "ALIGN_MAX", "ALIGN_MEAN", "ALIGN_COUNT", "ALIGN_SUM", "ALIGN_STDDEV", "ALIGN_COUNT_TRUE", "ALIGN_COUNT_FALSE", "ALIGN_FRACTION_TRUE", "ALIGN_PERCENTILE_99", "ALIGN_PERCENTILE_95", "ALIGN_PERCENTILE_50", "ALIGN_PERCENTILE_05", "ALIGN_PERCENT_CHANGE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#per_series_aligner MonitoringAlertPolicy#per_series_aligner}
+        :param alignment_period: The alignment period for per-time series alignment. If present, alignmentPeriod must be at least 60 seconds. After per-time series alignment, each time series will contain data points only on the period boundaries. If perSeriesAligner is not specified or equals ALIGN_NONE, then this field is ignored. If perSeriesAligner is specified and does not equal ALIGN_NONE, then this field must be defined; otherwise an error is returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#alignment_period MonitoringAlertPolicy#alignment_period}
+        :param cross_series_reducer: The approach to be used to combine time series. Not all reducer functions may be applied to all time series, depending on the metric type and the value type of the original time series. Reduction may change the metric type of value type of the time series.Time series data must be aligned in order to perform cross- time series reduction. If crossSeriesReducer is specified, then perSeriesAligner must be specified and not equal ALIGN_NONE and alignmentPeriod must be specified; otherwise, an error is returned. Possible values: ["REDUCE_NONE", "REDUCE_MEAN", "REDUCE_MIN", "REDUCE_MAX", "REDUCE_SUM", "REDUCE_STDDEV", "REDUCE_COUNT", "REDUCE_COUNT_TRUE", "REDUCE_COUNT_FALSE", "REDUCE_FRACTION_TRUE", "REDUCE_PERCENTILE_99", "REDUCE_PERCENTILE_95", "REDUCE_PERCENTILE_50", "REDUCE_PERCENTILE_05"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#cross_series_reducer MonitoringAlertPolicy#cross_series_reducer}
+        :param group_by_fields: The set of fields to preserve when crossSeriesReducer is specified. The groupByFields determine how the time series are partitioned into subsets prior to applying the aggregation function. Each subset contains time series that have the same value for each of the grouping fields. Each individual time series is a member of exactly one subset. The crossSeriesReducer is applied to each subset of time series. It is not possible to reduce across different resource types, so this field implicitly contains resource.type. Fields not specified in groupByFields are aggregated away. If groupByFields is not specified and all the time series have the same resource type, then the time series are aggregated into a single output time series. If crossSeriesReducer is not defined, this field is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#group_by_fields MonitoringAlertPolicy#group_by_fields}
+        :param per_series_aligner: The approach to be used to align individual time series. Not all alignment functions may be applied to all time series, depending on the metric type and value type of the original time series. Alignment may change the metric type or the value type of the time series.Time series data must be aligned in order to perform cross- time series reduction. If crossSeriesReducer is specified, then perSeriesAligner must be specified and not equal ALIGN_NONE and alignmentPeriod must be specified; otherwise, an error is returned. Possible values: ["ALIGN_NONE", "ALIGN_DELTA", "ALIGN_RATE", "ALIGN_INTERPOLATE", "ALIGN_NEXT_OLDER", "ALIGN_MIN", "ALIGN_MAX", "ALIGN_MEAN", "ALIGN_COUNT", "ALIGN_SUM", "ALIGN_STDDEV", "ALIGN_COUNT_TRUE", "ALIGN_COUNT_FALSE", "ALIGN_FRACTION_TRUE", "ALIGN_PERCENTILE_99", "ALIGN_PERCENTILE_95", "ALIGN_PERCENTILE_50", "ALIGN_PERCENTILE_05", "ALIGN_PERCENT_CHANGE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#per_series_aligner MonitoringAlertPolicy#per_series_aligner}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59366f4d9e9f8e0f5fa353585d37c682274dccfb9b1c0b4a9f0b0cc12b052299)
@@ -4351,7 +4351,7 @@ class MonitoringAlertPolicyConditionsConditionThresholdAggregations:
         this field must be defined;
         otherwise an error is returned.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#alignment_period MonitoringAlertPolicy#alignment_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#alignment_period MonitoringAlertPolicy#alignment_period}
         '''
         result = self._values.get("alignment_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4377,7 +4377,7 @@ class MonitoringAlertPolicyConditionsConditionThresholdAggregations:
         specified; otherwise, an error is
         returned. Possible values: ["REDUCE_NONE", "REDUCE_MEAN", "REDUCE_MIN", "REDUCE_MAX", "REDUCE_SUM", "REDUCE_STDDEV", "REDUCE_COUNT", "REDUCE_COUNT_TRUE", "REDUCE_COUNT_FALSE", "REDUCE_FRACTION_TRUE", "REDUCE_PERCENTILE_99", "REDUCE_PERCENTILE_95", "REDUCE_PERCENTILE_50", "REDUCE_PERCENTILE_05"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#cross_series_reducer MonitoringAlertPolicy#cross_series_reducer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#cross_series_reducer MonitoringAlertPolicy#cross_series_reducer}
         '''
         result = self._values.get("cross_series_reducer")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4410,7 +4410,7 @@ class MonitoringAlertPolicyConditionsConditionThresholdAggregations:
         is not defined, this field is
         ignored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#group_by_fields MonitoringAlertPolicy#group_by_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#group_by_fields MonitoringAlertPolicy#group_by_fields}
         '''
         result = self._values.get("group_by_fields")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4436,7 +4436,7 @@ class MonitoringAlertPolicyConditionsConditionThresholdAggregations:
         specified; otherwise, an error is
         returned. Possible values: ["ALIGN_NONE", "ALIGN_DELTA", "ALIGN_RATE", "ALIGN_INTERPOLATE", "ALIGN_NEXT_OLDER", "ALIGN_MIN", "ALIGN_MAX", "ALIGN_MEAN", "ALIGN_COUNT", "ALIGN_SUM", "ALIGN_STDDEV", "ALIGN_COUNT_TRUE", "ALIGN_COUNT_FALSE", "ALIGN_FRACTION_TRUE", "ALIGN_PERCENTILE_99", "ALIGN_PERCENTILE_95", "ALIGN_PERCENTILE_50", "ALIGN_PERCENTILE_05", "ALIGN_PERCENT_CHANGE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#per_series_aligner MonitoringAlertPolicy#per_series_aligner}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#per_series_aligner MonitoringAlertPolicy#per_series_aligner}
         '''
         result = self._values.get("per_series_aligner")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4694,10 +4694,10 @@ class MonitoringAlertPolicyConditionsConditionThresholdDenominatorAggregations:
         per_series_aligner: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param alignment_period: The alignment period for per-time series alignment. If present, alignmentPeriod must be at least 60 seconds. After per-time series alignment, each time series will contain data points only on the period boundaries. If perSeriesAligner is not specified or equals ALIGN_NONE, then this field is ignored. If perSeriesAligner is specified and does not equal ALIGN_NONE, then this field must be defined; otherwise an error is returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#alignment_period MonitoringAlertPolicy#alignment_period}
-        :param cross_series_reducer: The approach to be used to combine time series. Not all reducer functions may be applied to all time series, depending on the metric type and the value type of the original time series. Reduction may change the metric type of value type of the time series.Time series data must be aligned in order to perform cross- time series reduction. If crossSeriesReducer is specified, then perSeriesAligner must be specified and not equal ALIGN_NONE and alignmentPeriod must be specified; otherwise, an error is returned. Possible values: ["REDUCE_NONE", "REDUCE_MEAN", "REDUCE_MIN", "REDUCE_MAX", "REDUCE_SUM", "REDUCE_STDDEV", "REDUCE_COUNT", "REDUCE_COUNT_TRUE", "REDUCE_COUNT_FALSE", "REDUCE_FRACTION_TRUE", "REDUCE_PERCENTILE_99", "REDUCE_PERCENTILE_95", "REDUCE_PERCENTILE_50", "REDUCE_PERCENTILE_05"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#cross_series_reducer MonitoringAlertPolicy#cross_series_reducer}
-        :param group_by_fields: The set of fields to preserve when crossSeriesReducer is specified. The groupByFields determine how the time series are partitioned into subsets prior to applying the aggregation function. Each subset contains time series that have the same value for each of the grouping fields. Each individual time series is a member of exactly one subset. The crossSeriesReducer is applied to each subset of time series. It is not possible to reduce across different resource types, so this field implicitly contains resource.type. Fields not specified in groupByFields are aggregated away. If groupByFields is not specified and all the time series have the same resource type, then the time series are aggregated into a single output time series. If crossSeriesReducer is not defined, this field is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#group_by_fields MonitoringAlertPolicy#group_by_fields}
-        :param per_series_aligner: The approach to be used to align individual time series. Not all alignment functions may be applied to all time series, depending on the metric type and value type of the original time series. Alignment may change the metric type or the value type of the time series.Time series data must be aligned in order to perform cross- time series reduction. If crossSeriesReducer is specified, then perSeriesAligner must be specified and not equal ALIGN_NONE and alignmentPeriod must be specified; otherwise, an error is returned. Possible values: ["ALIGN_NONE", "ALIGN_DELTA", "ALIGN_RATE", "ALIGN_INTERPOLATE", "ALIGN_NEXT_OLDER", "ALIGN_MIN", "ALIGN_MAX", "ALIGN_MEAN", "ALIGN_COUNT", "ALIGN_SUM", "ALIGN_STDDEV", "ALIGN_COUNT_TRUE", "ALIGN_COUNT_FALSE", "ALIGN_FRACTION_TRUE", "ALIGN_PERCENTILE_99", "ALIGN_PERCENTILE_95", "ALIGN_PERCENTILE_50", "ALIGN_PERCENTILE_05", "ALIGN_PERCENT_CHANGE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#per_series_aligner MonitoringAlertPolicy#per_series_aligner}
+        :param alignment_period: The alignment period for per-time series alignment. If present, alignmentPeriod must be at least 60 seconds. After per-time series alignment, each time series will contain data points only on the period boundaries. If perSeriesAligner is not specified or equals ALIGN_NONE, then this field is ignored. If perSeriesAligner is specified and does not equal ALIGN_NONE, then this field must be defined; otherwise an error is returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#alignment_period MonitoringAlertPolicy#alignment_period}
+        :param cross_series_reducer: The approach to be used to combine time series. Not all reducer functions may be applied to all time series, depending on the metric type and the value type of the original time series. Reduction may change the metric type of value type of the time series.Time series data must be aligned in order to perform cross- time series reduction. If crossSeriesReducer is specified, then perSeriesAligner must be specified and not equal ALIGN_NONE and alignmentPeriod must be specified; otherwise, an error is returned. Possible values: ["REDUCE_NONE", "REDUCE_MEAN", "REDUCE_MIN", "REDUCE_MAX", "REDUCE_SUM", "REDUCE_STDDEV", "REDUCE_COUNT", "REDUCE_COUNT_TRUE", "REDUCE_COUNT_FALSE", "REDUCE_FRACTION_TRUE", "REDUCE_PERCENTILE_99", "REDUCE_PERCENTILE_95", "REDUCE_PERCENTILE_50", "REDUCE_PERCENTILE_05"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#cross_series_reducer MonitoringAlertPolicy#cross_series_reducer}
+        :param group_by_fields: The set of fields to preserve when crossSeriesReducer is specified. The groupByFields determine how the time series are partitioned into subsets prior to applying the aggregation function. Each subset contains time series that have the same value for each of the grouping fields. Each individual time series is a member of exactly one subset. The crossSeriesReducer is applied to each subset of time series. It is not possible to reduce across different resource types, so this field implicitly contains resource.type. Fields not specified in groupByFields are aggregated away. If groupByFields is not specified and all the time series have the same resource type, then the time series are aggregated into a single output time series. If crossSeriesReducer is not defined, this field is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#group_by_fields MonitoringAlertPolicy#group_by_fields}
+        :param per_series_aligner: The approach to be used to align individual time series. Not all alignment functions may be applied to all time series, depending on the metric type and value type of the original time series. Alignment may change the metric type or the value type of the time series.Time series data must be aligned in order to perform cross- time series reduction. If crossSeriesReducer is specified, then perSeriesAligner must be specified and not equal ALIGN_NONE and alignmentPeriod must be specified; otherwise, an error is returned. Possible values: ["ALIGN_NONE", "ALIGN_DELTA", "ALIGN_RATE", "ALIGN_INTERPOLATE", "ALIGN_NEXT_OLDER", "ALIGN_MIN", "ALIGN_MAX", "ALIGN_MEAN", "ALIGN_COUNT", "ALIGN_SUM", "ALIGN_STDDEV", "ALIGN_COUNT_TRUE", "ALIGN_COUNT_FALSE", "ALIGN_FRACTION_TRUE", "ALIGN_PERCENTILE_99", "ALIGN_PERCENTILE_95", "ALIGN_PERCENTILE_50", "ALIGN_PERCENTILE_05", "ALIGN_PERCENT_CHANGE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#per_series_aligner MonitoringAlertPolicy#per_series_aligner}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__25c2229303ea64067d702107df485d8fefe5b77846a941a7d87bbb11fb7a20ce)
@@ -4733,7 +4733,7 @@ class MonitoringAlertPolicyConditionsConditionThresholdDenominatorAggregations:
         this field must be defined;
         otherwise an error is returned.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#alignment_period MonitoringAlertPolicy#alignment_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#alignment_period MonitoringAlertPolicy#alignment_period}
         '''
         result = self._values.get("alignment_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4759,7 +4759,7 @@ class MonitoringAlertPolicyConditionsConditionThresholdDenominatorAggregations:
         specified; otherwise, an error is
         returned. Possible values: ["REDUCE_NONE", "REDUCE_MEAN", "REDUCE_MIN", "REDUCE_MAX", "REDUCE_SUM", "REDUCE_STDDEV", "REDUCE_COUNT", "REDUCE_COUNT_TRUE", "REDUCE_COUNT_FALSE", "REDUCE_FRACTION_TRUE", "REDUCE_PERCENTILE_99", "REDUCE_PERCENTILE_95", "REDUCE_PERCENTILE_50", "REDUCE_PERCENTILE_05"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#cross_series_reducer MonitoringAlertPolicy#cross_series_reducer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#cross_series_reducer MonitoringAlertPolicy#cross_series_reducer}
         '''
         result = self._values.get("cross_series_reducer")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4792,7 +4792,7 @@ class MonitoringAlertPolicyConditionsConditionThresholdDenominatorAggregations:
         is not defined, this field is
         ignored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#group_by_fields MonitoringAlertPolicy#group_by_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#group_by_fields MonitoringAlertPolicy#group_by_fields}
         '''
         result = self._values.get("group_by_fields")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4818,7 +4818,7 @@ class MonitoringAlertPolicyConditionsConditionThresholdDenominatorAggregations:
         specified; otherwise, an error is
         returned. Possible values: ["ALIGN_NONE", "ALIGN_DELTA", "ALIGN_RATE", "ALIGN_INTERPOLATE", "ALIGN_NEXT_OLDER", "ALIGN_MIN", "ALIGN_MAX", "ALIGN_MEAN", "ALIGN_COUNT", "ALIGN_SUM", "ALIGN_STDDEV", "ALIGN_COUNT_TRUE", "ALIGN_COUNT_FALSE", "ALIGN_FRACTION_TRUE", "ALIGN_PERCENTILE_99", "ALIGN_PERCENTILE_95", "ALIGN_PERCENTILE_50", "ALIGN_PERCENTILE_05", "ALIGN_PERCENT_CHANGE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#per_series_aligner MonitoringAlertPolicy#per_series_aligner}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#per_series_aligner MonitoringAlertPolicy#per_series_aligner}
         '''
         result = self._values.get("per_series_aligner")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5064,7 +5064,7 @@ class MonitoringAlertPolicyConditionsConditionThresholdDenominatorAggregationsOu
 class MonitoringAlertPolicyConditionsConditionThresholdForecastOptions:
     def __init__(self, *, forecast_horizon: builtins.str) -> None:
         '''
-        :param forecast_horizon: The length of time into the future to forecast whether a timeseries will violate the threshold. If the predicted value is found to violate the threshold, and the violation is observed in all forecasts made for the Configured 'duration', then the timeseries is considered to be failing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#forecast_horizon MonitoringAlertPolicy#forecast_horizon}
+        :param forecast_horizon: The length of time into the future to forecast whether a timeseries will violate the threshold. If the predicted value is found to violate the threshold, and the violation is observed in all forecasts made for the Configured 'duration', then the timeseries is considered to be failing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#forecast_horizon MonitoringAlertPolicy#forecast_horizon}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f9e8a1381fa662a61155de81c95f33ec5db1b75a1cd10332e995618e385a2d14)
@@ -5082,7 +5082,7 @@ class MonitoringAlertPolicyConditionsConditionThresholdForecastOptions:
         forecasts made for the Configured 'duration',
         then the timeseries is considered to be failing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#forecast_horizon MonitoringAlertPolicy#forecast_horizon}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#forecast_horizon MonitoringAlertPolicy#forecast_horizon}
         '''
         result = self._values.get("forecast_horizon")
         assert result is not None, "Required property 'forecast_horizon' is missing"
@@ -5204,7 +5204,7 @@ class MonitoringAlertPolicyConditionsConditionThresholdOutputReference(
     @jsii.member(jsii_name="putForecastOptions")
     def put_forecast_options(self, *, forecast_horizon: builtins.str) -> None:
         '''
-        :param forecast_horizon: The length of time into the future to forecast whether a timeseries will violate the threshold. If the predicted value is found to violate the threshold, and the violation is observed in all forecasts made for the Configured 'duration', then the timeseries is considered to be failing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#forecast_horizon MonitoringAlertPolicy#forecast_horizon}
+        :param forecast_horizon: The length of time into the future to forecast whether a timeseries will violate the threshold. If the predicted value is found to violate the threshold, and the violation is observed in all forecasts made for the Configured 'duration', then the timeseries is considered to be failing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#forecast_horizon MonitoringAlertPolicy#forecast_horizon}
         '''
         value = MonitoringAlertPolicyConditionsConditionThresholdForecastOptions(
             forecast_horizon=forecast_horizon
@@ -5220,8 +5220,8 @@ class MonitoringAlertPolicyConditionsConditionThresholdOutputReference(
         percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param count: The absolute number of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#count MonitoringAlertPolicy#count}
-        :param percent: The percentage of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#percent MonitoringAlertPolicy#percent}
+        :param count: The absolute number of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#count MonitoringAlertPolicy#count}
+        :param percent: The percentage of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#percent MonitoringAlertPolicy#percent}
         '''
         value = MonitoringAlertPolicyConditionsConditionThresholdTrigger(
             count=count, percent=percent
@@ -5450,8 +5450,8 @@ class MonitoringAlertPolicyConditionsConditionThresholdTrigger:
         percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param count: The absolute number of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#count MonitoringAlertPolicy#count}
-        :param percent: The percentage of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#percent MonitoringAlertPolicy#percent}
+        :param count: The absolute number of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#count MonitoringAlertPolicy#count}
+        :param percent: The percentage of time series that must fail the predicate for the condition to be triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#percent MonitoringAlertPolicy#percent}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__997d53444c6bcb5973e21890e2c130ee3d5cec7fe707fe86424251f43c4edbd1)
@@ -5467,7 +5467,7 @@ class MonitoringAlertPolicyConditionsConditionThresholdTrigger:
     def count(self) -> typing.Optional[jsii.Number]:
         '''The absolute number of time series that must fail the predicate for the condition to be triggered.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#count MonitoringAlertPolicy#count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#count MonitoringAlertPolicy#count}
         '''
         result = self._values.get("count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5476,7 +5476,7 @@ class MonitoringAlertPolicyConditionsConditionThresholdTrigger:
     def percent(self) -> typing.Optional[jsii.Number]:
         '''The percentage of time series that must fail the predicate for the condition to be triggered.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#percent MonitoringAlertPolicy#percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#percent MonitoringAlertPolicy#percent}
         '''
         result = self._values.get("percent")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5702,10 +5702,10 @@ class MonitoringAlertPolicyConditionsOutputReference(
         trigger: typing.Optional[typing.Union[MonitoringAlertPolicyConditionsConditionAbsentTrigger, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param duration: The amount of time that a time series must fail to report new data to be considered failing. Currently, only values that are a multiple of a minute--e.g. 60s, 120s, or 300s --are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
-        :param aggregations: aggregations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#aggregations MonitoringAlertPolicy#aggregations}
-        :param filter: A filter that identifies which time series should be compared with the threshold.The filter is similar to the one that is specified in the MetricService.ListTimeSeries request (that call is useful to verify the time series that will be retrieved / processed) and must specify the metric type and optionally may contain restrictions on resource type, resource labels, and metric labels. This field may not exceed 2048 Unicode characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#filter MonitoringAlertPolicy#filter}
-        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#trigger MonitoringAlertPolicy#trigger}
+        :param duration: The amount of time that a time series must fail to report new data to be considered failing. Currently, only values that are a multiple of a minute--e.g. 60s, 120s, or 300s --are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
+        :param aggregations: aggregations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#aggregations MonitoringAlertPolicy#aggregations}
+        :param filter: A filter that identifies which time series should be compared with the threshold.The filter is similar to the one that is specified in the MetricService.ListTimeSeries request (that call is useful to verify the time series that will be retrieved / processed) and must specify the metric type and optionally may contain restrictions on resource type, resource labels, and metric labels. This field may not exceed 2048 Unicode characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#filter MonitoringAlertPolicy#filter}
+        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#trigger MonitoringAlertPolicy#trigger}
         '''
         value = MonitoringAlertPolicyConditionsConditionAbsent(
             duration=duration,
@@ -5724,8 +5724,8 @@ class MonitoringAlertPolicyConditionsOutputReference(
         label_extractors: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param filter: A logs-based filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#filter MonitoringAlertPolicy#filter}
-        :param label_extractors: A map from a label key to an extractor expression, which is used to extract the value for this label key. Each entry in this map is a specification for how data should be extracted from log entries that match filter. Each combination of extracted values is treated as a separate rule for the purposes of triggering notifications. Label keys and corresponding values can be used in notifications generated by this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#label_extractors MonitoringAlertPolicy#label_extractors}
+        :param filter: A logs-based filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#filter MonitoringAlertPolicy#filter}
+        :param label_extractors: A map from a label key to an extractor expression, which is used to extract the value for this label key. Each entry in this map is a specification for how data should be extracted from log entries that match filter. Each combination of extracted values is treated as a separate rule for the purposes of triggering notifications. Label keys and corresponding values can be used in notifications generated by this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#label_extractors MonitoringAlertPolicy#label_extractors}
         '''
         value = MonitoringAlertPolicyConditionsConditionMatchedLog(
             filter=filter, label_extractors=label_extractors
@@ -5743,10 +5743,10 @@ class MonitoringAlertPolicyConditionsOutputReference(
         trigger: typing.Optional[typing.Union[MonitoringAlertPolicyConditionsConditionMonitoringQueryLanguageTrigger, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param duration: The amount of time that a time series must violate the threshold to be considered failing. Currently, only values that are a multiple of a minute--e.g., 0, 60, 120, or 300 seconds--are supported. If an invalid value is given, an error will be returned. When choosing a duration, it is useful to keep in mind the frequency of the underlying time series data (which may also be affected by any alignments specified in the aggregations field); a good duration is long enough so that a single outlier does not generate spurious alerts, but short enough that unhealthy states are detected and alerted on quickly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
-        :param query: Monitoring Query Language query that outputs a boolean stream. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#query MonitoringAlertPolicy#query}
-        :param evaluation_missing_data: A condition control that determines how metric-threshold conditions are evaluated when data stops arriving. Possible values: ["EVALUATION_MISSING_DATA_INACTIVE", "EVALUATION_MISSING_DATA_ACTIVE", "EVALUATION_MISSING_DATA_NO_OP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#evaluation_missing_data MonitoringAlertPolicy#evaluation_missing_data}
-        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#trigger MonitoringAlertPolicy#trigger}
+        :param duration: The amount of time that a time series must violate the threshold to be considered failing. Currently, only values that are a multiple of a minute--e.g., 0, 60, 120, or 300 seconds--are supported. If an invalid value is given, an error will be returned. When choosing a duration, it is useful to keep in mind the frequency of the underlying time series data (which may also be affected by any alignments specified in the aggregations field); a good duration is long enough so that a single outlier does not generate spurious alerts, but short enough that unhealthy states are detected and alerted on quickly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
+        :param query: Monitoring Query Language query that outputs a boolean stream. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#query MonitoringAlertPolicy#query}
+        :param evaluation_missing_data: A condition control that determines how metric-threshold conditions are evaluated when data stops arriving. Possible values: ["EVALUATION_MISSING_DATA_INACTIVE", "EVALUATION_MISSING_DATA_ACTIVE", "EVALUATION_MISSING_DATA_NO_OP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#evaluation_missing_data MonitoringAlertPolicy#evaluation_missing_data}
+        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#trigger MonitoringAlertPolicy#trigger}
         '''
         value = MonitoringAlertPolicyConditionsConditionMonitoringQueryLanguage(
             duration=duration,
@@ -5770,13 +5770,13 @@ class MonitoringAlertPolicyConditionsOutputReference(
         rule_group: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param query: The PromQL expression to evaluate. Every evaluation cycle this expression is evaluated at the current time, and all resultant time series become pending/firing alerts. This field must not be empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#query MonitoringAlertPolicy#query}
-        :param alert_rule: The alerting rule name of this alert in the corresponding Prometheus configuration file. Some external tools may require this field to be populated correctly in order to refer to the original Prometheus configuration file. The rule group name and the alert name are necessary to update the relevant AlertPolicies in case the definition of the rule group changes in the future. This field is optional. If this field is not empty, then it must be a valid Prometheus label name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#alert_rule MonitoringAlertPolicy#alert_rule}
-        :param disable_metric_validation: Whether to disable metric existence validation for this condition. This allows alerting policies to be defined on metrics that do not yet exist, improving advanced customer workflows such as configuring alerting policies using Terraform. Users with the 'monitoring.alertPolicyViewer' role are able to see the name of the non-existent metric in the alerting policy condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#disable_metric_validation MonitoringAlertPolicy#disable_metric_validation}
-        :param duration: Alerts are considered firing once their PromQL expression evaluated to be "true" for this long. Alerts whose PromQL expression was not evaluated to be "true" for long enough are considered pending. The default value is zero. Must be zero or positive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
-        :param evaluation_interval: How often this rule should be evaluated. Must be a positive multiple of 30 seconds or missing. The default value is 30 seconds. If this PrometheusQueryLanguageCondition was generated from a Prometheus alerting rule, then this value should be taken from the enclosing rule group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#evaluation_interval MonitoringAlertPolicy#evaluation_interval}
-        :param labels: Labels to add to or overwrite in the PromQL query result. Label names must be valid. Label values can be templatized by using variables. The only available variable names are the names of the labels in the PromQL result, although label names beginning with __ (two "_") are reserved for internal use. "labels" may be empty. This field is intended to be used for organizing and identifying the AlertPolicy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#labels MonitoringAlertPolicy#labels}
-        :param rule_group: The rule group name of this alert in the corresponding Prometheus configuration file. Some external tools may require this field to be populated correctly in order to refer to the original Prometheus configuration file. The rule group name and the alert name are necessary to update the relevant AlertPolicies in case the definition of the rule group changes in the future. This field is optional. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#rule_group MonitoringAlertPolicy#rule_group}
+        :param query: The PromQL expression to evaluate. Every evaluation cycle this expression is evaluated at the current time, and all resultant time series become pending/firing alerts. This field must not be empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#query MonitoringAlertPolicy#query}
+        :param alert_rule: The alerting rule name of this alert in the corresponding Prometheus configuration file. Some external tools may require this field to be populated correctly in order to refer to the original Prometheus configuration file. The rule group name and the alert name are necessary to update the relevant AlertPolicies in case the definition of the rule group changes in the future. This field is optional. If this field is not empty, then it must be a valid Prometheus label name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#alert_rule MonitoringAlertPolicy#alert_rule}
+        :param disable_metric_validation: Whether to disable metric existence validation for this condition. This allows alerting policies to be defined on metrics that do not yet exist, improving advanced customer workflows such as configuring alerting policies using Terraform. Users with the 'monitoring.alertPolicyViewer' role are able to see the name of the non-existent metric in the alerting policy condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#disable_metric_validation MonitoringAlertPolicy#disable_metric_validation}
+        :param duration: Alerts are considered firing once their PromQL expression evaluated to be "true" for this long. Alerts whose PromQL expression was not evaluated to be "true" for long enough are considered pending. The default value is zero. Must be zero or positive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
+        :param evaluation_interval: How often this rule should be evaluated. Must be a positive multiple of 30 seconds or missing. The default value is 30 seconds. If this PrometheusQueryLanguageCondition was generated from a Prometheus alerting rule, then this value should be taken from the enclosing rule group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#evaluation_interval MonitoringAlertPolicy#evaluation_interval}
+        :param labels: Labels to add to or overwrite in the PromQL query result. Label names must be valid. Label values can be templatized by using variables. The only available variable names are the names of the labels in the PromQL result, although label names beginning with __ (two "_") are reserved for internal use. "labels" may be empty. This field is intended to be used for organizing and identifying the AlertPolicy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#labels MonitoringAlertPolicy#labels}
+        :param rule_group: The rule group name of this alert in the corresponding Prometheus configuration file. Some external tools may require this field to be populated correctly in order to refer to the original Prometheus configuration file. The rule group name and the alert name are necessary to update the relevant AlertPolicies in case the definition of the rule group changes in the future. This field is optional. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#rule_group MonitoringAlertPolicy#rule_group}
         '''
         value = MonitoringAlertPolicyConditionsConditionPrometheusQueryLanguage(
             query=query,
@@ -5802,12 +5802,12 @@ class MonitoringAlertPolicyConditionsOutputReference(
         row_count_test: typing.Optional[typing.Union[MonitoringAlertPolicyConditionsConditionSqlRowCountTest, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param query: The Log Analytics SQL query to run, as a string. The query must conform to the required shape. Specifically, the query must not try to filter the input by time. A filter will automatically be applied to filter the input so that the query receives all rows received since the last time the query was run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#query MonitoringAlertPolicy#query}
-        :param boolean_test: boolean_test block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#boolean_test MonitoringAlertPolicy#boolean_test}
-        :param daily: daily block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#daily MonitoringAlertPolicy#daily}
-        :param hourly: hourly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#hourly MonitoringAlertPolicy#hourly}
-        :param minutes: minutes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#minutes MonitoringAlertPolicy#minutes}
-        :param row_count_test: row_count_test block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#row_count_test MonitoringAlertPolicy#row_count_test}
+        :param query: The Log Analytics SQL query to run, as a string. The query must conform to the required shape. Specifically, the query must not try to filter the input by time. A filter will automatically be applied to filter the input so that the query receives all rows received since the last time the query was run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#query MonitoringAlertPolicy#query}
+        :param boolean_test: boolean_test block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#boolean_test MonitoringAlertPolicy#boolean_test}
+        :param daily: daily block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#daily MonitoringAlertPolicy#daily}
+        :param hourly: hourly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#hourly MonitoringAlertPolicy#hourly}
+        :param minutes: minutes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#minutes MonitoringAlertPolicy#minutes}
+        :param row_count_test: row_count_test block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#row_count_test MonitoringAlertPolicy#row_count_test}
         '''
         value = MonitoringAlertPolicyConditionsConditionSql(
             query=query,
@@ -5836,16 +5836,16 @@ class MonitoringAlertPolicyConditionsOutputReference(
         trigger: typing.Optional[typing.Union[MonitoringAlertPolicyConditionsConditionThresholdTrigger, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param comparison: The comparison to apply between the time series (indicated by filter and aggregation) and the threshold (indicated by threshold_value). The comparison is applied on each time series, with the time series on the left-hand side and the threshold on the right-hand side. Only COMPARISON_LT and COMPARISON_GT are supported currently. Possible values: ["COMPARISON_GT", "COMPARISON_GE", "COMPARISON_LT", "COMPARISON_LE", "COMPARISON_EQ", "COMPARISON_NE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#comparison MonitoringAlertPolicy#comparison}
-        :param duration: The amount of time that a time series must violate the threshold to be considered failing. Currently, only values that are a multiple of a minute--e.g., 0, 60, 120, or 300 seconds--are supported. If an invalid value is given, an error will be returned. When choosing a duration, it is useful to keep in mind the frequency of the underlying time series data (which may also be affected by any alignments specified in the aggregations field); a good duration is long enough so that a single outlier does not generate spurious alerts, but short enough that unhealthy states are detected and alerted on quickly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
-        :param aggregations: aggregations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#aggregations MonitoringAlertPolicy#aggregations}
-        :param denominator_aggregations: denominator_aggregations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#denominator_aggregations MonitoringAlertPolicy#denominator_aggregations}
-        :param denominator_filter: A filter that identifies a time series that should be used as the denominator of a ratio that will be compared with the threshold. If a denominator_filter is specified, the time series specified by the filter field will be used as the numerator.The filter is similar to the one that is specified in the MetricService.ListTimeSeries request (that call is useful to verify the time series that will be retrieved / processed) and must specify the metric type and optionally may contain restrictions on resource type, resource labels, and metric labels. This field may not exceed 2048 Unicode characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#denominator_filter MonitoringAlertPolicy#denominator_filter}
-        :param evaluation_missing_data: A condition control that determines how metric-threshold conditions are evaluated when data stops arriving. Possible values: ["EVALUATION_MISSING_DATA_INACTIVE", "EVALUATION_MISSING_DATA_ACTIVE", "EVALUATION_MISSING_DATA_NO_OP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#evaluation_missing_data MonitoringAlertPolicy#evaluation_missing_data}
-        :param filter: A filter that identifies which time series should be compared with the threshold.The filter is similar to the one that is specified in the MetricService.ListTimeSeries request (that call is useful to verify the time series that will be retrieved / processed) and must specify the metric type and optionally may contain restrictions on resource type, resource labels, and metric labels. This field may not exceed 2048 Unicode characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#filter MonitoringAlertPolicy#filter}
-        :param forecast_options: forecast_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#forecast_options MonitoringAlertPolicy#forecast_options}
-        :param threshold_value: A value against which to compare the time series. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#threshold_value MonitoringAlertPolicy#threshold_value}
-        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#trigger MonitoringAlertPolicy#trigger}
+        :param comparison: The comparison to apply between the time series (indicated by filter and aggregation) and the threshold (indicated by threshold_value). The comparison is applied on each time series, with the time series on the left-hand side and the threshold on the right-hand side. Only COMPARISON_LT and COMPARISON_GT are supported currently. Possible values: ["COMPARISON_GT", "COMPARISON_GE", "COMPARISON_LT", "COMPARISON_LE", "COMPARISON_EQ", "COMPARISON_NE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#comparison MonitoringAlertPolicy#comparison}
+        :param duration: The amount of time that a time series must violate the threshold to be considered failing. Currently, only values that are a multiple of a minute--e.g., 0, 60, 120, or 300 seconds--are supported. If an invalid value is given, an error will be returned. When choosing a duration, it is useful to keep in mind the frequency of the underlying time series data (which may also be affected by any alignments specified in the aggregations field); a good duration is long enough so that a single outlier does not generate spurious alerts, but short enough that unhealthy states are detected and alerted on quickly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#duration MonitoringAlertPolicy#duration}
+        :param aggregations: aggregations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#aggregations MonitoringAlertPolicy#aggregations}
+        :param denominator_aggregations: denominator_aggregations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#denominator_aggregations MonitoringAlertPolicy#denominator_aggregations}
+        :param denominator_filter: A filter that identifies a time series that should be used as the denominator of a ratio that will be compared with the threshold. If a denominator_filter is specified, the time series specified by the filter field will be used as the numerator.The filter is similar to the one that is specified in the MetricService.ListTimeSeries request (that call is useful to verify the time series that will be retrieved / processed) and must specify the metric type and optionally may contain restrictions on resource type, resource labels, and metric labels. This field may not exceed 2048 Unicode characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#denominator_filter MonitoringAlertPolicy#denominator_filter}
+        :param evaluation_missing_data: A condition control that determines how metric-threshold conditions are evaluated when data stops arriving. Possible values: ["EVALUATION_MISSING_DATA_INACTIVE", "EVALUATION_MISSING_DATA_ACTIVE", "EVALUATION_MISSING_DATA_NO_OP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#evaluation_missing_data MonitoringAlertPolicy#evaluation_missing_data}
+        :param filter: A filter that identifies which time series should be compared with the threshold.The filter is similar to the one that is specified in the MetricService.ListTimeSeries request (that call is useful to verify the time series that will be retrieved / processed) and must specify the metric type and optionally may contain restrictions on resource type, resource labels, and metric labels. This field may not exceed 2048 Unicode characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#filter MonitoringAlertPolicy#filter}
+        :param forecast_options: forecast_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#forecast_options MonitoringAlertPolicy#forecast_options}
+        :param threshold_value: A value against which to compare the time series. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#threshold_value MonitoringAlertPolicy#threshold_value}
+        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#trigger MonitoringAlertPolicy#trigger}
         '''
         value = MonitoringAlertPolicyConditionsConditionThreshold(
             comparison=comparison,
@@ -6067,18 +6067,18 @@ class MonitoringAlertPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param combiner: How to combine the results of multiple conditions to determine if an incident should be opened. Possible values: ["AND", "OR", "AND_WITH_MATCHING_RESOURCE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#combiner MonitoringAlertPolicy#combiner}
-        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#conditions MonitoringAlertPolicy#conditions}
-        :param display_name: A short name or phrase used to identify the policy in dashboards, notifications, and incidents. To avoid confusion, don't use the same display name for multiple policies in the same project. The name is limited to 512 Unicode characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#display_name MonitoringAlertPolicy#display_name}
-        :param alert_strategy: alert_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#alert_strategy MonitoringAlertPolicy#alert_strategy}
-        :param documentation: documentation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#documentation MonitoringAlertPolicy#documentation}
-        :param enabled: Whether or not the policy is enabled. The default is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#enabled MonitoringAlertPolicy#enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#id MonitoringAlertPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notification_channels: Identifies the notification channels to which notifications should be sent when incidents are opened or closed or when new violations occur on an already opened incident. Each element of this array corresponds to the name field in each of the NotificationChannel objects that are returned from the notificationChannels.list method. The syntax of the entries in this field is 'projects/[PROJECT_ID]/notificationChannels/[CHANNEL_ID]' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#notification_channels MonitoringAlertPolicy#notification_channels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#project MonitoringAlertPolicy#project}.
-        :param severity: The severity of an alert policy indicates how important incidents generated by that policy are. The severity level will be displayed on the Incident detail page and in notifications. Possible values: ["CRITICAL", "ERROR", "WARNING"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#severity MonitoringAlertPolicy#severity}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#timeouts MonitoringAlertPolicy#timeouts}
-        :param user_labels: This field is intended to be used for organizing and identifying the AlertPolicy objects.The field can contain up to 64 entries. Each key and value is limited to 63 Unicode characters or 128 bytes, whichever is smaller. Labels and values can contain only lowercase letters, numerals, underscores, and dashes. Keys must begin with a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#user_labels MonitoringAlertPolicy#user_labels}
+        :param combiner: How to combine the results of multiple conditions to determine if an incident should be opened. Possible values: ["AND", "OR", "AND_WITH_MATCHING_RESOURCE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#combiner MonitoringAlertPolicy#combiner}
+        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#conditions MonitoringAlertPolicy#conditions}
+        :param display_name: A short name or phrase used to identify the policy in dashboards, notifications, and incidents. To avoid confusion, don't use the same display name for multiple policies in the same project. The name is limited to 512 Unicode characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#display_name MonitoringAlertPolicy#display_name}
+        :param alert_strategy: alert_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#alert_strategy MonitoringAlertPolicy#alert_strategy}
+        :param documentation: documentation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#documentation MonitoringAlertPolicy#documentation}
+        :param enabled: Whether or not the policy is enabled. The default is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#enabled MonitoringAlertPolicy#enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#id MonitoringAlertPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notification_channels: Identifies the notification channels to which notifications should be sent when incidents are opened or closed or when new violations occur on an already opened incident. Each element of this array corresponds to the name field in each of the NotificationChannel objects that are returned from the notificationChannels.list method. The syntax of the entries in this field is 'projects/[PROJECT_ID]/notificationChannels/[CHANNEL_ID]' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#notification_channels MonitoringAlertPolicy#notification_channels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#project MonitoringAlertPolicy#project}.
+        :param severity: The severity of an alert policy indicates how important incidents generated by that policy are. The severity level will be displayed on the Incident detail page and in notifications. Possible values: ["CRITICAL", "ERROR", "WARNING"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#severity MonitoringAlertPolicy#severity}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#timeouts MonitoringAlertPolicy#timeouts}
+        :param user_labels: This field is intended to be used for organizing and identifying the AlertPolicy objects.The field can contain up to 64 entries. Each key and value is limited to 63 Unicode characters or 128 bytes, whichever is smaller. Labels and values can contain only lowercase letters, numerals, underscores, and dashes. Keys must begin with a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#user_labels MonitoringAlertPolicy#user_labels}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -6217,7 +6217,7 @@ class MonitoringAlertPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Possible values: ["AND", "OR", "AND_WITH_MATCHING_RESOURCE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#combiner MonitoringAlertPolicy#combiner}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#combiner MonitoringAlertPolicy#combiner}
         '''
         result = self._values.get("combiner")
         assert result is not None, "Required property 'combiner' is missing"
@@ -6229,7 +6229,7 @@ class MonitoringAlertPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[MonitoringAlertPolicyConditions]]:
         '''conditions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#conditions MonitoringAlertPolicy#conditions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#conditions MonitoringAlertPolicy#conditions}
         '''
         result = self._values.get("conditions")
         assert result is not None, "Required property 'conditions' is missing"
@@ -6243,7 +6243,7 @@ class MonitoringAlertPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         the same display name for multiple policies in the same project. The
         name is limited to 512 Unicode characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#display_name MonitoringAlertPolicy#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#display_name MonitoringAlertPolicy#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -6253,7 +6253,7 @@ class MonitoringAlertPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def alert_strategy(self) -> typing.Optional[MonitoringAlertPolicyAlertStrategy]:
         '''alert_strategy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#alert_strategy MonitoringAlertPolicy#alert_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#alert_strategy MonitoringAlertPolicy#alert_strategy}
         '''
         result = self._values.get("alert_strategy")
         return typing.cast(typing.Optional[MonitoringAlertPolicyAlertStrategy], result)
@@ -6262,7 +6262,7 @@ class MonitoringAlertPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def documentation(self) -> typing.Optional["MonitoringAlertPolicyDocumentation"]:
         '''documentation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#documentation MonitoringAlertPolicy#documentation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#documentation MonitoringAlertPolicy#documentation}
         '''
         result = self._values.get("documentation")
         return typing.cast(typing.Optional["MonitoringAlertPolicyDocumentation"], result)
@@ -6273,14 +6273,14 @@ class MonitoringAlertPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not the policy is enabled. The default is true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#enabled MonitoringAlertPolicy#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#enabled MonitoringAlertPolicy#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#id MonitoringAlertPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#id MonitoringAlertPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -6298,14 +6298,14 @@ class MonitoringAlertPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         entries in this field is
         'projects/[PROJECT_ID]/notificationChannels/[CHANNEL_ID]'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#notification_channels MonitoringAlertPolicy#notification_channels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#notification_channels MonitoringAlertPolicy#notification_channels}
         '''
         result = self._values.get("notification_channels")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#project MonitoringAlertPolicy#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#project MonitoringAlertPolicy#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6316,7 +6316,7 @@ class MonitoringAlertPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         The severity level will be displayed on the Incident
         detail page and in notifications. Possible values: ["CRITICAL", "ERROR", "WARNING"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#severity MonitoringAlertPolicy#severity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#severity MonitoringAlertPolicy#severity}
         '''
         result = self._values.get("severity")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6325,7 +6325,7 @@ class MonitoringAlertPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MonitoringAlertPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#timeouts MonitoringAlertPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#timeouts MonitoringAlertPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MonitoringAlertPolicyTimeouts"], result)
@@ -6336,7 +6336,7 @@ class MonitoringAlertPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''This field is intended to be used for organizing and identifying the AlertPolicy objects.The field can contain up to 64 entries. Each key and value is limited to 63 Unicode characters or 128 bytes, whichever is smaller. Labels and values can contain only lowercase letters, numerals, underscores, and dashes. Keys must begin with a letter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#user_labels MonitoringAlertPolicy#user_labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#user_labels MonitoringAlertPolicy#user_labels}
         '''
         result = self._values.get("user_labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -6522,10 +6522,10 @@ class MonitoringAlertPolicyDocumentation:
         subject: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param content: The text of the documentation, interpreted according to mimeType. The content may not exceed 8,192 Unicode characters and may not exceed more than 10,240 bytes when encoded in UTF-8 format, whichever is smaller. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#content MonitoringAlertPolicy#content}
-        :param links: links block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#links MonitoringAlertPolicy#links}
-        :param mime_type: The format of the content field. Presently, only the value "text/markdown" is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#mime_type MonitoringAlertPolicy#mime_type}
-        :param subject: The subject line of the notification. The subject line may not exceed 10,240 bytes. In notifications generated by this policy the contents of the subject line after variable expansion will be truncated to 255 bytes or shorter at the latest UTF-8 character boundary. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#subject MonitoringAlertPolicy#subject}
+        :param content: The text of the documentation, interpreted according to mimeType. The content may not exceed 8,192 Unicode characters and may not exceed more than 10,240 bytes when encoded in UTF-8 format, whichever is smaller. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#content MonitoringAlertPolicy#content}
+        :param links: links block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#links MonitoringAlertPolicy#links}
+        :param mime_type: The format of the content field. Presently, only the value "text/markdown" is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#mime_type MonitoringAlertPolicy#mime_type}
+        :param subject: The subject line of the notification. The subject line may not exceed 10,240 bytes. In notifications generated by this policy the contents of the subject line after variable expansion will be truncated to 255 bytes or shorter at the latest UTF-8 character boundary. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#subject MonitoringAlertPolicy#subject}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__71319047c287190f09c6488011b7b09984c691bdd1620ebb01f5b20a3d4f7980)
@@ -6551,7 +6551,7 @@ class MonitoringAlertPolicyDocumentation:
         exceed more than 10,240 bytes when encoded in UTF-8 format,
         whichever is smaller.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#content MonitoringAlertPolicy#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#content MonitoringAlertPolicy#content}
         '''
         result = self._values.get("content")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6562,7 +6562,7 @@ class MonitoringAlertPolicyDocumentation:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitoringAlertPolicyDocumentationLinks"]]]:
         '''links block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#links MonitoringAlertPolicy#links}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#links MonitoringAlertPolicy#links}
         '''
         result = self._values.get("links")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitoringAlertPolicyDocumentationLinks"]]], result)
@@ -6571,7 +6571,7 @@ class MonitoringAlertPolicyDocumentation:
     def mime_type(self) -> typing.Optional[builtins.str]:
         '''The format of the content field. Presently, only the value "text/markdown" is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#mime_type MonitoringAlertPolicy#mime_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#mime_type MonitoringAlertPolicy#mime_type}
         '''
         result = self._values.get("mime_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6585,7 +6585,7 @@ class MonitoringAlertPolicyDocumentation:
         of the subject line after variable expansion will be truncated to 255 bytes
         or shorter at the latest UTF-8 character boundary.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#subject MonitoringAlertPolicy#subject}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#subject MonitoringAlertPolicy#subject}
         '''
         result = self._values.get("subject")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6615,8 +6615,8 @@ class MonitoringAlertPolicyDocumentationLinks:
         url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param display_name: A short display name for the link. The display name must not be empty or exceed 63 characters. Example: "playbook". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#display_name MonitoringAlertPolicy#display_name}
-        :param url: The url of a webpage. A url can be templatized by using variables in the path or the query parameters. The total length of a URL should not exceed 2083 characters before and after variable expansion. Example: "https://my_domain.com/playbook?name=${resource.name}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#url MonitoringAlertPolicy#url}
+        :param display_name: A short display name for the link. The display name must not be empty or exceed 63 characters. Example: "playbook". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#display_name MonitoringAlertPolicy#display_name}
+        :param url: The url of a webpage. A url can be templatized by using variables in the path or the query parameters. The total length of a URL should not exceed 2083 characters before and after variable expansion. Example: "https://my_domain.com/playbook?name=${resource.name}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#url MonitoringAlertPolicy#url}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5efd70308660de1e4de0cceeee5f8a61101908f0363da79fab848c9d55f5c587)
@@ -6634,7 +6634,7 @@ class MonitoringAlertPolicyDocumentationLinks:
 
         The display name must not be empty or exceed 63 characters. Example: "playbook".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#display_name MonitoringAlertPolicy#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#display_name MonitoringAlertPolicy#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6645,7 +6645,7 @@ class MonitoringAlertPolicyDocumentationLinks:
 
         A url can be templatized by using variables in the path or the query parameters. The total length of a URL should not exceed 2083 characters before and after variable expansion. Example: "https://my_domain.com/playbook?name=${resource.name}".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#url MonitoringAlertPolicy#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#url MonitoringAlertPolicy#url}
         '''
         result = self._values.get("url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6983,9 +6983,9 @@ class MonitoringAlertPolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#create MonitoringAlertPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#delete MonitoringAlertPolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#update MonitoringAlertPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#create MonitoringAlertPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#delete MonitoringAlertPolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#update MonitoringAlertPolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__96265b5b927dc6856b472696da9ee7a07e45fe846e20dd3044dae7db081ac71f)
@@ -7002,19 +7002,19 @@ class MonitoringAlertPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#create MonitoringAlertPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#create MonitoringAlertPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#delete MonitoringAlertPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#delete MonitoringAlertPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_alert_policy#update MonitoringAlertPolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_alert_policy#update MonitoringAlertPolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

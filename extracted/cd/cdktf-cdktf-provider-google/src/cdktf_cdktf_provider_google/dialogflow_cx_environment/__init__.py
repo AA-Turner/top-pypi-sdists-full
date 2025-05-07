@@ -1,7 +1,7 @@
 r'''
 # `google_dialogflow_cx_environment`
 
-Refer to the Terraform Registry for docs: [`google_dialogflow_cx_environment`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment).
+Refer to the Terraform Registry for docs: [`google_dialogflow_cx_environment`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DialogflowCxEnvironment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dialogflowCxEnvironment.DialogflowCxEnvironment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment google_dialogflow_cx_environment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment google_dialogflow_cx_environment}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class DialogflowCxEnvironment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment google_dialogflow_cx_environment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment google_dialogflow_cx_environment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The human-readable name of the environment (unique in an agent). Limit of 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#display_name DialogflowCxEnvironment#display_name}
-        :param version_configs: version_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#version_configs DialogflowCxEnvironment#version_configs}
-        :param description: The human-readable description of the environment. The maximum length is 500 characters. If exceeded, the request is rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#description DialogflowCxEnvironment#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#id DialogflowCxEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param parent: The Agent to create an Environment for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#parent DialogflowCxEnvironment#parent}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#timeouts DialogflowCxEnvironment#timeouts}
+        :param display_name: The human-readable name of the environment (unique in an agent). Limit of 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#display_name DialogflowCxEnvironment#display_name}
+        :param version_configs: version_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#version_configs DialogflowCxEnvironment#version_configs}
+        :param description: The human-readable description of the environment. The maximum length is 500 characters. If exceeded, the request is rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#description DialogflowCxEnvironment#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#id DialogflowCxEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param parent: The Agent to create an Environment for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#parent DialogflowCxEnvironment#parent}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#timeouts DialogflowCxEnvironment#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class DialogflowCxEnvironment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DialogflowCxEnvironment to import.
-        :param import_from_id: The id of the existing DialogflowCxEnvironment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DialogflowCxEnvironment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DialogflowCxEnvironment to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class DialogflowCxEnvironment(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#create DialogflowCxEnvironment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#delete DialogflowCxEnvironment#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#update DialogflowCxEnvironment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#create DialogflowCxEnvironment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#delete DialogflowCxEnvironment#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#update DialogflowCxEnvironment#update}.
         '''
         value = DialogflowCxEnvironmentTimeouts(
             create=create, delete=delete, update=update
@@ -338,12 +338,12 @@ class DialogflowCxEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The human-readable name of the environment (unique in an agent). Limit of 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#display_name DialogflowCxEnvironment#display_name}
-        :param version_configs: version_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#version_configs DialogflowCxEnvironment#version_configs}
-        :param description: The human-readable description of the environment. The maximum length is 500 characters. If exceeded, the request is rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#description DialogflowCxEnvironment#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#id DialogflowCxEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param parent: The Agent to create an Environment for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#parent DialogflowCxEnvironment#parent}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#timeouts DialogflowCxEnvironment#timeouts}
+        :param display_name: The human-readable name of the environment (unique in an agent). Limit of 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#display_name DialogflowCxEnvironment#display_name}
+        :param version_configs: version_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#version_configs DialogflowCxEnvironment#version_configs}
+        :param description: The human-readable description of the environment. The maximum length is 500 characters. If exceeded, the request is rejected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#description DialogflowCxEnvironment#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#id DialogflowCxEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param parent: The Agent to create an Environment for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#parent DialogflowCxEnvironment#parent}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#timeouts DialogflowCxEnvironment#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -459,7 +459,7 @@ class DialogflowCxEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The human-readable name of the environment (unique in an agent). Limit of 64 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#display_name DialogflowCxEnvironment#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#display_name DialogflowCxEnvironment#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -471,7 +471,7 @@ class DialogflowCxEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxEnvironmentVersionConfigs"]]:
         '''version_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#version_configs DialogflowCxEnvironment#version_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#version_configs DialogflowCxEnvironment#version_configs}
         '''
         result = self._values.get("version_configs")
         assert result is not None, "Required property 'version_configs' is missing"
@@ -481,14 +481,14 @@ class DialogflowCxEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The human-readable description of the environment. The maximum length is 500 characters. If exceeded, the request is rejected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#description DialogflowCxEnvironment#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#description DialogflowCxEnvironment#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#id DialogflowCxEnvironment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#id DialogflowCxEnvironment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -500,7 +500,7 @@ class DialogflowCxEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parent(self) -> typing.Optional[builtins.str]:
         '''The Agent to create an Environment for. Format: projects//locations//agents/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#parent DialogflowCxEnvironment#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#parent DialogflowCxEnvironment#parent}
         '''
         result = self._values.get("parent")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -509,7 +509,7 @@ class DialogflowCxEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DialogflowCxEnvironmentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#timeouts DialogflowCxEnvironment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#timeouts DialogflowCxEnvironment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DialogflowCxEnvironmentTimeouts"], result)
@@ -540,9 +540,9 @@ class DialogflowCxEnvironmentTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#create DialogflowCxEnvironment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#delete DialogflowCxEnvironment#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#update DialogflowCxEnvironment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#create DialogflowCxEnvironment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#delete DialogflowCxEnvironment#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#update DialogflowCxEnvironment#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ca0bc8ddec88d73c8ab852edf5f7e185ea4f9c4c226427c0f3e6b2840097346b)
@@ -559,19 +559,19 @@ class DialogflowCxEnvironmentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#create DialogflowCxEnvironment#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#create DialogflowCxEnvironment#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#delete DialogflowCxEnvironment#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#delete DialogflowCxEnvironment#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#update DialogflowCxEnvironment#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#update DialogflowCxEnvironment#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -696,7 +696,7 @@ class DialogflowCxEnvironmentTimeoutsOutputReference(
 class DialogflowCxEnvironmentVersionConfigs:
     def __init__(self, *, version: builtins.str) -> None:
         '''
-        :param version: Format: projects/{{project}}/locations/{{location}}/agents/{{agent}}/flows/{{flow}}/versions/{{version}}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#version DialogflowCxEnvironment#version}
+        :param version: Format: projects/{{project}}/locations/{{location}}/agents/{{agent}}/flows/{{flow}}/versions/{{version}}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#version DialogflowCxEnvironment#version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7828c8e987a47c8e2c20be660bf32ff91ca43abdfbb16a87bd5745f519391226)
@@ -709,7 +709,7 @@ class DialogflowCxEnvironmentVersionConfigs:
     def version(self) -> builtins.str:
         '''Format: projects/{{project}}/locations/{{location}}/agents/{{agent}}/flows/{{flow}}/versions/{{version}}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_cx_environment#version DialogflowCxEnvironment#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_cx_environment#version DialogflowCxEnvironment#version}
         '''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"

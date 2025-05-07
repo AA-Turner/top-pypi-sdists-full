@@ -5239,6 +5239,7 @@ class FunctionHandleMetadata(google.protobuf.message.Message):
     CLASS_PARAMETER_INFO_FIELD_NUMBER: builtins.int
     METHOD_HANDLE_METADATA_FIELD_NUMBER: builtins.int
     FUNCTION_SCHEMA_FIELD_NUMBER: builtins.int
+    INPUT_PLANE_URL_FIELD_NUMBER: builtins.int
     function_name: builtins.str
     """Should be a subset and use IDs/types from `Function` above"""
     function_type: global___Function.FunctionType.ValueType
@@ -5256,6 +5257,7 @@ class FunctionHandleMetadata(google.protobuf.message.Message):
         """Mapping of method names to their metadata, only non-empty for class service functions"""
     @property
     def function_schema(self) -> global___FunctionSchema: ...
+    input_plane_url: builtins.str
     def __init__(
         self,
         *,
@@ -5269,9 +5271,11 @@ class FunctionHandleMetadata(google.protobuf.message.Message):
         class_parameter_info: global___ClassParameterInfo | None = ...,
         method_handle_metadata: collections.abc.Mapping[builtins.str, global___FunctionHandleMetadata] | None = ...,
         function_schema: global___FunctionSchema | None = ...,
+        input_plane_url: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["class_parameter_info", b"class_parameter_info", "function_schema", b"function_schema"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["class_parameter_info", b"class_parameter_info", "definition_id", b"definition_id", "function_name", b"function_name", "function_schema", b"function_schema", "function_type", b"function_type", "is_method", b"is_method", "method_handle_metadata", b"method_handle_metadata", "use_function_id", b"use_function_id", "use_method_name", b"use_method_name", "web_url", b"web_url"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_input_plane_url", b"_input_plane_url", "class_parameter_info", b"class_parameter_info", "function_schema", b"function_schema", "input_plane_url", b"input_plane_url"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_input_plane_url", b"_input_plane_url", "class_parameter_info", b"class_parameter_info", "definition_id", b"definition_id", "function_name", b"function_name", "function_schema", b"function_schema", "function_type", b"function_type", "input_plane_url", b"input_plane_url", "is_method", b"is_method", "method_handle_metadata", b"method_handle_metadata", "use_function_id", b"use_function_id", "use_method_name", b"use_method_name", "web_url", b"web_url"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_input_plane_url", b"_input_plane_url"]) -> typing_extensions.Literal["input_plane_url"] | None: ...
 
 global___FunctionHandleMetadata = FunctionHandleMetadata
 

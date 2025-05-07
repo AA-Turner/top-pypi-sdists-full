@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 1.4.4
+Version: 1.4.5
 Summary: Agno: a lightweight library for building Reasoning Agents
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License: Copyright (c) Agno, Inc.
@@ -447,6 +447,8 @@ Provides-Extra: litellm
 Requires-Dist: litellm; extra == "litellm"
 Provides-Extra: meta
 Requires-Dist: llama-api-client; extra == "meta"
+Provides-Extra: apify
+Requires-Dist: apify-client; extra == "apify"
 Provides-Extra: cartesia
 Requires-Dist: cartesia; extra == "cartesia"
 Provides-Extra: exa
@@ -558,6 +560,7 @@ Requires-Dist: agno[ibm]; extra == "models"
 Requires-Dist: agno[litellm]; extra == "models"
 Requires-Dist: agno[meta]; extra == "models"
 Provides-Extra: tools
+Requires-Dist: agno[apify]; extra == "tools"
 Requires-Dist: agno[exa]; extra == "tools"
 Requires-Dist: agno[cartesia]; extra == "tools"
 Requires-Dist: agno[ddg]; extra == "tools"

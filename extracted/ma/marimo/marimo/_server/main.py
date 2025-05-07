@@ -28,6 +28,7 @@ from marimo._server.api.status import (
 )
 from marimo._server.errors import handle_error
 from marimo._server.lsp import LspServer
+from marimo._server.registry import MIDDLEWARE_REGISTRY
 
 if TYPE_CHECKING:
     from starlette.types import Lifespan
@@ -96,6 +97,8 @@ def create_starlette_app(
 
     if middleware:
         final_middlewares.extend(middleware)
+
+    final_middlewares.extend(MIDDLEWARE_REGISTRY.get_all())
 
     return Starlette(
         routes=build_routes(base_url=base_url),

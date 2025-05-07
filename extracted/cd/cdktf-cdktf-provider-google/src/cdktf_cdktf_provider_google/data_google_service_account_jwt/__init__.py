@@ -1,7 +1,7 @@
 r'''
 # `data_google_service_account_jwt`
 
-Refer to the Terraform Registry for docs: [`data_google_service_account_jwt`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/service_account_jwt).
+Refer to the Terraform Registry for docs: [`data_google_service_account_jwt`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/service_account_jwt).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleServiceAccountJwt(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleServiceAccountJwt.DataGoogleServiceAccountJwt",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/service_account_jwt google_service_account_jwt}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/service_account_jwt google_service_account_jwt}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class DataGoogleServiceAccountJwt(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/service_account_jwt google_service_account_jwt} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/service_account_jwt google_service_account_jwt} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param payload: A JSON-encoded JWT claims set that will be included in the signed JWT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/service_account_jwt#payload DataGoogleServiceAccountJwt#payload}
-        :param target_service_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/service_account_jwt#target_service_account DataGoogleServiceAccountJwt#target_service_account}.
-        :param delegates: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/service_account_jwt#delegates DataGoogleServiceAccountJwt#delegates}.
-        :param expires_in: Number of seconds until the JWT expires. If set and non-zero an ``exp`` claim will be added to the payload derived from the current timestamp plus expires_in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/service_account_jwt#expires_in DataGoogleServiceAccountJwt#expires_in}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/service_account_jwt#id DataGoogleServiceAccountJwt#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param payload: A JSON-encoded JWT claims set that will be included in the signed JWT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/service_account_jwt#payload DataGoogleServiceAccountJwt#payload}
+        :param target_service_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/service_account_jwt#target_service_account DataGoogleServiceAccountJwt#target_service_account}.
+        :param delegates: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/service_account_jwt#delegates DataGoogleServiceAccountJwt#delegates}.
+        :param expires_in: Number of seconds until the JWT expires. If set and non-zero an ``exp`` claim will be added to the payload derived from the current timestamp plus expires_in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/service_account_jwt#expires_in DataGoogleServiceAccountJwt#expires_in}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/service_account_jwt#id DataGoogleServiceAccountJwt#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class DataGoogleServiceAccountJwt(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleServiceAccountJwt to import.
-        :param import_from_id: The id of the existing DataGoogleServiceAccountJwt that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/service_account_jwt#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleServiceAccountJwt that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/service_account_jwt#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleServiceAccountJwt to import is found.
         '''
         if __debug__:
@@ -285,11 +285,11 @@ class DataGoogleServiceAccountJwtConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param payload: A JSON-encoded JWT claims set that will be included in the signed JWT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/service_account_jwt#payload DataGoogleServiceAccountJwt#payload}
-        :param target_service_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/service_account_jwt#target_service_account DataGoogleServiceAccountJwt#target_service_account}.
-        :param delegates: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/service_account_jwt#delegates DataGoogleServiceAccountJwt#delegates}.
-        :param expires_in: Number of seconds until the JWT expires. If set and non-zero an ``exp`` claim will be added to the payload derived from the current timestamp plus expires_in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/service_account_jwt#expires_in DataGoogleServiceAccountJwt#expires_in}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/service_account_jwt#id DataGoogleServiceAccountJwt#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param payload: A JSON-encoded JWT claims set that will be included in the signed JWT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/service_account_jwt#payload DataGoogleServiceAccountJwt#payload}
+        :param target_service_account: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/service_account_jwt#target_service_account DataGoogleServiceAccountJwt#target_service_account}.
+        :param delegates: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/service_account_jwt#delegates DataGoogleServiceAccountJwt#delegates}.
+        :param expires_in: Number of seconds until the JWT expires. If set and non-zero an ``exp`` claim will be added to the payload derived from the current timestamp plus expires_in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/service_account_jwt#expires_in DataGoogleServiceAccountJwt#expires_in}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/service_account_jwt#id DataGoogleServiceAccountJwt#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -400,7 +400,7 @@ class DataGoogleServiceAccountJwtConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def payload(self) -> builtins.str:
         '''A JSON-encoded JWT claims set that will be included in the signed JWT.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/service_account_jwt#payload DataGoogleServiceAccountJwt#payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/service_account_jwt#payload DataGoogleServiceAccountJwt#payload}
         '''
         result = self._values.get("payload")
         assert result is not None, "Required property 'payload' is missing"
@@ -408,14 +408,14 @@ class DataGoogleServiceAccountJwtConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def target_service_account(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/service_account_jwt#target_service_account DataGoogleServiceAccountJwt#target_service_account}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/service_account_jwt#target_service_account DataGoogleServiceAccountJwt#target_service_account}.'''
         result = self._values.get("target_service_account")
         assert result is not None, "Required property 'target_service_account' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def delegates(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/service_account_jwt#delegates DataGoogleServiceAccountJwt#delegates}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/service_account_jwt#delegates DataGoogleServiceAccountJwt#delegates}.'''
         result = self._values.get("delegates")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -425,14 +425,14 @@ class DataGoogleServiceAccountJwtConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If set and non-zero an ``exp`` claim will be added to the payload derived from the current timestamp plus expires_in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/service_account_jwt#expires_in DataGoogleServiceAccountJwt#expires_in}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/service_account_jwt#expires_in DataGoogleServiceAccountJwt#expires_in}
         '''
         result = self._values.get("expires_in")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/service_account_jwt#id DataGoogleServiceAccountJwt#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/service_account_jwt#id DataGoogleServiceAccountJwt#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

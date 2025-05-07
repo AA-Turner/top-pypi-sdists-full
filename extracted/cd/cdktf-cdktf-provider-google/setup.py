@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-google",
-    "version": "14.32.0",
+    "version": "14.33.0",
     "description": "Prebuilt google Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-google.git",
@@ -74,6 +74,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.apigee_keystores_aliases_self_signed_cert",
         "cdktf_cdktf_provider_google.apigee_nat_address",
         "cdktf_cdktf_provider_google.apigee_organization",
+        "cdktf_cdktf_provider_google.apigee_security_profile_v2",
         "cdktf_cdktf_provider_google.apigee_sharedflow",
         "cdktf_cdktf_provider_google.apigee_sharedflow_deployment",
         "cdktf_cdktf_provider_google.apigee_sync_authorization",
@@ -1405,7 +1406,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_google._jsii": [
-            "provider-google@14.32.0.jsii.tgz"
+            "provider-google@14.33.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_google": [
             "py.typed"

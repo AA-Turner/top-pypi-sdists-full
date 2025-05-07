@@ -176,7 +176,7 @@ class SubscriptionClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/onesubscription/list_subscriptions.py.html>`__ to see an example of how to use list_subscriptions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/onesubscription/list_subscriptions.py.html>`__ to see an example of how to use list_subscriptions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']

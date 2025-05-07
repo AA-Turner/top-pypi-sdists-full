@@ -1,7 +1,7 @@
 r'''
 # `google_org_policy_policy`
 
-Refer to the Terraform Registry for docs: [`google_org_policy_policy`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy).
+Refer to the Terraform Registry for docs: [`google_org_policy_policy`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OrgPolicyPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.orgPolicyPolicy.OrgPolicyPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy google_org_policy_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy google_org_policy_policy}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class OrgPolicyPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy google_org_policy_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy google_org_policy_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Immutable. The resource name of the Policy. Must be one of the following forms, where constraint_name is the name of the constraint which this Policy configures: * 'projects/{project_number}/policies/{constraint_name}' * 'folders/{folder_id}/policies/{constraint_name}' * 'organizations/{organization_id}/policies/{constraint_name}' For example, "projects/123/policies/compute.disableSerialPortAccess". Note: 'projects/{project_id}/policies/{constraint_name}' is also an acceptable name for API requests, but responses will return the name using the equivalent project number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#name OrgPolicyPolicy#name}
-        :param parent: The parent of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#parent OrgPolicyPolicy#parent}
-        :param dry_run_spec: dry_run_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#dry_run_spec OrgPolicyPolicy#dry_run_spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#id OrgPolicyPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#spec OrgPolicyPolicy#spec}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#timeouts OrgPolicyPolicy#timeouts}
+        :param name: Immutable. The resource name of the Policy. Must be one of the following forms, where constraint_name is the name of the constraint which this Policy configures: * 'projects/{project_number}/policies/{constraint_name}' * 'folders/{folder_id}/policies/{constraint_name}' * 'organizations/{organization_id}/policies/{constraint_name}' For example, "projects/123/policies/compute.disableSerialPortAccess". Note: 'projects/{project_id}/policies/{constraint_name}' is also an acceptable name for API requests, but responses will return the name using the equivalent project number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#name OrgPolicyPolicy#name}
+        :param parent: The parent of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#parent OrgPolicyPolicy#parent}
+        :param dry_run_spec: dry_run_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#dry_run_spec OrgPolicyPolicy#dry_run_spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#id OrgPolicyPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#spec OrgPolicyPolicy#spec}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#timeouts OrgPolicyPolicy#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class OrgPolicyPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OrgPolicyPolicy to import.
-        :param import_from_id: The id of the existing OrgPolicyPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OrgPolicyPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OrgPolicyPolicy to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class OrgPolicyPolicy(
         rules: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OrgPolicyPolicyDryRunSpecRules", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param inherit_from_parent: Determines the inheritance behavior for this policy. If 'inherit_from_parent' is true, policy rules set higher up in the hierarchy (up to the closest root) are inherited and present in the effective policy. If it is false, then no rules are inherited, and this policy becomes the new root for evaluation. This field can be set only for policies which configure list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#inherit_from_parent OrgPolicyPolicy#inherit_from_parent}
-        :param reset: Ignores policies set above this resource and restores the 'constraint_default' enforcement behavior of the specific constraint at this resource. This field can be set in policies for either list or boolean constraints. If set, 'rules' must be empty and 'inherit_from_parent' must be set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#reset OrgPolicyPolicy#reset}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#rules OrgPolicyPolicy#rules}
+        :param inherit_from_parent: Determines the inheritance behavior for this policy. If 'inherit_from_parent' is true, policy rules set higher up in the hierarchy (up to the closest root) are inherited and present in the effective policy. If it is false, then no rules are inherited, and this policy becomes the new root for evaluation. This field can be set only for policies which configure list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#inherit_from_parent OrgPolicyPolicy#inherit_from_parent}
+        :param reset: Ignores policies set above this resource and restores the 'constraint_default' enforcement behavior of the specific constraint at this resource. This field can be set in policies for either list or boolean constraints. If set, 'rules' must be empty and 'inherit_from_parent' must be set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#reset OrgPolicyPolicy#reset}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#rules OrgPolicyPolicy#rules}
         '''
         value = OrgPolicyPolicyDryRunSpec(
             inherit_from_parent=inherit_from_parent, reset=reset, rules=rules
@@ -157,9 +157,9 @@ class OrgPolicyPolicy(
         rules: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OrgPolicyPolicySpecRules", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param inherit_from_parent: Determines the inheritance behavior for this 'Policy'. If 'inherit_from_parent' is true, PolicyRules set higher up in the hierarchy (up to the closest root) are inherited and present in the effective policy. If it is false, then no rules are inherited, and this Policy becomes the new root for evaluation. This field can be set only for Policies which configure list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#inherit_from_parent OrgPolicyPolicy#inherit_from_parent}
-        :param reset: Ignores policies set above this resource and restores the 'constraint_default' enforcement behavior of the specific 'Constraint' at this resource. This field can be set in policies for either list or boolean constraints. If set, 'rules' must be empty and 'inherit_from_parent' must be set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#reset OrgPolicyPolicy#reset}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#rules OrgPolicyPolicy#rules}
+        :param inherit_from_parent: Determines the inheritance behavior for this 'Policy'. If 'inherit_from_parent' is true, PolicyRules set higher up in the hierarchy (up to the closest root) are inherited and present in the effective policy. If it is false, then no rules are inherited, and this Policy becomes the new root for evaluation. This field can be set only for Policies which configure list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#inherit_from_parent OrgPolicyPolicy#inherit_from_parent}
+        :param reset: Ignores policies set above this resource and restores the 'constraint_default' enforcement behavior of the specific 'Constraint' at this resource. This field can be set in policies for either list or boolean constraints. If set, 'rules' must be empty and 'inherit_from_parent' must be set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#reset OrgPolicyPolicy#reset}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#rules OrgPolicyPolicy#rules}
         '''
         value = OrgPolicyPolicySpec(
             inherit_from_parent=inherit_from_parent, reset=reset, rules=rules
@@ -176,9 +176,9 @@ class OrgPolicyPolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#create OrgPolicyPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#delete OrgPolicyPolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#update OrgPolicyPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#create OrgPolicyPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#delete OrgPolicyPolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#update OrgPolicyPolicy#update}.
         '''
         value = OrgPolicyPolicyTimeouts(create=create, delete=delete, update=update)
 
@@ -347,12 +347,12 @@ class OrgPolicyPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Immutable. The resource name of the Policy. Must be one of the following forms, where constraint_name is the name of the constraint which this Policy configures: * 'projects/{project_number}/policies/{constraint_name}' * 'folders/{folder_id}/policies/{constraint_name}' * 'organizations/{organization_id}/policies/{constraint_name}' For example, "projects/123/policies/compute.disableSerialPortAccess". Note: 'projects/{project_id}/policies/{constraint_name}' is also an acceptable name for API requests, but responses will return the name using the equivalent project number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#name OrgPolicyPolicy#name}
-        :param parent: The parent of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#parent OrgPolicyPolicy#parent}
-        :param dry_run_spec: dry_run_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#dry_run_spec OrgPolicyPolicy#dry_run_spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#id OrgPolicyPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#spec OrgPolicyPolicy#spec}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#timeouts OrgPolicyPolicy#timeouts}
+        :param name: Immutable. The resource name of the Policy. Must be one of the following forms, where constraint_name is the name of the constraint which this Policy configures: * 'projects/{project_number}/policies/{constraint_name}' * 'folders/{folder_id}/policies/{constraint_name}' * 'organizations/{organization_id}/policies/{constraint_name}' For example, "projects/123/policies/compute.disableSerialPortAccess". Note: 'projects/{project_id}/policies/{constraint_name}' is also an acceptable name for API requests, but responses will return the name using the equivalent project number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#name OrgPolicyPolicy#name}
+        :param parent: The parent of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#parent OrgPolicyPolicy#parent}
+        :param dry_run_spec: dry_run_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#dry_run_spec OrgPolicyPolicy#dry_run_spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#id OrgPolicyPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#spec OrgPolicyPolicy#spec}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#timeouts OrgPolicyPolicy#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -474,7 +474,7 @@ class OrgPolicyPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The resource name of the Policy. Must be one of the following forms, where constraint_name is the name of the constraint which this Policy configures: * 'projects/{project_number}/policies/{constraint_name}' * 'folders/{folder_id}/policies/{constraint_name}' * 'organizations/{organization_id}/policies/{constraint_name}' For example, "projects/123/policies/compute.disableSerialPortAccess". Note: 'projects/{project_id}/policies/{constraint_name}' is also an acceptable name for API requests, but responses will return the name using the equivalent project number.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#name OrgPolicyPolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#name OrgPolicyPolicy#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -484,7 +484,7 @@ class OrgPolicyPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parent(self) -> builtins.str:
         '''The parent of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#parent OrgPolicyPolicy#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#parent OrgPolicyPolicy#parent}
         '''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
@@ -494,14 +494,14 @@ class OrgPolicyPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dry_run_spec(self) -> typing.Optional["OrgPolicyPolicyDryRunSpec"]:
         '''dry_run_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#dry_run_spec OrgPolicyPolicy#dry_run_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#dry_run_spec OrgPolicyPolicy#dry_run_spec}
         '''
         result = self._values.get("dry_run_spec")
         return typing.cast(typing.Optional["OrgPolicyPolicyDryRunSpec"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#id OrgPolicyPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#id OrgPolicyPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -513,7 +513,7 @@ class OrgPolicyPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def spec(self) -> typing.Optional["OrgPolicyPolicySpec"]:
         '''spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#spec OrgPolicyPolicy#spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#spec OrgPolicyPolicy#spec}
         '''
         result = self._values.get("spec")
         return typing.cast(typing.Optional["OrgPolicyPolicySpec"], result)
@@ -522,7 +522,7 @@ class OrgPolicyPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["OrgPolicyPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#timeouts OrgPolicyPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#timeouts OrgPolicyPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["OrgPolicyPolicyTimeouts"], result)
@@ -557,9 +557,9 @@ class OrgPolicyPolicyDryRunSpec:
         rules: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OrgPolicyPolicyDryRunSpecRules", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param inherit_from_parent: Determines the inheritance behavior for this policy. If 'inherit_from_parent' is true, policy rules set higher up in the hierarchy (up to the closest root) are inherited and present in the effective policy. If it is false, then no rules are inherited, and this policy becomes the new root for evaluation. This field can be set only for policies which configure list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#inherit_from_parent OrgPolicyPolicy#inherit_from_parent}
-        :param reset: Ignores policies set above this resource and restores the 'constraint_default' enforcement behavior of the specific constraint at this resource. This field can be set in policies for either list or boolean constraints. If set, 'rules' must be empty and 'inherit_from_parent' must be set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#reset OrgPolicyPolicy#reset}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#rules OrgPolicyPolicy#rules}
+        :param inherit_from_parent: Determines the inheritance behavior for this policy. If 'inherit_from_parent' is true, policy rules set higher up in the hierarchy (up to the closest root) are inherited and present in the effective policy. If it is false, then no rules are inherited, and this policy becomes the new root for evaluation. This field can be set only for policies which configure list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#inherit_from_parent OrgPolicyPolicy#inherit_from_parent}
+        :param reset: Ignores policies set above this resource and restores the 'constraint_default' enforcement behavior of the specific constraint at this resource. This field can be set in policies for either list or boolean constraints. If set, 'rules' must be empty and 'inherit_from_parent' must be set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#reset OrgPolicyPolicy#reset}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#rules OrgPolicyPolicy#rules}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a1af08a49d6a20d8c242a8c29046815a3c4bfb9ee54722720b73b5d0c357e511)
@@ -582,7 +582,7 @@ class OrgPolicyPolicyDryRunSpec:
 
         If 'inherit_from_parent' is true, policy rules set higher up in the hierarchy (up to the closest root) are inherited and present in the effective policy. If it is false, then no rules are inherited, and this policy becomes the new root for evaluation. This field can be set only for policies which configure list constraints.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#inherit_from_parent OrgPolicyPolicy#inherit_from_parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#inherit_from_parent OrgPolicyPolicy#inherit_from_parent}
         '''
         result = self._values.get("inherit_from_parent")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -595,7 +595,7 @@ class OrgPolicyPolicyDryRunSpec:
 
         This field can be set in policies for either list or boolean constraints. If set, 'rules' must be empty and 'inherit_from_parent' must be set to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#reset OrgPolicyPolicy#reset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#reset OrgPolicyPolicy#reset}
         '''
         result = self._values.get("reset")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -606,7 +606,7 @@ class OrgPolicyPolicyDryRunSpec:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OrgPolicyPolicyDryRunSpecRules"]]]:
         '''rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#rules OrgPolicyPolicy#rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#rules OrgPolicyPolicy#rules}
         '''
         result = self._values.get("rules")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OrgPolicyPolicyDryRunSpecRules"]]], result)
@@ -773,12 +773,12 @@ class OrgPolicyPolicyDryRunSpecRules:
         values: typing.Optional[typing.Union["OrgPolicyPolicyDryRunSpecRulesValues", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_all: Setting this to '"TRUE"' means that all values are allowed. This field can be set only in Policies for list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#allow_all OrgPolicyPolicy#allow_all}
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#condition OrgPolicyPolicy#condition}
-        :param deny_all: Setting this to '"TRUE"' means that all values are denied. This field can be set only in Policies for list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#deny_all OrgPolicyPolicy#deny_all}
-        :param enforce: If '"TRUE"', then the 'Policy' is enforced. If '"FALSE"', then any configuration is acceptable. This field can be set only in Policies for boolean constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#enforce OrgPolicyPolicy#enforce}
-        :param parameters: Optional. Required for Managed Constraints if parameters defined in constraints. Pass parameter values when policy enforcement is enabled. Ensure that parameter value types match those defined in the constraint definition. For example: { "allowedLocations" : ["us-east1", "us-west1"], "allowAll" : true } Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#parameters OrgPolicyPolicy#parameters}
-        :param values: values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#values OrgPolicyPolicy#values}
+        :param allow_all: Setting this to '"TRUE"' means that all values are allowed. This field can be set only in Policies for list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#allow_all OrgPolicyPolicy#allow_all}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#condition OrgPolicyPolicy#condition}
+        :param deny_all: Setting this to '"TRUE"' means that all values are denied. This field can be set only in Policies for list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#deny_all OrgPolicyPolicy#deny_all}
+        :param enforce: If '"TRUE"', then the 'Policy' is enforced. If '"FALSE"', then any configuration is acceptable. This field can be set only in Policies for boolean constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#enforce OrgPolicyPolicy#enforce}
+        :param parameters: Optional. Required for Managed Constraints if parameters defined in constraints. Pass parameter values when policy enforcement is enabled. Ensure that parameter value types match those defined in the constraint definition. For example: { "allowedLocations" : ["us-east1", "us-west1"], "allowAll" : true } Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#parameters OrgPolicyPolicy#parameters}
+        :param values: values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#values OrgPolicyPolicy#values}
         '''
         if isinstance(condition, dict):
             condition = OrgPolicyPolicyDryRunSpecRulesCondition(**condition)
@@ -812,7 +812,7 @@ class OrgPolicyPolicyDryRunSpecRules:
 
         This field can be set only in Policies for list constraints.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#allow_all OrgPolicyPolicy#allow_all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#allow_all OrgPolicyPolicy#allow_all}
         '''
         result = self._values.get("allow_all")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -821,7 +821,7 @@ class OrgPolicyPolicyDryRunSpecRules:
     def condition(self) -> typing.Optional["OrgPolicyPolicyDryRunSpecRulesCondition"]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#condition OrgPolicyPolicy#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#condition OrgPolicyPolicy#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional["OrgPolicyPolicyDryRunSpecRulesCondition"], result)
@@ -832,7 +832,7 @@ class OrgPolicyPolicyDryRunSpecRules:
 
         This field can be set only in Policies for list constraints.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#deny_all OrgPolicyPolicy#deny_all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#deny_all OrgPolicyPolicy#deny_all}
         '''
         result = self._values.get("deny_all")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -843,7 +843,7 @@ class OrgPolicyPolicyDryRunSpecRules:
 
         If '"FALSE"', then any configuration is acceptable. This field can be set only in Policies for boolean constraints.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#enforce OrgPolicyPolicy#enforce}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#enforce OrgPolicyPolicy#enforce}
         '''
         result = self._values.get("enforce")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -854,7 +854,7 @@ class OrgPolicyPolicyDryRunSpecRules:
 
         Required for Managed Constraints if parameters defined in constraints. Pass parameter values when policy enforcement is enabled. Ensure that parameter value types match those defined in the constraint definition. For example: { "allowedLocations" : ["us-east1", "us-west1"], "allowAll" : true }
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#parameters OrgPolicyPolicy#parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#parameters OrgPolicyPolicy#parameters}
         '''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -863,7 +863,7 @@ class OrgPolicyPolicyDryRunSpecRules:
     def values(self) -> typing.Optional["OrgPolicyPolicyDryRunSpecRulesValues"]:
         '''values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#values OrgPolicyPolicy#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#values OrgPolicyPolicy#values}
         '''
         result = self._values.get("values")
         return typing.cast(typing.Optional["OrgPolicyPolicyDryRunSpecRulesValues"], result)
@@ -900,10 +900,10 @@ class OrgPolicyPolicyDryRunSpecRulesCondition:
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param description: Optional. Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#description OrgPolicyPolicy#description}
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#expression OrgPolicyPolicy#expression}
-        :param location: Optional. String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#location OrgPolicyPolicy#location}
-        :param title: Optional. Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#title OrgPolicyPolicy#title}
+        :param description: Optional. Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#description OrgPolicyPolicy#description}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#expression OrgPolicyPolicy#expression}
+        :param location: Optional. String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#location OrgPolicyPolicy#location}
+        :param title: Optional. Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#title OrgPolicyPolicy#title}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5edc41838bdef7879d525e6883475261a396442b5d0daec93f47c3d5462ee91f)
@@ -927,7 +927,7 @@ class OrgPolicyPolicyDryRunSpecRulesCondition:
 
         Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#description OrgPolicyPolicy#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#description OrgPolicyPolicy#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -936,7 +936,7 @@ class OrgPolicyPolicyDryRunSpecRulesCondition:
     def expression(self) -> typing.Optional[builtins.str]:
         '''Textual representation of an expression in Common Expression Language syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#expression OrgPolicyPolicy#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#expression OrgPolicyPolicy#expression}
         '''
         result = self._values.get("expression")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -947,7 +947,7 @@ class OrgPolicyPolicyDryRunSpecRulesCondition:
 
         String indicating the location of the expression for error reporting, e.g. a file name and a position in the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#location OrgPolicyPolicy#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#location OrgPolicyPolicy#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -958,7 +958,7 @@ class OrgPolicyPolicyDryRunSpecRulesCondition:
 
         Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#title OrgPolicyPolicy#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#title OrgPolicyPolicy#title}
         '''
         result = self._values.get("title")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1226,10 +1226,10 @@ class OrgPolicyPolicyDryRunSpecRulesOutputReference(
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param description: Optional. Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#description OrgPolicyPolicy#description}
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#expression OrgPolicyPolicy#expression}
-        :param location: Optional. String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#location OrgPolicyPolicy#location}
-        :param title: Optional. Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#title OrgPolicyPolicy#title}
+        :param description: Optional. Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#description OrgPolicyPolicy#description}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#expression OrgPolicyPolicy#expression}
+        :param location: Optional. String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#location OrgPolicyPolicy#location}
+        :param title: Optional. Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#title OrgPolicyPolicy#title}
         '''
         value = OrgPolicyPolicyDryRunSpecRulesCondition(
             description=description,
@@ -1248,8 +1248,8 @@ class OrgPolicyPolicyDryRunSpecRulesOutputReference(
         denied_values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_values: List of values allowed at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#allowed_values OrgPolicyPolicy#allowed_values}
-        :param denied_values: List of values denied at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#denied_values OrgPolicyPolicy#denied_values}
+        :param allowed_values: List of values allowed at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#allowed_values OrgPolicyPolicy#allowed_values}
+        :param denied_values: List of values denied at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#denied_values OrgPolicyPolicy#denied_values}
         '''
         value = OrgPolicyPolicyDryRunSpecRulesValues(
             allowed_values=allowed_values, denied_values=denied_values
@@ -1402,8 +1402,8 @@ class OrgPolicyPolicyDryRunSpecRulesValues:
         denied_values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_values: List of values allowed at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#allowed_values OrgPolicyPolicy#allowed_values}
-        :param denied_values: List of values denied at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#denied_values OrgPolicyPolicy#denied_values}
+        :param allowed_values: List of values allowed at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#allowed_values OrgPolicyPolicy#allowed_values}
+        :param denied_values: List of values denied at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#denied_values OrgPolicyPolicy#denied_values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c6072c9be1ae8b808df3f4c04a4409f76840acf0613eb56ca84f9a2dab9fbabb)
@@ -1419,7 +1419,7 @@ class OrgPolicyPolicyDryRunSpecRulesValues:
     def allowed_values(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of values allowed at this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#allowed_values OrgPolicyPolicy#allowed_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#allowed_values OrgPolicyPolicy#allowed_values}
         '''
         result = self._values.get("allowed_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1428,7 +1428,7 @@ class OrgPolicyPolicyDryRunSpecRulesValues:
     def denied_values(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of values denied at this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#denied_values OrgPolicyPolicy#denied_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#denied_values OrgPolicyPolicy#denied_values}
         '''
         result = self._values.get("denied_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1541,9 +1541,9 @@ class OrgPolicyPolicySpec:
         rules: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OrgPolicyPolicySpecRules", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param inherit_from_parent: Determines the inheritance behavior for this 'Policy'. If 'inherit_from_parent' is true, PolicyRules set higher up in the hierarchy (up to the closest root) are inherited and present in the effective policy. If it is false, then no rules are inherited, and this Policy becomes the new root for evaluation. This field can be set only for Policies which configure list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#inherit_from_parent OrgPolicyPolicy#inherit_from_parent}
-        :param reset: Ignores policies set above this resource and restores the 'constraint_default' enforcement behavior of the specific 'Constraint' at this resource. This field can be set in policies for either list or boolean constraints. If set, 'rules' must be empty and 'inherit_from_parent' must be set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#reset OrgPolicyPolicy#reset}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#rules OrgPolicyPolicy#rules}
+        :param inherit_from_parent: Determines the inheritance behavior for this 'Policy'. If 'inherit_from_parent' is true, PolicyRules set higher up in the hierarchy (up to the closest root) are inherited and present in the effective policy. If it is false, then no rules are inherited, and this Policy becomes the new root for evaluation. This field can be set only for Policies which configure list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#inherit_from_parent OrgPolicyPolicy#inherit_from_parent}
+        :param reset: Ignores policies set above this resource and restores the 'constraint_default' enforcement behavior of the specific 'Constraint' at this resource. This field can be set in policies for either list or boolean constraints. If set, 'rules' must be empty and 'inherit_from_parent' must be set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#reset OrgPolicyPolicy#reset}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#rules OrgPolicyPolicy#rules}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21b56320ff38a215e9cd5d7fa04e70409e5b8744c7c495869e9861c973b416da)
@@ -1566,7 +1566,7 @@ class OrgPolicyPolicySpec:
 
         If 'inherit_from_parent' is true, PolicyRules set higher up in the hierarchy (up to the closest root) are inherited and present in the effective policy. If it is false, then no rules are inherited, and this Policy becomes the new root for evaluation. This field can be set only for Policies which configure list constraints.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#inherit_from_parent OrgPolicyPolicy#inherit_from_parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#inherit_from_parent OrgPolicyPolicy#inherit_from_parent}
         '''
         result = self._values.get("inherit_from_parent")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1579,7 +1579,7 @@ class OrgPolicyPolicySpec:
 
         This field can be set in policies for either list or boolean constraints. If set, 'rules' must be empty and 'inherit_from_parent' must be set to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#reset OrgPolicyPolicy#reset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#reset OrgPolicyPolicy#reset}
         '''
         result = self._values.get("reset")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1590,7 +1590,7 @@ class OrgPolicyPolicySpec:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OrgPolicyPolicySpecRules"]]]:
         '''rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#rules OrgPolicyPolicy#rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#rules OrgPolicyPolicy#rules}
         '''
         result = self._values.get("rules")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OrgPolicyPolicySpecRules"]]], result)
@@ -1757,12 +1757,12 @@ class OrgPolicyPolicySpecRules:
         values: typing.Optional[typing.Union["OrgPolicyPolicySpecRulesValues", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_all: Setting this to '"TRUE"' means that all values are allowed. This field can be set only in Policies for list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#allow_all OrgPolicyPolicy#allow_all}
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#condition OrgPolicyPolicy#condition}
-        :param deny_all: Setting this to '"TRUE"' means that all values are denied. This field can be set only in Policies for list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#deny_all OrgPolicyPolicy#deny_all}
-        :param enforce: If '"TRUE"', then the 'Policy' is enforced. If '"FALSE"', then any configuration is acceptable. This field can be set only in Policies for boolean constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#enforce OrgPolicyPolicy#enforce}
-        :param parameters: Optional. Required for Managed Constraints if parameters defined in constraints. Pass parameter values when policy enforcement is enabled. Ensure that parameter value types match those defined in the constraint definition. For example: { "allowedLocations" : ["us-east1", "us-west1"], "allowAll" : true } Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#parameters OrgPolicyPolicy#parameters}
-        :param values: values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#values OrgPolicyPolicy#values}
+        :param allow_all: Setting this to '"TRUE"' means that all values are allowed. This field can be set only in Policies for list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#allow_all OrgPolicyPolicy#allow_all}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#condition OrgPolicyPolicy#condition}
+        :param deny_all: Setting this to '"TRUE"' means that all values are denied. This field can be set only in Policies for list constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#deny_all OrgPolicyPolicy#deny_all}
+        :param enforce: If '"TRUE"', then the 'Policy' is enforced. If '"FALSE"', then any configuration is acceptable. This field can be set only in Policies for boolean constraints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#enforce OrgPolicyPolicy#enforce}
+        :param parameters: Optional. Required for Managed Constraints if parameters defined in constraints. Pass parameter values when policy enforcement is enabled. Ensure that parameter value types match those defined in the constraint definition. For example: { "allowedLocations" : ["us-east1", "us-west1"], "allowAll" : true } Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#parameters OrgPolicyPolicy#parameters}
+        :param values: values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#values OrgPolicyPolicy#values}
         '''
         if isinstance(condition, dict):
             condition = OrgPolicyPolicySpecRulesCondition(**condition)
@@ -1796,7 +1796,7 @@ class OrgPolicyPolicySpecRules:
 
         This field can be set only in Policies for list constraints.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#allow_all OrgPolicyPolicy#allow_all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#allow_all OrgPolicyPolicy#allow_all}
         '''
         result = self._values.get("allow_all")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1805,7 +1805,7 @@ class OrgPolicyPolicySpecRules:
     def condition(self) -> typing.Optional["OrgPolicyPolicySpecRulesCondition"]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#condition OrgPolicyPolicy#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#condition OrgPolicyPolicy#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional["OrgPolicyPolicySpecRulesCondition"], result)
@@ -1816,7 +1816,7 @@ class OrgPolicyPolicySpecRules:
 
         This field can be set only in Policies for list constraints.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#deny_all OrgPolicyPolicy#deny_all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#deny_all OrgPolicyPolicy#deny_all}
         '''
         result = self._values.get("deny_all")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1827,7 +1827,7 @@ class OrgPolicyPolicySpecRules:
 
         If '"FALSE"', then any configuration is acceptable. This field can be set only in Policies for boolean constraints.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#enforce OrgPolicyPolicy#enforce}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#enforce OrgPolicyPolicy#enforce}
         '''
         result = self._values.get("enforce")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1838,7 +1838,7 @@ class OrgPolicyPolicySpecRules:
 
         Required for Managed Constraints if parameters defined in constraints. Pass parameter values when policy enforcement is enabled. Ensure that parameter value types match those defined in the constraint definition. For example: { "allowedLocations" : ["us-east1", "us-west1"], "allowAll" : true }
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#parameters OrgPolicyPolicy#parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#parameters OrgPolicyPolicy#parameters}
         '''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1847,7 +1847,7 @@ class OrgPolicyPolicySpecRules:
     def values(self) -> typing.Optional["OrgPolicyPolicySpecRulesValues"]:
         '''values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#values OrgPolicyPolicy#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#values OrgPolicyPolicy#values}
         '''
         result = self._values.get("values")
         return typing.cast(typing.Optional["OrgPolicyPolicySpecRulesValues"], result)
@@ -1884,10 +1884,10 @@ class OrgPolicyPolicySpecRulesCondition:
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param description: Optional. Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#description OrgPolicyPolicy#description}
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#expression OrgPolicyPolicy#expression}
-        :param location: Optional. String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#location OrgPolicyPolicy#location}
-        :param title: Optional. Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#title OrgPolicyPolicy#title}
+        :param description: Optional. Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#description OrgPolicyPolicy#description}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#expression OrgPolicyPolicy#expression}
+        :param location: Optional. String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#location OrgPolicyPolicy#location}
+        :param title: Optional. Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#title OrgPolicyPolicy#title}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9bafea799a9852424a8b6474db5e94615a2be57bf8bf69423c4e25fda83210d9)
@@ -1911,7 +1911,7 @@ class OrgPolicyPolicySpecRulesCondition:
 
         Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#description OrgPolicyPolicy#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#description OrgPolicyPolicy#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1920,7 +1920,7 @@ class OrgPolicyPolicySpecRulesCondition:
     def expression(self) -> typing.Optional[builtins.str]:
         '''Textual representation of an expression in Common Expression Language syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#expression OrgPolicyPolicy#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#expression OrgPolicyPolicy#expression}
         '''
         result = self._values.get("expression")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1931,7 +1931,7 @@ class OrgPolicyPolicySpecRulesCondition:
 
         String indicating the location of the expression for error reporting, e.g. a file name and a position in the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#location OrgPolicyPolicy#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#location OrgPolicyPolicy#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1942,7 +1942,7 @@ class OrgPolicyPolicySpecRulesCondition:
 
         Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#title OrgPolicyPolicy#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#title OrgPolicyPolicy#title}
         '''
         result = self._values.get("title")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2205,10 +2205,10 @@ class OrgPolicyPolicySpecRulesOutputReference(
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param description: Optional. Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#description OrgPolicyPolicy#description}
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#expression OrgPolicyPolicy#expression}
-        :param location: Optional. String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#location OrgPolicyPolicy#location}
-        :param title: Optional. Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#title OrgPolicyPolicy#title}
+        :param description: Optional. Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#description OrgPolicyPolicy#description}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#expression OrgPolicyPolicy#expression}
+        :param location: Optional. String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#location OrgPolicyPolicy#location}
+        :param title: Optional. Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#title OrgPolicyPolicy#title}
         '''
         value = OrgPolicyPolicySpecRulesCondition(
             description=description,
@@ -2227,8 +2227,8 @@ class OrgPolicyPolicySpecRulesOutputReference(
         denied_values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_values: List of values allowed at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#allowed_values OrgPolicyPolicy#allowed_values}
-        :param denied_values: List of values denied at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#denied_values OrgPolicyPolicy#denied_values}
+        :param allowed_values: List of values allowed at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#allowed_values OrgPolicyPolicy#allowed_values}
+        :param denied_values: List of values denied at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#denied_values OrgPolicyPolicy#denied_values}
         '''
         value = OrgPolicyPolicySpecRulesValues(
             allowed_values=allowed_values, denied_values=denied_values
@@ -2379,8 +2379,8 @@ class OrgPolicyPolicySpecRulesValues:
         denied_values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param allowed_values: List of values allowed at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#allowed_values OrgPolicyPolicy#allowed_values}
-        :param denied_values: List of values denied at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#denied_values OrgPolicyPolicy#denied_values}
+        :param allowed_values: List of values allowed at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#allowed_values OrgPolicyPolicy#allowed_values}
+        :param denied_values: List of values denied at this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#denied_values OrgPolicyPolicy#denied_values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ccb0ca968f946c1cedcea81e3b8b63d04e2d445d1d344f8b1825c2a80413a2a8)
@@ -2396,7 +2396,7 @@ class OrgPolicyPolicySpecRulesValues:
     def allowed_values(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of values allowed at this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#allowed_values OrgPolicyPolicy#allowed_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#allowed_values OrgPolicyPolicy#allowed_values}
         '''
         result = self._values.get("allowed_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2405,7 +2405,7 @@ class OrgPolicyPolicySpecRulesValues:
     def denied_values(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of values denied at this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#denied_values OrgPolicyPolicy#denied_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#denied_values OrgPolicyPolicy#denied_values}
         '''
         result = self._values.get("denied_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2514,9 +2514,9 @@ class OrgPolicyPolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#create OrgPolicyPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#delete OrgPolicyPolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#update OrgPolicyPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#create OrgPolicyPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#delete OrgPolicyPolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#update OrgPolicyPolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__806c60ad99258d7048cb931403c2f954076638317f1c744104d44ba7833b381b)
@@ -2533,19 +2533,19 @@ class OrgPolicyPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#create OrgPolicyPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#create OrgPolicyPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#delete OrgPolicyPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#delete OrgPolicyPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/org_policy_policy#update OrgPolicyPolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/org_policy_policy#update OrgPolicyPolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

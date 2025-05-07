@@ -1,7 +1,7 @@
 r'''
 # `google_compute_instance_group_named_port`
 
-Refer to the Terraform Registry for docs: [`google_compute_instance_group_named_port`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port).
+Refer to the Terraform Registry for docs: [`google_compute_instance_group_named_port`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeInstanceGroupNamedPortA(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeInstanceGroupNamedPort.ComputeInstanceGroupNamedPortA",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port google_compute_instance_group_named_port}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port google_compute_instance_group_named_port}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class ComputeInstanceGroupNamedPortA(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port google_compute_instance_group_named_port} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port google_compute_instance_group_named_port} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param group: The name of the instance group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#group ComputeInstanceGroupNamedPortA#group}
-        :param name: The name for this named port. The name must be 1-63 characters long, and comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#name ComputeInstanceGroupNamedPortA#name}
-        :param port: The port number, which can be a value between 1 and 65535. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#port ComputeInstanceGroupNamedPortA#port}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#id ComputeInstanceGroupNamedPortA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#project ComputeInstanceGroupNamedPortA#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#timeouts ComputeInstanceGroupNamedPortA#timeouts}
-        :param zone: The zone of the instance group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#zone ComputeInstanceGroupNamedPortA#zone}
+        :param group: The name of the instance group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#group ComputeInstanceGroupNamedPortA#group}
+        :param name: The name for this named port. The name must be 1-63 characters long, and comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#name ComputeInstanceGroupNamedPortA#name}
+        :param port: The port number, which can be a value between 1 and 65535. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#port ComputeInstanceGroupNamedPortA#port}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#id ComputeInstanceGroupNamedPortA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#project ComputeInstanceGroupNamedPortA#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#timeouts ComputeInstanceGroupNamedPortA#timeouts}
+        :param zone: The zone of the instance group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#zone ComputeInstanceGroupNamedPortA#zone}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class ComputeInstanceGroupNamedPortA(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeInstanceGroupNamedPortA to import.
-        :param import_from_id: The id of the existing ComputeInstanceGroupNamedPortA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeInstanceGroupNamedPortA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeInstanceGroupNamedPortA to import is found.
         '''
         if __debug__:
@@ -140,8 +140,8 @@ class ComputeInstanceGroupNamedPortA(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#create ComputeInstanceGroupNamedPortA#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#delete ComputeInstanceGroupNamedPortA#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#create ComputeInstanceGroupNamedPortA#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#delete ComputeInstanceGroupNamedPortA#delete}.
         '''
         value = ComputeInstanceGroupNamedPortTimeouts(create=create, delete=delete)
 
@@ -338,13 +338,13 @@ class ComputeInstanceGroupNamedPortAConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param group: The name of the instance group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#group ComputeInstanceGroupNamedPortA#group}
-        :param name: The name for this named port. The name must be 1-63 characters long, and comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#name ComputeInstanceGroupNamedPortA#name}
-        :param port: The port number, which can be a value between 1 and 65535. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#port ComputeInstanceGroupNamedPortA#port}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#id ComputeInstanceGroupNamedPortA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#project ComputeInstanceGroupNamedPortA#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#timeouts ComputeInstanceGroupNamedPortA#timeouts}
-        :param zone: The zone of the instance group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#zone ComputeInstanceGroupNamedPortA#zone}
+        :param group: The name of the instance group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#group ComputeInstanceGroupNamedPortA#group}
+        :param name: The name for this named port. The name must be 1-63 characters long, and comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#name ComputeInstanceGroupNamedPortA#name}
+        :param port: The port number, which can be a value between 1 and 65535. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#port ComputeInstanceGroupNamedPortA#port}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#id ComputeInstanceGroupNamedPortA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#project ComputeInstanceGroupNamedPortA#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#timeouts ComputeInstanceGroupNamedPortA#timeouts}
+        :param zone: The zone of the instance group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#zone ComputeInstanceGroupNamedPortA#zone}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -462,7 +462,7 @@ class ComputeInstanceGroupNamedPortAConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def group(self) -> builtins.str:
         '''The name of the instance group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#group ComputeInstanceGroupNamedPortA#group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#group ComputeInstanceGroupNamedPortA#group}
         '''
         result = self._values.get("group")
         assert result is not None, "Required property 'group' is missing"
@@ -472,7 +472,7 @@ class ComputeInstanceGroupNamedPortAConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def name(self) -> builtins.str:
         '''The name for this named port. The name must be 1-63 characters long, and comply with RFC1035.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#name ComputeInstanceGroupNamedPortA#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#name ComputeInstanceGroupNamedPortA#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -482,7 +482,7 @@ class ComputeInstanceGroupNamedPortAConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def port(self) -> jsii.Number:
         '''The port number, which can be a value between 1 and 65535.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#port ComputeInstanceGroupNamedPortA#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#port ComputeInstanceGroupNamedPortA#port}
         '''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
@@ -490,7 +490,7 @@ class ComputeInstanceGroupNamedPortAConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#id ComputeInstanceGroupNamedPortA#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#id ComputeInstanceGroupNamedPortA#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -500,7 +500,7 @@ class ComputeInstanceGroupNamedPortAConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#project ComputeInstanceGroupNamedPortA#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#project ComputeInstanceGroupNamedPortA#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -508,7 +508,7 @@ class ComputeInstanceGroupNamedPortAConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def timeouts(self) -> typing.Optional["ComputeInstanceGroupNamedPortTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#timeouts ComputeInstanceGroupNamedPortA#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#timeouts ComputeInstanceGroupNamedPortA#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeInstanceGroupNamedPortTimeouts"], result)
@@ -517,7 +517,7 @@ class ComputeInstanceGroupNamedPortAConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def zone(self) -> typing.Optional[builtins.str]:
         '''The zone of the instance group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#zone ComputeInstanceGroupNamedPortA#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#zone ComputeInstanceGroupNamedPortA#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -547,8 +547,8 @@ class ComputeInstanceGroupNamedPortTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#create ComputeInstanceGroupNamedPortA#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#delete ComputeInstanceGroupNamedPortA#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#create ComputeInstanceGroupNamedPortA#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#delete ComputeInstanceGroupNamedPortA#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__28e7f585e2e27413613160dd3f3475db9bf3e7458d51e1d244f72a03b11e1e90)
@@ -562,13 +562,13 @@ class ComputeInstanceGroupNamedPortTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#create ComputeInstanceGroupNamedPortA#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#create ComputeInstanceGroupNamedPortA#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_instance_group_named_port#delete ComputeInstanceGroupNamedPortA#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_instance_group_named_port#delete ComputeInstanceGroupNamedPortA#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

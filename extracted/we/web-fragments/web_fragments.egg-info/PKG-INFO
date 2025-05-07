@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: web-fragments
-Version: 3.0.0
+Version: 3.1.0
 Summary: Web fragments
 Home-page: https://github.com/openedx/web-fragments
 Author: edX
@@ -10,6 +10,7 @@ Keywords: Django edx
 Classifier: Development Status :: 3 - Alpha
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
 Classifier: Natural Language :: English

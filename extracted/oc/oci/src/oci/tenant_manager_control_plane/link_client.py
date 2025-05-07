@@ -150,7 +150,7 @@ class LinkClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/tenantmanagercontrolplane/delete_link.py.html>`__ to see an example of how to use delete_link API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/tenantmanagercontrolplane/delete_link.py.html>`__ to see an example of how to use delete_link API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['linkId']
@@ -246,7 +246,7 @@ class LinkClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/tenantmanagercontrolplane/get_link.py.html>`__ to see an example of how to use get_link API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/tenantmanagercontrolplane/get_link.py.html>`__ to see an example of how to use get_link API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['linkId']
@@ -361,7 +361,7 @@ class LinkClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/tenantmanagercontrolplane/list_links.py.html>`__ to see an example of how to use list_links API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/tenantmanagercontrolplane/list_links.py.html>`__ to see an example of how to use list_links API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []

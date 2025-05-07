@@ -29,6 +29,7 @@ from langgraph_api.errors import (
 from langgraph_runtime.lifespan import lifespan
 from langgraph_api.middleware.http_logger import AccessLoggerMiddleware
 from langgraph_api.middleware.private_network import PrivateNetworkMiddleware
+from langgraph_api.middleware.request_id import RequestIdMiddleware
 from langgraph_api.utils import SchemaGenerator
 from langgraph_runtime.retry import OVERLOADED_EXCEPTIONS
 from langgraph_api.js.base import is_js_path
@@ -69,6 +70,7 @@ middleware.extend(
             )
         ),
         Middleware(AccessLoggerMiddleware, logger=logger),
+        Middleware(RequestIdMiddleware, mount_prefix=config.MOUNT_PREFIX),
     ]
 )
 exception_handlers = {

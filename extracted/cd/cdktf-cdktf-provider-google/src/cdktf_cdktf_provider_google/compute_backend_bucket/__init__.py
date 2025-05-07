@@ -1,7 +1,7 @@
 r'''
 # `google_compute_backend_bucket`
 
-Refer to the Terraform Registry for docs: [`google_compute_backend_bucket`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket).
+Refer to the Terraform Registry for docs: [`google_compute_backend_bucket`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeBackendBucket(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeBackendBucket.ComputeBackendBucket",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket google_compute_backend_bucket}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket google_compute_backend_bucket}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class ComputeBackendBucket(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket google_compute_backend_bucket} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket google_compute_backend_bucket} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bucket_name: Cloud Storage bucket name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#bucket_name ComputeBackendBucket#bucket_name}
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#name ComputeBackendBucket#name}
-        :param cdn_policy: cdn_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#cdn_policy ComputeBackendBucket#cdn_policy}
-        :param compression_mode: Compress text responses using Brotli or gzip compression, based on the client's Accept-Encoding header. Possible values: ["AUTOMATIC", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#compression_mode ComputeBackendBucket#compression_mode}
-        :param custom_response_headers: Headers that the HTTP/S load balancer should add to proxied responses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#custom_response_headers ComputeBackendBucket#custom_response_headers}
-        :param description: An optional textual description of the resource; provided by the client when the resource is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#description ComputeBackendBucket#description}
-        :param edge_security_policy: The security policy associated with this backend bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#edge_security_policy ComputeBackendBucket#edge_security_policy}
-        :param enable_cdn: If true, enable Cloud CDN for this BackendBucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#enable_cdn ComputeBackendBucket#enable_cdn}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#id ComputeBackendBucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#project ComputeBackendBucket#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#timeouts ComputeBackendBucket#timeouts}
+        :param bucket_name: Cloud Storage bucket name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#bucket_name ComputeBackendBucket#bucket_name}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#name ComputeBackendBucket#name}
+        :param cdn_policy: cdn_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#cdn_policy ComputeBackendBucket#cdn_policy}
+        :param compression_mode: Compress text responses using Brotli or gzip compression, based on the client's Accept-Encoding header. Possible values: ["AUTOMATIC", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#compression_mode ComputeBackendBucket#compression_mode}
+        :param custom_response_headers: Headers that the HTTP/S load balancer should add to proxied responses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#custom_response_headers ComputeBackendBucket#custom_response_headers}
+        :param description: An optional textual description of the resource; provided by the client when the resource is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#description ComputeBackendBucket#description}
+        :param edge_security_policy: The security policy associated with this backend bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#edge_security_policy ComputeBackendBucket#edge_security_policy}
+        :param enable_cdn: If true, enable Cloud CDN for this BackendBucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#enable_cdn ComputeBackendBucket#enable_cdn}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#id ComputeBackendBucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#project ComputeBackendBucket#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#timeouts ComputeBackendBucket#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class ComputeBackendBucket(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeBackendBucket to import.
-        :param import_from_id: The id of the existing ComputeBackendBucket that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeBackendBucket that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeBackendBucket to import is found.
         '''
         if __debug__:
@@ -161,17 +161,17 @@ class ComputeBackendBucket(
         signed_url_cache_max_age_sec: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bypass_cache_on_request_headers: bypass_cache_on_request_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#bypass_cache_on_request_headers ComputeBackendBucket#bypass_cache_on_request_headers}
-        :param cache_key_policy: cache_key_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#cache_key_policy ComputeBackendBucket#cache_key_policy}
-        :param cache_mode: Specifies the cache setting for all responses from this backend. The possible values are: USE_ORIGIN_HEADERS, FORCE_CACHE_ALL and CACHE_ALL_STATIC Possible values: ["USE_ORIGIN_HEADERS", "FORCE_CACHE_ALL", "CACHE_ALL_STATIC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#cache_mode ComputeBackendBucket#cache_mode}
-        :param client_ttl: Specifies the maximum allowed TTL for cached content served by this origin. When the 'cache_mode' is set to "USE_ORIGIN_HEADERS", you must omit this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#client_ttl ComputeBackendBucket#client_ttl}
-        :param default_ttl: Specifies the default TTL for cached content served by this origin for responses that do not have an existing valid TTL (max-age or s-max-age). When the 'cache_mode' is set to "USE_ORIGIN_HEADERS", you must omit this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#default_ttl ComputeBackendBucket#default_ttl}
-        :param max_ttl: Specifies the maximum allowed TTL for cached content served by this origin. When the 'cache_mode' is set to "USE_ORIGIN_HEADERS", you must omit this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#max_ttl ComputeBackendBucket#max_ttl}
-        :param negative_caching: Negative caching allows per-status code TTLs to be set, in order to apply fine-grained caching for common errors or redirects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#negative_caching ComputeBackendBucket#negative_caching}
-        :param negative_caching_policy: negative_caching_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#negative_caching_policy ComputeBackendBucket#negative_caching_policy}
-        :param request_coalescing: If true then Cloud CDN will combine multiple concurrent cache fill requests into a small number of requests to the origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#request_coalescing ComputeBackendBucket#request_coalescing}
-        :param serve_while_stale: Serve existing content from the cache (if available) when revalidating content with the origin, or when an error is encountered when refreshing the cache. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#serve_while_stale ComputeBackendBucket#serve_while_stale}
-        :param signed_url_cache_max_age_sec: Maximum number of seconds the response to a signed URL request will be considered fresh. After this time period, the response will be revalidated before being served. When serving responses to signed URL requests, Cloud CDN will internally behave as though all responses from this backend had a "Cache-Control: public, max-age=[TTL]" header, regardless of any existing Cache-Control header. The actual headers served in responses will not be altered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#signed_url_cache_max_age_sec ComputeBackendBucket#signed_url_cache_max_age_sec}
+        :param bypass_cache_on_request_headers: bypass_cache_on_request_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#bypass_cache_on_request_headers ComputeBackendBucket#bypass_cache_on_request_headers}
+        :param cache_key_policy: cache_key_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#cache_key_policy ComputeBackendBucket#cache_key_policy}
+        :param cache_mode: Specifies the cache setting for all responses from this backend. The possible values are: USE_ORIGIN_HEADERS, FORCE_CACHE_ALL and CACHE_ALL_STATIC Possible values: ["USE_ORIGIN_HEADERS", "FORCE_CACHE_ALL", "CACHE_ALL_STATIC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#cache_mode ComputeBackendBucket#cache_mode}
+        :param client_ttl: Specifies the maximum allowed TTL for cached content served by this origin. When the 'cache_mode' is set to "USE_ORIGIN_HEADERS", you must omit this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#client_ttl ComputeBackendBucket#client_ttl}
+        :param default_ttl: Specifies the default TTL for cached content served by this origin for responses that do not have an existing valid TTL (max-age or s-max-age). When the 'cache_mode' is set to "USE_ORIGIN_HEADERS", you must omit this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#default_ttl ComputeBackendBucket#default_ttl}
+        :param max_ttl: Specifies the maximum allowed TTL for cached content served by this origin. When the 'cache_mode' is set to "USE_ORIGIN_HEADERS", you must omit this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#max_ttl ComputeBackendBucket#max_ttl}
+        :param negative_caching: Negative caching allows per-status code TTLs to be set, in order to apply fine-grained caching for common errors or redirects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#negative_caching ComputeBackendBucket#negative_caching}
+        :param negative_caching_policy: negative_caching_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#negative_caching_policy ComputeBackendBucket#negative_caching_policy}
+        :param request_coalescing: If true then Cloud CDN will combine multiple concurrent cache fill requests into a small number of requests to the origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#request_coalescing ComputeBackendBucket#request_coalescing}
+        :param serve_while_stale: Serve existing content from the cache (if available) when revalidating content with the origin, or when an error is encountered when refreshing the cache. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#serve_while_stale ComputeBackendBucket#serve_while_stale}
+        :param signed_url_cache_max_age_sec: Maximum number of seconds the response to a signed URL request will be considered fresh. After this time period, the response will be revalidated before being served. When serving responses to signed URL requests, Cloud CDN will internally behave as though all responses from this backend had a "Cache-Control: public, max-age=[TTL]" header, regardless of any existing Cache-Control header. The actual headers served in responses will not be altered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#signed_url_cache_max_age_sec ComputeBackendBucket#signed_url_cache_max_age_sec}
         '''
         value = ComputeBackendBucketCdnPolicy(
             bypass_cache_on_request_headers=bypass_cache_on_request_headers,
@@ -198,9 +198,9 @@ class ComputeBackendBucket(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#create ComputeBackendBucket#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#delete ComputeBackendBucket#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#update ComputeBackendBucket#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#create ComputeBackendBucket#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#delete ComputeBackendBucket#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#update ComputeBackendBucket#update}.
         '''
         value = ComputeBackendBucketTimeouts(
             create=create, delete=delete, update=update
@@ -484,17 +484,17 @@ class ComputeBackendBucketCdnPolicy:
         signed_url_cache_max_age_sec: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bypass_cache_on_request_headers: bypass_cache_on_request_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#bypass_cache_on_request_headers ComputeBackendBucket#bypass_cache_on_request_headers}
-        :param cache_key_policy: cache_key_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#cache_key_policy ComputeBackendBucket#cache_key_policy}
-        :param cache_mode: Specifies the cache setting for all responses from this backend. The possible values are: USE_ORIGIN_HEADERS, FORCE_CACHE_ALL and CACHE_ALL_STATIC Possible values: ["USE_ORIGIN_HEADERS", "FORCE_CACHE_ALL", "CACHE_ALL_STATIC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#cache_mode ComputeBackendBucket#cache_mode}
-        :param client_ttl: Specifies the maximum allowed TTL for cached content served by this origin. When the 'cache_mode' is set to "USE_ORIGIN_HEADERS", you must omit this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#client_ttl ComputeBackendBucket#client_ttl}
-        :param default_ttl: Specifies the default TTL for cached content served by this origin for responses that do not have an existing valid TTL (max-age or s-max-age). When the 'cache_mode' is set to "USE_ORIGIN_HEADERS", you must omit this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#default_ttl ComputeBackendBucket#default_ttl}
-        :param max_ttl: Specifies the maximum allowed TTL for cached content served by this origin. When the 'cache_mode' is set to "USE_ORIGIN_HEADERS", you must omit this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#max_ttl ComputeBackendBucket#max_ttl}
-        :param negative_caching: Negative caching allows per-status code TTLs to be set, in order to apply fine-grained caching for common errors or redirects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#negative_caching ComputeBackendBucket#negative_caching}
-        :param negative_caching_policy: negative_caching_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#negative_caching_policy ComputeBackendBucket#negative_caching_policy}
-        :param request_coalescing: If true then Cloud CDN will combine multiple concurrent cache fill requests into a small number of requests to the origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#request_coalescing ComputeBackendBucket#request_coalescing}
-        :param serve_while_stale: Serve existing content from the cache (if available) when revalidating content with the origin, or when an error is encountered when refreshing the cache. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#serve_while_stale ComputeBackendBucket#serve_while_stale}
-        :param signed_url_cache_max_age_sec: Maximum number of seconds the response to a signed URL request will be considered fresh. After this time period, the response will be revalidated before being served. When serving responses to signed URL requests, Cloud CDN will internally behave as though all responses from this backend had a "Cache-Control: public, max-age=[TTL]" header, regardless of any existing Cache-Control header. The actual headers served in responses will not be altered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#signed_url_cache_max_age_sec ComputeBackendBucket#signed_url_cache_max_age_sec}
+        :param bypass_cache_on_request_headers: bypass_cache_on_request_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#bypass_cache_on_request_headers ComputeBackendBucket#bypass_cache_on_request_headers}
+        :param cache_key_policy: cache_key_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#cache_key_policy ComputeBackendBucket#cache_key_policy}
+        :param cache_mode: Specifies the cache setting for all responses from this backend. The possible values are: USE_ORIGIN_HEADERS, FORCE_CACHE_ALL and CACHE_ALL_STATIC Possible values: ["USE_ORIGIN_HEADERS", "FORCE_CACHE_ALL", "CACHE_ALL_STATIC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#cache_mode ComputeBackendBucket#cache_mode}
+        :param client_ttl: Specifies the maximum allowed TTL for cached content served by this origin. When the 'cache_mode' is set to "USE_ORIGIN_HEADERS", you must omit this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#client_ttl ComputeBackendBucket#client_ttl}
+        :param default_ttl: Specifies the default TTL for cached content served by this origin for responses that do not have an existing valid TTL (max-age or s-max-age). When the 'cache_mode' is set to "USE_ORIGIN_HEADERS", you must omit this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#default_ttl ComputeBackendBucket#default_ttl}
+        :param max_ttl: Specifies the maximum allowed TTL for cached content served by this origin. When the 'cache_mode' is set to "USE_ORIGIN_HEADERS", you must omit this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#max_ttl ComputeBackendBucket#max_ttl}
+        :param negative_caching: Negative caching allows per-status code TTLs to be set, in order to apply fine-grained caching for common errors or redirects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#negative_caching ComputeBackendBucket#negative_caching}
+        :param negative_caching_policy: negative_caching_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#negative_caching_policy ComputeBackendBucket#negative_caching_policy}
+        :param request_coalescing: If true then Cloud CDN will combine multiple concurrent cache fill requests into a small number of requests to the origin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#request_coalescing ComputeBackendBucket#request_coalescing}
+        :param serve_while_stale: Serve existing content from the cache (if available) when revalidating content with the origin, or when an error is encountered when refreshing the cache. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#serve_while_stale ComputeBackendBucket#serve_while_stale}
+        :param signed_url_cache_max_age_sec: Maximum number of seconds the response to a signed URL request will be considered fresh. After this time period, the response will be revalidated before being served. When serving responses to signed URL requests, Cloud CDN will internally behave as though all responses from this backend had a "Cache-Control: public, max-age=[TTL]" header, regardless of any existing Cache-Control header. The actual headers served in responses will not be altered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#signed_url_cache_max_age_sec ComputeBackendBucket#signed_url_cache_max_age_sec}
         '''
         if isinstance(cache_key_policy, dict):
             cache_key_policy = ComputeBackendBucketCdnPolicyCacheKeyPolicy(**cache_key_policy)
@@ -541,7 +541,7 @@ class ComputeBackendBucketCdnPolicy:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeBackendBucketCdnPolicyBypassCacheOnRequestHeaders"]]]:
         '''bypass_cache_on_request_headers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#bypass_cache_on_request_headers ComputeBackendBucket#bypass_cache_on_request_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#bypass_cache_on_request_headers ComputeBackendBucket#bypass_cache_on_request_headers}
         '''
         result = self._values.get("bypass_cache_on_request_headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeBackendBucketCdnPolicyBypassCacheOnRequestHeaders"]]], result)
@@ -552,7 +552,7 @@ class ComputeBackendBucketCdnPolicy:
     ) -> typing.Optional["ComputeBackendBucketCdnPolicyCacheKeyPolicy"]:
         '''cache_key_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#cache_key_policy ComputeBackendBucket#cache_key_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#cache_key_policy ComputeBackendBucket#cache_key_policy}
         '''
         result = self._values.get("cache_key_policy")
         return typing.cast(typing.Optional["ComputeBackendBucketCdnPolicyCacheKeyPolicy"], result)
@@ -563,7 +563,7 @@ class ComputeBackendBucketCdnPolicy:
 
         The possible values are: USE_ORIGIN_HEADERS, FORCE_CACHE_ALL and CACHE_ALL_STATIC Possible values: ["USE_ORIGIN_HEADERS", "FORCE_CACHE_ALL", "CACHE_ALL_STATIC"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#cache_mode ComputeBackendBucket#cache_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#cache_mode ComputeBackendBucket#cache_mode}
         '''
         result = self._values.get("cache_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -575,7 +575,7 @@ class ComputeBackendBucketCdnPolicy:
         When the
         'cache_mode' is set to "USE_ORIGIN_HEADERS", you must omit this field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#client_ttl ComputeBackendBucket#client_ttl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#client_ttl ComputeBackendBucket#client_ttl}
         '''
         result = self._values.get("client_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -587,7 +587,7 @@ class ComputeBackendBucketCdnPolicy:
         When the 'cache_mode'
         is set to "USE_ORIGIN_HEADERS", you must omit this field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#default_ttl ComputeBackendBucket#default_ttl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#default_ttl ComputeBackendBucket#default_ttl}
         '''
         result = self._values.get("default_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -599,7 +599,7 @@ class ComputeBackendBucketCdnPolicy:
         When the
         'cache_mode' is set to "USE_ORIGIN_HEADERS", you must omit this field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#max_ttl ComputeBackendBucket#max_ttl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#max_ttl ComputeBackendBucket#max_ttl}
         '''
         result = self._values.get("max_ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -610,7 +610,7 @@ class ComputeBackendBucketCdnPolicy:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Negative caching allows per-status code TTLs to be set, in order to apply fine-grained caching for common errors or redirects.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#negative_caching ComputeBackendBucket#negative_caching}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#negative_caching ComputeBackendBucket#negative_caching}
         '''
         result = self._values.get("negative_caching")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -621,7 +621,7 @@ class ComputeBackendBucketCdnPolicy:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeBackendBucketCdnPolicyNegativeCachingPolicy"]]]:
         '''negative_caching_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#negative_caching_policy ComputeBackendBucket#negative_caching_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#negative_caching_policy ComputeBackendBucket#negative_caching_policy}
         '''
         result = self._values.get("negative_caching_policy")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeBackendBucketCdnPolicyNegativeCachingPolicy"]]], result)
@@ -632,7 +632,7 @@ class ComputeBackendBucketCdnPolicy:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true then Cloud CDN will combine multiple concurrent cache fill requests into a small number of requests to the origin.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#request_coalescing ComputeBackendBucket#request_coalescing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#request_coalescing ComputeBackendBucket#request_coalescing}
         '''
         result = self._values.get("request_coalescing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -641,7 +641,7 @@ class ComputeBackendBucketCdnPolicy:
     def serve_while_stale(self) -> typing.Optional[jsii.Number]:
         '''Serve existing content from the cache (if available) when revalidating content with the origin, or when an error is encountered when refreshing the cache.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#serve_while_stale ComputeBackendBucket#serve_while_stale}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#serve_while_stale ComputeBackendBucket#serve_while_stale}
         '''
         result = self._values.get("serve_while_stale")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -658,7 +658,7 @@ class ComputeBackendBucketCdnPolicy:
         max-age=[TTL]" header, regardless of any existing Cache-Control
         header. The actual headers served in responses will not be altered.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#signed_url_cache_max_age_sec ComputeBackendBucket#signed_url_cache_max_age_sec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#signed_url_cache_max_age_sec ComputeBackendBucket#signed_url_cache_max_age_sec}
         '''
         result = self._values.get("signed_url_cache_max_age_sec")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -683,7 +683,7 @@ class ComputeBackendBucketCdnPolicy:
 class ComputeBackendBucketCdnPolicyBypassCacheOnRequestHeaders:
     def __init__(self, *, header_name: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param header_name: The header field name to match on when bypassing cache. Values are case-insensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#header_name ComputeBackendBucket#header_name}
+        :param header_name: The header field name to match on when bypassing cache. Values are case-insensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#header_name ComputeBackendBucket#header_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a72e4cc266ece9ca5202185534c68b67b84b58984783ceacd0e14404744f312e)
@@ -696,7 +696,7 @@ class ComputeBackendBucketCdnPolicyBypassCacheOnRequestHeaders:
     def header_name(self) -> typing.Optional[builtins.str]:
         '''The header field name to match on when bypassing cache. Values are case-insensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#header_name ComputeBackendBucket#header_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#header_name ComputeBackendBucket#header_name}
         '''
         result = self._values.get("header_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -887,8 +887,8 @@ class ComputeBackendBucketCdnPolicyCacheKeyPolicy:
         query_string_whitelist: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param include_http_headers: Allows HTTP request headers (by name) to be used in the cache key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#include_http_headers ComputeBackendBucket#include_http_headers}
-        :param query_string_whitelist: Names of query string parameters to include in cache keys. Default parameters are always included. '&' and '=' will be percent encoded and not treated as delimiters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#query_string_whitelist ComputeBackendBucket#query_string_whitelist}
+        :param include_http_headers: Allows HTTP request headers (by name) to be used in the cache key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#include_http_headers ComputeBackendBucket#include_http_headers}
+        :param query_string_whitelist: Names of query string parameters to include in cache keys. Default parameters are always included. '&' and '=' will be percent encoded and not treated as delimiters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#query_string_whitelist ComputeBackendBucket#query_string_whitelist}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4e8ba77b3005b68d440799aa13dba32c1a7e4f079ff4cdb82fe0c7ee383b4f1d)
@@ -904,7 +904,7 @@ class ComputeBackendBucketCdnPolicyCacheKeyPolicy:
     def include_http_headers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Allows HTTP request headers (by name) to be used in the cache key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#include_http_headers ComputeBackendBucket#include_http_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#include_http_headers ComputeBackendBucket#include_http_headers}
         '''
         result = self._values.get("include_http_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -916,7 +916,7 @@ class ComputeBackendBucketCdnPolicyCacheKeyPolicy:
         Default parameters are always included. '&' and '=' will
         be percent encoded and not treated as delimiters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#query_string_whitelist ComputeBackendBucket#query_string_whitelist}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#query_string_whitelist ComputeBackendBucket#query_string_whitelist}
         '''
         result = self._values.get("query_string_whitelist")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1028,8 +1028,8 @@ class ComputeBackendBucketCdnPolicyNegativeCachingPolicy:
         ttl: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param code: The HTTP status code to define a TTL against. Only HTTP status codes 300, 301, 308, 404, 405, 410, 421, 451 and 501 can be specified as values, and you cannot specify a status code more than once. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#code ComputeBackendBucket#code}
-        :param ttl: The TTL (in seconds) for which to cache responses with the corresponding status code. The maximum allowed value is 1800s (30 minutes), noting that infrequently accessed objects may be evicted from the cache before the defined TTL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#ttl ComputeBackendBucket#ttl}
+        :param code: The HTTP status code to define a TTL against. Only HTTP status codes 300, 301, 308, 404, 405, 410, 421, 451 and 501 can be specified as values, and you cannot specify a status code more than once. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#code ComputeBackendBucket#code}
+        :param ttl: The TTL (in seconds) for which to cache responses with the corresponding status code. The maximum allowed value is 1800s (30 minutes), noting that infrequently accessed objects may be evicted from the cache before the defined TTL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#ttl ComputeBackendBucket#ttl}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a0c105cc7fa3d09d144ee018318e9f1197a7cab2940debe2ca37575a542394b9)
@@ -1048,7 +1048,7 @@ class ComputeBackendBucketCdnPolicyNegativeCachingPolicy:
         Only HTTP status codes 300, 301, 308, 404, 405, 410, 421, 451 and 501
         can be specified as values, and you cannot specify a status code more than once.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#code ComputeBackendBucket#code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#code ComputeBackendBucket#code}
         '''
         result = self._values.get("code")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1060,7 +1060,7 @@ class ComputeBackendBucketCdnPolicyNegativeCachingPolicy:
         The maximum allowed value is 1800s
         (30 minutes), noting that infrequently accessed objects may be evicted from the cache before the defined TTL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#ttl ComputeBackendBucket#ttl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#ttl ComputeBackendBucket#ttl}
         '''
         result = self._values.get("ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1297,8 +1297,8 @@ class ComputeBackendBucketCdnPolicyOutputReference(
         query_string_whitelist: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param include_http_headers: Allows HTTP request headers (by name) to be used in the cache key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#include_http_headers ComputeBackendBucket#include_http_headers}
-        :param query_string_whitelist: Names of query string parameters to include in cache keys. Default parameters are always included. '&' and '=' will be percent encoded and not treated as delimiters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#query_string_whitelist ComputeBackendBucket#query_string_whitelist}
+        :param include_http_headers: Allows HTTP request headers (by name) to be used in the cache key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#include_http_headers ComputeBackendBucket#include_http_headers}
+        :param query_string_whitelist: Names of query string parameters to include in cache keys. Default parameters are always included. '&' and '=' will be percent encoded and not treated as delimiters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#query_string_whitelist ComputeBackendBucket#query_string_whitelist}
         '''
         value = ComputeBackendBucketCdnPolicyCacheKeyPolicy(
             include_http_headers=include_http_headers,
@@ -1627,17 +1627,17 @@ class ComputeBackendBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bucket_name: Cloud Storage bucket name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#bucket_name ComputeBackendBucket#bucket_name}
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#name ComputeBackendBucket#name}
-        :param cdn_policy: cdn_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#cdn_policy ComputeBackendBucket#cdn_policy}
-        :param compression_mode: Compress text responses using Brotli or gzip compression, based on the client's Accept-Encoding header. Possible values: ["AUTOMATIC", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#compression_mode ComputeBackendBucket#compression_mode}
-        :param custom_response_headers: Headers that the HTTP/S load balancer should add to proxied responses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#custom_response_headers ComputeBackendBucket#custom_response_headers}
-        :param description: An optional textual description of the resource; provided by the client when the resource is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#description ComputeBackendBucket#description}
-        :param edge_security_policy: The security policy associated with this backend bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#edge_security_policy ComputeBackendBucket#edge_security_policy}
-        :param enable_cdn: If true, enable Cloud CDN for this BackendBucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#enable_cdn ComputeBackendBucket#enable_cdn}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#id ComputeBackendBucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#project ComputeBackendBucket#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#timeouts ComputeBackendBucket#timeouts}
+        :param bucket_name: Cloud Storage bucket name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#bucket_name ComputeBackendBucket#bucket_name}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#name ComputeBackendBucket#name}
+        :param cdn_policy: cdn_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#cdn_policy ComputeBackendBucket#cdn_policy}
+        :param compression_mode: Compress text responses using Brotli or gzip compression, based on the client's Accept-Encoding header. Possible values: ["AUTOMATIC", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#compression_mode ComputeBackendBucket#compression_mode}
+        :param custom_response_headers: Headers that the HTTP/S load balancer should add to proxied responses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#custom_response_headers ComputeBackendBucket#custom_response_headers}
+        :param description: An optional textual description of the resource; provided by the client when the resource is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#description ComputeBackendBucket#description}
+        :param edge_security_policy: The security policy associated with this backend bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#edge_security_policy ComputeBackendBucket#edge_security_policy}
+        :param enable_cdn: If true, enable Cloud CDN for this BackendBucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#enable_cdn ComputeBackendBucket#enable_cdn}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#id ComputeBackendBucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#project ComputeBackendBucket#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#timeouts ComputeBackendBucket#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1770,7 +1770,7 @@ class ComputeBackendBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def bucket_name(self) -> builtins.str:
         '''Cloud Storage bucket name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#bucket_name ComputeBackendBucket#bucket_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#bucket_name ComputeBackendBucket#bucket_name}
         '''
         result = self._values.get("bucket_name")
         assert result is not None, "Required property 'bucket_name' is missing"
@@ -1788,7 +1788,7 @@ class ComputeBackendBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         characters must be a dash, lowercase letter, or digit, except the
         last character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#name ComputeBackendBucket#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#name ComputeBackendBucket#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1798,7 +1798,7 @@ class ComputeBackendBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cdn_policy(self) -> typing.Optional[ComputeBackendBucketCdnPolicy]:
         '''cdn_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#cdn_policy ComputeBackendBucket#cdn_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#cdn_policy ComputeBackendBucket#cdn_policy}
         '''
         result = self._values.get("cdn_policy")
         return typing.cast(typing.Optional[ComputeBackendBucketCdnPolicy], result)
@@ -1807,7 +1807,7 @@ class ComputeBackendBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def compression_mode(self) -> typing.Optional[builtins.str]:
         '''Compress text responses using Brotli or gzip compression, based on the client's Accept-Encoding header. Possible values: ["AUTOMATIC", "DISABLED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#compression_mode ComputeBackendBucket#compression_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#compression_mode ComputeBackendBucket#compression_mode}
         '''
         result = self._values.get("compression_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1816,7 +1816,7 @@ class ComputeBackendBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def custom_response_headers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Headers that the HTTP/S load balancer should add to proxied responses.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#custom_response_headers ComputeBackendBucket#custom_response_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#custom_response_headers ComputeBackendBucket#custom_response_headers}
         '''
         result = self._values.get("custom_response_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1825,7 +1825,7 @@ class ComputeBackendBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional textual description of the resource; provided by the client when the resource is created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#description ComputeBackendBucket#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#description ComputeBackendBucket#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1834,7 +1834,7 @@ class ComputeBackendBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def edge_security_policy(self) -> typing.Optional[builtins.str]:
         '''The security policy associated with this backend bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#edge_security_policy ComputeBackendBucket#edge_security_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#edge_security_policy ComputeBackendBucket#edge_security_policy}
         '''
         result = self._values.get("edge_security_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1845,14 +1845,14 @@ class ComputeBackendBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, enable Cloud CDN for this BackendBucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#enable_cdn ComputeBackendBucket#enable_cdn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#enable_cdn ComputeBackendBucket#enable_cdn}
         '''
         result = self._values.get("enable_cdn")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#id ComputeBackendBucket#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#id ComputeBackendBucket#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1862,7 +1862,7 @@ class ComputeBackendBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#project ComputeBackendBucket#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#project ComputeBackendBucket#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1870,7 +1870,7 @@ class ComputeBackendBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeBackendBucketTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#timeouts ComputeBackendBucket#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#timeouts ComputeBackendBucket#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeBackendBucketTimeouts"], result)
@@ -1901,9 +1901,9 @@ class ComputeBackendBucketTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#create ComputeBackendBucket#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#delete ComputeBackendBucket#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#update ComputeBackendBucket#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#create ComputeBackendBucket#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#delete ComputeBackendBucket#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#update ComputeBackendBucket#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__25238a67d31aa7bacb2f934c7e5dec4045abe9e23d9ab2d8e1ce464bc7b5de3b)
@@ -1920,19 +1920,19 @@ class ComputeBackendBucketTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#create ComputeBackendBucket#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#create ComputeBackendBucket#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#delete ComputeBackendBucket#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#delete ComputeBackendBucket#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_backend_bucket#update ComputeBackendBucket#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_backend_bucket#update ComputeBackendBucket#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

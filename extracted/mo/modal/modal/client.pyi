@@ -27,11 +27,12 @@ class _Client:
     _snapshotted: bool
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "0.74.48"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "0.74.57"
     ): ...
     def is_closed(self) -> bool: ...
     @property
     def stub(self) -> modal_proto.modal_api_grpc.ModalClientModal: ...
+    async def get_stub(self, server_url: str) -> modal_proto.modal_api_grpc.ModalClientModal: ...
     async def _open(self): ...
     async def _close(self, prep_for_restore: bool = False): ...
     async def hello(self): ...
@@ -49,10 +50,10 @@ class _Client:
     def set_env_client(cls, client: typing.Optional[_Client]): ...
     async def _call_safely(self, coro, readable_method: str): ...
     async def _reset_on_pid_change(self): ...
-    async def _get_grpclib_method(self, method_name: str) -> typing.Any: ...
+    async def _get_channel(self, server_url: str) -> grpclib.client.Channel: ...
     async def _call_unary(
         self,
-        method_name: str,
+        grpclib_method: grpclib.client.UnaryUnaryMethod[RequestType, ResponseType],
         request: typing.Any,
         *,
         timeout: typing.Optional[float] = None,
@@ -64,7 +65,7 @@ class _Client:
     ) -> typing.Any: ...
     def _call_stream(
         self,
-        method_name: str,
+        grpclib_method: grpclib.client.UnaryStreamMethod[RequestType, ResponseType],
         request: typing.Any,
         *,
         metadata: typing.Union[
@@ -85,11 +86,17 @@ class Client:
     _snapshotted: bool
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "0.74.48"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "0.74.57"
     ): ...
     def is_closed(self) -> bool: ...
     @property
     def stub(self) -> modal_proto.modal_api_grpc.ModalClientModal: ...
+
+    class __get_stub_spec(typing_extensions.Protocol[SUPERSELF]):
+        def __call__(self, server_url: str) -> modal_proto.modal_api_grpc.ModalClientModal: ...
+        async def aio(self, server_url: str) -> modal_proto.modal_api_grpc.ModalClientModal: ...
+
+    get_stub: __get_stub_spec[typing_extensions.Self]
 
     class ___open_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(self): ...
@@ -136,15 +143,15 @@ class Client:
 
     _reset_on_pid_change: ___reset_on_pid_change_spec[typing_extensions.Self]
 
-    class ___get_grpclib_method_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, method_name: str) -> typing.Any: ...
-        async def aio(self, method_name: str) -> typing.Any: ...
+    class ___get_channel_spec(typing_extensions.Protocol[SUPERSELF]):
+        def __call__(self, server_url: str) -> grpclib.client.Channel: ...
+        async def aio(self, server_url: str) -> grpclib.client.Channel: ...
 
-    _get_grpclib_method: ___get_grpclib_method_spec[typing_extensions.Self]
+    _get_channel: ___get_channel_spec[typing_extensions.Self]
 
     async def _call_unary(
         self,
-        method_name: str,
+        grpclib_method: grpclib.client.UnaryUnaryMethod[RequestType, ResponseType],
         request: typing.Any,
         *,
         timeout: typing.Optional[float] = None,
@@ -156,7 +163,7 @@ class Client:
     ) -> typing.Any: ...
     def _call_stream(
         self,
-        method_name: str,
+        grpclib_method: grpclib.client.UnaryStreamMethod[RequestType, ResponseType],
         request: typing.Any,
         *,
         metadata: typing.Union[
@@ -170,7 +177,12 @@ class UnaryUnaryWrapper(typing.Generic[RequestType, ResponseType]):
     wrapped_method: grpclib.client.UnaryUnaryMethod[RequestType, ResponseType]
     client: _Client
 
-    def __init__(self, wrapped_method: grpclib.client.UnaryUnaryMethod[RequestType, ResponseType], client: _Client): ...
+    def __init__(
+        self,
+        wrapped_method: grpclib.client.UnaryUnaryMethod[RequestType, ResponseType],
+        client: _Client,
+        server_url: str,
+    ): ...
     @property
     def name(self) -> str: ...
     async def __call__(
@@ -189,7 +201,10 @@ class UnaryStreamWrapper(typing.Generic[RequestType, ResponseType]):
     wrapped_method: grpclib.client.UnaryStreamMethod[RequestType, ResponseType]
 
     def __init__(
-        self, wrapped_method: grpclib.client.UnaryStreamMethod[RequestType, ResponseType], client: _Client
+        self,
+        wrapped_method: grpclib.client.UnaryStreamMethod[RequestType, ResponseType],
+        client: _Client,
+        server_url: str,
     ): ...
     @property
     def name(self) -> str: ...

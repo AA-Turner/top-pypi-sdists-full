@@ -1,7 +1,7 @@
 r'''
 # `google_netapp_volume_replication`
 
-Refer to the Terraform Registry for docs: [`google_netapp_volume_replication`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication).
+Refer to the Terraform Registry for docs: [`google_netapp_volume_replication`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetappVolumeReplication(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.netappVolumeReplication.NetappVolumeReplication",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication google_netapp_volume_replication}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication google_netapp_volume_replication}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class NetappVolumeReplication(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication google_netapp_volume_replication} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication google_netapp_volume_replication} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Name of region for this resource. The resource needs to be created in the region of the destination volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#location NetappVolumeReplication#location}
-        :param name: The name of the replication. Needs to be unique per location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#name NetappVolumeReplication#name}
-        :param replication_schedule: Specifies the replication interval. Possible values: ["EVERY_10_MINUTES", "HOURLY", "DAILY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#replication_schedule NetappVolumeReplication#replication_schedule}
-        :param volume_name: The name of the existing source volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#volume_name NetappVolumeReplication#volume_name}
-        :param delete_destination_volume: A destination volume is created as part of replication creation. The destination volume will not became under Terraform management unless you import it manually. If you delete the replication, this volume will remain. Setting this parameter to true will delete the *current* destination volume when destroying the replication. If you reversed the replication direction, this will be your former source volume! For production use, it is recommended to keep this parameter false to avoid accidental volume deletion. Handle with care. Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#delete_destination_volume NetappVolumeReplication#delete_destination_volume}
-        :param description: An description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#description NetappVolumeReplication#description}
-        :param destination_volume_parameters: destination_volume_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#destination_volume_parameters NetappVolumeReplication#destination_volume_parameters}
-        :param force_stopping: Only replications with mirror_state=MIRRORED can be stopped. A replication in mirror_state=TRANSFERRING currently receives an update and stopping the update might be undesirable. Set this parameter to true to stop anyway. All data transferred to the destination will be discarded and content of destination volume will remain at the state of the last successful update. Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#force_stopping NetappVolumeReplication#force_stopping}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#id NetappVolumeReplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#labels NetappVolumeReplication#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#project NetappVolumeReplication#project}.
-        :param replication_enabled: Set to false to stop/break the mirror. Stopping the mirror makes the destination volume read-write and act independently from the source volume. Set to true to enable/resume the mirror. WARNING: Resuming a mirror overwrites any changes done to the destination volume with the content of the source volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#replication_enabled NetappVolumeReplication#replication_enabled}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#timeouts NetappVolumeReplication#timeouts}
-        :param wait_for_mirror: Replication resource state is independent of mirror_state. With enough data, it can take many hours for mirror_state to reach MIRRORED. If you want Terraform to wait for the mirror to finish on create/stop/resume operations, set this parameter to true. Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#wait_for_mirror NetappVolumeReplication#wait_for_mirror}
+        :param location: Name of region for this resource. The resource needs to be created in the region of the destination volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#location NetappVolumeReplication#location}
+        :param name: The name of the replication. Needs to be unique per location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#name NetappVolumeReplication#name}
+        :param replication_schedule: Specifies the replication interval. Possible values: ["EVERY_10_MINUTES", "HOURLY", "DAILY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#replication_schedule NetappVolumeReplication#replication_schedule}
+        :param volume_name: The name of the existing source volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#volume_name NetappVolumeReplication#volume_name}
+        :param delete_destination_volume: A destination volume is created as part of replication creation. The destination volume will not became under Terraform management unless you import it manually. If you delete the replication, this volume will remain. Setting this parameter to true will delete the *current* destination volume when destroying the replication. If you reversed the replication direction, this will be your former source volume! For production use, it is recommended to keep this parameter false to avoid accidental volume deletion. Handle with care. Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#delete_destination_volume NetappVolumeReplication#delete_destination_volume}
+        :param description: An description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#description NetappVolumeReplication#description}
+        :param destination_volume_parameters: destination_volume_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#destination_volume_parameters NetappVolumeReplication#destination_volume_parameters}
+        :param force_stopping: Only replications with mirror_state=MIRRORED can be stopped. A replication in mirror_state=TRANSFERRING currently receives an update and stopping the update might be undesirable. Set this parameter to true to stop anyway. All data transferred to the destination will be discarded and content of destination volume will remain at the state of the last successful update. Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#force_stopping NetappVolumeReplication#force_stopping}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#id NetappVolumeReplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#labels NetappVolumeReplication#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#project NetappVolumeReplication#project}.
+        :param replication_enabled: Set to false to stop/break the mirror. Stopping the mirror makes the destination volume read-write and act independently from the source volume. Set to true to enable/resume the mirror. WARNING: Resuming a mirror overwrites any changes done to the destination volume with the content of the source volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#replication_enabled NetappVolumeReplication#replication_enabled}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#timeouts NetappVolumeReplication#timeouts}
+        :param wait_for_mirror: Replication resource state is independent of mirror_state. With enough data, it can take many hours for mirror_state to reach MIRRORED. If you want Terraform to wait for the mirror to finish on create/stop/resume operations, set this parameter to true. Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#wait_for_mirror NetappVolumeReplication#wait_for_mirror}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class NetappVolumeReplication(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetappVolumeReplication to import.
-        :param import_from_id: The id of the existing NetappVolumeReplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetappVolumeReplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetappVolumeReplication to import is found.
         '''
         if __debug__:
@@ -164,11 +164,11 @@ class NetappVolumeReplication(
         volume_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param storage_pool: Name of an existing storage pool for the destination volume with format: 'projects/{{project}}/locations/{{location}}/storagePools/{{poolId}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#storage_pool NetappVolumeReplication#storage_pool}
-        :param description: Description for the destination volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#description NetappVolumeReplication#description}
-        :param share_name: Share name for destination volume. If not specified, name of source volume's share name will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#share_name NetappVolumeReplication#share_name}
-        :param tiering_policy: tiering_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#tiering_policy NetappVolumeReplication#tiering_policy}
-        :param volume_id: Name for the destination volume to be created. If not specified, the name of the source volume will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#volume_id NetappVolumeReplication#volume_id}
+        :param storage_pool: Name of an existing storage pool for the destination volume with format: 'projects/{{project}}/locations/{{location}}/storagePools/{{poolId}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#storage_pool NetappVolumeReplication#storage_pool}
+        :param description: Description for the destination volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#description NetappVolumeReplication#description}
+        :param share_name: Share name for destination volume. If not specified, name of source volume's share name will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#share_name NetappVolumeReplication#share_name}
+        :param tiering_policy: tiering_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#tiering_policy NetappVolumeReplication#tiering_policy}
+        :param volume_id: Name for the destination volume to be created. If not specified, the name of the source volume will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#volume_id NetappVolumeReplication#volume_id}
         '''
         value = NetappVolumeReplicationDestinationVolumeParameters(
             storage_pool=storage_pool,
@@ -189,9 +189,9 @@ class NetappVolumeReplication(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#create NetappVolumeReplication#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#delete NetappVolumeReplication#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#update NetappVolumeReplication#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#create NetappVolumeReplication#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#delete NetappVolumeReplication#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#update NetappVolumeReplication#update}.
         '''
         value = NetappVolumeReplicationTimeouts(
             create=create, delete=delete, update=update
@@ -629,20 +629,20 @@ class NetappVolumeReplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Name of region for this resource. The resource needs to be created in the region of the destination volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#location NetappVolumeReplication#location}
-        :param name: The name of the replication. Needs to be unique per location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#name NetappVolumeReplication#name}
-        :param replication_schedule: Specifies the replication interval. Possible values: ["EVERY_10_MINUTES", "HOURLY", "DAILY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#replication_schedule NetappVolumeReplication#replication_schedule}
-        :param volume_name: The name of the existing source volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#volume_name NetappVolumeReplication#volume_name}
-        :param delete_destination_volume: A destination volume is created as part of replication creation. The destination volume will not became under Terraform management unless you import it manually. If you delete the replication, this volume will remain. Setting this parameter to true will delete the *current* destination volume when destroying the replication. If you reversed the replication direction, this will be your former source volume! For production use, it is recommended to keep this parameter false to avoid accidental volume deletion. Handle with care. Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#delete_destination_volume NetappVolumeReplication#delete_destination_volume}
-        :param description: An description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#description NetappVolumeReplication#description}
-        :param destination_volume_parameters: destination_volume_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#destination_volume_parameters NetappVolumeReplication#destination_volume_parameters}
-        :param force_stopping: Only replications with mirror_state=MIRRORED can be stopped. A replication in mirror_state=TRANSFERRING currently receives an update and stopping the update might be undesirable. Set this parameter to true to stop anyway. All data transferred to the destination will be discarded and content of destination volume will remain at the state of the last successful update. Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#force_stopping NetappVolumeReplication#force_stopping}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#id NetappVolumeReplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#labels NetappVolumeReplication#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#project NetappVolumeReplication#project}.
-        :param replication_enabled: Set to false to stop/break the mirror. Stopping the mirror makes the destination volume read-write and act independently from the source volume. Set to true to enable/resume the mirror. WARNING: Resuming a mirror overwrites any changes done to the destination volume with the content of the source volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#replication_enabled NetappVolumeReplication#replication_enabled}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#timeouts NetappVolumeReplication#timeouts}
-        :param wait_for_mirror: Replication resource state is independent of mirror_state. With enough data, it can take many hours for mirror_state to reach MIRRORED. If you want Terraform to wait for the mirror to finish on create/stop/resume operations, set this parameter to true. Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#wait_for_mirror NetappVolumeReplication#wait_for_mirror}
+        :param location: Name of region for this resource. The resource needs to be created in the region of the destination volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#location NetappVolumeReplication#location}
+        :param name: The name of the replication. Needs to be unique per location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#name NetappVolumeReplication#name}
+        :param replication_schedule: Specifies the replication interval. Possible values: ["EVERY_10_MINUTES", "HOURLY", "DAILY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#replication_schedule NetappVolumeReplication#replication_schedule}
+        :param volume_name: The name of the existing source volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#volume_name NetappVolumeReplication#volume_name}
+        :param delete_destination_volume: A destination volume is created as part of replication creation. The destination volume will not became under Terraform management unless you import it manually. If you delete the replication, this volume will remain. Setting this parameter to true will delete the *current* destination volume when destroying the replication. If you reversed the replication direction, this will be your former source volume! For production use, it is recommended to keep this parameter false to avoid accidental volume deletion. Handle with care. Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#delete_destination_volume NetappVolumeReplication#delete_destination_volume}
+        :param description: An description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#description NetappVolumeReplication#description}
+        :param destination_volume_parameters: destination_volume_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#destination_volume_parameters NetappVolumeReplication#destination_volume_parameters}
+        :param force_stopping: Only replications with mirror_state=MIRRORED can be stopped. A replication in mirror_state=TRANSFERRING currently receives an update and stopping the update might be undesirable. Set this parameter to true to stop anyway. All data transferred to the destination will be discarded and content of destination volume will remain at the state of the last successful update. Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#force_stopping NetappVolumeReplication#force_stopping}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#id NetappVolumeReplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#labels NetappVolumeReplication#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#project NetappVolumeReplication#project}.
+        :param replication_enabled: Set to false to stop/break the mirror. Stopping the mirror makes the destination volume read-write and act independently from the source volume. Set to true to enable/resume the mirror. WARNING: Resuming a mirror overwrites any changes done to the destination volume with the content of the source volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#replication_enabled NetappVolumeReplication#replication_enabled}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#timeouts NetappVolumeReplication#timeouts}
+        :param wait_for_mirror: Replication resource state is independent of mirror_state. With enough data, it can take many hours for mirror_state to reach MIRRORED. If you want Terraform to wait for the mirror to finish on create/stop/resume operations, set this parameter to true. Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#wait_for_mirror NetappVolumeReplication#wait_for_mirror}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -782,7 +782,7 @@ class NetappVolumeReplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Name of region for this resource. The resource needs to be created in the region of the destination volume.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#location NetappVolumeReplication#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#location NetappVolumeReplication#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -792,7 +792,7 @@ class NetappVolumeReplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the replication. Needs to be unique per location.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#name NetappVolumeReplication#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#name NetappVolumeReplication#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -802,7 +802,7 @@ class NetappVolumeReplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def replication_schedule(self) -> builtins.str:
         '''Specifies the replication interval. Possible values: ["EVERY_10_MINUTES", "HOURLY", "DAILY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#replication_schedule NetappVolumeReplication#replication_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#replication_schedule NetappVolumeReplication#replication_schedule}
         '''
         result = self._values.get("replication_schedule")
         assert result is not None, "Required property 'replication_schedule' is missing"
@@ -812,7 +812,7 @@ class NetappVolumeReplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def volume_name(self) -> builtins.str:
         '''The name of the existing source volume.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#volume_name NetappVolumeReplication#volume_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#volume_name NetappVolumeReplication#volume_name}
         '''
         result = self._values.get("volume_name")
         assert result is not None, "Required property 'volume_name' is missing"
@@ -832,7 +832,7 @@ class NetappVolumeReplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         For production use, it is recommended to keep this parameter false to avoid accidental volume
         deletion. Handle with care. Default is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#delete_destination_volume NetappVolumeReplication#delete_destination_volume}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#delete_destination_volume NetappVolumeReplication#delete_destination_volume}
         '''
         result = self._values.get("delete_destination_volume")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -841,7 +841,7 @@ class NetappVolumeReplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An description of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#description NetappVolumeReplication#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#description NetappVolumeReplication#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -852,7 +852,7 @@ class NetappVolumeReplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["NetappVolumeReplicationDestinationVolumeParameters"]:
         '''destination_volume_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#destination_volume_parameters NetappVolumeReplication#destination_volume_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#destination_volume_parameters NetappVolumeReplication#destination_volume_parameters}
         '''
         result = self._values.get("destination_volume_parameters")
         return typing.cast(typing.Optional["NetappVolumeReplicationDestinationVolumeParameters"], result)
@@ -868,14 +868,14 @@ class NetappVolumeReplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         to stop anyway. All data transferred to the destination will be discarded and content of destination
         volume will remain at the state of the last successful update. Default is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#force_stopping NetappVolumeReplication#force_stopping}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#force_stopping NetappVolumeReplication#force_stopping}
         '''
         result = self._values.get("force_stopping")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#id NetappVolumeReplication#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#id NetappVolumeReplication#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -890,14 +890,14 @@ class NetappVolumeReplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#labels NetappVolumeReplication#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#labels NetappVolumeReplication#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#project NetappVolumeReplication#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#project NetappVolumeReplication#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -912,7 +912,7 @@ class NetappVolumeReplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Set to true to enable/resume the mirror. WARNING: Resuming a mirror overwrites any changes
         done to the destination volume with the content of the source volume.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#replication_enabled NetappVolumeReplication#replication_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#replication_enabled NetappVolumeReplication#replication_enabled}
         '''
         result = self._values.get("replication_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -921,7 +921,7 @@ class NetappVolumeReplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["NetappVolumeReplicationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#timeouts NetappVolumeReplication#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#timeouts NetappVolumeReplication#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NetappVolumeReplicationTimeouts"], result)
@@ -936,7 +936,7 @@ class NetappVolumeReplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         for mirror_state to reach MIRRORED. If you want Terraform to wait for the mirror to finish on
         create/stop/resume operations, set this parameter to true. Default is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#wait_for_mirror NetappVolumeReplication#wait_for_mirror}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#wait_for_mirror NetappVolumeReplication#wait_for_mirror}
         '''
         result = self._values.get("wait_for_mirror")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -975,11 +975,11 @@ class NetappVolumeReplicationDestinationVolumeParameters:
         volume_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param storage_pool: Name of an existing storage pool for the destination volume with format: 'projects/{{project}}/locations/{{location}}/storagePools/{{poolId}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#storage_pool NetappVolumeReplication#storage_pool}
-        :param description: Description for the destination volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#description NetappVolumeReplication#description}
-        :param share_name: Share name for destination volume. If not specified, name of source volume's share name will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#share_name NetappVolumeReplication#share_name}
-        :param tiering_policy: tiering_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#tiering_policy NetappVolumeReplication#tiering_policy}
-        :param volume_id: Name for the destination volume to be created. If not specified, the name of the source volume will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#volume_id NetappVolumeReplication#volume_id}
+        :param storage_pool: Name of an existing storage pool for the destination volume with format: 'projects/{{project}}/locations/{{location}}/storagePools/{{poolId}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#storage_pool NetappVolumeReplication#storage_pool}
+        :param description: Description for the destination volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#description NetappVolumeReplication#description}
+        :param share_name: Share name for destination volume. If not specified, name of source volume's share name will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#share_name NetappVolumeReplication#share_name}
+        :param tiering_policy: tiering_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#tiering_policy NetappVolumeReplication#tiering_policy}
+        :param volume_id: Name for the destination volume to be created. If not specified, the name of the source volume will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#volume_id NetappVolumeReplication#volume_id}
         '''
         if isinstance(tiering_policy, dict):
             tiering_policy = NetappVolumeReplicationDestinationVolumeParametersTieringPolicy(**tiering_policy)
@@ -1006,7 +1006,7 @@ class NetappVolumeReplicationDestinationVolumeParameters:
     def storage_pool(self) -> builtins.str:
         '''Name of an existing storage pool for the destination volume with format: 'projects/{{project}}/locations/{{location}}/storagePools/{{poolId}}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#storage_pool NetappVolumeReplication#storage_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#storage_pool NetappVolumeReplication#storage_pool}
         '''
         result = self._values.get("storage_pool")
         assert result is not None, "Required property 'storage_pool' is missing"
@@ -1016,7 +1016,7 @@ class NetappVolumeReplicationDestinationVolumeParameters:
     def description(self) -> typing.Optional[builtins.str]:
         '''Description for the destination volume.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#description NetappVolumeReplication#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#description NetappVolumeReplication#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1025,7 +1025,7 @@ class NetappVolumeReplicationDestinationVolumeParameters:
     def share_name(self) -> typing.Optional[builtins.str]:
         '''Share name for destination volume. If not specified, name of source volume's share name will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#share_name NetappVolumeReplication#share_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#share_name NetappVolumeReplication#share_name}
         '''
         result = self._values.get("share_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1036,7 +1036,7 @@ class NetappVolumeReplicationDestinationVolumeParameters:
     ) -> typing.Optional["NetappVolumeReplicationDestinationVolumeParametersTieringPolicy"]:
         '''tiering_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#tiering_policy NetappVolumeReplication#tiering_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#tiering_policy NetappVolumeReplication#tiering_policy}
         '''
         result = self._values.get("tiering_policy")
         return typing.cast(typing.Optional["NetappVolumeReplicationDestinationVolumeParametersTieringPolicy"], result)
@@ -1047,7 +1047,7 @@ class NetappVolumeReplicationDestinationVolumeParameters:
 
         If not specified, the name of the source volume will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#volume_id NetappVolumeReplication#volume_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#volume_id NetappVolumeReplication#volume_id}
         '''
         result = self._values.get("volume_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1092,8 +1092,8 @@ class NetappVolumeReplicationDestinationVolumeParametersOutputReference(
         tier_action: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cooling_threshold_days: Optional. Time in days to mark the volume's data block as cold and make it eligible for tiering, can be range from 2-183. Default is 31. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#cooling_threshold_days NetappVolumeReplication#cooling_threshold_days}
-        :param tier_action: Optional. Flag indicating if the volume has tiering policy enable/pause. Default is PAUSED. Default value: "PAUSED" Possible values: ["ENABLED", "PAUSED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#tier_action NetappVolumeReplication#tier_action}
+        :param cooling_threshold_days: Optional. Time in days to mark the volume's data block as cold and make it eligible for tiering, can be range from 2-183. Default is 31. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#cooling_threshold_days NetappVolumeReplication#cooling_threshold_days}
+        :param tier_action: Optional. Flag indicating if the volume has tiering policy enable/pause. Default is PAUSED. Default value: "PAUSED" Possible values: ["ENABLED", "PAUSED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#tier_action NetappVolumeReplication#tier_action}
         '''
         value = NetappVolumeReplicationDestinationVolumeParametersTieringPolicy(
             cooling_threshold_days=cooling_threshold_days, tier_action=tier_action
@@ -1233,8 +1233,8 @@ class NetappVolumeReplicationDestinationVolumeParametersTieringPolicy:
         tier_action: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cooling_threshold_days: Optional. Time in days to mark the volume's data block as cold and make it eligible for tiering, can be range from 2-183. Default is 31. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#cooling_threshold_days NetappVolumeReplication#cooling_threshold_days}
-        :param tier_action: Optional. Flag indicating if the volume has tiering policy enable/pause. Default is PAUSED. Default value: "PAUSED" Possible values: ["ENABLED", "PAUSED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#tier_action NetappVolumeReplication#tier_action}
+        :param cooling_threshold_days: Optional. Time in days to mark the volume's data block as cold and make it eligible for tiering, can be range from 2-183. Default is 31. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#cooling_threshold_days NetappVolumeReplication#cooling_threshold_days}
+        :param tier_action: Optional. Flag indicating if the volume has tiering policy enable/pause. Default is PAUSED. Default value: "PAUSED" Possible values: ["ENABLED", "PAUSED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#tier_action NetappVolumeReplication#tier_action}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__082b6bd103df72c66a36597d53d3d2fa9340b8533b01bf1c15b130da38c0090a)
@@ -1253,7 +1253,7 @@ class NetappVolumeReplicationDestinationVolumeParametersTieringPolicy:
         Time in days to mark the volume's data block as cold and make it eligible for tiering, can be range from 2-183.
         Default is 31.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#cooling_threshold_days NetappVolumeReplication#cooling_threshold_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#cooling_threshold_days NetappVolumeReplication#cooling_threshold_days}
         '''
         result = self._values.get("cooling_threshold_days")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1264,7 +1264,7 @@ class NetappVolumeReplicationDestinationVolumeParametersTieringPolicy:
 
         Flag indicating if the volume has tiering policy enable/pause. Default is PAUSED. Default value: "PAUSED" Possible values: ["ENABLED", "PAUSED"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#tier_action NetappVolumeReplication#tier_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#tier_action NetappVolumeReplication#tier_action}
         '''
         result = self._values.get("tier_action")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1375,9 +1375,9 @@ class NetappVolumeReplicationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#create NetappVolumeReplication#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#delete NetappVolumeReplication#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#update NetappVolumeReplication#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#create NetappVolumeReplication#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#delete NetappVolumeReplication#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#update NetappVolumeReplication#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__32f4c3142711d87440d3c3a6afad4ca83dfd08a028894019055114523822f816)
@@ -1394,19 +1394,19 @@ class NetappVolumeReplicationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#create NetappVolumeReplication#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#create NetappVolumeReplication#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#delete NetappVolumeReplication#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#delete NetappVolumeReplication#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume_replication#update NetappVolumeReplication#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume_replication#update NetappVolumeReplication#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

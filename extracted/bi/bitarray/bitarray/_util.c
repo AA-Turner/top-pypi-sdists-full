@@ -145,10 +145,10 @@ zeros(PyObject *module, PyObject *args, PyObject *kwds)
 }
 
 PyDoc_STRVAR(zeros_doc,
-"zeros(length, /, endian=None) -> bitarray\n\
+"zeros(n, /, endian=None) -> bitarray\n\
 \n\
-Create a bitarray of length, with all values 0, and optional\n\
-bit-endianness, which may be 'big', 'little'.");
+Create a bitarray of length `n`, with all values `0`, and optional\n\
+bit-endianness (`little` or `big`).");
 
 
 static PyObject *
@@ -166,10 +166,10 @@ ones(PyObject *module, PyObject *args, PyObject *kwds)
 }
 
 PyDoc_STRVAR(ones_doc,
-"ones(length, /, endian=None) -> bitarray\n\
+"ones(n, /, endian=None) -> bitarray\n\
 \n\
-Create a bitarray of length, with all values 1, and optional\n\
-bit-endianness, which may be 'big', 'little'.");
+Create a bitarray of length `n`, with all values `1`, and optional\n\
+bit-endianness (`little` or `big`).");
 
 /* ------------------------------- count_n ----------------------------- */
 
@@ -423,7 +423,7 @@ correspond_all(PyObject *module, PyObject *args)
     uint64_t u, v, not_u, not_v;
     int rbits;
 
-    if (!PyArg_ParseTuple(args, "O!O!:_correspond_all",
+    if (!PyArg_ParseTuple(args, "O!O!:correspond_all",
                           bitarray_type_obj, (PyObject *) &a,
                           bitarray_type_obj, (PyObject *) &b))
         return NULL;
@@ -459,9 +459,86 @@ correspond_all(PyObject *module, PyObject *args)
 }
 
 PyDoc_STRVAR(correspond_all_doc,
-"_correspond_all(a, b, /) -> tuple\n\
+"correspond_all(a, b, /) -> tuple\n\
 \n\
 Return tuple with counts of: ~a & ~b, ~a & b, a & ~b, a & b");
+
+
+static void
+byteswap_core(Py_buffer view, Py_ssize_t n)
+{
+    char *buff = view.buf;
+    Py_ssize_t m = view.len / n, k;
+
+    assert(n >= 1 && n * m == view.len);
+
+    if (n == 8 && HAVE_BUILTIN_BSWAP64) {
+        uint64_t *w = (uint64_t *) buff;
+        for (k = 0; k < m; k++)
+            w[k] = builtin_bswap64(w[k]);
+    }
+#if (defined(__clang__) || (defined(__GNUC__) && (__GNUC__ >= 5)))
+    else if (n == 4) {
+        uint32_t *w = (uint32_t *) buff;
+        for (k = 0; k < m; k++)
+            w[k] = __builtin_bswap32(w[k]);
+    }
+    else if (n == 2) {
+        uint16_t *w = (uint16_t *) buff;
+        for (k = 0; k < m; k++)
+            w[k] = __builtin_bswap16(w[k]);
+    }
+#endif
+    else if (n >= 2) {
+        for (k = 0; k < view.len; k += n)
+            swap_bytes(buff + k, n);
+    }
+}
+
+static PyObject *
+byteswap(PyObject *module, PyObject *args)
+{
+    PyObject *buffer;
+    Py_buffer view;
+    Py_ssize_t n = 0;
+
+    if (!PyArg_ParseTuple(args, "O|n:byteswap", &buffer, &n))
+        return NULL;
+
+    if (PyObject_GetBuffer(buffer, &view, PyBUF_SIMPLE | PyBUF_WRITABLE) < 0)
+        return NULL;
+
+    if (n == 0)
+        /* avoid n = 0 as 0 % n fails on some compilers */
+        n = Py_MAX(1, view.len);
+
+    if (n < 1) {
+        PyErr_Format(PyExc_ValueError, "positive int expect, got %zd", n);
+        goto error;
+    }
+    if (view.len % n) {
+        PyErr_Format(PyExc_ValueError, "buffer size %zd not multiple of %zd",
+                     view.len, n);
+        goto error;
+    }
+
+    byteswap_core(view, n);
+
+    PyBuffer_Release(&view);
+    Py_RETURN_NONE;
+ error:
+    PyBuffer_Release(&view);
+    return NULL;
+}
+
+PyDoc_STRVAR(byteswap_doc,
+"byteswap(a, /, n=<buffer size>)\n\
+\n\
+Reverse every `n` consecutive bytes of `a` in-place.\n\
+By default, all bytes are reversed.  Note that `n` is not limited to 2, 4\n\
+or 8, but can be any positive integer.\n\
+Also, `a` may be any object that exposes a writeable buffer.\n\
+Nothing about this function is specific to bitarray objects.");
 
 /* ---------------------------- serialization -------------------------- */
 
@@ -1969,9 +2046,10 @@ static PyMethodDef module_functions[] = {
     {"count_xor", (PyCFunction) count_xor, METH_VARARGS, count_xor_doc},
     {"any_and",   (PyCFunction) any_and,   METH_VARARGS, any_and_doc},
     {"subset",    (PyCFunction) subset,    METH_VARARGS, subset_doc},
-    {"_correspond_all",
+    {"correspond_all",
                   (PyCFunction) correspond_all,
                                            METH_VARARGS, correspond_all_doc},
+    {"byteswap",  (PyCFunction) byteswap,  METH_VARARGS, byteswap_doc},
     {"serialize", (PyCFunction) serialize, METH_O,       serialize_doc},
     {"deserialize",
                   (PyCFunction) deserialize,

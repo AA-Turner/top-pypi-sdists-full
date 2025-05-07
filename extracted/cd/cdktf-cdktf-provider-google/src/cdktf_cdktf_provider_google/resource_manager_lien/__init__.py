@@ -1,7 +1,7 @@
 r'''
 # `google_resource_manager_lien`
 
-Refer to the Terraform Registry for docs: [`google_resource_manager_lien`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien).
+Refer to the Terraform Registry for docs: [`google_resource_manager_lien`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ResourceManagerLien(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.resourceManagerLien.ResourceManagerLien",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien google_resource_manager_lien}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien google_resource_manager_lien}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class ResourceManagerLien(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien google_resource_manager_lien} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien google_resource_manager_lien} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param origin: A stable, user-visible/meaningful string identifying the origin of the Lien, intended to be inspected programmatically. Maximum length of 200 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#origin ResourceManagerLien#origin}
-        :param parent: A reference to the resource this Lien is attached to. The server will validate the parent against those for which Liens are supported. Since a variety of objects can have Liens against them, you must provide the type prefix (e.g. "projects/my-project-name"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#parent ResourceManagerLien#parent}
-        :param reason: Concise user-visible strings indicating why an action cannot be performed on a resource. Maximum length of 200 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#reason ResourceManagerLien#reason}
-        :param restrictions: The types of operations which should be blocked as a result of this Lien. Each value should correspond to an IAM permission. The server will validate the permissions against those for which Liens are supported. An empty list is meaningless and will be rejected. e.g. ['resourcemanager.projects.delete'] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#restrictions ResourceManagerLien#restrictions}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#id ResourceManagerLien#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#timeouts ResourceManagerLien#timeouts}
+        :param origin: A stable, user-visible/meaningful string identifying the origin of the Lien, intended to be inspected programmatically. Maximum length of 200 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#origin ResourceManagerLien#origin}
+        :param parent: A reference to the resource this Lien is attached to. The server will validate the parent against those for which Liens are supported. Since a variety of objects can have Liens against them, you must provide the type prefix (e.g. "projects/my-project-name"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#parent ResourceManagerLien#parent}
+        :param reason: Concise user-visible strings indicating why an action cannot be performed on a resource. Maximum length of 200 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#reason ResourceManagerLien#reason}
+        :param restrictions: The types of operations which should be blocked as a result of this Lien. Each value should correspond to an IAM permission. The server will validate the permissions against those for which Liens are supported. An empty list is meaningless and will be rejected. e.g. ['resourcemanager.projects.delete'] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#restrictions ResourceManagerLien#restrictions}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#id ResourceManagerLien#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#timeouts ResourceManagerLien#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class ResourceManagerLien(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ResourceManagerLien to import.
-        :param import_from_id: The id of the existing ResourceManagerLien that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ResourceManagerLien that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ResourceManagerLien to import is found.
         '''
         if __debug__:
@@ -137,8 +137,8 @@ class ResourceManagerLien(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#create ResourceManagerLien#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#delete ResourceManagerLien#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#create ResourceManagerLien#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#delete ResourceManagerLien#delete}.
         '''
         value = ResourceManagerLienTimeouts(create=create, delete=delete)
 
@@ -318,12 +318,12 @@ class ResourceManagerLienConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param origin: A stable, user-visible/meaningful string identifying the origin of the Lien, intended to be inspected programmatically. Maximum length of 200 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#origin ResourceManagerLien#origin}
-        :param parent: A reference to the resource this Lien is attached to. The server will validate the parent against those for which Liens are supported. Since a variety of objects can have Liens against them, you must provide the type prefix (e.g. "projects/my-project-name"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#parent ResourceManagerLien#parent}
-        :param reason: Concise user-visible strings indicating why an action cannot be performed on a resource. Maximum length of 200 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#reason ResourceManagerLien#reason}
-        :param restrictions: The types of operations which should be blocked as a result of this Lien. Each value should correspond to an IAM permission. The server will validate the permissions against those for which Liens are supported. An empty list is meaningless and will be rejected. e.g. ['resourcemanager.projects.delete'] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#restrictions ResourceManagerLien#restrictions}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#id ResourceManagerLien#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#timeouts ResourceManagerLien#timeouts}
+        :param origin: A stable, user-visible/meaningful string identifying the origin of the Lien, intended to be inspected programmatically. Maximum length of 200 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#origin ResourceManagerLien#origin}
+        :param parent: A reference to the resource this Lien is attached to. The server will validate the parent against those for which Liens are supported. Since a variety of objects can have Liens against them, you must provide the type prefix (e.g. "projects/my-project-name"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#parent ResourceManagerLien#parent}
+        :param reason: Concise user-visible strings indicating why an action cannot be performed on a resource. Maximum length of 200 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#reason ResourceManagerLien#reason}
+        :param restrictions: The types of operations which should be blocked as a result of this Lien. Each value should correspond to an IAM permission. The server will validate the permissions against those for which Liens are supported. An empty list is meaningless and will be rejected. e.g. ['resourcemanager.projects.delete'] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#restrictions ResourceManagerLien#restrictions}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#id ResourceManagerLien#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#timeouts ResourceManagerLien#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -437,7 +437,7 @@ class ResourceManagerLienConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def origin(self) -> builtins.str:
         '''A stable, user-visible/meaningful string identifying the origin of the Lien, intended to be inspected programmatically. Maximum length of 200 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#origin ResourceManagerLien#origin}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#origin ResourceManagerLien#origin}
         '''
         result = self._values.get("origin")
         assert result is not None, "Required property 'origin' is missing"
@@ -451,7 +451,7 @@ class ResourceManagerLienConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Since a variety of objects can have Liens against them, you must provide the type
         prefix (e.g. "projects/my-project-name").
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#parent ResourceManagerLien#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#parent ResourceManagerLien#parent}
         '''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
@@ -461,7 +461,7 @@ class ResourceManagerLienConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def reason(self) -> builtins.str:
         '''Concise user-visible strings indicating why an action cannot be performed on a resource. Maximum length of 200 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#reason ResourceManagerLien#reason}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#reason ResourceManagerLien#reason}
         '''
         result = self._values.get("reason")
         assert result is not None, "Required property 'reason' is missing"
@@ -476,7 +476,7 @@ class ResourceManagerLienConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         list is meaningless and will be rejected.
         e.g. ['resourcemanager.projects.delete']
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#restrictions ResourceManagerLien#restrictions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#restrictions ResourceManagerLien#restrictions}
         '''
         result = self._values.get("restrictions")
         assert result is not None, "Required property 'restrictions' is missing"
@@ -484,7 +484,7 @@ class ResourceManagerLienConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#id ResourceManagerLien#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#id ResourceManagerLien#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -496,7 +496,7 @@ class ResourceManagerLienConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ResourceManagerLienTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#timeouts ResourceManagerLien#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#timeouts ResourceManagerLien#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ResourceManagerLienTimeouts"], result)
@@ -526,8 +526,8 @@ class ResourceManagerLienTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#create ResourceManagerLien#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#delete ResourceManagerLien#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#create ResourceManagerLien#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#delete ResourceManagerLien#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__db7ce8ba63482a0cfdc12d9e0a8a50b6faf4eb3f3e7dcccf44bf37fab0e08553)
@@ -541,13 +541,13 @@ class ResourceManagerLienTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#create ResourceManagerLien#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#create ResourceManagerLien#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/resource_manager_lien#delete ResourceManagerLien#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/resource_manager_lien#delete ResourceManagerLien#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

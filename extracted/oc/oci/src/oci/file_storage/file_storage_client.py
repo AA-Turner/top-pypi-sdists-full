@@ -157,7 +157,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/add_export_lock.py.html>`__ to see an example of how to use add_export_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/add_export_lock.py.html>`__ to see an example of how to use add_export_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['exportId']
@@ -270,7 +270,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/add_file_system_lock.py.html>`__ to see an example of how to use add_file_system_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/add_file_system_lock.py.html>`__ to see an example of how to use add_file_system_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fileSystemId']
@@ -383,7 +383,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/add_filesystem_snapshot_policy_lock.py.html>`__ to see an example of how to use add_filesystem_snapshot_policy_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/add_filesystem_snapshot_policy_lock.py.html>`__ to see an example of how to use add_filesystem_snapshot_policy_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['filesystemSnapshotPolicyId']
@@ -496,7 +496,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/add_mount_target_lock.py.html>`__ to see an example of how to use add_mount_target_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/add_mount_target_lock.py.html>`__ to see an example of how to use add_mount_target_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['mountTargetId']
@@ -609,7 +609,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/add_outbound_connector_lock.py.html>`__ to see an example of how to use add_outbound_connector_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/add_outbound_connector_lock.py.html>`__ to see an example of how to use add_outbound_connector_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['outboundConnectorId']
@@ -722,7 +722,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/add_replication_lock.py.html>`__ to see an example of how to use add_replication_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/add_replication_lock.py.html>`__ to see an example of how to use add_replication_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['replicationId']
@@ -835,7 +835,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/add_snapshot_lock.py.html>`__ to see an example of how to use add_snapshot_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/add_snapshot_lock.py.html>`__ to see an example of how to use add_snapshot_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['snapshotId']
@@ -945,7 +945,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/cancel_downgrade_shape_mount_target.py.html>`__ to see an example of how to use cancel_downgrade_shape_mount_target API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/cancel_downgrade_shape_mount_target.py.html>`__ to see an example of how to use cancel_downgrade_shape_mount_target API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['mountTargetId']
@@ -1061,7 +1061,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/change_file_system_compartment.py.html>`__ to see an example of how to use change_file_system_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/change_file_system_compartment.py.html>`__ to see an example of how to use change_file_system_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fileSystemId']
@@ -1185,7 +1185,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/change_filesystem_snapshot_policy_compartment.py.html>`__ to see an example of how to use change_filesystem_snapshot_policy_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/change_filesystem_snapshot_policy_compartment.py.html>`__ to see an example of how to use change_filesystem_snapshot_policy_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['filesystemSnapshotPolicyId']
@@ -1309,7 +1309,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/change_mount_target_compartment.py.html>`__ to see an example of how to use change_mount_target_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/change_mount_target_compartment.py.html>`__ to see an example of how to use change_mount_target_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['mountTargetId']
@@ -1435,7 +1435,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/change_outbound_connector_compartment.py.html>`__ to see an example of how to use change_outbound_connector_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/change_outbound_connector_compartment.py.html>`__ to see an example of how to use change_outbound_connector_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['outboundConnectorId']
@@ -1560,7 +1560,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/change_replication_compartment.py.html>`__ to see an example of how to use change_replication_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/change_replication_compartment.py.html>`__ to see an example of how to use change_replication_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['replicationId']
@@ -1675,7 +1675,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/create_export.py.html>`__ to see an example of how to use create_export API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/create_export.py.html>`__ to see an example of how to use create_export API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1805,7 +1805,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/create_file_system.py.html>`__ to see an example of how to use create_file_system API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/create_file_system.py.html>`__ to see an example of how to use create_file_system API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1906,7 +1906,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/create_filesystem_snapshot_policy.py.html>`__ to see an example of how to use create_filesystem_snapshot_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/create_filesystem_snapshot_policy.py.html>`__ to see an example of how to use create_filesystem_snapshot_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2041,7 +2041,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/create_mount_target.py.html>`__ to see an example of how to use create_mount_target API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/create_mount_target.py.html>`__ to see an example of how to use create_mount_target API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2169,7 +2169,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/create_outbound_connector.py.html>`__ to see an example of how to use create_outbound_connector API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/create_outbound_connector.py.html>`__ to see an example of how to use create_outbound_connector API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2279,7 +2279,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/create_quota_rule.py.html>`__ to see an example of how to use create_quota_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/create_quota_rule.py.html>`__ to see an example of how to use create_quota_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fileSystemId']
@@ -2421,7 +2421,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/create_replication.py.html>`__ to see an example of how to use create_replication API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/create_replication.py.html>`__ to see an example of how to use create_replication API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2519,7 +2519,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/create_snapshot.py.html>`__ to see an example of how to use create_snapshot API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/create_snapshot.py.html>`__ to see an example of how to use create_snapshot API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2621,7 +2621,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/delete_export.py.html>`__ to see an example of how to use delete_export API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/delete_export.py.html>`__ to see an example of how to use delete_export API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['exportId']
@@ -2744,7 +2744,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/delete_file_system.py.html>`__ to see an example of how to use delete_file_system API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/delete_file_system.py.html>`__ to see an example of how to use delete_file_system API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fileSystemId']
@@ -2863,7 +2863,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/delete_filesystem_snapshot_policy.py.html>`__ to see an example of how to use delete_filesystem_snapshot_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/delete_filesystem_snapshot_policy.py.html>`__ to see an example of how to use delete_filesystem_snapshot_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['filesystemSnapshotPolicyId']
@@ -2981,7 +2981,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/delete_mount_target.py.html>`__ to see an example of how to use delete_mount_target API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/delete_mount_target.py.html>`__ to see an example of how to use delete_mount_target API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['mountTargetId']
@@ -3098,7 +3098,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/delete_outbound_connector.py.html>`__ to see an example of how to use delete_outbound_connector API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/delete_outbound_connector.py.html>`__ to see an example of how to use delete_outbound_connector API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['outboundConnectorId']
@@ -3215,7 +3215,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/delete_quota_rule.py.html>`__ to see an example of how to use delete_quota_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/delete_quota_rule.py.html>`__ to see an example of how to use delete_quota_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fileSystemId', 'quotaRuleId']
@@ -3333,7 +3333,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/delete_replication.py.html>`__ to see an example of how to use delete_replication API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/delete_replication.py.html>`__ to see an example of how to use delete_replication API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['replicationId']
@@ -3462,7 +3462,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/delete_replication_target.py.html>`__ to see an example of how to use delete_replication_target API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/delete_replication_target.py.html>`__ to see an example of how to use delete_replication_target API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['replicationTargetId']
@@ -3579,7 +3579,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/delete_snapshot.py.html>`__ to see an example of how to use delete_snapshot API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/delete_snapshot.py.html>`__ to see an example of how to use delete_snapshot API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['snapshotId']
@@ -3693,7 +3693,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/detach_clone.py.html>`__ to see an example of how to use detach_clone API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/detach_clone.py.html>`__ to see an example of how to use detach_clone API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fileSystemId']
@@ -3802,7 +3802,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/estimate_replication.py.html>`__ to see an example of how to use estimate_replication API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/estimate_replication.py.html>`__ to see an example of how to use estimate_replication API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fileSystemId']
@@ -3911,7 +3911,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/get_export.py.html>`__ to see an example of how to use get_export API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/get_export.py.html>`__ to see an example of how to use get_export API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['exportId']
@@ -4010,7 +4010,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/get_export_set.py.html>`__ to see an example of how to use get_export_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/get_export_set.py.html>`__ to see an example of how to use get_export_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['exportSetId']
@@ -4109,7 +4109,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/get_file_system.py.html>`__ to see an example of how to use get_file_system API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/get_file_system.py.html>`__ to see an example of how to use get_file_system API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fileSystemId']
@@ -4208,7 +4208,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/get_filesystem_snapshot_policy.py.html>`__ to see an example of how to use get_filesystem_snapshot_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/get_filesystem_snapshot_policy.py.html>`__ to see an example of how to use get_filesystem_snapshot_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['filesystemSnapshotPolicyId']
@@ -4307,7 +4307,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/get_mount_target.py.html>`__ to see an example of how to use get_mount_target API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/get_mount_target.py.html>`__ to see an example of how to use get_mount_target API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['mountTargetId']
@@ -4406,7 +4406,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/get_outbound_connector.py.html>`__ to see an example of how to use get_outbound_connector API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/get_outbound_connector.py.html>`__ to see an example of how to use get_outbound_connector API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['outboundConnectorId']
@@ -4515,7 +4515,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/get_quota_rule.py.html>`__ to see an example of how to use get_quota_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/get_quota_rule.py.html>`__ to see an example of how to use get_quota_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fileSystemId', 'quotaRuleId']
@@ -4617,7 +4617,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/get_replication.py.html>`__ to see an example of how to use get_replication API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/get_replication.py.html>`__ to see an example of how to use get_replication API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['replicationId']
@@ -4716,7 +4716,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/get_replication_target.py.html>`__ to see an example of how to use get_replication_target API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/get_replication_target.py.html>`__ to see an example of how to use get_replication_target API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['replicationTargetId']
@@ -4815,7 +4815,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/get_snapshot.py.html>`__ to see an example of how to use get_snapshot API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/get_snapshot.py.html>`__ to see an example of how to use get_snapshot API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['snapshotId']
@@ -4972,7 +4972,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/list_export_sets.py.html>`__ to see an example of how to use list_export_sets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/list_export_sets.py.html>`__ to see an example of how to use list_export_sets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'availabilityDomain']
@@ -5162,7 +5162,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/list_exports.py.html>`__ to see an example of how to use list_exports API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/list_exports.py.html>`__ to see an example of how to use list_exports API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -5371,7 +5371,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/list_file_systems.py.html>`__ to see an example of how to use list_file_systems API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/list_file_systems.py.html>`__ to see an example of how to use list_file_systems API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'availabilityDomain']
@@ -5565,7 +5565,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/list_filesystem_snapshot_policies.py.html>`__ to see an example of how to use list_filesystem_snapshot_policies API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/list_filesystem_snapshot_policies.py.html>`__ to see an example of how to use list_filesystem_snapshot_policies API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'availabilityDomain']
@@ -5758,7 +5758,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/list_mount_targets.py.html>`__ to see an example of how to use list_mount_targets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/list_mount_targets.py.html>`__ to see an example of how to use list_mount_targets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'availabilityDomain']
@@ -5948,7 +5948,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/list_outbound_connectors.py.html>`__ to see an example of how to use list_outbound_connectors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/list_outbound_connectors.py.html>`__ to see an example of how to use list_outbound_connectors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'availabilityDomain']
@@ -6128,7 +6128,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/list_quota_rules.py.html>`__ to see an example of how to use list_quota_rules API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/list_quota_rules.py.html>`__ to see an example of how to use list_quota_rules API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fileSystemId', 'principalType']
@@ -6317,7 +6317,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/list_replication_targets.py.html>`__ to see an example of how to use list_replication_targets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/list_replication_targets.py.html>`__ to see an example of how to use list_replication_targets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'availabilityDomain']
@@ -6510,7 +6510,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/list_replications.py.html>`__ to see an example of how to use list_replications API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/list_replications.py.html>`__ to see an example of how to use list_replications API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'availabilityDomain']
@@ -6699,7 +6699,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/list_snapshots.py.html>`__ to see an example of how to use list_snapshots API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/list_snapshots.py.html>`__ to see an example of how to use list_snapshots API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -6837,7 +6837,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/pause_filesystem_snapshot_policy.py.html>`__ to see an example of how to use pause_filesystem_snapshot_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/pause_filesystem_snapshot_policy.py.html>`__ to see an example of how to use pause_filesystem_snapshot_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['filesystemSnapshotPolicyId']
@@ -6956,7 +6956,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/remove_export_lock.py.html>`__ to see an example of how to use remove_export_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/remove_export_lock.py.html>`__ to see an example of how to use remove_export_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['exportId']
@@ -7069,7 +7069,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/remove_file_system_lock.py.html>`__ to see an example of how to use remove_file_system_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/remove_file_system_lock.py.html>`__ to see an example of how to use remove_file_system_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fileSystemId']
@@ -7182,7 +7182,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/remove_filesystem_snapshot_policy_lock.py.html>`__ to see an example of how to use remove_filesystem_snapshot_policy_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/remove_filesystem_snapshot_policy_lock.py.html>`__ to see an example of how to use remove_filesystem_snapshot_policy_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['filesystemSnapshotPolicyId']
@@ -7295,7 +7295,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/remove_mount_target_lock.py.html>`__ to see an example of how to use remove_mount_target_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/remove_mount_target_lock.py.html>`__ to see an example of how to use remove_mount_target_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['mountTargetId']
@@ -7408,7 +7408,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/remove_outbound_connector_lock.py.html>`__ to see an example of how to use remove_outbound_connector_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/remove_outbound_connector_lock.py.html>`__ to see an example of how to use remove_outbound_connector_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['outboundConnectorId']
@@ -7521,7 +7521,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/remove_replication_lock.py.html>`__ to see an example of how to use remove_replication_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/remove_replication_lock.py.html>`__ to see an example of how to use remove_replication_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['replicationId']
@@ -7634,7 +7634,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/remove_snapshot_lock.py.html>`__ to see an example of how to use remove_snapshot_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/remove_snapshot_lock.py.html>`__ to see an example of how to use remove_snapshot_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['snapshotId']
@@ -7747,7 +7747,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/schedule_downgrade_shape_mount_target.py.html>`__ to see an example of how to use schedule_downgrade_shape_mount_target API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/schedule_downgrade_shape_mount_target.py.html>`__ to see an example of how to use schedule_downgrade_shape_mount_target API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['mountTargetId']
@@ -7869,7 +7869,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/toggle_quota_rules.py.html>`__ to see an example of how to use toggle_quota_rules API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/toggle_quota_rules.py.html>`__ to see an example of how to use toggle_quota_rules API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fileSystemId']
@@ -7987,7 +7987,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/unpause_filesystem_snapshot_policy.py.html>`__ to see an example of how to use unpause_filesystem_snapshot_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/unpause_filesystem_snapshot_policy.py.html>`__ to see an example of how to use unpause_filesystem_snapshot_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['filesystemSnapshotPolicyId']
@@ -8109,7 +8109,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/update_export.py.html>`__ to see an example of how to use update_export API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/update_export.py.html>`__ to see an example of how to use update_export API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['exportId']
@@ -8230,7 +8230,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/update_export_set.py.html>`__ to see an example of how to use update_export_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/update_export_set.py.html>`__ to see an example of how to use update_export_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['exportSetId']
@@ -8347,7 +8347,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/update_file_system.py.html>`__ to see an example of how to use update_file_system API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/update_file_system.py.html>`__ to see an example of how to use update_file_system API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fileSystemId']
@@ -8471,7 +8471,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/update_filesystem_snapshot_policy.py.html>`__ to see an example of how to use update_filesystem_snapshot_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/update_filesystem_snapshot_policy.py.html>`__ to see an example of how to use update_filesystem_snapshot_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['filesystemSnapshotPolicyId']
@@ -8595,7 +8595,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/update_mount_target.py.html>`__ to see an example of how to use update_mount_target API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/update_mount_target.py.html>`__ to see an example of how to use update_mount_target API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['mountTargetId']
@@ -8719,7 +8719,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/update_outbound_connector.py.html>`__ to see an example of how to use update_outbound_connector API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/update_outbound_connector.py.html>`__ to see an example of how to use update_outbound_connector API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['outboundConnectorId']
@@ -8843,7 +8843,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/update_quota_rule.py.html>`__ to see an example of how to use update_quota_rule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/update_quota_rule.py.html>`__ to see an example of how to use update_quota_rule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fileSystemId', 'quotaRuleId']
@@ -8960,7 +8960,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/update_replication.py.html>`__ to see an example of how to use update_replication API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/update_replication.py.html>`__ to see an example of how to use update_replication API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['replicationId']
@@ -9084,7 +9084,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/update_snapshot.py.html>`__ to see an example of how to use update_snapshot API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/update_snapshot.py.html>`__ to see an example of how to use update_snapshot API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['snapshotId']
@@ -9205,7 +9205,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/upgrade_shape_mount_target.py.html>`__ to see an example of how to use upgrade_shape_mount_target API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/upgrade_shape_mount_target.py.html>`__ to see an example of how to use upgrade_shape_mount_target API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['mountTargetId']
@@ -9308,7 +9308,7 @@ class FileStorageClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/filestorage/validate_key_tabs.py.html>`__ to see an example of how to use validate_key_tabs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/filestorage/validate_key_tabs.py.html>`__ to see an example of how to use validate_key_tabs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []

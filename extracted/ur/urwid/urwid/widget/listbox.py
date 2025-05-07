@@ -26,8 +26,6 @@ import warnings
 from collections.abc import Iterable, Sized
 from contextlib import suppress
 
-from typing_extensions import Protocol, runtime_checkable
-
 from urwid import signals
 from urwid.canvas import CanvasCombine, SolidCanvas
 
@@ -65,8 +63,8 @@ class ListWalkerError(Exception):
     pass
 
 
-@runtime_checkable
-class ScrollSupportingBody(Protocol):
+@typing.runtime_checkable
+class ScrollSupportingBody(typing.Protocol):
     """Protocol for ListWalkers."""
 
     def get_focus(self) -> tuple[Widget, _K]: ...
@@ -78,8 +76,8 @@ class ScrollSupportingBody(Protocol):
     def get_prev(self, position: _K) -> tuple[Widget, _K] | tuple[None, None]: ...
 
 
-@runtime_checkable
-class EstimatedSized(Protocol):
+@typing.runtime_checkable
+class EstimatedSized(typing.Protocol):
     """Widget can estimate it's size.
 
     PEP 424 defines API for memory-efficiency.
@@ -164,15 +162,6 @@ class SimpleListWalker(MonitoredList[_T], ListWalker):
 
         Provides compatibility with old SimpleListWalker class.
         """
-        return self
-
-    def _get_contents(self) -> Self:
-        warnings.warn(
-            f"Method `{self.__class__.__name__}._get_contents` is deprecated, "
-            f"please use property`{self.__class__.__name__}.contents`",
-            DeprecationWarning,
-            stacklevel=3,
-        )
         return self
 
     def _modified(self) -> None:
@@ -425,24 +414,6 @@ class ListBox(Widget, WidgetContainerMixin):
             # content has changed
             self.render = nocache_widget_render_instance(self)
         self._invalidate()
-
-    def _get_body(self):
-        warnings.warn(
-            f"Method `{self.__class__.__name__}._get_body` is deprecated, "
-            f"please use property `{self.__class__.__name__}.body`",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        return self.body
-
-    def _set_body(self, body):
-        warnings.warn(
-            f"Method `{self.__class__.__name__}._set_body` is deprecated, "
-            f"please use property `{self.__class__.__name__}.body`",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        self.body = body
 
     @property
     def __len__(self) -> Callable[[], int]:
@@ -873,8 +844,9 @@ class ListBox(Widget, WidgetContainerMixin):
         warnings.warn(
             "only for backwards compatibility."
             "You may also use the new standard container property `focus` to get the focus "
-            "and property `focus_position` to read these values.",
-            PendingDeprecationWarning,
+            "and property `focus_position` to read these values."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         return self._body.get_focus()
@@ -887,15 +859,6 @@ class ListBox(Widget, WidgetContainerMixin):
         Return the widget in focus according to our :obj:`list walker <ListWalker>`.
         """
         return self._body.get_focus()[0]
-
-    def _get_focus(self) -> Widget:
-        warnings.warn(
-            f"method `{self.__class__.__name__}._get_focus` is deprecated, "
-            f"please use `{self.__class__.__name__}.focus` property",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        return self.focus
 
     def _get_focus_position(self):
         """
@@ -1938,8 +1901,7 @@ class ListBox(Widget, WidgetContainerMixin):
             )
             return False
 
-        handled = w.mouse_event((maxcol,), event, button, col, row - wrow, focus)
-        if handled:
+        if w.mouse_event((maxcol,), event, button, col, row - wrow, focus):
             return True
 
         if is_mouse_press(event):
@@ -1995,8 +1957,8 @@ class ListBox(Widget, WidgetContainerMixin):
         the focus up to the top.  This is the best we can do with
         a minimal list walker implementation.
         """
-        positions_fn = getattr(self._body, "positions", None)
-        if positions_fn:
+
+        if positions_fn := getattr(self._body, "positions", None):
             yield from positions_fn()
             return
 
@@ -2026,8 +1988,8 @@ class ListBox(Widget, WidgetContainerMixin):
         reverse of what `__iter__()` produces, but this is the best we can
         do with a minimal list walker implementation.
         """
-        positions_fn = getattr(self._body, "positions", None)
-        if positions_fn:
+
+        if positions_fn := getattr(self._body, "positions", None):
             yield from positions_fn(reverse=True)
             return
 

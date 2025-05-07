@@ -38,12 +38,18 @@ class RichText(object):
         strike=False,
         font=None,
         url_id=None,
+        rtl=False,
+        lang=None,
     ):
 
         # If a RichText is added
         if isinstance(text, RichText):
             self.xml += text.xml
             return
+
+        # # If nothing to add : just return
+        # if text is None or text == "":
+        #     return
 
         # If not a string : cast to string (ex: int, dict etc...)
         if not isinstance(text, (str, bytes)):
@@ -73,8 +79,12 @@ class RichText(object):
             prop += '<w:vertAlign w:val="superscript"/>'
         if bold:
             prop += "<w:b/>"
+            if rtl:
+                prop += "<w:bCs/>"
         if italic:
             prop += "<w:i/>"
+            if rtl:
+                prop += "<w:iCs/>"
         if underline:
             if underline not in [
                 "single",
@@ -98,7 +108,10 @@ class RichText(object):
             prop += '<w:rFonts w:ascii="{font}" w:hAnsi="{font}" w:cs="{font}"{regional_font}/>'.format(
                 font=font, regional_font=regional_font
             )
-
+        if rtl:
+            prop += '<w:rtl w:val="true"/>'
+        if lang:
+            prop += '<w:lang w:val="%s"/>' % lang
         xml = "<w:r>"
         if prop:
             xml += "<w:rPr>%s</w:rPr>" % prop
@@ -120,4 +133,48 @@ class RichText(object):
         return self.xml
 
 
+class RichTextParagraph(object):
+    """class to generate Rich Text Paragraphs when using templates variables
+
+    This is much faster than using Subdoc class,
+    but this only for texts OUTSIDE an existing paragraph.
+    """
+
+    def __init__(self, text=None, **text_prop):
+        self.xml = ""
+        if text:
+            self.add(text, **text_prop)
+
+    def add(
+        self,
+        text,
+        parastyle=None,
+    ):
+
+        # If a RichText is added
+        if not isinstance(text, RichText):
+            text = RichText(text)
+
+        prop = ""
+        if parastyle:
+            prop += '<w:pStyle w:val="%s"/>' % parastyle
+
+        xml = "<w:p>"
+        if prop:
+            xml += "<w:pPr>%s</w:pPr>" % prop
+        xml += text.xml
+        xml += "</w:p>"
+        self.xml += xml
+
+    def __unicode__(self):
+        return self.xml
+
+    def __str__(self):
+        return self.xml
+
+    def __html__(self):
+        return self.xml
+
+
 R = RichText
+RP = RichTextParagraph

@@ -46,12 +46,15 @@ from typing import (
     overload,
 )
 
+import google.protobuf.message
 import pyarrow
 import pyarrow as pa
 import requests
+from google.protobuf.descriptor import Descriptor
 from typing_extensions import ParamSpec, TypeAlias, final, get_args, get_origin
 
 from chalk._lsp.error_builder import ResolverErrorBuilder, get_resolver_error_builder
+from chalk.features._encoding.protobuf import convert_proto_message_type_to_pyarrow_type, serialize_proto_descriptor
 from chalk.features._encoding.pyarrow import rich_to_pyarrow
 from chalk.features.dataframe import DataFrame, DataFrameMeta
 from chalk.features.feature_field import Feature
@@ -246,6 +249,16 @@ class FunctionCapturedGlobalBuiltin(FunctionCapturedGlobal):
 class FunctionCapturedGlobalStruct(FunctionCapturedGlobal):
     module: str
     name: str
+    pa_dtype: pa.DataType
+
+
+@dataclasses.dataclass(frozen=True)
+class FunctionCapturedGlobalProto(FunctionCapturedGlobal):
+    module: str
+    name: str
+    fd: Descriptor
+    # fd_full_name: str
+    serialized_fd: bytes
     pa_dtype: pa.DataType
 
 
@@ -1538,6 +1551,21 @@ def capture_global(
                     pa_dtype=rich_to_pyarrow(global_value, global_value.__name__, False, True),
                 )
         except:
+            pass
+
+        try:
+            if issubclass(global_value, google.protobuf.message.Message):
+                return FunctionCapturedGlobalProto(
+                    name=global_value.__name__,
+                    module=global_value.__module__,
+                    fd=global_value.DESCRIPTOR,
+                    serialized_fd=serialize_proto_descriptor(global_value.DESCRIPTOR.file),
+                    pa_dtype=convert_proto_message_type_to_pyarrow_type(global_value.DESCRIPTOR),
+                )
+        except RecursionError as recursion_error:
+            # Either the proto structure is too deep or there is an infinitely recursive definition
+            raise recursion_error
+        except Exception:
             pass
 
         try:

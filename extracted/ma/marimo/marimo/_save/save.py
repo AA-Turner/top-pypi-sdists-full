@@ -46,6 +46,7 @@ from marimo._save.loaders import (
     LoaderType,
     MemoryLoader,
 )
+from marimo._save.stores.file import FileStore
 from marimo._types.ids import CellId_t
 from marimo._utils.with_skip import SkipContext
 
@@ -493,6 +494,7 @@ def cache(
 def cache(  # type: ignore[misc]
     name: Union[str, Optional[Callable[..., Any]]] = None,
     *args: Any,
+    pin_modules: bool = False,
     loader: Optional[Union[LoaderPartial, Loader]] = None,
     _frame_offset: int = 1,
     _internal_interface_not_for_external_use: None = None,
@@ -577,6 +579,7 @@ def cache(  # type: ignore[misc]
         loader,
         *args,
         frame_offset=_frame_offset + 1,
+        pin_modules=pin_modules,
         **kwargs,
     )
 
@@ -683,6 +686,7 @@ def persistent_cache(  # type: ignore[misc]
     method: LoaderKey = "pickle",
     store: Optional[Store] = None,
     *args: Any,
+    pin_modules: bool = False,
     _internal_interface_not_for_external_use: None = None,
     **kwargs: Any,
 ) -> Union[_cache_call, _cache_context]:
@@ -780,8 +784,17 @@ def persistent_cache(  # type: ignore[misc]
             f"Invalid method {method}, expected one of "
             f"{PERSISTENT_LOADERS.keys()}"
         )
+    if save_path is not None and store is not None:
+        raise ValueError(
+            "save_path and store cannot both be provided, "
+            "provide one or the other."
+        )
 
-    partial_args: dict[str, Any] = {"save_path": save_path}
+    # Providing a save_path forces the store to be a FileStore
+    if save_path is not None:
+        store = FileStore(save_path)
+
+    partial_args: dict[str, Any] = {}
     if store is not None:
         partial_args["store"] = store
 
@@ -797,6 +810,7 @@ def persistent_cache(  # type: ignore[misc]
             *args,
             loader=loader,
             _frame_offset=2,
+            pin_modules=pin_modules,
             **kwargs,
         ),
     )

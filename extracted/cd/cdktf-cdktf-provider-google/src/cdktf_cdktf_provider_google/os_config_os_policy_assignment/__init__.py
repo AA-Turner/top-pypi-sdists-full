@@ -1,7 +1,7 @@
 r'''
 # `google_os_config_os_policy_assignment`
 
-Refer to the Terraform Registry for docs: [`google_os_config_os_policy_assignment`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment).
+Refer to the Terraform Registry for docs: [`google_os_config_os_policy_assignment`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OsConfigOsPolicyAssignment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.osConfigOsPolicyAssignment.OsConfigOsPolicyAssignment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment google_os_config_os_policy_assignment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment google_os_config_os_policy_assignment}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class OsConfigOsPolicyAssignment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment google_os_config_os_policy_assignment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment google_os_config_os_policy_assignment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_filter: instance_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#instance_filter OsConfigOsPolicyAssignment#instance_filter}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#location OsConfigOsPolicyAssignment#location}
-        :param name: Resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
-        :param os_policies: os_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#os_policies OsConfigOsPolicyAssignment#os_policies}
-        :param rollout: rollout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#rollout OsConfigOsPolicyAssignment#rollout}
-        :param description: OS policy assignment description. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#description OsConfigOsPolicyAssignment#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#project OsConfigOsPolicyAssignment#project}
-        :param skip_await_rollout: Set to true to skip awaiting rollout during resource creation and update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#skip_await_rollout OsConfigOsPolicyAssignment#skip_await_rollout}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#timeouts OsConfigOsPolicyAssignment#timeouts}
+        :param instance_filter: instance_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#instance_filter OsConfigOsPolicyAssignment#instance_filter}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#location OsConfigOsPolicyAssignment#location}
+        :param name: Resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
+        :param os_policies: os_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#os_policies OsConfigOsPolicyAssignment#os_policies}
+        :param rollout: rollout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#rollout OsConfigOsPolicyAssignment#rollout}
+        :param description: OS policy assignment description. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#description OsConfigOsPolicyAssignment#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#project OsConfigOsPolicyAssignment#project}
+        :param skip_await_rollout: Set to true to skip awaiting rollout during resource creation and update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#skip_await_rollout OsConfigOsPolicyAssignment#skip_await_rollout}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#timeouts OsConfigOsPolicyAssignment#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class OsConfigOsPolicyAssignment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OsConfigOsPolicyAssignment to import.
-        :param import_from_id: The id of the existing OsConfigOsPolicyAssignment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OsConfigOsPolicyAssignment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OsConfigOsPolicyAssignment to import is found.
         '''
         if __debug__:
@@ -151,10 +151,10 @@ class OsConfigOsPolicyAssignment(
         inventories: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OsConfigOsPolicyAssignmentInstanceFilterInventories", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param all: Target all VMs in the project. If true, no other criteria is permitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#all OsConfigOsPolicyAssignment#all}
-        :param exclusion_labels: exclusion_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#exclusion_labels OsConfigOsPolicyAssignment#exclusion_labels}
-        :param inclusion_labels: inclusion_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#inclusion_labels OsConfigOsPolicyAssignment#inclusion_labels}
-        :param inventories: inventories block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#inventories OsConfigOsPolicyAssignment#inventories}
+        :param all: Target all VMs in the project. If true, no other criteria is permitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#all OsConfigOsPolicyAssignment#all}
+        :param exclusion_labels: exclusion_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#exclusion_labels OsConfigOsPolicyAssignment#exclusion_labels}
+        :param inclusion_labels: inclusion_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#inclusion_labels OsConfigOsPolicyAssignment#inclusion_labels}
+        :param inventories: inventories block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#inventories OsConfigOsPolicyAssignment#inventories}
         '''
         value = OsConfigOsPolicyAssignmentInstanceFilter(
             all=all,
@@ -186,8 +186,8 @@ class OsConfigOsPolicyAssignment(
         min_wait_duration: builtins.str,
     ) -> None:
         '''
-        :param disruption_budget: disruption_budget block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#disruption_budget OsConfigOsPolicyAssignment#disruption_budget}
-        :param min_wait_duration: This determines the minimum duration of time to wait after the configuration changes are applied through the current rollout. A VM continues to count towards the 'disruption_budget' at least until this duration of time has passed after configuration changes are applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#min_wait_duration OsConfigOsPolicyAssignment#min_wait_duration}
+        :param disruption_budget: disruption_budget block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#disruption_budget OsConfigOsPolicyAssignment#disruption_budget}
+        :param min_wait_duration: This determines the minimum duration of time to wait after the configuration changes are applied through the current rollout. A VM continues to count towards the 'disruption_budget' at least until this duration of time has passed after configuration changes are applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#min_wait_duration OsConfigOsPolicyAssignment#min_wait_duration}
         '''
         value = OsConfigOsPolicyAssignmentRollout(
             disruption_budget=disruption_budget, min_wait_duration=min_wait_duration
@@ -204,9 +204,9 @@ class OsConfigOsPolicyAssignment(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#create OsConfigOsPolicyAssignment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#delete OsConfigOsPolicyAssignment#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#update OsConfigOsPolicyAssignment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#create OsConfigOsPolicyAssignment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#delete OsConfigOsPolicyAssignment#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#update OsConfigOsPolicyAssignment#update}.
         '''
         value = OsConfigOsPolicyAssignmentTimeouts(
             create=create, delete=delete, update=update
@@ -498,16 +498,16 @@ class OsConfigOsPolicyAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_filter: instance_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#instance_filter OsConfigOsPolicyAssignment#instance_filter}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#location OsConfigOsPolicyAssignment#location}
-        :param name: Resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
-        :param os_policies: os_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#os_policies OsConfigOsPolicyAssignment#os_policies}
-        :param rollout: rollout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#rollout OsConfigOsPolicyAssignment#rollout}
-        :param description: OS policy assignment description. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#description OsConfigOsPolicyAssignment#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#project OsConfigOsPolicyAssignment#project}
-        :param skip_await_rollout: Set to true to skip awaiting rollout during resource creation and update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#skip_await_rollout OsConfigOsPolicyAssignment#skip_await_rollout}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#timeouts OsConfigOsPolicyAssignment#timeouts}
+        :param instance_filter: instance_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#instance_filter OsConfigOsPolicyAssignment#instance_filter}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#location OsConfigOsPolicyAssignment#location}
+        :param name: Resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
+        :param os_policies: os_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#os_policies OsConfigOsPolicyAssignment#os_policies}
+        :param rollout: rollout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#rollout OsConfigOsPolicyAssignment#rollout}
+        :param description: OS policy assignment description. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#description OsConfigOsPolicyAssignment#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#project OsConfigOsPolicyAssignment#project}
+        :param skip_await_rollout: Set to true to skip awaiting rollout during resource creation and update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#skip_await_rollout OsConfigOsPolicyAssignment#skip_await_rollout}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#timeouts OsConfigOsPolicyAssignment#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -636,7 +636,7 @@ class OsConfigOsPolicyAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance_filter(self) -> "OsConfigOsPolicyAssignmentInstanceFilter":
         '''instance_filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#instance_filter OsConfigOsPolicyAssignment#instance_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#instance_filter OsConfigOsPolicyAssignment#instance_filter}
         '''
         result = self._values.get("instance_filter")
         assert result is not None, "Required property 'instance_filter' is missing"
@@ -646,7 +646,7 @@ class OsConfigOsPolicyAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#location OsConfigOsPolicyAssignment#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#location OsConfigOsPolicyAssignment#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -656,7 +656,7 @@ class OsConfigOsPolicyAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Resource name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -668,7 +668,7 @@ class OsConfigOsPolicyAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigOsPolicyAssignmentOsPolicies"]]:
         '''os_policies block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#os_policies OsConfigOsPolicyAssignment#os_policies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#os_policies OsConfigOsPolicyAssignment#os_policies}
         '''
         result = self._values.get("os_policies")
         assert result is not None, "Required property 'os_policies' is missing"
@@ -678,7 +678,7 @@ class OsConfigOsPolicyAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def rollout(self) -> "OsConfigOsPolicyAssignmentRollout":
         '''rollout block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#rollout OsConfigOsPolicyAssignment#rollout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#rollout OsConfigOsPolicyAssignment#rollout}
         '''
         result = self._values.get("rollout")
         assert result is not None, "Required property 'rollout' is missing"
@@ -688,14 +688,14 @@ class OsConfigOsPolicyAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''OS policy assignment description. Length of the description is limited to 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#description OsConfigOsPolicyAssignment#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#description OsConfigOsPolicyAssignment#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -707,7 +707,7 @@ class OsConfigOsPolicyAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''The project for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#project OsConfigOsPolicyAssignment#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#project OsConfigOsPolicyAssignment#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -718,7 +718,7 @@ class OsConfigOsPolicyAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to true to skip awaiting rollout during resource creation and update.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#skip_await_rollout OsConfigOsPolicyAssignment#skip_await_rollout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#skip_await_rollout OsConfigOsPolicyAssignment#skip_await_rollout}
         '''
         result = self._values.get("skip_await_rollout")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -727,7 +727,7 @@ class OsConfigOsPolicyAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["OsConfigOsPolicyAssignmentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#timeouts OsConfigOsPolicyAssignment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#timeouts OsConfigOsPolicyAssignment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentTimeouts"], result)
@@ -764,10 +764,10 @@ class OsConfigOsPolicyAssignmentInstanceFilter:
         inventories: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OsConfigOsPolicyAssignmentInstanceFilterInventories", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param all: Target all VMs in the project. If true, no other criteria is permitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#all OsConfigOsPolicyAssignment#all}
-        :param exclusion_labels: exclusion_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#exclusion_labels OsConfigOsPolicyAssignment#exclusion_labels}
-        :param inclusion_labels: inclusion_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#inclusion_labels OsConfigOsPolicyAssignment#inclusion_labels}
-        :param inventories: inventories block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#inventories OsConfigOsPolicyAssignment#inventories}
+        :param all: Target all VMs in the project. If true, no other criteria is permitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#all OsConfigOsPolicyAssignment#all}
+        :param exclusion_labels: exclusion_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#exclusion_labels OsConfigOsPolicyAssignment#exclusion_labels}
+        :param inclusion_labels: inclusion_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#inclusion_labels OsConfigOsPolicyAssignment#inclusion_labels}
+        :param inventories: inventories block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#inventories OsConfigOsPolicyAssignment#inventories}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__43746bfaec4f9ee8fb936a3c7295e0ef77f1a29e2ace3a7badcbe13164f5a0b1)
@@ -791,7 +791,7 @@ class OsConfigOsPolicyAssignmentInstanceFilter:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Target all VMs in the project. If true, no other criteria is permitted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#all OsConfigOsPolicyAssignment#all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#all OsConfigOsPolicyAssignment#all}
         '''
         result = self._values.get("all")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -802,7 +802,7 @@ class OsConfigOsPolicyAssignmentInstanceFilter:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigOsPolicyAssignmentInstanceFilterExclusionLabels"]]]:
         '''exclusion_labels block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#exclusion_labels OsConfigOsPolicyAssignment#exclusion_labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#exclusion_labels OsConfigOsPolicyAssignment#exclusion_labels}
         '''
         result = self._values.get("exclusion_labels")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigOsPolicyAssignmentInstanceFilterExclusionLabels"]]], result)
@@ -813,7 +813,7 @@ class OsConfigOsPolicyAssignmentInstanceFilter:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigOsPolicyAssignmentInstanceFilterInclusionLabels"]]]:
         '''inclusion_labels block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#inclusion_labels OsConfigOsPolicyAssignment#inclusion_labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#inclusion_labels OsConfigOsPolicyAssignment#inclusion_labels}
         '''
         result = self._values.get("inclusion_labels")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigOsPolicyAssignmentInstanceFilterInclusionLabels"]]], result)
@@ -824,7 +824,7 @@ class OsConfigOsPolicyAssignmentInstanceFilter:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigOsPolicyAssignmentInstanceFilterInventories"]]]:
         '''inventories block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#inventories OsConfigOsPolicyAssignment#inventories}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#inventories OsConfigOsPolicyAssignment#inventories}
         '''
         result = self._values.get("inventories")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigOsPolicyAssignmentInstanceFilterInventories"]]], result)
@@ -853,7 +853,7 @@ class OsConfigOsPolicyAssignmentInstanceFilterExclusionLabels:
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param labels: Labels are identified by key/value pairs in this map. A VM should contain all the key/value pairs specified in this map to be selected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#labels OsConfigOsPolicyAssignment#labels}
+        :param labels: Labels are identified by key/value pairs in this map. A VM should contain all the key/value pairs specified in this map to be selected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#labels OsConfigOsPolicyAssignment#labels}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b341664f4f3f97f6326b01634dc4de005bf3c6bc05517943ba2e595d74ede19)
@@ -868,7 +868,7 @@ class OsConfigOsPolicyAssignmentInstanceFilterExclusionLabels:
 
         A VM should contain all the key/value pairs specified in this map to be selected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#labels OsConfigOsPolicyAssignment#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#labels OsConfigOsPolicyAssignment#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1057,7 +1057,7 @@ class OsConfigOsPolicyAssignmentInstanceFilterInclusionLabels:
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param labels: Labels are identified by key/value pairs in this map. A VM should contain all the key/value pairs specified in this map to be selected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#labels OsConfigOsPolicyAssignment#labels}
+        :param labels: Labels are identified by key/value pairs in this map. A VM should contain all the key/value pairs specified in this map to be selected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#labels OsConfigOsPolicyAssignment#labels}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4907d06cf094d6a95d050ce7e582752a204dbac770664edefee4328734c9cb43)
@@ -1072,7 +1072,7 @@ class OsConfigOsPolicyAssignmentInstanceFilterInclusionLabels:
 
         A VM should contain all the key/value pairs specified in this map to be selected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#labels OsConfigOsPolicyAssignment#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#labels OsConfigOsPolicyAssignment#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1262,8 +1262,8 @@ class OsConfigOsPolicyAssignmentInstanceFilterInventories:
         os_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param os_short_name: The OS short name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#os_short_name OsConfigOsPolicyAssignment#os_short_name}
-        :param os_version: The OS version Prefix matches are supported if asterisk(*) is provided as the last character. For example, to match all versions with a major version of '7', specify the following value for this field '7.*' An empty string matches all OS versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#os_version OsConfigOsPolicyAssignment#os_version}
+        :param os_short_name: The OS short name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#os_short_name OsConfigOsPolicyAssignment#os_short_name}
+        :param os_version: The OS version Prefix matches are supported if asterisk(*) is provided as the last character. For example, to match all versions with a major version of '7', specify the following value for this field '7.*' An empty string matches all OS versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#os_version OsConfigOsPolicyAssignment#os_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__39b77fb0efb958887a0008a93491806bb879355c7d29a83d7e912790693df6cc)
@@ -1279,7 +1279,7 @@ class OsConfigOsPolicyAssignmentInstanceFilterInventories:
     def os_short_name(self) -> builtins.str:
         '''The OS short name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#os_short_name OsConfigOsPolicyAssignment#os_short_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#os_short_name OsConfigOsPolicyAssignment#os_short_name}
         '''
         result = self._values.get("os_short_name")
         assert result is not None, "Required property 'os_short_name' is missing"
@@ -1291,7 +1291,7 @@ class OsConfigOsPolicyAssignmentInstanceFilterInventories:
 
         For example, to match all versions with a major version of '7', specify the following value for this field '7.*' An empty string matches all OS versions.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#os_version OsConfigOsPolicyAssignment#os_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#os_version OsConfigOsPolicyAssignment#os_version}
         '''
         result = self._values.get("os_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1660,11 +1660,11 @@ class OsConfigOsPolicyAssignmentOsPolicies:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: The id of the OS policy with the following restrictions: * Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param mode: Policy mode Possible values: ["MODE_UNSPECIFIED", "VALIDATION", "ENFORCEMENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#mode OsConfigOsPolicyAssignment#mode}
-        :param resource_groups: resource_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#resource_groups OsConfigOsPolicyAssignment#resource_groups}
-        :param allow_no_resource_group_match: This flag determines the OS policy compliance status when none of the resource groups within the policy are applicable for a VM. Set this value to 'true' if the policy needs to be reported as compliant even if the policy has nothing to validate or enforce. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_no_resource_group_match OsConfigOsPolicyAssignment#allow_no_resource_group_match}
-        :param description: Policy description. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#description OsConfigOsPolicyAssignment#description}
+        :param id: The id of the OS policy with the following restrictions: * Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param mode: Policy mode Possible values: ["MODE_UNSPECIFIED", "VALIDATION", "ENFORCEMENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#mode OsConfigOsPolicyAssignment#mode}
+        :param resource_groups: resource_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#resource_groups OsConfigOsPolicyAssignment#resource_groups}
+        :param allow_no_resource_group_match: This flag determines the OS policy compliance status when none of the resource groups within the policy are applicable for a VM. Set this value to 'true' if the policy needs to be reported as compliant even if the policy has nothing to validate or enforce. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_no_resource_group_match OsConfigOsPolicyAssignment#allow_no_resource_group_match}
+        :param description: Policy description. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#description OsConfigOsPolicyAssignment#description}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__31e25b3ac630b9b43d238277910b1396dfa8a54f26da465fb5fb4ad4b620167b)
@@ -1692,7 +1692,7 @@ class OsConfigOsPolicyAssignmentOsPolicies:
         - Must end with a number or a letter.
         - Must be unique within the assignment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1705,7 +1705,7 @@ class OsConfigOsPolicyAssignmentOsPolicies:
     def mode(self) -> builtins.str:
         '''Policy mode Possible values: ["MODE_UNSPECIFIED", "VALIDATION", "ENFORCEMENT"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#mode OsConfigOsPolicyAssignment#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#mode OsConfigOsPolicyAssignment#mode}
         '''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
@@ -1717,7 +1717,7 @@ class OsConfigOsPolicyAssignmentOsPolicies:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigOsPolicyAssignmentOsPoliciesResourceGroups"]]:
         '''resource_groups block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#resource_groups OsConfigOsPolicyAssignment#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#resource_groups OsConfigOsPolicyAssignment#resource_groups}
         '''
         result = self._values.get("resource_groups")
         assert result is not None, "Required property 'resource_groups' is missing"
@@ -1731,7 +1731,7 @@ class OsConfigOsPolicyAssignmentOsPolicies:
 
         Set this value to 'true' if the policy needs to be reported as compliant even if the policy has nothing to validate or enforce.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_no_resource_group_match OsConfigOsPolicyAssignment#allow_no_resource_group_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_no_resource_group_match OsConfigOsPolicyAssignment#allow_no_resource_group_match}
         '''
         result = self._values.get("allow_no_resource_group_match")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1740,7 +1740,7 @@ class OsConfigOsPolicyAssignmentOsPolicies:
     def description(self) -> typing.Optional[builtins.str]:
         '''Policy description. Length of the description is limited to 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#description OsConfigOsPolicyAssignment#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#description OsConfigOsPolicyAssignment#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2017,8 +2017,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroups:
         inventory_filters: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsInventoryFilters", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#resources OsConfigOsPolicyAssignment#resources}
-        :param inventory_filters: inventory_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#inventory_filters OsConfigOsPolicyAssignment#inventory_filters}
+        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#resources OsConfigOsPolicyAssignment#resources}
+        :param inventory_filters: inventory_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#inventory_filters OsConfigOsPolicyAssignment#inventory_filters}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ca2b2c45c064db466138092f55de202517e6f10af3f3e861bee0e9a9a7199278)
@@ -2036,7 +2036,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroups:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResources"]]:
         '''resources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#resources OsConfigOsPolicyAssignment#resources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#resources OsConfigOsPolicyAssignment#resources}
         '''
         result = self._values.get("resources")
         assert result is not None, "Required property 'resources' is missing"
@@ -2048,7 +2048,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroups:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsInventoryFilters"]]]:
         '''inventory_filters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#inventory_filters OsConfigOsPolicyAssignment#inventory_filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#inventory_filters OsConfigOsPolicyAssignment#inventory_filters}
         '''
         result = self._values.get("inventory_filters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsInventoryFilters"]]], result)
@@ -2078,8 +2078,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsInventoryFilters:
         os_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param os_short_name: The OS short name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#os_short_name OsConfigOsPolicyAssignment#os_short_name}
-        :param os_version: The OS version Prefix matches are supported if asterisk(*) is provided as the last character. For example, to match all versions with a major version of '7', specify the following value for this field '7.*' An empty string matches all OS versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#os_version OsConfigOsPolicyAssignment#os_version}
+        :param os_short_name: The OS short name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#os_short_name OsConfigOsPolicyAssignment#os_short_name}
+        :param os_version: The OS version Prefix matches are supported if asterisk(*) is provided as the last character. For example, to match all versions with a major version of '7', specify the following value for this field '7.*' An empty string matches all OS versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#os_version OsConfigOsPolicyAssignment#os_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c2df9e7bffda2da0e82a7fe4216b79f8bfaf67f15900818a5fc96112809a076f)
@@ -2095,7 +2095,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsInventoryFilters:
     def os_short_name(self) -> builtins.str:
         '''The OS short name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#os_short_name OsConfigOsPolicyAssignment#os_short_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#os_short_name OsConfigOsPolicyAssignment#os_short_name}
         '''
         result = self._values.get("os_short_name")
         assert result is not None, "Required property 'os_short_name' is missing"
@@ -2108,7 +2108,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsInventoryFilters:
         For example, to match all versions with a major version of '7', specify the following value for this field '7.*'
         An empty string matches all OS versions.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#os_version OsConfigOsPolicyAssignment#os_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#os_version OsConfigOsPolicyAssignment#os_version}
         '''
         result = self._values.get("os_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2517,11 +2517,11 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResources:
         repository: typing.Optional[typing.Union["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepository", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param id: The id of the resource with the following restrictions: * Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the OS policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param exec: exec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#exec OsConfigOsPolicyAssignment#exec}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
-        :param pkg: pkg block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#pkg OsConfigOsPolicyAssignment#pkg}
-        :param repository: repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#repository OsConfigOsPolicyAssignment#repository}
+        :param id: The id of the resource with the following restrictions: * Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the OS policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param exec: exec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#exec OsConfigOsPolicyAssignment#exec}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
+        :param pkg: pkg block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#pkg OsConfigOsPolicyAssignment#pkg}
+        :param repository: repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#repository OsConfigOsPolicyAssignment#repository}
         '''
         if isinstance(exec, dict):
             exec = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExec(**exec)
@@ -2559,7 +2559,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResources:
         - Must end with a number or a letter.
         - Must be unique within the OS policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2574,7 +2574,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResources:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExec"]:
         '''exec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#exec OsConfigOsPolicyAssignment#exec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#exec OsConfigOsPolicyAssignment#exec}
         '''
         result = self._values.get("exec")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExec"], result)
@@ -2585,7 +2585,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResources:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFile"], result)
@@ -2596,7 +2596,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResources:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkg"]:
         '''pkg block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#pkg OsConfigOsPolicyAssignment#pkg}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#pkg OsConfigOsPolicyAssignment#pkg}
         '''
         result = self._values.get("pkg")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkg"], result)
@@ -2607,7 +2607,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResources:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepository"]:
         '''repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#repository OsConfigOsPolicyAssignment#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#repository OsConfigOsPolicyAssignment#repository}
         '''
         result = self._values.get("repository")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepository"], result)
@@ -2637,8 +2637,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExec:
         enforce: typing.Optional[typing.Union["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforce", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param validate: validate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#validate OsConfigOsPolicyAssignment#validate}
-        :param enforce: enforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#enforce OsConfigOsPolicyAssignment#enforce}
+        :param validate: validate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#validate OsConfigOsPolicyAssignment#validate}
+        :param enforce: enforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#enforce OsConfigOsPolicyAssignment#enforce}
         '''
         if isinstance(validate, dict):
             validate = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidate(**validate)
@@ -2660,7 +2660,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExec:
     ) -> "OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidate":
         '''validate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#validate OsConfigOsPolicyAssignment#validate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#validate OsConfigOsPolicyAssignment#validate}
         '''
         result = self._values.get("validate")
         assert result is not None, "Required property 'validate' is missing"
@@ -2672,7 +2672,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExec:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforce"]:
         '''enforce block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#enforce OsConfigOsPolicyAssignment#enforce}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#enforce OsConfigOsPolicyAssignment#enforce}
         '''
         result = self._values.get("enforce")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforce"], result)
@@ -2711,11 +2711,11 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforce:
         script: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param interpreter: The script interpreter to use. Possible values: ["INTERPRETER_UNSPECIFIED", "NONE", "SHELL", "POWERSHELL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#interpreter OsConfigOsPolicyAssignment#interpreter}
-        :param args: Optional arguments to pass to the source during execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#args OsConfigOsPolicyAssignment#args}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
-        :param output_file_path: Only recorded for enforce Exec. Path to an output file (that is created by this Exec) whose content will be recorded in OSPolicyResourceCompliance after a successful run. Absence or failure to read this file will result in this ExecResource being non-compliant. Output file size is limited to 100K bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#output_file_path OsConfigOsPolicyAssignment#output_file_path}
-        :param script: An inline script. The size of the script is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#script OsConfigOsPolicyAssignment#script}
+        :param interpreter: The script interpreter to use. Possible values: ["INTERPRETER_UNSPECIFIED", "NONE", "SHELL", "POWERSHELL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#interpreter OsConfigOsPolicyAssignment#interpreter}
+        :param args: Optional arguments to pass to the source during execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#args OsConfigOsPolicyAssignment#args}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
+        :param output_file_path: Only recorded for enforce Exec. Path to an output file (that is created by this Exec) whose content will be recorded in OSPolicyResourceCompliance after a successful run. Absence or failure to read this file will result in this ExecResource being non-compliant. Output file size is limited to 100K bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#output_file_path OsConfigOsPolicyAssignment#output_file_path}
+        :param script: An inline script. The size of the script is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#script OsConfigOsPolicyAssignment#script}
         '''
         if isinstance(file, dict):
             file = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFile(**file)
@@ -2742,7 +2742,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforce:
     def interpreter(self) -> builtins.str:
         '''The script interpreter to use. Possible values: ["INTERPRETER_UNSPECIFIED", "NONE", "SHELL", "POWERSHELL"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#interpreter OsConfigOsPolicyAssignment#interpreter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#interpreter OsConfigOsPolicyAssignment#interpreter}
         '''
         result = self._values.get("interpreter")
         assert result is not None, "Required property 'interpreter' is missing"
@@ -2752,7 +2752,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforce:
     def args(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Optional arguments to pass to the source during execution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#args OsConfigOsPolicyAssignment#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#args OsConfigOsPolicyAssignment#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2763,7 +2763,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforce:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFile"], result)
@@ -2774,7 +2774,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforce:
 
         Path to an output file (that is created by this Exec) whose content will be recorded in OSPolicyResourceCompliance after a successful run. Absence or failure to read this file will result in this ExecResource being non-compliant. Output file size is limited to 100K bytes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#output_file_path OsConfigOsPolicyAssignment#output_file_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#output_file_path OsConfigOsPolicyAssignment#output_file_path}
         '''
         result = self._values.get("output_file_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2783,7 +2783,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforce:
     def script(self) -> typing.Optional[builtins.str]:
         '''An inline script. The size of the script is limited to 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#script OsConfigOsPolicyAssignment#script}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#script OsConfigOsPolicyAssignment#script}
         '''
         result = self._values.get("script")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2820,10 +2820,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFile
         remote: typing.Optional[typing.Union["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFileRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
         '''
         if isinstance(gcs, dict):
             gcs = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFileGcs(**gcs)
@@ -2853,7 +2853,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFile
 
         When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
         '''
         result = self._values.get("allow_insecure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2864,7 +2864,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFile
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFileGcs"]:
         '''gcs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
         '''
         result = self._values.get("gcs")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFileGcs"], result)
@@ -2873,7 +2873,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFile
     def local_path(self) -> typing.Optional[builtins.str]:
         '''A local path within the VM to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
         '''
         result = self._values.get("local_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2884,7 +2884,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFile
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFileRemote"]:
         '''remote block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
         '''
         result = self._values.get("remote")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFileRemote"], result)
@@ -2915,9 +2915,9 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFile
         generation: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ef0f2cb47746a9af8dfc756a4a5bea4d9097dee69ced88ba5f6175183899cdb1)
@@ -2935,7 +2935,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFile
     def bucket(self) -> builtins.str:
         '''Bucket of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -2945,7 +2945,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFile
     def object(self) -> builtins.str:
         '''Name of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
         '''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
@@ -2955,7 +2955,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFile
     def generation(self) -> typing.Optional[jsii.Number]:
         '''Generation number of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
         '''
         result = self._values.get("generation")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3094,9 +3094,9 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFile
         generation: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFileGcs(
             bucket=bucket, object=object, generation=generation
@@ -3112,8 +3112,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFile
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFileRemote(
             uri=uri, sha256_checksum=sha256_checksum
@@ -3237,8 +3237,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFile
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c3d63b411731f6553a789ba4fe87e9e053046a14db8618225e492aac7d27a2d3)
@@ -3254,7 +3254,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFile
     def uri(self) -> builtins.str:
         '''URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -3264,7 +3264,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFile
     def sha256_checksum(self) -> typing.Optional[builtins.str]:
         '''SHA256 checksum of the remote file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
         '''
         result = self._values.get("sha256_checksum")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3387,10 +3387,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceOutp
         remote: typing.Optional[typing.Union[OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFileRemote, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforceFile(
             allow_insecure=allow_insecure,
@@ -3548,11 +3548,11 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecOutputRefer
         script: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param interpreter: The script interpreter to use. Possible values: ["INTERPRETER_UNSPECIFIED", "NONE", "SHELL", "POWERSHELL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#interpreter OsConfigOsPolicyAssignment#interpreter}
-        :param args: Optional arguments to pass to the source during execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#args OsConfigOsPolicyAssignment#args}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
-        :param output_file_path: Only recorded for enforce Exec. Path to an output file (that is created by this Exec) whose content will be recorded in OSPolicyResourceCompliance after a successful run. Absence or failure to read this file will result in this ExecResource being non-compliant. Output file size is limited to 100K bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#output_file_path OsConfigOsPolicyAssignment#output_file_path}
-        :param script: An inline script. The size of the script is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#script OsConfigOsPolicyAssignment#script}
+        :param interpreter: The script interpreter to use. Possible values: ["INTERPRETER_UNSPECIFIED", "NONE", "SHELL", "POWERSHELL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#interpreter OsConfigOsPolicyAssignment#interpreter}
+        :param args: Optional arguments to pass to the source during execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#args OsConfigOsPolicyAssignment#args}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
+        :param output_file_path: Only recorded for enforce Exec. Path to an output file (that is created by this Exec) whose content will be recorded in OSPolicyResourceCompliance after a successful run. Absence or failure to read this file will result in this ExecResource being non-compliant. Output file size is limited to 100K bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#output_file_path OsConfigOsPolicyAssignment#output_file_path}
+        :param script: An inline script. The size of the script is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#script OsConfigOsPolicyAssignment#script}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforce(
             interpreter=interpreter,
@@ -3575,11 +3575,11 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecOutputRefer
         script: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param interpreter: The script interpreter to use. Possible values: ["INTERPRETER_UNSPECIFIED", "NONE", "SHELL", "POWERSHELL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#interpreter OsConfigOsPolicyAssignment#interpreter}
-        :param args: Optional arguments to pass to the source during execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#args OsConfigOsPolicyAssignment#args}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
-        :param output_file_path: Only recorded for enforce Exec. Path to an output file (that is created by this Exec) whose content will be recorded in OSPolicyResourceCompliance after a successful run. Absence or failure to read this file will result in this ExecResource being non-compliant. Output file size is limited to 100K bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#output_file_path OsConfigOsPolicyAssignment#output_file_path}
-        :param script: An inline script. The size of the script is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#script OsConfigOsPolicyAssignment#script}
+        :param interpreter: The script interpreter to use. Possible values: ["INTERPRETER_UNSPECIFIED", "NONE", "SHELL", "POWERSHELL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#interpreter OsConfigOsPolicyAssignment#interpreter}
+        :param args: Optional arguments to pass to the source during execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#args OsConfigOsPolicyAssignment#args}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
+        :param output_file_path: Only recorded for enforce Exec. Path to an output file (that is created by this Exec) whose content will be recorded in OSPolicyResourceCompliance after a successful run. Absence or failure to read this file will result in this ExecResource being non-compliant. Output file size is limited to 100K bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#output_file_path OsConfigOsPolicyAssignment#output_file_path}
+        :param script: An inline script. The size of the script is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#script OsConfigOsPolicyAssignment#script}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidate(
             interpreter=interpreter,
@@ -3663,11 +3663,11 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidate:
         script: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param interpreter: The script interpreter to use. Possible values: ["INTERPRETER_UNSPECIFIED", "NONE", "SHELL", "POWERSHELL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#interpreter OsConfigOsPolicyAssignment#interpreter}
-        :param args: Optional arguments to pass to the source during execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#args OsConfigOsPolicyAssignment#args}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
-        :param output_file_path: Only recorded for enforce Exec. Path to an output file (that is created by this Exec) whose content will be recorded in OSPolicyResourceCompliance after a successful run. Absence or failure to read this file will result in this ExecResource being non-compliant. Output file size is limited to 100K bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#output_file_path OsConfigOsPolicyAssignment#output_file_path}
-        :param script: An inline script. The size of the script is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#script OsConfigOsPolicyAssignment#script}
+        :param interpreter: The script interpreter to use. Possible values: ["INTERPRETER_UNSPECIFIED", "NONE", "SHELL", "POWERSHELL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#interpreter OsConfigOsPolicyAssignment#interpreter}
+        :param args: Optional arguments to pass to the source during execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#args OsConfigOsPolicyAssignment#args}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
+        :param output_file_path: Only recorded for enforce Exec. Path to an output file (that is created by this Exec) whose content will be recorded in OSPolicyResourceCompliance after a successful run. Absence or failure to read this file will result in this ExecResource being non-compliant. Output file size is limited to 100K bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#output_file_path OsConfigOsPolicyAssignment#output_file_path}
+        :param script: An inline script. The size of the script is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#script OsConfigOsPolicyAssignment#script}
         '''
         if isinstance(file, dict):
             file = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFile(**file)
@@ -3694,7 +3694,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidate:
     def interpreter(self) -> builtins.str:
         '''The script interpreter to use. Possible values: ["INTERPRETER_UNSPECIFIED", "NONE", "SHELL", "POWERSHELL"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#interpreter OsConfigOsPolicyAssignment#interpreter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#interpreter OsConfigOsPolicyAssignment#interpreter}
         '''
         result = self._values.get("interpreter")
         assert result is not None, "Required property 'interpreter' is missing"
@@ -3704,7 +3704,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidate:
     def args(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Optional arguments to pass to the source during execution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#args OsConfigOsPolicyAssignment#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#args OsConfigOsPolicyAssignment#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3715,7 +3715,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidate:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFile"], result)
@@ -3726,7 +3726,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidate:
 
         Path to an output file (that is created by this Exec) whose content will be recorded in OSPolicyResourceCompliance after a successful run. Absence or failure to read this file will result in this ExecResource being non-compliant. Output file size is limited to 100K bytes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#output_file_path OsConfigOsPolicyAssignment#output_file_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#output_file_path OsConfigOsPolicyAssignment#output_file_path}
         '''
         result = self._values.get("output_file_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3735,7 +3735,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidate:
     def script(self) -> typing.Optional[builtins.str]:
         '''An inline script. The size of the script is limited to 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#script OsConfigOsPolicyAssignment#script}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#script OsConfigOsPolicyAssignment#script}
         '''
         result = self._values.get("script")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3772,10 +3772,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFil
         remote: typing.Optional[typing.Union["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFileRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
         '''
         if isinstance(gcs, dict):
             gcs = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFileGcs(**gcs)
@@ -3806,7 +3806,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFil
         When false, files are subject to validations based on the file type:
         Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
         '''
         result = self._values.get("allow_insecure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3817,7 +3817,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFil
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFileGcs"]:
         '''gcs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
         '''
         result = self._values.get("gcs")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFileGcs"], result)
@@ -3826,7 +3826,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFil
     def local_path(self) -> typing.Optional[builtins.str]:
         '''A local path within the VM to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
         '''
         result = self._values.get("local_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3837,7 +3837,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFil
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFileRemote"]:
         '''remote block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
         '''
         result = self._values.get("remote")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFileRemote"], result)
@@ -3868,9 +3868,9 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFil
         generation: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__46b271f774e5e88e80bfe54e4c8628690e0e030f9ae780ac07448d2bce263587)
@@ -3888,7 +3888,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFil
     def bucket(self) -> builtins.str:
         '''Bucket of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -3898,7 +3898,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFil
     def object(self) -> builtins.str:
         '''Name of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
         '''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
@@ -3908,7 +3908,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFil
     def generation(self) -> typing.Optional[jsii.Number]:
         '''Generation number of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
         '''
         result = self._values.get("generation")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4047,9 +4047,9 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFil
         generation: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFileGcs(
             bucket=bucket, object=object, generation=generation
@@ -4065,8 +4065,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFil
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFileRemote(
             uri=uri, sha256_checksum=sha256_checksum
@@ -4190,8 +4190,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFil
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aca796599a0eb0da7c4d03739ef2379acd16f26c7f9685519665cf45b5009a54)
@@ -4207,7 +4207,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFil
     def uri(self) -> builtins.str:
         '''URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -4217,7 +4217,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFil
     def sha256_checksum(self) -> typing.Optional[builtins.str]:
         '''SHA256 checksum of the remote file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
         '''
         result = self._values.get("sha256_checksum")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4340,10 +4340,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateOut
         remote: typing.Optional[typing.Union[OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFileRemote, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecValidateFile(
             allow_insecure=allow_insecure,
@@ -4490,10 +4490,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFile:
         file: typing.Optional[typing.Union["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFile", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param path: The absolute path of the file within the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#path OsConfigOsPolicyAssignment#path}
-        :param state: Desired state of the file. Possible values: ["DESIRED_STATE_UNSPECIFIED", "PRESENT", "ABSENT", "CONTENTS_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#state OsConfigOsPolicyAssignment#state}
-        :param content: A a file with this content. The size of the content is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#content OsConfigOsPolicyAssignment#content}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
+        :param path: The absolute path of the file within the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#path OsConfigOsPolicyAssignment#path}
+        :param state: Desired state of the file. Possible values: ["DESIRED_STATE_UNSPECIFIED", "PRESENT", "ABSENT", "CONTENTS_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#state OsConfigOsPolicyAssignment#state}
+        :param content: A a file with this content. The size of the content is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#content OsConfigOsPolicyAssignment#content}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
         '''
         if isinstance(file, dict):
             file = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFile(**file)
@@ -4516,7 +4516,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFile:
     def path(self) -> builtins.str:
         '''The absolute path of the file within the VM.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#path OsConfigOsPolicyAssignment#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#path OsConfigOsPolicyAssignment#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -4526,7 +4526,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFile:
     def state(self) -> builtins.str:
         '''Desired state of the file. Possible values: ["DESIRED_STATE_UNSPECIFIED", "PRESENT", "ABSENT", "CONTENTS_MATCH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#state OsConfigOsPolicyAssignment#state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#state OsConfigOsPolicyAssignment#state}
         '''
         result = self._values.get("state")
         assert result is not None, "Required property 'state' is missing"
@@ -4536,7 +4536,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFile:
     def content(self) -> typing.Optional[builtins.str]:
         '''A a file with this content. The size of the content is limited to 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#content OsConfigOsPolicyAssignment#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#content OsConfigOsPolicyAssignment#content}
         '''
         result = self._values.get("content")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4547,7 +4547,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFile:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFile"], result)
@@ -4584,10 +4584,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFile:
         remote: typing.Optional[typing.Union["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFileRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
         '''
         if isinstance(gcs, dict):
             gcs = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFileGcs(**gcs)
@@ -4617,7 +4617,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFile:
 
         When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
         '''
         result = self._values.get("allow_insecure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4628,7 +4628,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFile:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFileGcs"]:
         '''gcs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
         '''
         result = self._values.get("gcs")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFileGcs"], result)
@@ -4637,7 +4637,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFile:
     def local_path(self) -> typing.Optional[builtins.str]:
         '''A local path within the VM to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
         '''
         result = self._values.get("local_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4648,7 +4648,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFile:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFileRemote"]:
         '''remote block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
         '''
         result = self._values.get("remote")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFileRemote"], result)
@@ -4679,9 +4679,9 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFileGcs:
         generation: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e49b500dfd6f1fb59d19ed9f51576bdf76b0f765adeaa806634c88634c279002)
@@ -4699,7 +4699,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFileGcs:
     def bucket(self) -> builtins.str:
         '''Bucket of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -4709,7 +4709,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFileGcs:
     def object(self) -> builtins.str:
         '''Name of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
         '''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
@@ -4719,7 +4719,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFileGcs:
     def generation(self) -> typing.Optional[jsii.Number]:
         '''Generation number of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
         '''
         result = self._values.get("generation")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4858,9 +4858,9 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFileOutputR
         generation: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFileGcs(
             bucket=bucket, object=object, generation=generation
@@ -4876,8 +4876,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFileOutputR
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFileRemote(
             uri=uri, sha256_checksum=sha256_checksum
@@ -5001,8 +5001,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFileRemote:
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f7dd0dae18f9d4a47aa7ba340b0d5102e4532233767862f044da1e8a799b8bba)
@@ -5018,7 +5018,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFileRemote:
     def uri(self) -> builtins.str:
         '''URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -5028,7 +5028,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFileRemote:
     def sha256_checksum(self) -> typing.Optional[builtins.str]:
         '''SHA256 checksum of the remote file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
         '''
         result = self._values.get("sha256_checksum")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5151,10 +5151,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileOutputRefer
         remote: typing.Optional[typing.Union[OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFileRemote, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFile(
             allow_insecure=allow_insecure,
@@ -5388,8 +5388,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesOutputReference
         enforce: typing.Optional[typing.Union[OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExecEnforce, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param validate: validate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#validate OsConfigOsPolicyAssignment#validate}
-        :param enforce: enforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#enforce OsConfigOsPolicyAssignment#enforce}
+        :param validate: validate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#validate OsConfigOsPolicyAssignment#validate}
+        :param enforce: enforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#enforce OsConfigOsPolicyAssignment#enforce}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesExec(
             validate=validate, enforce=enforce
@@ -5407,10 +5407,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesOutputReference
         file: typing.Optional[typing.Union[OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFileFile, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param path: The absolute path of the file within the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#path OsConfigOsPolicyAssignment#path}
-        :param state: Desired state of the file. Possible values: ["DESIRED_STATE_UNSPECIFIED", "PRESENT", "ABSENT", "CONTENTS_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#state OsConfigOsPolicyAssignment#state}
-        :param content: A a file with this content. The size of the content is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#content OsConfigOsPolicyAssignment#content}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
+        :param path: The absolute path of the file within the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#path OsConfigOsPolicyAssignment#path}
+        :param state: Desired state of the file. Possible values: ["DESIRED_STATE_UNSPECIFIED", "PRESENT", "ABSENT", "CONTENTS_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#state OsConfigOsPolicyAssignment#state}
+        :param content: A a file with this content. The size of the content is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#content OsConfigOsPolicyAssignment#content}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#file OsConfigOsPolicyAssignment#file}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesFile(
             path=path, state=state, content=content, file=file
@@ -5432,14 +5432,14 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesOutputReference
         zypper: typing.Optional[typing.Union["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgZypper", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param desired_state: The desired state the agent should maintain for this package. Possible values: ["DESIRED_STATE_UNSPECIFIED", "INSTALLED", "REMOVED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#desired_state OsConfigOsPolicyAssignment#desired_state}
-        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#apt OsConfigOsPolicyAssignment#apt}
-        :param deb: deb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#deb OsConfigOsPolicyAssignment#deb}
-        :param googet: googet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#googet OsConfigOsPolicyAssignment#googet}
-        :param msi: msi block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#msi OsConfigOsPolicyAssignment#msi}
-        :param rpm: rpm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#rpm OsConfigOsPolicyAssignment#rpm}
-        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#yum OsConfigOsPolicyAssignment#yum}
-        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#zypper OsConfigOsPolicyAssignment#zypper}
+        :param desired_state: The desired state the agent should maintain for this package. Possible values: ["DESIRED_STATE_UNSPECIFIED", "INSTALLED", "REMOVED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#desired_state OsConfigOsPolicyAssignment#desired_state}
+        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#apt OsConfigOsPolicyAssignment#apt}
+        :param deb: deb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#deb OsConfigOsPolicyAssignment#deb}
+        :param googet: googet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#googet OsConfigOsPolicyAssignment#googet}
+        :param msi: msi block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#msi OsConfigOsPolicyAssignment#msi}
+        :param rpm: rpm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#rpm OsConfigOsPolicyAssignment#rpm}
+        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#yum OsConfigOsPolicyAssignment#yum}
+        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#zypper OsConfigOsPolicyAssignment#zypper}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkg(
             desired_state=desired_state,
@@ -5464,10 +5464,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesOutputReference
         zypper: typing.Optional[typing.Union["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryZypper", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#apt OsConfigOsPolicyAssignment#apt}
-        :param goo: goo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#goo OsConfigOsPolicyAssignment#goo}
-        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#yum OsConfigOsPolicyAssignment#yum}
-        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#zypper OsConfigOsPolicyAssignment#zypper}
+        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#apt OsConfigOsPolicyAssignment#apt}
+        :param goo: goo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#goo OsConfigOsPolicyAssignment#goo}
+        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#yum OsConfigOsPolicyAssignment#yum}
+        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#zypper OsConfigOsPolicyAssignment#zypper}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepository(
             apt=apt, goo=goo, yum=yum, zypper=zypper
@@ -5610,14 +5610,14 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkg:
         zypper: typing.Optional[typing.Union["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgZypper", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param desired_state: The desired state the agent should maintain for this package. Possible values: ["DESIRED_STATE_UNSPECIFIED", "INSTALLED", "REMOVED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#desired_state OsConfigOsPolicyAssignment#desired_state}
-        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#apt OsConfigOsPolicyAssignment#apt}
-        :param deb: deb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#deb OsConfigOsPolicyAssignment#deb}
-        :param googet: googet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#googet OsConfigOsPolicyAssignment#googet}
-        :param msi: msi block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#msi OsConfigOsPolicyAssignment#msi}
-        :param rpm: rpm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#rpm OsConfigOsPolicyAssignment#rpm}
-        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#yum OsConfigOsPolicyAssignment#yum}
-        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#zypper OsConfigOsPolicyAssignment#zypper}
+        :param desired_state: The desired state the agent should maintain for this package. Possible values: ["DESIRED_STATE_UNSPECIFIED", "INSTALLED", "REMOVED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#desired_state OsConfigOsPolicyAssignment#desired_state}
+        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#apt OsConfigOsPolicyAssignment#apt}
+        :param deb: deb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#deb OsConfigOsPolicyAssignment#deb}
+        :param googet: googet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#googet OsConfigOsPolicyAssignment#googet}
+        :param msi: msi block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#msi OsConfigOsPolicyAssignment#msi}
+        :param rpm: rpm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#rpm OsConfigOsPolicyAssignment#rpm}
+        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#yum OsConfigOsPolicyAssignment#yum}
+        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#zypper OsConfigOsPolicyAssignment#zypper}
         '''
         if isinstance(apt, dict):
             apt = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgApt(**apt)
@@ -5665,7 +5665,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkg:
     def desired_state(self) -> builtins.str:
         '''The desired state the agent should maintain for this package. Possible values: ["DESIRED_STATE_UNSPECIFIED", "INSTALLED", "REMOVED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#desired_state OsConfigOsPolicyAssignment#desired_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#desired_state OsConfigOsPolicyAssignment#desired_state}
         '''
         result = self._values.get("desired_state")
         assert result is not None, "Required property 'desired_state' is missing"
@@ -5677,7 +5677,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkg:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgApt"]:
         '''apt block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#apt OsConfigOsPolicyAssignment#apt}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#apt OsConfigOsPolicyAssignment#apt}
         '''
         result = self._values.get("apt")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgApt"], result)
@@ -5688,7 +5688,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkg:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDeb"]:
         '''deb block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#deb OsConfigOsPolicyAssignment#deb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#deb OsConfigOsPolicyAssignment#deb}
         '''
         result = self._values.get("deb")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDeb"], result)
@@ -5699,7 +5699,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkg:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgGooget"]:
         '''googet block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#googet OsConfigOsPolicyAssignment#googet}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#googet OsConfigOsPolicyAssignment#googet}
         '''
         result = self._values.get("googet")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgGooget"], result)
@@ -5710,7 +5710,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkg:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsi"]:
         '''msi block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#msi OsConfigOsPolicyAssignment#msi}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#msi OsConfigOsPolicyAssignment#msi}
         '''
         result = self._values.get("msi")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsi"], result)
@@ -5721,7 +5721,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkg:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpm"]:
         '''rpm block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#rpm OsConfigOsPolicyAssignment#rpm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#rpm OsConfigOsPolicyAssignment#rpm}
         '''
         result = self._values.get("rpm")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpm"], result)
@@ -5732,7 +5732,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkg:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgYum"]:
         '''yum block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#yum OsConfigOsPolicyAssignment#yum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#yum OsConfigOsPolicyAssignment#yum}
         '''
         result = self._values.get("yum")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgYum"], result)
@@ -5743,7 +5743,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkg:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgZypper"]:
         '''zypper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#zypper OsConfigOsPolicyAssignment#zypper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#zypper OsConfigOsPolicyAssignment#zypper}
         '''
         result = self._values.get("zypper")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgZypper"], result)
@@ -5768,7 +5768,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkg:
 class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgApt:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
+        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d312926ff33295a897534c05bf30b3b432e168f04dd1bc29fdf928d41711258)
@@ -5781,7 +5781,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgApt:
     def name(self) -> builtins.str:
         '''Package name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -5867,8 +5867,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDeb:
         pull_deps: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#source OsConfigOsPolicyAssignment#source}
-        :param pull_deps: Whether dependencies should also be installed. - install when false: 'dpkg -i package' - install when true: 'apt-get update && apt-get -y install package.deb' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#pull_deps OsConfigOsPolicyAssignment#pull_deps}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#source OsConfigOsPolicyAssignment#source}
+        :param pull_deps: Whether dependencies should also be installed. - install when false: 'dpkg -i package' - install when true: 'apt-get update && apt-get -y install package.deb' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#pull_deps OsConfigOsPolicyAssignment#pull_deps}
         '''
         if isinstance(source, dict):
             source = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSource(**source)
@@ -5888,7 +5888,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDeb:
     ) -> "OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSource":
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#source OsConfigOsPolicyAssignment#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#source OsConfigOsPolicyAssignment#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -5902,7 +5902,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDeb:
 
         - install when false: 'dpkg -i package' - install when true: 'apt-get update && apt-get -y install package.deb'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#pull_deps OsConfigOsPolicyAssignment#pull_deps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#pull_deps OsConfigOsPolicyAssignment#pull_deps}
         '''
         result = self._values.get("pull_deps")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5949,10 +5949,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebOutputRef
         remote: typing.Optional[typing.Union["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSourceRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSource(
             allow_insecure=allow_insecure,
@@ -6041,10 +6041,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSource:
         remote: typing.Optional[typing.Union["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSourceRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
         '''
         if isinstance(gcs, dict):
             gcs = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSourceGcs(**gcs)
@@ -6075,7 +6075,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSource:
         When false, files are subject to validations based on the file type:
         Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
         '''
         result = self._values.get("allow_insecure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6086,7 +6086,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSource:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSourceGcs"]:
         '''gcs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
         '''
         result = self._values.get("gcs")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSourceGcs"], result)
@@ -6095,7 +6095,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSource:
     def local_path(self) -> typing.Optional[builtins.str]:
         '''A local path within the VM to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
         '''
         result = self._values.get("local_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6106,7 +6106,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSource:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSourceRemote"]:
         '''remote block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
         '''
         result = self._values.get("remote")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSourceRemote"], result)
@@ -6137,9 +6137,9 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSourceGcs
         generation: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5c7ab1620c060b32b778bd4046c9febaf3ca8e5e5a92d6395a2975a6bceeecf0)
@@ -6157,7 +6157,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSourceGcs
     def bucket(self) -> builtins.str:
         '''Bucket of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -6167,7 +6167,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSourceGcs
     def object(self) -> builtins.str:
         '''Name of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
         '''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
@@ -6177,7 +6177,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSourceGcs
     def generation(self) -> typing.Optional[jsii.Number]:
         '''Generation number of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
         '''
         result = self._values.get("generation")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6316,9 +6316,9 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSourceOut
         generation: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSourceGcs(
             bucket=bucket, object=object, generation=generation
@@ -6334,8 +6334,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSourceOut
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSourceRemote(
             uri=uri, sha256_checksum=sha256_checksum
@@ -6459,8 +6459,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSourceRem
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__57ea5525d8cd05d1fb7a9aa78536ce1227b76deca0c70b98a0bf473636dc7172)
@@ -6476,7 +6476,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSourceRem
     def uri(self) -> builtins.str:
         '''URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -6486,7 +6486,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSourceRem
     def sha256_checksum(self) -> typing.Optional[builtins.str]:
         '''SHA256 checksum of the remote file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
         '''
         result = self._values.get("sha256_checksum")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6587,7 +6587,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDebSourceRem
 class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgGooget:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
+        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__22088305c4cf5f768d253a7eb63455ef114517d61ad65987ab30e85fd19f87d6)
@@ -6600,7 +6600,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgGooget:
     def name(self) -> builtins.str:
         '''Package name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -6686,8 +6686,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsi:
         properties: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#source OsConfigOsPolicyAssignment#source}
-        :param properties: Additional properties to use during installation. This should be in the format of Property=Setting. Appended to the defaults of 'ACTION=INSTALL REBOOT=ReallySuppress'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#properties OsConfigOsPolicyAssignment#properties}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#source OsConfigOsPolicyAssignment#source}
+        :param properties: Additional properties to use during installation. This should be in the format of Property=Setting. Appended to the defaults of 'ACTION=INSTALL REBOOT=ReallySuppress'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#properties OsConfigOsPolicyAssignment#properties}
         '''
         if isinstance(source, dict):
             source = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSource(**source)
@@ -6707,7 +6707,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsi:
     ) -> "OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSource":
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#source OsConfigOsPolicyAssignment#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#source OsConfigOsPolicyAssignment#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -6719,7 +6719,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsi:
 
         This should be in the format of Property=Setting. Appended to the defaults of 'ACTION=INSTALL REBOOT=ReallySuppress'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#properties OsConfigOsPolicyAssignment#properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#properties OsConfigOsPolicyAssignment#properties}
         '''
         result = self._values.get("properties")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6766,10 +6766,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiOutputRef
         remote: typing.Optional[typing.Union["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSourceRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSource(
             allow_insecure=allow_insecure,
@@ -6853,10 +6853,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSource:
         remote: typing.Optional[typing.Union["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSourceRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
         '''
         if isinstance(gcs, dict):
             gcs = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSourceGcs(**gcs)
@@ -6887,7 +6887,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSource:
         When false, files are subject to validations based on the file type:
         Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
         '''
         result = self._values.get("allow_insecure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6898,7 +6898,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSource:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSourceGcs"]:
         '''gcs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
         '''
         result = self._values.get("gcs")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSourceGcs"], result)
@@ -6907,7 +6907,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSource:
     def local_path(self) -> typing.Optional[builtins.str]:
         '''A local path within the VM to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
         '''
         result = self._values.get("local_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6918,7 +6918,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSource:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSourceRemote"]:
         '''remote block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
         '''
         result = self._values.get("remote")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSourceRemote"], result)
@@ -6949,9 +6949,9 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSourceGcs
         generation: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b51bb33629699ce3b4882048a778eeac3a844b64b49675fc21e7c561b621a70)
@@ -6969,7 +6969,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSourceGcs
     def bucket(self) -> builtins.str:
         '''Bucket of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -6979,7 +6979,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSourceGcs
     def object(self) -> builtins.str:
         '''Name of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
         '''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
@@ -6989,7 +6989,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSourceGcs
     def generation(self) -> typing.Optional[jsii.Number]:
         '''Generation number of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
         '''
         result = self._values.get("generation")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7128,9 +7128,9 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSourceOut
         generation: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSourceGcs(
             bucket=bucket, object=object, generation=generation
@@ -7146,8 +7146,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSourceOut
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSourceRemote(
             uri=uri, sha256_checksum=sha256_checksum
@@ -7271,8 +7271,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSourceRem
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__021909e4db0f060225b88aec88501c3dee9d8641b99f3ceddb033f88e5f2877b)
@@ -7288,7 +7288,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSourceRem
     def uri(self) -> builtins.str:
         '''URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -7298,7 +7298,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsiSourceRem
     def sha256_checksum(self) -> typing.Optional[builtins.str]:
         '''SHA256 checksum of the remote file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
         '''
         result = self._values.get("sha256_checksum")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7414,7 +7414,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgOutputRefere
     @jsii.member(jsii_name="putApt")
     def put_apt(self, *, name: builtins.str) -> None:
         '''
-        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
+        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgApt(
             name=name
@@ -7430,8 +7430,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgOutputRefere
         pull_deps: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#source OsConfigOsPolicyAssignment#source}
-        :param pull_deps: Whether dependencies should also be installed. - install when false: 'dpkg -i package' - install when true: 'apt-get update && apt-get -y install package.deb' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#pull_deps OsConfigOsPolicyAssignment#pull_deps}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#source OsConfigOsPolicyAssignment#source}
+        :param pull_deps: Whether dependencies should also be installed. - install when false: 'dpkg -i package' - install when true: 'apt-get update && apt-get -y install package.deb' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#pull_deps OsConfigOsPolicyAssignment#pull_deps}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgDeb(
             source=source, pull_deps=pull_deps
@@ -7442,7 +7442,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgOutputRefere
     @jsii.member(jsii_name="putGooget")
     def put_googet(self, *, name: builtins.str) -> None:
         '''
-        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
+        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgGooget(
             name=name
@@ -7458,8 +7458,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgOutputRefere
         properties: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#source OsConfigOsPolicyAssignment#source}
-        :param properties: Additional properties to use during installation. This should be in the format of Property=Setting. Appended to the defaults of 'ACTION=INSTALL REBOOT=ReallySuppress'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#properties OsConfigOsPolicyAssignment#properties}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#source OsConfigOsPolicyAssignment#source}
+        :param properties: Additional properties to use during installation. This should be in the format of Property=Setting. Appended to the defaults of 'ACTION=INSTALL REBOOT=ReallySuppress'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#properties OsConfigOsPolicyAssignment#properties}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgMsi(
             source=source, properties=properties
@@ -7475,8 +7475,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgOutputRefere
         pull_deps: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#source OsConfigOsPolicyAssignment#source}
-        :param pull_deps: Whether dependencies should also be installed. - install when false: 'rpm --upgrade --replacepkgs package.rpm' - install when true: 'yum -y install package.rpm' or 'zypper -y install package.rpm' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#pull_deps OsConfigOsPolicyAssignment#pull_deps}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#source OsConfigOsPolicyAssignment#source}
+        :param pull_deps: Whether dependencies should also be installed. - install when false: 'rpm --upgrade --replacepkgs package.rpm' - install when true: 'yum -y install package.rpm' or 'zypper -y install package.rpm' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#pull_deps OsConfigOsPolicyAssignment#pull_deps}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpm(
             source=source, pull_deps=pull_deps
@@ -7487,7 +7487,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgOutputRefere
     @jsii.member(jsii_name="putYum")
     def put_yum(self, *, name: builtins.str) -> None:
         '''
-        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
+        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgYum(
             name=name
@@ -7498,7 +7498,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgOutputRefere
     @jsii.member(jsii_name="putZypper")
     def put_zypper(self, *, name: builtins.str) -> None:
         '''
-        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
+        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgZypper(
             name=name
@@ -7680,8 +7680,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpm:
         pull_deps: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#source OsConfigOsPolicyAssignment#source}
-        :param pull_deps: Whether dependencies should also be installed. - install when false: 'rpm --upgrade --replacepkgs package.rpm' - install when true: 'yum -y install package.rpm' or 'zypper -y install package.rpm' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#pull_deps OsConfigOsPolicyAssignment#pull_deps}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#source OsConfigOsPolicyAssignment#source}
+        :param pull_deps: Whether dependencies should also be installed. - install when false: 'rpm --upgrade --replacepkgs package.rpm' - install when true: 'yum -y install package.rpm' or 'zypper -y install package.rpm' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#pull_deps OsConfigOsPolicyAssignment#pull_deps}
         '''
         if isinstance(source, dict):
             source = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSource(**source)
@@ -7701,7 +7701,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpm:
     ) -> "OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSource":
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#source OsConfigOsPolicyAssignment#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#source OsConfigOsPolicyAssignment#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -7715,7 +7715,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpm:
 
         - install when false: 'rpm --upgrade --replacepkgs package.rpm' - install when true: 'yum -y install package.rpm' or 'zypper -y install package.rpm'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#pull_deps OsConfigOsPolicyAssignment#pull_deps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#pull_deps OsConfigOsPolicyAssignment#pull_deps}
         '''
         result = self._values.get("pull_deps")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7762,10 +7762,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmOutputRef
         remote: typing.Optional[typing.Union["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSourceRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSource(
             allow_insecure=allow_insecure,
@@ -7854,10 +7854,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSource:
         remote: typing.Optional[typing.Union["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSourceRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type: Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
         '''
         if isinstance(gcs, dict):
             gcs = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSourceGcs(**gcs)
@@ -7888,7 +7888,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSource:
         When false, files are subject to validations based on the file type:
         Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#allow_insecure OsConfigOsPolicyAssignment#allow_insecure}
         '''
         result = self._values.get("allow_insecure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7899,7 +7899,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSource:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSourceGcs"]:
         '''gcs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gcs OsConfigOsPolicyAssignment#gcs}
         '''
         result = self._values.get("gcs")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSourceGcs"], result)
@@ -7908,7 +7908,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSource:
     def local_path(self) -> typing.Optional[builtins.str]:
         '''A local path within the VM to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#local_path OsConfigOsPolicyAssignment#local_path}
         '''
         result = self._values.get("local_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7919,7 +7919,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSource:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSourceRemote"]:
         '''remote block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#remote OsConfigOsPolicyAssignment#remote}
         '''
         result = self._values.get("remote")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSourceRemote"], result)
@@ -7950,9 +7950,9 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSourceGcs
         generation: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__da5c83cdf681022aad4492f58caa4446475fa21bdb3f5fc34ef6cb5ab0b2c7b2)
@@ -7970,7 +7970,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSourceGcs
     def bucket(self) -> builtins.str:
         '''Bucket of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -7980,7 +7980,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSourceGcs
     def object(self) -> builtins.str:
         '''Name of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
         '''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
@@ -7990,7 +7990,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSourceGcs
     def generation(self) -> typing.Optional[jsii.Number]:
         '''Generation number of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
         '''
         result = self._values.get("generation")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8129,9 +8129,9 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSourceOut
         generation: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#bucket OsConfigOsPolicyAssignment#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#object OsConfigOsPolicyAssignment#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#generation OsConfigOsPolicyAssignment#generation}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSourceGcs(
             bucket=bucket, object=object, generation=generation
@@ -8147,8 +8147,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSourceOut
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSourceRemote(
             uri=uri, sha256_checksum=sha256_checksum
@@ -8272,8 +8272,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSourceRem
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d66a918603f86ab63b8998637da410d9a5e5667d1016b5a7c785b656d3f2566a)
@@ -8289,7 +8289,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSourceRem
     def uri(self) -> builtins.str:
         '''URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -8299,7 +8299,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSourceRem
     def sha256_checksum(self) -> typing.Optional[builtins.str]:
         '''SHA256 checksum of the remote file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#sha256_checksum OsConfigOsPolicyAssignment#sha256_checksum}
         '''
         result = self._values.get("sha256_checksum")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8400,7 +8400,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgRpmSourceRem
 class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgYum:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
+        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__32218af49b99c1f221b260eb22afbc50a9c7c729f5278f75079146dd588ac668)
@@ -8413,7 +8413,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgYum:
     def name(self) -> builtins.str:
         '''Package name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -8494,7 +8494,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgYumOutputRef
 class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgZypper:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
+        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2af9aa47418fd8b2c96b088c8aa9d3997b5ac861c4d2eb3a71e588a96ef3a874)
@@ -8507,7 +8507,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesPkgZypper:
     def name(self) -> builtins.str:
         '''Package name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -8595,10 +8595,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepository:
         zypper: typing.Optional[typing.Union["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryZypper", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#apt OsConfigOsPolicyAssignment#apt}
-        :param goo: goo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#goo OsConfigOsPolicyAssignment#goo}
-        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#yum OsConfigOsPolicyAssignment#yum}
-        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#zypper OsConfigOsPolicyAssignment#zypper}
+        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#apt OsConfigOsPolicyAssignment#apt}
+        :param goo: goo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#goo OsConfigOsPolicyAssignment#goo}
+        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#yum OsConfigOsPolicyAssignment#yum}
+        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#zypper OsConfigOsPolicyAssignment#zypper}
         '''
         if isinstance(apt, dict):
             apt = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryApt(**apt)
@@ -8630,7 +8630,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepository:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryApt"]:
         '''apt block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#apt OsConfigOsPolicyAssignment#apt}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#apt OsConfigOsPolicyAssignment#apt}
         '''
         result = self._values.get("apt")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryApt"], result)
@@ -8641,7 +8641,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepository:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryGoo"]:
         '''goo block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#goo OsConfigOsPolicyAssignment#goo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#goo OsConfigOsPolicyAssignment#goo}
         '''
         result = self._values.get("goo")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryGoo"], result)
@@ -8652,7 +8652,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepository:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryYum"]:
         '''yum block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#yum OsConfigOsPolicyAssignment#yum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#yum OsConfigOsPolicyAssignment#yum}
         '''
         result = self._values.get("yum")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryYum"], result)
@@ -8663,7 +8663,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepository:
     ) -> typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryZypper"]:
         '''zypper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#zypper OsConfigOsPolicyAssignment#zypper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#zypper OsConfigOsPolicyAssignment#zypper}
         '''
         result = self._values.get("zypper")
         return typing.cast(typing.Optional["OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryZypper"], result)
@@ -8702,11 +8702,11 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryApt:
         gpg_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param archive_type: Type of archive files in this repository. Possible values: ["ARCHIVE_TYPE_UNSPECIFIED", "DEB", "DEB_SRC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#archive_type OsConfigOsPolicyAssignment#archive_type}
-        :param components: List of components for this repository. Must contain at least one item. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#components OsConfigOsPolicyAssignment#components}
-        :param distribution: Distribution of this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#distribution OsConfigOsPolicyAssignment#distribution}
-        :param uri: URI for this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
-        :param gpg_key: URI of the key file for this repository. The agent maintains a keyring at '/etc/apt/trusted.gpg.d/osconfig_agent_managed.gpg'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gpg_key OsConfigOsPolicyAssignment#gpg_key}
+        :param archive_type: Type of archive files in this repository. Possible values: ["ARCHIVE_TYPE_UNSPECIFIED", "DEB", "DEB_SRC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#archive_type OsConfigOsPolicyAssignment#archive_type}
+        :param components: List of components for this repository. Must contain at least one item. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#components OsConfigOsPolicyAssignment#components}
+        :param distribution: Distribution of this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#distribution OsConfigOsPolicyAssignment#distribution}
+        :param uri: URI for this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        :param gpg_key: URI of the key file for this repository. The agent maintains a keyring at '/etc/apt/trusted.gpg.d/osconfig_agent_managed.gpg'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gpg_key OsConfigOsPolicyAssignment#gpg_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__11270c395540160990927d077d677ad564c836f9ab224e8c12ade9b94ccd4dfc)
@@ -8728,7 +8728,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryApt:
     def archive_type(self) -> builtins.str:
         '''Type of archive files in this repository. Possible values: ["ARCHIVE_TYPE_UNSPECIFIED", "DEB", "DEB_SRC"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#archive_type OsConfigOsPolicyAssignment#archive_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#archive_type OsConfigOsPolicyAssignment#archive_type}
         '''
         result = self._values.get("archive_type")
         assert result is not None, "Required property 'archive_type' is missing"
@@ -8738,7 +8738,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryApt:
     def components(self) -> typing.List[builtins.str]:
         '''List of components for this repository. Must contain at least one item.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#components OsConfigOsPolicyAssignment#components}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#components OsConfigOsPolicyAssignment#components}
         '''
         result = self._values.get("components")
         assert result is not None, "Required property 'components' is missing"
@@ -8748,7 +8748,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryApt:
     def distribution(self) -> builtins.str:
         '''Distribution of this repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#distribution OsConfigOsPolicyAssignment#distribution}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#distribution OsConfigOsPolicyAssignment#distribution}
         '''
         result = self._values.get("distribution")
         assert result is not None, "Required property 'distribution' is missing"
@@ -8758,7 +8758,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryApt:
     def uri(self) -> builtins.str:
         '''URI for this repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -8768,7 +8768,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryApt:
     def gpg_key(self) -> typing.Optional[builtins.str]:
         '''URI of the key file for this repository. The agent maintains a keyring at '/etc/apt/trusted.gpg.d/osconfig_agent_managed.gpg'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gpg_key OsConfigOsPolicyAssignment#gpg_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gpg_key OsConfigOsPolicyAssignment#gpg_key}
         '''
         result = self._values.get("gpg_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8920,8 +8920,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryAptOu
 class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryGoo:
     def __init__(self, *, name: builtins.str, url: builtins.str) -> None:
         '''
-        :param name: The name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
-        :param url: The url of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#url OsConfigOsPolicyAssignment#url}
+        :param name: The name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
+        :param url: The url of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#url OsConfigOsPolicyAssignment#url}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0da91c9afa0b3c10f7176ae14eb40a11eaf8c491dc55c10064a5aacf665f02e4)
@@ -8936,7 +8936,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryGoo:
     def name(self) -> builtins.str:
         '''The name of the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -8946,7 +8946,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryGoo:
     def url(self) -> builtins.str:
         '''The url of the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#url OsConfigOsPolicyAssignment#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#url OsConfigOsPolicyAssignment#url}
         '''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
@@ -9067,11 +9067,11 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryOutpu
         gpg_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param archive_type: Type of archive files in this repository. Possible values: ["ARCHIVE_TYPE_UNSPECIFIED", "DEB", "DEB_SRC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#archive_type OsConfigOsPolicyAssignment#archive_type}
-        :param components: List of components for this repository. Must contain at least one item. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#components OsConfigOsPolicyAssignment#components}
-        :param distribution: Distribution of this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#distribution OsConfigOsPolicyAssignment#distribution}
-        :param uri: URI for this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
-        :param gpg_key: URI of the key file for this repository. The agent maintains a keyring at '/etc/apt/trusted.gpg.d/osconfig_agent_managed.gpg'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gpg_key OsConfigOsPolicyAssignment#gpg_key}
+        :param archive_type: Type of archive files in this repository. Possible values: ["ARCHIVE_TYPE_UNSPECIFIED", "DEB", "DEB_SRC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#archive_type OsConfigOsPolicyAssignment#archive_type}
+        :param components: List of components for this repository. Must contain at least one item. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#components OsConfigOsPolicyAssignment#components}
+        :param distribution: Distribution of this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#distribution OsConfigOsPolicyAssignment#distribution}
+        :param uri: URI for this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#uri OsConfigOsPolicyAssignment#uri}
+        :param gpg_key: URI of the key file for this repository. The agent maintains a keyring at '/etc/apt/trusted.gpg.d/osconfig_agent_managed.gpg'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gpg_key OsConfigOsPolicyAssignment#gpg_key}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryApt(
             archive_type=archive_type,
@@ -9086,8 +9086,8 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryOutpu
     @jsii.member(jsii_name="putGoo")
     def put_goo(self, *, name: builtins.str, url: builtins.str) -> None:
         '''
-        :param name: The name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
-        :param url: The url of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#url OsConfigOsPolicyAssignment#url}
+        :param name: The name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#name OsConfigOsPolicyAssignment#name}
+        :param url: The url of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#url OsConfigOsPolicyAssignment#url}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryGoo(
             name=name, url=url
@@ -9105,10 +9105,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryOutpu
         gpg_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#base_url OsConfigOsPolicyAssignment#base_url}
-        :param id: A one word, unique name for this repository. This is the 'repo id' in the yum config file and also the 'display_name' if 'display_name' is omitted. This id is also used as the unique identifier when checking for resource conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#display_name OsConfigOsPolicyAssignment#display_name}
-        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gpg_keys OsConfigOsPolicyAssignment#gpg_keys}
+        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#base_url OsConfigOsPolicyAssignment#base_url}
+        :param id: A one word, unique name for this repository. This is the 'repo id' in the yum config file and also the 'display_name' if 'display_name' is omitted. This id is also used as the unique identifier when checking for resource conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#display_name OsConfigOsPolicyAssignment#display_name}
+        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gpg_keys OsConfigOsPolicyAssignment#gpg_keys}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryYum(
             base_url=base_url, id=id, display_name=display_name, gpg_keys=gpg_keys
@@ -9126,10 +9126,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryOutpu
         gpg_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#base_url OsConfigOsPolicyAssignment#base_url}
-        :param id: A one word, unique name for this repository. This is the 'repo id' in the zypper config file and also the 'display_name' if 'display_name' is omitted. This id is also used as the unique identifier when checking for GuestPolicy conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#display_name OsConfigOsPolicyAssignment#display_name}
-        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gpg_keys OsConfigOsPolicyAssignment#gpg_keys}
+        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#base_url OsConfigOsPolicyAssignment#base_url}
+        :param id: A one word, unique name for this repository. This is the 'repo id' in the zypper config file and also the 'display_name' if 'display_name' is omitted. This id is also used as the unique identifier when checking for GuestPolicy conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#display_name OsConfigOsPolicyAssignment#display_name}
+        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gpg_keys OsConfigOsPolicyAssignment#gpg_keys}
         '''
         value = OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryZypper(
             base_url=base_url, id=id, display_name=display_name, gpg_keys=gpg_keys
@@ -9247,10 +9247,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryYum:
         gpg_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#base_url OsConfigOsPolicyAssignment#base_url}
-        :param id: A one word, unique name for this repository. This is the 'repo id' in the yum config file and also the 'display_name' if 'display_name' is omitted. This id is also used as the unique identifier when checking for resource conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#display_name OsConfigOsPolicyAssignment#display_name}
-        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gpg_keys OsConfigOsPolicyAssignment#gpg_keys}
+        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#base_url OsConfigOsPolicyAssignment#base_url}
+        :param id: A one word, unique name for this repository. This is the 'repo id' in the yum config file and also the 'display_name' if 'display_name' is omitted. This id is also used as the unique identifier when checking for resource conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#display_name OsConfigOsPolicyAssignment#display_name}
+        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gpg_keys OsConfigOsPolicyAssignment#gpg_keys}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b8362911ee6382db2a69c25c21fa3f3cf3aa3f5c169849bddad3fe2ac613fdf9)
@@ -9271,7 +9271,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryYum:
     def base_url(self) -> builtins.str:
         '''The location of the repository directory.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#base_url OsConfigOsPolicyAssignment#base_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#base_url OsConfigOsPolicyAssignment#base_url}
         '''
         result = self._values.get("base_url")
         assert result is not None, "Required property 'base_url' is missing"
@@ -9283,7 +9283,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryYum:
 
         This is the 'repo id' in the yum config file and also the 'display_name' if 'display_name' is omitted. This id is also used as the unique identifier when checking for resource conflicts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -9296,7 +9296,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryYum:
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The display name of the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#display_name OsConfigOsPolicyAssignment#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#display_name OsConfigOsPolicyAssignment#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9305,7 +9305,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryYum:
     def gpg_keys(self) -> typing.Optional[typing.List[builtins.str]]:
         '''URIs of GPG keys.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gpg_keys OsConfigOsPolicyAssignment#gpg_keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gpg_keys OsConfigOsPolicyAssignment#gpg_keys}
         '''
         result = self._values.get("gpg_keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -9456,10 +9456,10 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryZyppe
         gpg_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#base_url OsConfigOsPolicyAssignment#base_url}
-        :param id: A one word, unique name for this repository. This is the 'repo id' in the zypper config file and also the 'display_name' if 'display_name' is omitted. This id is also used as the unique identifier when checking for GuestPolicy conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#display_name OsConfigOsPolicyAssignment#display_name}
-        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gpg_keys OsConfigOsPolicyAssignment#gpg_keys}
+        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#base_url OsConfigOsPolicyAssignment#base_url}
+        :param id: A one word, unique name for this repository. This is the 'repo id' in the zypper config file and also the 'display_name' if 'display_name' is omitted. This id is also used as the unique identifier when checking for GuestPolicy conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#display_name OsConfigOsPolicyAssignment#display_name}
+        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gpg_keys OsConfigOsPolicyAssignment#gpg_keys}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__53a389804257b4acda98b03c6574029443c0fa00032296b322836d7bd7c6bac6)
@@ -9480,7 +9480,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryZyppe
     def base_url(self) -> builtins.str:
         '''The location of the repository directory.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#base_url OsConfigOsPolicyAssignment#base_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#base_url OsConfigOsPolicyAssignment#base_url}
         '''
         result = self._values.get("base_url")
         assert result is not None, "Required property 'base_url' is missing"
@@ -9492,7 +9492,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryZyppe
 
         This is the 'repo id' in the zypper config file and also the 'display_name' if 'display_name' is omitted. This id is also used as the unique identifier when checking for GuestPolicy conflicts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#id OsConfigOsPolicyAssignment#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -9505,7 +9505,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryZyppe
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The display name of the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#display_name OsConfigOsPolicyAssignment#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#display_name OsConfigOsPolicyAssignment#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9514,7 +9514,7 @@ class OsConfigOsPolicyAssignmentOsPoliciesResourceGroupsResourcesRepositoryZyppe
     def gpg_keys(self) -> typing.Optional[typing.List[builtins.str]]:
         '''URIs of GPG keys.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#gpg_keys OsConfigOsPolicyAssignment#gpg_keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#gpg_keys OsConfigOsPolicyAssignment#gpg_keys}
         '''
         result = self._values.get("gpg_keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -9661,8 +9661,8 @@ class OsConfigOsPolicyAssignmentRollout:
         min_wait_duration: builtins.str,
     ) -> None:
         '''
-        :param disruption_budget: disruption_budget block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#disruption_budget OsConfigOsPolicyAssignment#disruption_budget}
-        :param min_wait_duration: This determines the minimum duration of time to wait after the configuration changes are applied through the current rollout. A VM continues to count towards the 'disruption_budget' at least until this duration of time has passed after configuration changes are applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#min_wait_duration OsConfigOsPolicyAssignment#min_wait_duration}
+        :param disruption_budget: disruption_budget block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#disruption_budget OsConfigOsPolicyAssignment#disruption_budget}
+        :param min_wait_duration: This determines the minimum duration of time to wait after the configuration changes are applied through the current rollout. A VM continues to count towards the 'disruption_budget' at least until this duration of time has passed after configuration changes are applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#min_wait_duration OsConfigOsPolicyAssignment#min_wait_duration}
         '''
         if isinstance(disruption_budget, dict):
             disruption_budget = OsConfigOsPolicyAssignmentRolloutDisruptionBudget(**disruption_budget)
@@ -9679,7 +9679,7 @@ class OsConfigOsPolicyAssignmentRollout:
     def disruption_budget(self) -> "OsConfigOsPolicyAssignmentRolloutDisruptionBudget":
         '''disruption_budget block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#disruption_budget OsConfigOsPolicyAssignment#disruption_budget}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#disruption_budget OsConfigOsPolicyAssignment#disruption_budget}
         '''
         result = self._values.get("disruption_budget")
         assert result is not None, "Required property 'disruption_budget' is missing"
@@ -9691,7 +9691,7 @@ class OsConfigOsPolicyAssignmentRollout:
 
         A VM continues to count towards the 'disruption_budget' at least until this duration of time has passed after configuration changes are applied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#min_wait_duration OsConfigOsPolicyAssignment#min_wait_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#min_wait_duration OsConfigOsPolicyAssignment#min_wait_duration}
         '''
         result = self._values.get("min_wait_duration")
         assert result is not None, "Required property 'min_wait_duration' is missing"
@@ -9722,8 +9722,8 @@ class OsConfigOsPolicyAssignmentRolloutDisruptionBudget:
         percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fixed: Specifies a fixed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#fixed OsConfigOsPolicyAssignment#fixed}
-        :param percent: Specifies the relative value defined as a percentage, which will be multiplied by a reference value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#percent OsConfigOsPolicyAssignment#percent}
+        :param fixed: Specifies a fixed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#fixed OsConfigOsPolicyAssignment#fixed}
+        :param percent: Specifies the relative value defined as a percentage, which will be multiplied by a reference value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#percent OsConfigOsPolicyAssignment#percent}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f735d3b5bd8cdde9e8b89955e3e847fffb7980560b5bb5eb5821c6b74c53c42e)
@@ -9739,7 +9739,7 @@ class OsConfigOsPolicyAssignmentRolloutDisruptionBudget:
     def fixed(self) -> typing.Optional[jsii.Number]:
         '''Specifies a fixed value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#fixed OsConfigOsPolicyAssignment#fixed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#fixed OsConfigOsPolicyAssignment#fixed}
         '''
         result = self._values.get("fixed")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -9748,7 +9748,7 @@ class OsConfigOsPolicyAssignmentRolloutDisruptionBudget:
     def percent(self) -> typing.Optional[jsii.Number]:
         '''Specifies the relative value defined as a percentage, which will be multiplied by a reference value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#percent OsConfigOsPolicyAssignment#percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#percent OsConfigOsPolicyAssignment#percent}
         '''
         result = self._values.get("percent")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -9873,8 +9873,8 @@ class OsConfigOsPolicyAssignmentRolloutOutputReference(
         percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fixed: Specifies a fixed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#fixed OsConfigOsPolicyAssignment#fixed}
-        :param percent: Specifies the relative value defined as a percentage, which will be multiplied by a reference value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#percent OsConfigOsPolicyAssignment#percent}
+        :param fixed: Specifies a fixed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#fixed OsConfigOsPolicyAssignment#fixed}
+        :param percent: Specifies the relative value defined as a percentage, which will be multiplied by a reference value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#percent OsConfigOsPolicyAssignment#percent}
         '''
         value = OsConfigOsPolicyAssignmentRolloutDisruptionBudget(
             fixed=fixed, percent=percent
@@ -9943,9 +9943,9 @@ class OsConfigOsPolicyAssignmentTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#create OsConfigOsPolicyAssignment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#delete OsConfigOsPolicyAssignment#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#update OsConfigOsPolicyAssignment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#create OsConfigOsPolicyAssignment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#delete OsConfigOsPolicyAssignment#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#update OsConfigOsPolicyAssignment#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6056946e41837e2af73d80f5dd231b978e4ede11f5d6cea0e39ca5f8f9d6b048)
@@ -9962,19 +9962,19 @@ class OsConfigOsPolicyAssignmentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#create OsConfigOsPolicyAssignment#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#create OsConfigOsPolicyAssignment#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#delete OsConfigOsPolicyAssignment#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#delete OsConfigOsPolicyAssignment#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_os_policy_assignment#update OsConfigOsPolicyAssignment#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_os_policy_assignment#update OsConfigOsPolicyAssignment#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

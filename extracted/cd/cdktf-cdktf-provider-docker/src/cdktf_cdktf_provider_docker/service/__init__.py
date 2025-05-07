@@ -1,7 +1,7 @@
 r'''
 # `docker_service`
 
-Refer to the Terraform Registry for docs: [`docker_service`](https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service).
+Refer to the Terraform Registry for docs: [`docker_service`](https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Service(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-docker.service.Service",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service docker_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service docker_service}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class Service(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service docker_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service docker_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#name Service#name}
-        :param task_spec: task_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#task_spec Service#task_spec}
-        :param auth: auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#auth Service#auth}
-        :param converge_config: converge_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#converge_config Service#converge_config}
-        :param endpoint_spec: endpoint_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#endpoint_spec Service#endpoint_spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#id Service#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#labels Service#labels}
-        :param mode: mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#mode Service#mode}
-        :param rollback_config: rollback_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#rollback_config Service#rollback_config}
-        :param update_config: update_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#update_config Service#update_config}
+        :param name: Name of the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#name Service#name}
+        :param task_spec: task_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#task_spec Service#task_spec}
+        :param auth: auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#auth Service#auth}
+        :param converge_config: converge_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#converge_config Service#converge_config}
+        :param endpoint_spec: endpoint_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#endpoint_spec Service#endpoint_spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#id Service#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#labels Service#labels}
+        :param mode: mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#mode Service#mode}
+        :param rollback_config: rollback_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#rollback_config Service#rollback_config}
+        :param update_config: update_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#update_config Service#update_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class Service(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Service to import.
-        :param import_from_id: The id of the existing Service that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Service that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Service to import is found.
         '''
         if __debug__:
@@ -150,9 +150,9 @@ class Service(
         username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param server_address: The address of the server for the authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#server_address Service#server_address}
-        :param password: The password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#password Service#password}
-        :param username: The username. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#username Service#username}
+        :param server_address: The address of the server for the authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#server_address Service#server_address}
+        :param password: The password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#password Service#password}
+        :param username: The username. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#username Service#username}
         '''
         value = ServiceAuth(
             server_address=server_address, password=password, username=username
@@ -168,8 +168,8 @@ class Service(
         timeout: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param delay: The interval to check if the desired state is reached ``(ms|s)``. Defaults to ``7s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#delay Service#delay}
-        :param timeout: The timeout of the service to reach the desired state ``(s|m)``. Defaults to ``3m``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#timeout Service#timeout}
+        :param delay: The interval to check if the desired state is reached ``(ms|s)``. Defaults to ``7s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#delay Service#delay}
+        :param timeout: The timeout of the service to reach the desired state ``(s|m)``. Defaults to ``3m``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#timeout Service#timeout}
         '''
         value = ServiceConvergeConfig(delay=delay, timeout=timeout)
 
@@ -183,8 +183,8 @@ class Service(
         ports: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ServiceEndpointSpecPorts", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param mode: The mode of resolution to use for internal load balancing between tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#mode Service#mode}
-        :param ports: ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#ports Service#ports}
+        :param mode: The mode of resolution to use for internal load balancing between tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#mode Service#mode}
+        :param ports: ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#ports Service#ports}
         '''
         value = ServiceEndpointSpec(mode=mode, ports=ports)
 
@@ -211,8 +211,8 @@ class Service(
         replicated: typing.Optional[typing.Union["ServiceModeReplicated", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param global_: The global service mode. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#global Service#global}
-        :param replicated: replicated block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#replicated Service#replicated}
+        :param global_: The global service mode. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#global Service#global}
+        :param replicated: replicated block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#replicated Service#replicated}
         '''
         value = ServiceMode(global_=global_, replicated=replicated)
 
@@ -230,12 +230,12 @@ class Service(
         parallelism: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param delay: Delay between task rollbacks (ns|us|ms|s|m|h). Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#delay Service#delay}
-        :param failure_action: Action on rollback failure: pause | continue. Defaults to ``pause``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#failure_action Service#failure_action}
-        :param max_failure_ratio: Failure rate to tolerate during a rollback. Defaults to ``0.0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#max_failure_ratio Service#max_failure_ratio}
-        :param monitor: Duration after each task rollback to monitor for failure (ns|us|ms|s|m|h). Defaults to ``5s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#monitor Service#monitor}
-        :param order: Rollback order: either 'stop-first' or 'start-first'. Defaults to ``stop-first``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#order Service#order}
-        :param parallelism: Maximum number of tasks to be rollbacked in one iteration. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#parallelism Service#parallelism}
+        :param delay: Delay between task rollbacks (ns|us|ms|s|m|h). Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#delay Service#delay}
+        :param failure_action: Action on rollback failure: pause | continue. Defaults to ``pause``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#failure_action Service#failure_action}
+        :param max_failure_ratio: Failure rate to tolerate during a rollback. Defaults to ``0.0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#max_failure_ratio Service#max_failure_ratio}
+        :param monitor: Duration after each task rollback to monitor for failure (ns|us|ms|s|m|h). Defaults to ``5s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#monitor Service#monitor}
+        :param order: Rollback order: either 'stop-first' or 'start-first'. Defaults to ``stop-first``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#order Service#order}
+        :param parallelism: Maximum number of tasks to be rollbacked in one iteration. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#parallelism Service#parallelism}
         '''
         value = ServiceRollbackConfig(
             delay=delay,
@@ -262,14 +262,14 @@ class Service(
         runtime: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param container_spec: container_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#container_spec Service#container_spec}
-        :param force_update: A counter that triggers an update even if no relevant parameters have been changed. See the `spec <https://github.com/docker/swarmkit/blob/master/api/specs.proto#L126>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#force_update Service#force_update}
-        :param log_driver: log_driver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#log_driver Service#log_driver}
-        :param networks_advanced: networks_advanced block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#networks_advanced Service#networks_advanced}
-        :param placement: placement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#placement Service#placement}
-        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#resources Service#resources}
-        :param restart_policy: restart_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#restart_policy Service#restart_policy}
-        :param runtime: Runtime is the type of runtime specified for the task executor. See the `types <https://github.com/moby/moby/blob/master/api/types/swarm/runtime.go>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#runtime Service#runtime}
+        :param container_spec: container_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#container_spec Service#container_spec}
+        :param force_update: A counter that triggers an update even if no relevant parameters have been changed. See the `spec <https://github.com/docker/swarmkit/blob/master/api/specs.proto#L126>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#force_update Service#force_update}
+        :param log_driver: log_driver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#log_driver Service#log_driver}
+        :param networks_advanced: networks_advanced block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#networks_advanced Service#networks_advanced}
+        :param placement: placement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#placement Service#placement}
+        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#resources Service#resources}
+        :param restart_policy: restart_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#restart_policy Service#restart_policy}
+        :param runtime: Runtime is the type of runtime specified for the task executor. See the `types <https://github.com/moby/moby/blob/master/api/types/swarm/runtime.go>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#runtime Service#runtime}
         '''
         value = ServiceTaskSpec(
             container_spec=container_spec,
@@ -296,12 +296,12 @@ class Service(
         parallelism: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param delay: Delay between task updates ``(ns|us|ms|s|m|h)``. Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#delay Service#delay}
-        :param failure_action: Action on update failure: ``pause``, ``continue`` or ``rollback``. Defaults to ``pause``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#failure_action Service#failure_action}
-        :param max_failure_ratio: Failure rate to tolerate during an update. Defaults to ``0.0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#max_failure_ratio Service#max_failure_ratio}
-        :param monitor: Duration after each task update to monitor for failure (ns|us|ms|s|m|h). Defaults to ``5s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#monitor Service#monitor}
-        :param order: Update order: either 'stop-first' or 'start-first'. Defaults to ``stop-first``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#order Service#order}
-        :param parallelism: Maximum number of tasks to be updated in one iteration. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#parallelism Service#parallelism}
+        :param delay: Delay between task updates ``(ns|us|ms|s|m|h)``. Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#delay Service#delay}
+        :param failure_action: Action on update failure: ``pause``, ``continue`` or ``rollback``. Defaults to ``pause``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#failure_action Service#failure_action}
+        :param max_failure_ratio: Failure rate to tolerate during an update. Defaults to ``0.0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#max_failure_ratio Service#max_failure_ratio}
+        :param monitor: Duration after each task update to monitor for failure (ns|us|ms|s|m|h). Defaults to ``5s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#monitor Service#monitor}
+        :param order: Update order: either 'stop-first' or 'start-first'. Defaults to ``stop-first``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#order Service#order}
+        :param parallelism: Maximum number of tasks to be updated in one iteration. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#parallelism Service#parallelism}
         '''
         value = ServiceUpdateConfig(
             delay=delay,
@@ -494,9 +494,9 @@ class ServiceAuth:
         username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param server_address: The address of the server for the authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#server_address Service#server_address}
-        :param password: The password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#password Service#password}
-        :param username: The username. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#username Service#username}
+        :param server_address: The address of the server for the authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#server_address Service#server_address}
+        :param password: The password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#password Service#password}
+        :param username: The username. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#username Service#username}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__449ee43c79aec9507a4b0db7e9a54562c9d367689e82a9ef738d88114cb1a89f)
@@ -515,7 +515,7 @@ class ServiceAuth:
     def server_address(self) -> builtins.str:
         '''The address of the server for the authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#server_address Service#server_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#server_address Service#server_address}
         '''
         result = self._values.get("server_address")
         assert result is not None, "Required property 'server_address' is missing"
@@ -525,7 +525,7 @@ class ServiceAuth:
     def password(self) -> typing.Optional[builtins.str]:
         '''The password.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#password Service#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#password Service#password}
         '''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -534,7 +534,7 @@ class ServiceAuth:
     def username(self) -> typing.Optional[builtins.str]:
         '''The username.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#username Service#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#username Service#username}
         '''
         result = self._values.get("username")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -696,16 +696,16 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#name Service#name}
-        :param task_spec: task_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#task_spec Service#task_spec}
-        :param auth: auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#auth Service#auth}
-        :param converge_config: converge_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#converge_config Service#converge_config}
-        :param endpoint_spec: endpoint_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#endpoint_spec Service#endpoint_spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#id Service#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#labels Service#labels}
-        :param mode: mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#mode Service#mode}
-        :param rollback_config: rollback_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#rollback_config Service#rollback_config}
-        :param update_config: update_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#update_config Service#update_config}
+        :param name: Name of the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#name Service#name}
+        :param task_spec: task_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#task_spec Service#task_spec}
+        :param auth: auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#auth Service#auth}
+        :param converge_config: converge_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#converge_config Service#converge_config}
+        :param endpoint_spec: endpoint_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#endpoint_spec Service#endpoint_spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#id Service#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#labels Service#labels}
+        :param mode: mode block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#mode Service#mode}
+        :param rollback_config: rollback_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#rollback_config Service#rollback_config}
+        :param update_config: update_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#update_config Service#update_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -845,7 +845,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name of the service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#name Service#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#name Service#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -855,7 +855,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def task_spec(self) -> "ServiceTaskSpec":
         '''task_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#task_spec Service#task_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#task_spec Service#task_spec}
         '''
         result = self._values.get("task_spec")
         assert result is not None, "Required property 'task_spec' is missing"
@@ -865,7 +865,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auth(self) -> typing.Optional[ServiceAuth]:
         '''auth block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#auth Service#auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#auth Service#auth}
         '''
         result = self._values.get("auth")
         return typing.cast(typing.Optional[ServiceAuth], result)
@@ -874,7 +874,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def converge_config(self) -> typing.Optional["ServiceConvergeConfig"]:
         '''converge_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#converge_config Service#converge_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#converge_config Service#converge_config}
         '''
         result = self._values.get("converge_config")
         return typing.cast(typing.Optional["ServiceConvergeConfig"], result)
@@ -883,14 +883,14 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def endpoint_spec(self) -> typing.Optional["ServiceEndpointSpec"]:
         '''endpoint_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#endpoint_spec Service#endpoint_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#endpoint_spec Service#endpoint_spec}
         '''
         result = self._values.get("endpoint_spec")
         return typing.cast(typing.Optional["ServiceEndpointSpec"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#id Service#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#id Service#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -904,7 +904,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceLabels"]]]:
         '''labels block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#labels Service#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#labels Service#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceLabels"]]], result)
@@ -913,7 +913,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def mode(self) -> typing.Optional["ServiceMode"]:
         '''mode block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#mode Service#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#mode Service#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional["ServiceMode"], result)
@@ -922,7 +922,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def rollback_config(self) -> typing.Optional["ServiceRollbackConfig"]:
         '''rollback_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#rollback_config Service#rollback_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#rollback_config Service#rollback_config}
         '''
         result = self._values.get("rollback_config")
         return typing.cast(typing.Optional["ServiceRollbackConfig"], result)
@@ -931,7 +931,7 @@ class ServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def update_config(self) -> typing.Optional["ServiceUpdateConfig"]:
         '''update_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#update_config Service#update_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#update_config Service#update_config}
         '''
         result = self._values.get("update_config")
         return typing.cast(typing.Optional["ServiceUpdateConfig"], result)
@@ -961,8 +961,8 @@ class ServiceConvergeConfig:
         timeout: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param delay: The interval to check if the desired state is reached ``(ms|s)``. Defaults to ``7s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#delay Service#delay}
-        :param timeout: The timeout of the service to reach the desired state ``(s|m)``. Defaults to ``3m``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#timeout Service#timeout}
+        :param delay: The interval to check if the desired state is reached ``(ms|s)``. Defaults to ``7s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#delay Service#delay}
+        :param timeout: The timeout of the service to reach the desired state ``(s|m)``. Defaults to ``3m``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#timeout Service#timeout}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e702b821534297ef5c9ae2900e2d91b52ad07bec13938fd5374ddb81be218a73)
@@ -978,7 +978,7 @@ class ServiceConvergeConfig:
     def delay(self) -> typing.Optional[builtins.str]:
         '''The interval to check if the desired state is reached ``(ms|s)``. Defaults to ``7s``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#delay Service#delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#delay Service#delay}
         '''
         result = self._values.get("delay")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -987,7 +987,7 @@ class ServiceConvergeConfig:
     def timeout(self) -> typing.Optional[builtins.str]:
         '''The timeout of the service to reach the desired state ``(s|m)``. Defaults to ``3m``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#timeout Service#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#timeout Service#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1092,8 +1092,8 @@ class ServiceEndpointSpec:
         ports: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ServiceEndpointSpecPorts", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param mode: The mode of resolution to use for internal load balancing between tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#mode Service#mode}
-        :param ports: ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#ports Service#ports}
+        :param mode: The mode of resolution to use for internal load balancing between tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#mode Service#mode}
+        :param ports: ports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#ports Service#ports}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__04a535aa7cdeb3ea7073f6ceddf77fc61ab666ef066d02d9f6f9c132d1118332)
@@ -1109,7 +1109,7 @@ class ServiceEndpointSpec:
     def mode(self) -> typing.Optional[builtins.str]:
         '''The mode of resolution to use for internal load balancing between tasks.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#mode Service#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#mode Service#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1120,7 +1120,7 @@ class ServiceEndpointSpec:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceEndpointSpecPorts"]]]:
         '''ports block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#ports Service#ports}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#ports Service#ports}
         '''
         result = self._values.get("ports")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceEndpointSpecPorts"]]], result)
@@ -1242,11 +1242,11 @@ class ServiceEndpointSpecPorts:
         publish_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target_port: The port inside the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#target_port Service#target_port}
-        :param name: A random name for the port. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#name Service#name}
-        :param protocol: Rrepresents the protocol of a port: ``tcp``, ``udp`` or ``sctp``. Defaults to ``tcp``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#protocol Service#protocol}
-        :param published_port: The port on the swarm hosts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#published_port Service#published_port}
-        :param publish_mode: Represents the mode in which the port is to be published: 'ingress' or 'host'. Defaults to ``ingress``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#publish_mode Service#publish_mode}
+        :param target_port: The port inside the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#target_port Service#target_port}
+        :param name: A random name for the port. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#name Service#name}
+        :param protocol: Rrepresents the protocol of a port: ``tcp``, ``udp`` or ``sctp``. Defaults to ``tcp``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#protocol Service#protocol}
+        :param published_port: The port on the swarm hosts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#published_port Service#published_port}
+        :param publish_mode: Represents the mode in which the port is to be published: 'ingress' or 'host'. Defaults to ``ingress``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#publish_mode Service#publish_mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ff206b236a332926277d52336b42c140cc8d480d22e1b057924e2a3375047163)
@@ -1271,7 +1271,7 @@ class ServiceEndpointSpecPorts:
     def target_port(self) -> jsii.Number:
         '''The port inside the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#target_port Service#target_port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#target_port Service#target_port}
         '''
         result = self._values.get("target_port")
         assert result is not None, "Required property 'target_port' is missing"
@@ -1281,7 +1281,7 @@ class ServiceEndpointSpecPorts:
     def name(self) -> typing.Optional[builtins.str]:
         '''A random name for the port.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#name Service#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#name Service#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1290,7 +1290,7 @@ class ServiceEndpointSpecPorts:
     def protocol(self) -> typing.Optional[builtins.str]:
         '''Rrepresents the protocol of a port: ``tcp``, ``udp`` or ``sctp``. Defaults to ``tcp``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#protocol Service#protocol}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#protocol Service#protocol}
         '''
         result = self._values.get("protocol")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1299,7 +1299,7 @@ class ServiceEndpointSpecPorts:
     def published_port(self) -> typing.Optional[jsii.Number]:
         '''The port on the swarm hosts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#published_port Service#published_port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#published_port Service#published_port}
         '''
         result = self._values.get("published_port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1308,7 +1308,7 @@ class ServiceEndpointSpecPorts:
     def publish_mode(self) -> typing.Optional[builtins.str]:
         '''Represents the mode in which the port is to be published: 'ingress' or 'host'. Defaults to ``ingress``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#publish_mode Service#publish_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#publish_mode Service#publish_mode}
         '''
         result = self._values.get("publish_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1568,8 +1568,8 @@ class ServiceEndpointSpecPortsOutputReference(
 class ServiceLabels:
     def __init__(self, *, label: builtins.str, value: builtins.str) -> None:
         '''
-        :param label: Name of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#label Service#label}
-        :param value: Value of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#value Service#value}
+        :param label: Name of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#label Service#label}
+        :param value: Value of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#value Service#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7431e3715e35d4e41c2c33fdef85584e6bd568615438cc95cc19cc27869c065b)
@@ -1584,7 +1584,7 @@ class ServiceLabels:
     def label(self) -> builtins.str:
         '''Name of the label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#label Service#label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#label Service#label}
         '''
         result = self._values.get("label")
         assert result is not None, "Required property 'label' is missing"
@@ -1594,7 +1594,7 @@ class ServiceLabels:
     def value(self) -> builtins.str:
         '''Value of the label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#value Service#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#value Service#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -1793,8 +1793,8 @@ class ServiceMode:
         replicated: typing.Optional[typing.Union["ServiceModeReplicated", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param global_: The global service mode. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#global Service#global}
-        :param replicated: replicated block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#replicated Service#replicated}
+        :param global_: The global service mode. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#global Service#global}
+        :param replicated: replicated block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#replicated Service#replicated}
         '''
         if isinstance(replicated, dict):
             replicated = ServiceModeReplicated(**replicated)
@@ -1814,7 +1814,7 @@ class ServiceMode:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''The global service mode. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#global Service#global}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#global Service#global}
         '''
         result = self._values.get("global_")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1823,7 +1823,7 @@ class ServiceMode:
     def replicated(self) -> typing.Optional["ServiceModeReplicated"]:
         '''replicated block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#replicated Service#replicated}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#replicated Service#replicated}
         '''
         result = self._values.get("replicated")
         return typing.cast(typing.Optional["ServiceModeReplicated"], result)
@@ -1863,7 +1863,7 @@ class ServiceModeOutputReference(
     @jsii.member(jsii_name="putReplicated")
     def put_replicated(self, *, replicas: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param replicas: The amount of replicas of the service. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#replicas Service#replicas}
+        :param replicas: The amount of replicas of the service. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#replicas Service#replicas}
         '''
         value = ServiceModeReplicated(replicas=replicas)
 
@@ -1930,7 +1930,7 @@ class ServiceModeOutputReference(
 class ServiceModeReplicated:
     def __init__(self, *, replicas: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param replicas: The amount of replicas of the service. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#replicas Service#replicas}
+        :param replicas: The amount of replicas of the service. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#replicas Service#replicas}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e9a9bbc2b07fd7c7f5e6373ba717dedd887536dc00c3c3207499d06bf0a307d5)
@@ -1943,7 +1943,7 @@ class ServiceModeReplicated:
     def replicas(self) -> typing.Optional[jsii.Number]:
         '''The amount of replicas of the service. Defaults to ``1``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#replicas Service#replicas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#replicas Service#replicas}
         '''
         result = self._values.get("replicas")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2038,12 +2038,12 @@ class ServiceRollbackConfig:
         parallelism: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param delay: Delay between task rollbacks (ns|us|ms|s|m|h). Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#delay Service#delay}
-        :param failure_action: Action on rollback failure: pause | continue. Defaults to ``pause``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#failure_action Service#failure_action}
-        :param max_failure_ratio: Failure rate to tolerate during a rollback. Defaults to ``0.0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#max_failure_ratio Service#max_failure_ratio}
-        :param monitor: Duration after each task rollback to monitor for failure (ns|us|ms|s|m|h). Defaults to ``5s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#monitor Service#monitor}
-        :param order: Rollback order: either 'stop-first' or 'start-first'. Defaults to ``stop-first``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#order Service#order}
-        :param parallelism: Maximum number of tasks to be rollbacked in one iteration. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#parallelism Service#parallelism}
+        :param delay: Delay between task rollbacks (ns|us|ms|s|m|h). Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#delay Service#delay}
+        :param failure_action: Action on rollback failure: pause | continue. Defaults to ``pause``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#failure_action Service#failure_action}
+        :param max_failure_ratio: Failure rate to tolerate during a rollback. Defaults to ``0.0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#max_failure_ratio Service#max_failure_ratio}
+        :param monitor: Duration after each task rollback to monitor for failure (ns|us|ms|s|m|h). Defaults to ``5s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#monitor Service#monitor}
+        :param order: Rollback order: either 'stop-first' or 'start-first'. Defaults to ``stop-first``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#order Service#order}
+        :param parallelism: Maximum number of tasks to be rollbacked in one iteration. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#parallelism Service#parallelism}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__80b2842ef70e286197c22523be5070c923d8177fae135db50b5f29a06397e228)
@@ -2071,7 +2071,7 @@ class ServiceRollbackConfig:
     def delay(self) -> typing.Optional[builtins.str]:
         '''Delay between task rollbacks (ns|us|ms|s|m|h). Defaults to ``0s``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#delay Service#delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#delay Service#delay}
         '''
         result = self._values.get("delay")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2080,7 +2080,7 @@ class ServiceRollbackConfig:
     def failure_action(self) -> typing.Optional[builtins.str]:
         '''Action on rollback failure: pause | continue. Defaults to ``pause``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#failure_action Service#failure_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#failure_action Service#failure_action}
         '''
         result = self._values.get("failure_action")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2089,7 +2089,7 @@ class ServiceRollbackConfig:
     def max_failure_ratio(self) -> typing.Optional[builtins.str]:
         '''Failure rate to tolerate during a rollback. Defaults to ``0.0``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#max_failure_ratio Service#max_failure_ratio}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#max_failure_ratio Service#max_failure_ratio}
         '''
         result = self._values.get("max_failure_ratio")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2098,7 +2098,7 @@ class ServiceRollbackConfig:
     def monitor(self) -> typing.Optional[builtins.str]:
         '''Duration after each task rollback to monitor for failure (ns|us|ms|s|m|h). Defaults to ``5s``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#monitor Service#monitor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#monitor Service#monitor}
         '''
         result = self._values.get("monitor")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2107,7 +2107,7 @@ class ServiceRollbackConfig:
     def order(self) -> typing.Optional[builtins.str]:
         '''Rollback order: either 'stop-first' or 'start-first'. Defaults to ``stop-first``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#order Service#order}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#order Service#order}
         '''
         result = self._values.get("order")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2116,7 +2116,7 @@ class ServiceRollbackConfig:
     def parallelism(self) -> typing.Optional[jsii.Number]:
         '''Maximum number of tasks to be rollbacked in one iteration. Defaults to ``1``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#parallelism Service#parallelism}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#parallelism Service#parallelism}
         '''
         result = self._values.get("parallelism")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2320,14 +2320,14 @@ class ServiceTaskSpec:
         runtime: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param container_spec: container_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#container_spec Service#container_spec}
-        :param force_update: A counter that triggers an update even if no relevant parameters have been changed. See the `spec <https://github.com/docker/swarmkit/blob/master/api/specs.proto#L126>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#force_update Service#force_update}
-        :param log_driver: log_driver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#log_driver Service#log_driver}
-        :param networks_advanced: networks_advanced block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#networks_advanced Service#networks_advanced}
-        :param placement: placement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#placement Service#placement}
-        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#resources Service#resources}
-        :param restart_policy: restart_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#restart_policy Service#restart_policy}
-        :param runtime: Runtime is the type of runtime specified for the task executor. See the `types <https://github.com/moby/moby/blob/master/api/types/swarm/runtime.go>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#runtime Service#runtime}
+        :param container_spec: container_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#container_spec Service#container_spec}
+        :param force_update: A counter that triggers an update even if no relevant parameters have been changed. See the `spec <https://github.com/docker/swarmkit/blob/master/api/specs.proto#L126>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#force_update Service#force_update}
+        :param log_driver: log_driver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#log_driver Service#log_driver}
+        :param networks_advanced: networks_advanced block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#networks_advanced Service#networks_advanced}
+        :param placement: placement block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#placement Service#placement}
+        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#resources Service#resources}
+        :param restart_policy: restart_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#restart_policy Service#restart_policy}
+        :param runtime: Runtime is the type of runtime specified for the task executor. See the `types <https://github.com/moby/moby/blob/master/api/types/swarm/runtime.go>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#runtime Service#runtime}
         '''
         if isinstance(container_spec, dict):
             container_spec = ServiceTaskSpecContainerSpec(**container_spec)
@@ -2371,7 +2371,7 @@ class ServiceTaskSpec:
     def container_spec(self) -> "ServiceTaskSpecContainerSpec":
         '''container_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#container_spec Service#container_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#container_spec Service#container_spec}
         '''
         result = self._values.get("container_spec")
         assert result is not None, "Required property 'container_spec' is missing"
@@ -2381,7 +2381,7 @@ class ServiceTaskSpec:
     def force_update(self) -> typing.Optional[jsii.Number]:
         '''A counter that triggers an update even if no relevant parameters have been changed. See the `spec <https://github.com/docker/swarmkit/blob/master/api/specs.proto#L126>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#force_update Service#force_update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#force_update Service#force_update}
         '''
         result = self._values.get("force_update")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2390,7 +2390,7 @@ class ServiceTaskSpec:
     def log_driver(self) -> typing.Optional["ServiceTaskSpecLogDriver"]:
         '''log_driver block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#log_driver Service#log_driver}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#log_driver Service#log_driver}
         '''
         result = self._values.get("log_driver")
         return typing.cast(typing.Optional["ServiceTaskSpecLogDriver"], result)
@@ -2401,7 +2401,7 @@ class ServiceTaskSpec:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceTaskSpecNetworksAdvanced"]]]:
         '''networks_advanced block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#networks_advanced Service#networks_advanced}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#networks_advanced Service#networks_advanced}
         '''
         result = self._values.get("networks_advanced")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceTaskSpecNetworksAdvanced"]]], result)
@@ -2410,7 +2410,7 @@ class ServiceTaskSpec:
     def placement(self) -> typing.Optional["ServiceTaskSpecPlacement"]:
         '''placement block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#placement Service#placement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#placement Service#placement}
         '''
         result = self._values.get("placement")
         return typing.cast(typing.Optional["ServiceTaskSpecPlacement"], result)
@@ -2419,7 +2419,7 @@ class ServiceTaskSpec:
     def resources(self) -> typing.Optional["ServiceTaskSpecResources"]:
         '''resources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#resources Service#resources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#resources Service#resources}
         '''
         result = self._values.get("resources")
         return typing.cast(typing.Optional["ServiceTaskSpecResources"], result)
@@ -2428,7 +2428,7 @@ class ServiceTaskSpec:
     def restart_policy(self) -> typing.Optional["ServiceTaskSpecRestartPolicy"]:
         '''restart_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#restart_policy Service#restart_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#restart_policy Service#restart_policy}
         '''
         result = self._values.get("restart_policy")
         return typing.cast(typing.Optional["ServiceTaskSpecRestartPolicy"], result)
@@ -2437,7 +2437,7 @@ class ServiceTaskSpec:
     def runtime(self) -> typing.Optional[builtins.str]:
         '''Runtime is the type of runtime specified for the task executor. See the `types <https://github.com/moby/moby/blob/master/api/types/swarm/runtime.go>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#runtime Service#runtime}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#runtime Service#runtime}
         '''
         result = self._values.get("runtime")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2508,27 +2508,27 @@ class ServiceTaskSpecContainerSpec:
         user: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param image: The image name to use for the containers of the service, like ``nginx:1.17.6``. Also use the data-source or resource of ``docker_image`` with the ``repo_digest`` or ``docker_registry_image`` with the ``name`` attribute for this, as shown in the examples. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#image Service#image}
-        :param args: Arguments to the command. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#args Service#args}
-        :param command: The command/entrypoint to be run in the image. According to the `docker cli <https://github.com/docker/cli/blob/v20.10.7/cli/command/service/opts.go#L705>`_ the override of the entrypoint is also passed to the ``command`` property and there is no ``entrypoint`` attribute in the ``ContainerSpec`` of the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#command Service#command}
-        :param configs: configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#configs Service#configs}
-        :param dir: The working directory for commands to run in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#dir Service#dir}
-        :param dns_config: dns_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#dns_config Service#dns_config}
-        :param env: A list of environment variables in the form VAR="value". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#env Service#env}
-        :param groups: A list of additional groups that the container process will run as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#groups Service#groups}
-        :param healthcheck: healthcheck block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#healthcheck Service#healthcheck}
-        :param hostname: The hostname to use for the container, as a valid RFC 1123 hostname. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#hostname Service#hostname}
-        :param hosts: hosts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#hosts Service#hosts}
-        :param isolation: Isolation technology of the containers running the service. (Windows only). Defaults to ``default``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#isolation Service#isolation}
-        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#labels Service#labels}
-        :param mounts: mounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#mounts Service#mounts}
-        :param privileges: privileges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#privileges Service#privileges}
-        :param read_only: Mount the container's root filesystem as read only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#read_only Service#read_only}
-        :param secrets: secrets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#secrets Service#secrets}
-        :param stop_grace_period: Amount of time to wait for the container to terminate before forcefully removing it (ms|s|m|h). If not specified or '0s' the destroy will not check if all tasks/containers of the service terminate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#stop_grace_period Service#stop_grace_period}
-        :param stop_signal: Signal to stop the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#stop_signal Service#stop_signal}
-        :param sysctl: Sysctls config (Linux only). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#sysctl Service#sysctl}
-        :param user: The user inside the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#user Service#user}
+        :param image: The image name to use for the containers of the service, like ``nginx:1.17.6``. Also use the data-source or resource of ``docker_image`` with the ``repo_digest`` or ``docker_registry_image`` with the ``name`` attribute for this, as shown in the examples. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#image Service#image}
+        :param args: Arguments to the command. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#args Service#args}
+        :param command: The command/entrypoint to be run in the image. According to the `docker cli <https://github.com/docker/cli/blob/v20.10.7/cli/command/service/opts.go#L705>`_ the override of the entrypoint is also passed to the ``command`` property and there is no ``entrypoint`` attribute in the ``ContainerSpec`` of the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#command Service#command}
+        :param configs: configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#configs Service#configs}
+        :param dir: The working directory for commands to run in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#dir Service#dir}
+        :param dns_config: dns_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#dns_config Service#dns_config}
+        :param env: A list of environment variables in the form VAR="value". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#env Service#env}
+        :param groups: A list of additional groups that the container process will run as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#groups Service#groups}
+        :param healthcheck: healthcheck block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#healthcheck Service#healthcheck}
+        :param hostname: The hostname to use for the container, as a valid RFC 1123 hostname. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#hostname Service#hostname}
+        :param hosts: hosts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#hosts Service#hosts}
+        :param isolation: Isolation technology of the containers running the service. (Windows only). Defaults to ``default``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#isolation Service#isolation}
+        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#labels Service#labels}
+        :param mounts: mounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#mounts Service#mounts}
+        :param privileges: privileges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#privileges Service#privileges}
+        :param read_only: Mount the container's root filesystem as read only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#read_only Service#read_only}
+        :param secrets: secrets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#secrets Service#secrets}
+        :param stop_grace_period: Amount of time to wait for the container to terminate before forcefully removing it (ms|s|m|h). If not specified or '0s' the destroy will not check if all tasks/containers of the service terminate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#stop_grace_period Service#stop_grace_period}
+        :param stop_signal: Signal to stop the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#stop_signal Service#stop_signal}
+        :param sysctl: Sysctls config (Linux only). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#sysctl Service#sysctl}
+        :param user: The user inside the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#user Service#user}
         '''
         if isinstance(dns_config, dict):
             dns_config = ServiceTaskSpecContainerSpecDnsConfig(**dns_config)
@@ -2607,7 +2607,7 @@ class ServiceTaskSpecContainerSpec:
     def image(self) -> builtins.str:
         '''The image name to use for the containers of the service, like ``nginx:1.17.6``. Also use the data-source or resource of ``docker_image`` with the ``repo_digest`` or ``docker_registry_image`` with the ``name`` attribute for this, as shown in the examples.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#image Service#image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#image Service#image}
         '''
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
@@ -2617,7 +2617,7 @@ class ServiceTaskSpecContainerSpec:
     def args(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Arguments to the command.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#args Service#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#args Service#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2628,7 +2628,7 @@ class ServiceTaskSpecContainerSpec:
 
         According to the `docker cli <https://github.com/docker/cli/blob/v20.10.7/cli/command/service/opts.go#L705>`_ the override of the entrypoint is also passed to the ``command`` property and there is no ``entrypoint`` attribute in the ``ContainerSpec`` of the service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#command Service#command}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#command Service#command}
         '''
         result = self._values.get("command")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2639,7 +2639,7 @@ class ServiceTaskSpecContainerSpec:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceTaskSpecContainerSpecConfigs"]]]:
         '''configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#configs Service#configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#configs Service#configs}
         '''
         result = self._values.get("configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceTaskSpecContainerSpecConfigs"]]], result)
@@ -2648,7 +2648,7 @@ class ServiceTaskSpecContainerSpec:
     def dir(self) -> typing.Optional[builtins.str]:
         '''The working directory for commands to run in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#dir Service#dir}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#dir Service#dir}
         '''
         result = self._values.get("dir")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2657,7 +2657,7 @@ class ServiceTaskSpecContainerSpec:
     def dns_config(self) -> typing.Optional["ServiceTaskSpecContainerSpecDnsConfig"]:
         '''dns_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#dns_config Service#dns_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#dns_config Service#dns_config}
         '''
         result = self._values.get("dns_config")
         return typing.cast(typing.Optional["ServiceTaskSpecContainerSpecDnsConfig"], result)
@@ -2666,7 +2666,7 @@ class ServiceTaskSpecContainerSpec:
     def env(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A list of environment variables in the form VAR="value".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#env Service#env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#env Service#env}
         '''
         result = self._values.get("env")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2675,7 +2675,7 @@ class ServiceTaskSpecContainerSpec:
     def groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of additional groups that the container process will run as.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#groups Service#groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#groups Service#groups}
         '''
         result = self._values.get("groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2684,7 +2684,7 @@ class ServiceTaskSpecContainerSpec:
     def healthcheck(self) -> typing.Optional["ServiceTaskSpecContainerSpecHealthcheck"]:
         '''healthcheck block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#healthcheck Service#healthcheck}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#healthcheck Service#healthcheck}
         '''
         result = self._values.get("healthcheck")
         return typing.cast(typing.Optional["ServiceTaskSpecContainerSpecHealthcheck"], result)
@@ -2693,7 +2693,7 @@ class ServiceTaskSpecContainerSpec:
     def hostname(self) -> typing.Optional[builtins.str]:
         '''The hostname to use for the container, as a valid RFC 1123 hostname.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#hostname Service#hostname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#hostname Service#hostname}
         '''
         result = self._values.get("hostname")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2704,7 +2704,7 @@ class ServiceTaskSpecContainerSpec:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceTaskSpecContainerSpecHosts"]]]:
         '''hosts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#hosts Service#hosts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#hosts Service#hosts}
         '''
         result = self._values.get("hosts")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceTaskSpecContainerSpecHosts"]]], result)
@@ -2713,7 +2713,7 @@ class ServiceTaskSpecContainerSpec:
     def isolation(self) -> typing.Optional[builtins.str]:
         '''Isolation technology of the containers running the service. (Windows only). Defaults to ``default``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#isolation Service#isolation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#isolation Service#isolation}
         '''
         result = self._values.get("isolation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2724,7 +2724,7 @@ class ServiceTaskSpecContainerSpec:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceTaskSpecContainerSpecLabels"]]]:
         '''labels block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#labels Service#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#labels Service#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceTaskSpecContainerSpecLabels"]]], result)
@@ -2735,7 +2735,7 @@ class ServiceTaskSpecContainerSpec:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceTaskSpecContainerSpecMounts"]]]:
         '''mounts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#mounts Service#mounts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#mounts Service#mounts}
         '''
         result = self._values.get("mounts")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceTaskSpecContainerSpecMounts"]]], result)
@@ -2744,7 +2744,7 @@ class ServiceTaskSpecContainerSpec:
     def privileges(self) -> typing.Optional["ServiceTaskSpecContainerSpecPrivileges"]:
         '''privileges block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#privileges Service#privileges}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#privileges Service#privileges}
         '''
         result = self._values.get("privileges")
         return typing.cast(typing.Optional["ServiceTaskSpecContainerSpecPrivileges"], result)
@@ -2755,7 +2755,7 @@ class ServiceTaskSpecContainerSpec:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Mount the container's root filesystem as read only.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#read_only Service#read_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#read_only Service#read_only}
         '''
         result = self._values.get("read_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2766,7 +2766,7 @@ class ServiceTaskSpecContainerSpec:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceTaskSpecContainerSpecSecrets"]]]:
         '''secrets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#secrets Service#secrets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#secrets Service#secrets}
         '''
         result = self._values.get("secrets")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceTaskSpecContainerSpecSecrets"]]], result)
@@ -2777,7 +2777,7 @@ class ServiceTaskSpecContainerSpec:
 
         If not specified or '0s' the destroy will not check if all tasks/containers of the service terminate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#stop_grace_period Service#stop_grace_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#stop_grace_period Service#stop_grace_period}
         '''
         result = self._values.get("stop_grace_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2786,7 +2786,7 @@ class ServiceTaskSpecContainerSpec:
     def stop_signal(self) -> typing.Optional[builtins.str]:
         '''Signal to stop the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#stop_signal Service#stop_signal}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#stop_signal Service#stop_signal}
         '''
         result = self._values.get("stop_signal")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2795,7 +2795,7 @@ class ServiceTaskSpecContainerSpec:
     def sysctl(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Sysctls config (Linux only).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#sysctl Service#sysctl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#sysctl Service#sysctl}
         '''
         result = self._values.get("sysctl")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2804,7 +2804,7 @@ class ServiceTaskSpecContainerSpec:
     def user(self) -> typing.Optional[builtins.str]:
         '''The user inside the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#user Service#user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#user Service#user}
         '''
         result = self._values.get("user")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2845,12 +2845,12 @@ class ServiceTaskSpecContainerSpecConfigs:
         file_uid: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param config_id: ID of the specific config that we're referencing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#config_id Service#config_id}
-        :param file_name: Represents the final filename in the filesystem. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#file_name Service#file_name}
-        :param config_name: Name of the config that this references, but this is just provided for lookup/display purposes. The config in the reference will be identified by its ID Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#config_name Service#config_name}
-        :param file_gid: Represents the file GID. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#file_gid Service#file_gid}
-        :param file_mode: Represents represents the FileMode of the file. Defaults to ``0o444``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#file_mode Service#file_mode}
-        :param file_uid: Represents the file UID. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#file_uid Service#file_uid}
+        :param config_id: ID of the specific config that we're referencing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#config_id Service#config_id}
+        :param file_name: Represents the final filename in the filesystem. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#file_name Service#file_name}
+        :param config_name: Name of the config that this references, but this is just provided for lookup/display purposes. The config in the reference will be identified by its ID Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#config_name Service#config_name}
+        :param file_gid: Represents the file GID. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#file_gid Service#file_gid}
+        :param file_mode: Represents represents the FileMode of the file. Defaults to ``0o444``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#file_mode Service#file_mode}
+        :param file_uid: Represents the file UID. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#file_uid Service#file_uid}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__524d2e87218a7ae3b97508f6a0d691ddedfe599300410bd56a01ab894d6495a0)
@@ -2877,7 +2877,7 @@ class ServiceTaskSpecContainerSpecConfigs:
     def config_id(self) -> builtins.str:
         '''ID of the specific config that we're referencing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#config_id Service#config_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#config_id Service#config_id}
         '''
         result = self._values.get("config_id")
         assert result is not None, "Required property 'config_id' is missing"
@@ -2887,7 +2887,7 @@ class ServiceTaskSpecContainerSpecConfigs:
     def file_name(self) -> builtins.str:
         '''Represents the final filename in the filesystem.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#file_name Service#file_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#file_name Service#file_name}
         '''
         result = self._values.get("file_name")
         assert result is not None, "Required property 'file_name' is missing"
@@ -2899,7 +2899,7 @@ class ServiceTaskSpecContainerSpecConfigs:
 
         The config in the reference will be identified by its ID
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#config_name Service#config_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#config_name Service#config_name}
         '''
         result = self._values.get("config_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2908,7 +2908,7 @@ class ServiceTaskSpecContainerSpecConfigs:
     def file_gid(self) -> typing.Optional[builtins.str]:
         '''Represents the file GID. Defaults to ``0``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#file_gid Service#file_gid}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#file_gid Service#file_gid}
         '''
         result = self._values.get("file_gid")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2917,7 +2917,7 @@ class ServiceTaskSpecContainerSpecConfigs:
     def file_mode(self) -> typing.Optional[jsii.Number]:
         '''Represents represents the FileMode of the file. Defaults to ``0o444``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#file_mode Service#file_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#file_mode Service#file_mode}
         '''
         result = self._values.get("file_mode")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2926,7 +2926,7 @@ class ServiceTaskSpecContainerSpecConfigs:
     def file_uid(self) -> typing.Optional[builtins.str]:
         '''Represents the file UID. Defaults to ``0``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#file_uid Service#file_uid}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#file_uid Service#file_uid}
         '''
         result = self._values.get("file_uid")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3216,9 +3216,9 @@ class ServiceTaskSpecContainerSpecDnsConfig:
         search: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param nameservers: The IP addresses of the name servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#nameservers Service#nameservers}
-        :param options: A list of internal resolver variables to be modified (e.g., ``debug``, ``ndots:3``, etc.). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#options Service#options}
-        :param search: A search list for host-name lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#search Service#search}
+        :param nameservers: The IP addresses of the name servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#nameservers Service#nameservers}
+        :param options: A list of internal resolver variables to be modified (e.g., ``debug``, ``ndots:3``, etc.). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#options Service#options}
+        :param search: A search list for host-name lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#search Service#search}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8dc919fa7a74ce1c894169d02e9e1739ef63f562f9f127747c15205a9830413e)
@@ -3237,7 +3237,7 @@ class ServiceTaskSpecContainerSpecDnsConfig:
     def nameservers(self) -> typing.List[builtins.str]:
         '''The IP addresses of the name servers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#nameservers Service#nameservers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#nameservers Service#nameservers}
         '''
         result = self._values.get("nameservers")
         assert result is not None, "Required property 'nameservers' is missing"
@@ -3247,7 +3247,7 @@ class ServiceTaskSpecContainerSpecDnsConfig:
     def options(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of internal resolver variables to be modified (e.g., ``debug``, ``ndots:3``, etc.).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#options Service#options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#options Service#options}
         '''
         result = self._values.get("options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3256,7 +3256,7 @@ class ServiceTaskSpecContainerSpecDnsConfig:
     def search(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A search list for host-name lookup.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#search Service#search}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#search Service#search}
         '''
         result = self._values.get("search")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3390,11 +3390,11 @@ class ServiceTaskSpecContainerSpecHealthcheck:
         timeout: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param test: The test to perform as list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#test Service#test}
-        :param interval: Time between running the check (ms|s|m|h). Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#interval Service#interval}
-        :param retries: Consecutive failures needed to report unhealthy. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#retries Service#retries}
-        :param start_period: Start period for the container to initialize before counting retries towards unstable (ms|s|m|h). Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#start_period Service#start_period}
-        :param timeout: Maximum time to allow one check to run (ms|s|m|h). Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#timeout Service#timeout}
+        :param test: The test to perform as list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#test Service#test}
+        :param interval: Time between running the check (ms|s|m|h). Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#interval Service#interval}
+        :param retries: Consecutive failures needed to report unhealthy. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#retries Service#retries}
+        :param start_period: Start period for the container to initialize before counting retries towards unstable (ms|s|m|h). Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#start_period Service#start_period}
+        :param timeout: Maximum time to allow one check to run (ms|s|m|h). Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#timeout Service#timeout}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f45521d61f6e1a9852714161336045126afa373cb7221fd7ff9987536d5ad24f)
@@ -3419,7 +3419,7 @@ class ServiceTaskSpecContainerSpecHealthcheck:
     def test(self) -> typing.List[builtins.str]:
         '''The test to perform as list.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#test Service#test}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#test Service#test}
         '''
         result = self._values.get("test")
         assert result is not None, "Required property 'test' is missing"
@@ -3429,7 +3429,7 @@ class ServiceTaskSpecContainerSpecHealthcheck:
     def interval(self) -> typing.Optional[builtins.str]:
         '''Time between running the check (ms|s|m|h). Defaults to ``0s``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#interval Service#interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#interval Service#interval}
         '''
         result = self._values.get("interval")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3438,7 +3438,7 @@ class ServiceTaskSpecContainerSpecHealthcheck:
     def retries(self) -> typing.Optional[jsii.Number]:
         '''Consecutive failures needed to report unhealthy. Defaults to ``0``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#retries Service#retries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#retries Service#retries}
         '''
         result = self._values.get("retries")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3447,7 +3447,7 @@ class ServiceTaskSpecContainerSpecHealthcheck:
     def start_period(self) -> typing.Optional[builtins.str]:
         '''Start period for the container to initialize before counting retries towards unstable (ms|s|m|h). Defaults to ``0s``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#start_period Service#start_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#start_period Service#start_period}
         '''
         result = self._values.get("start_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3456,7 +3456,7 @@ class ServiceTaskSpecContainerSpecHealthcheck:
     def timeout(self) -> typing.Optional[builtins.str]:
         '''Maximum time to allow one check to run (ms|s|m|h). Defaults to ``0s``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#timeout Service#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#timeout Service#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3620,8 +3620,8 @@ class ServiceTaskSpecContainerSpecHealthcheckOutputReference(
 class ServiceTaskSpecContainerSpecHosts:
     def __init__(self, *, host: builtins.str, ip: builtins.str) -> None:
         '''
-        :param host: The name of the host. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#host Service#host}
-        :param ip: The ip of the host. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#ip Service#ip}
+        :param host: The name of the host. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#host Service#host}
+        :param ip: The ip of the host. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#ip Service#ip}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__23ecca4df29cdebfcd58f083ec1a56a9418ed746e5de6e5ff1c7fec67455a70e)
@@ -3636,7 +3636,7 @@ class ServiceTaskSpecContainerSpecHosts:
     def host(self) -> builtins.str:
         '''The name of the host.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#host Service#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#host Service#host}
         '''
         result = self._values.get("host")
         assert result is not None, "Required property 'host' is missing"
@@ -3646,7 +3646,7 @@ class ServiceTaskSpecContainerSpecHosts:
     def ip(self) -> builtins.str:
         '''The ip of the host.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#ip Service#ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#ip Service#ip}
         '''
         result = self._values.get("ip")
         assert result is not None, "Required property 'ip' is missing"
@@ -3843,8 +3843,8 @@ class ServiceTaskSpecContainerSpecHostsOutputReference(
 class ServiceTaskSpecContainerSpecLabels:
     def __init__(self, *, label: builtins.str, value: builtins.str) -> None:
         '''
-        :param label: Name of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#label Service#label}
-        :param value: Value of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#value Service#value}
+        :param label: Name of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#label Service#label}
+        :param value: Value of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#value Service#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ab178bc59eb13d2a1b4af3c98513b2c5bc6623690187241562fd6a5cc9cd0007)
@@ -3859,7 +3859,7 @@ class ServiceTaskSpecContainerSpecLabels:
     def label(self) -> builtins.str:
         '''Name of the label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#label Service#label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#label Service#label}
         '''
         result = self._values.get("label")
         assert result is not None, "Required property 'label' is missing"
@@ -3869,7 +3869,7 @@ class ServiceTaskSpecContainerSpecLabels:
     def value(self) -> builtins.str:
         '''Value of the label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#value Service#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#value Service#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -4084,13 +4084,13 @@ class ServiceTaskSpecContainerSpecMounts:
         volume_options: typing.Optional[typing.Union["ServiceTaskSpecContainerSpecMountsVolumeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param target: Container path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#target Service#target}
-        :param type: The mount type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#type Service#type}
-        :param bind_options: bind_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#bind_options Service#bind_options}
-        :param read_only: Whether the mount should be read-only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#read_only Service#read_only}
-        :param source: Mount source (e.g. a volume name, a host path). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#source Service#source}
-        :param tmpfs_options: tmpfs_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#tmpfs_options Service#tmpfs_options}
-        :param volume_options: volume_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#volume_options Service#volume_options}
+        :param target: Container path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#target Service#target}
+        :param type: The mount type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#type Service#type}
+        :param bind_options: bind_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#bind_options Service#bind_options}
+        :param read_only: Whether the mount should be read-only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#read_only Service#read_only}
+        :param source: Mount source (e.g. a volume name, a host path). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#source Service#source}
+        :param tmpfs_options: tmpfs_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#tmpfs_options Service#tmpfs_options}
+        :param volume_options: volume_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#volume_options Service#volume_options}
         '''
         if isinstance(bind_options, dict):
             bind_options = ServiceTaskSpecContainerSpecMountsBindOptions(**bind_options)
@@ -4126,7 +4126,7 @@ class ServiceTaskSpecContainerSpecMounts:
     def target(self) -> builtins.str:
         '''Container path.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#target Service#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#target Service#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -4136,7 +4136,7 @@ class ServiceTaskSpecContainerSpecMounts:
     def type(self) -> builtins.str:
         '''The mount type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#type Service#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#type Service#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -4148,7 +4148,7 @@ class ServiceTaskSpecContainerSpecMounts:
     ) -> typing.Optional["ServiceTaskSpecContainerSpecMountsBindOptions"]:
         '''bind_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#bind_options Service#bind_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#bind_options Service#bind_options}
         '''
         result = self._values.get("bind_options")
         return typing.cast(typing.Optional["ServiceTaskSpecContainerSpecMountsBindOptions"], result)
@@ -4159,7 +4159,7 @@ class ServiceTaskSpecContainerSpecMounts:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the mount should be read-only.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#read_only Service#read_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#read_only Service#read_only}
         '''
         result = self._values.get("read_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4168,7 +4168,7 @@ class ServiceTaskSpecContainerSpecMounts:
     def source(self) -> typing.Optional[builtins.str]:
         '''Mount source (e.g. a volume name, a host path).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#source Service#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#source Service#source}
         '''
         result = self._values.get("source")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4179,7 +4179,7 @@ class ServiceTaskSpecContainerSpecMounts:
     ) -> typing.Optional["ServiceTaskSpecContainerSpecMountsTmpfsOptions"]:
         '''tmpfs_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#tmpfs_options Service#tmpfs_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#tmpfs_options Service#tmpfs_options}
         '''
         result = self._values.get("tmpfs_options")
         return typing.cast(typing.Optional["ServiceTaskSpecContainerSpecMountsTmpfsOptions"], result)
@@ -4190,7 +4190,7 @@ class ServiceTaskSpecContainerSpecMounts:
     ) -> typing.Optional["ServiceTaskSpecContainerSpecMountsVolumeOptions"]:
         '''volume_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#volume_options Service#volume_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#volume_options Service#volume_options}
         '''
         result = self._values.get("volume_options")
         return typing.cast(typing.Optional["ServiceTaskSpecContainerSpecMountsVolumeOptions"], result)
@@ -4215,7 +4215,7 @@ class ServiceTaskSpecContainerSpecMounts:
 class ServiceTaskSpecContainerSpecMountsBindOptions:
     def __init__(self, *, propagation: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param propagation: Bind propagation refers to whether or not mounts created within a given bind-mount or named volume can be propagated to replicas of that mount. See the `docs <https://docs.docker.com/storage/bind-mounts/#configure-bind-propagation>`_ for details. Defaults to ``rprivate`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#propagation Service#propagation}
+        :param propagation: Bind propagation refers to whether or not mounts created within a given bind-mount or named volume can be propagated to replicas of that mount. See the `docs <https://docs.docker.com/storage/bind-mounts/#configure-bind-propagation>`_ for details. Defaults to ``rprivate`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#propagation Service#propagation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c7c9a1c46ed1f95bcbed414e91df9af8035af74134edbd9ad247bf3c864d0abf)
@@ -4230,7 +4230,7 @@ class ServiceTaskSpecContainerSpecMountsBindOptions:
 
         See the `docs <https://docs.docker.com/storage/bind-mounts/#configure-bind-propagation>`_ for details. Defaults to ``rprivate``
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#propagation Service#propagation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#propagation Service#propagation}
         '''
         result = self._values.get("propagation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4432,7 +4432,7 @@ class ServiceTaskSpecContainerSpecMountsOutputReference(
         propagation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param propagation: Bind propagation refers to whether or not mounts created within a given bind-mount or named volume can be propagated to replicas of that mount. See the `docs <https://docs.docker.com/storage/bind-mounts/#configure-bind-propagation>`_ for details. Defaults to ``rprivate`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#propagation Service#propagation}
+        :param propagation: Bind propagation refers to whether or not mounts created within a given bind-mount or named volume can be propagated to replicas of that mount. See the `docs <https://docs.docker.com/storage/bind-mounts/#configure-bind-propagation>`_ for details. Defaults to ``rprivate`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#propagation Service#propagation}
         '''
         value = ServiceTaskSpecContainerSpecMountsBindOptions(propagation=propagation)
 
@@ -4446,8 +4446,8 @@ class ServiceTaskSpecContainerSpecMountsOutputReference(
         size_bytes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param mode: The permission mode for the tmpfs mount in an integer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#mode Service#mode}
-        :param size_bytes: The size for the tmpfs mount in bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#size_bytes Service#size_bytes}
+        :param mode: The permission mode for the tmpfs mount in an integer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#mode Service#mode}
+        :param size_bytes: The size for the tmpfs mount in bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#size_bytes Service#size_bytes}
         '''
         value = ServiceTaskSpecContainerSpecMountsTmpfsOptions(
             mode=mode, size_bytes=size_bytes
@@ -4465,10 +4465,10 @@ class ServiceTaskSpecContainerSpecMountsOutputReference(
         no_copy: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param driver_name: Name of the driver to use to create the volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#driver_name Service#driver_name}
-        :param driver_options: key/value map of driver specific options. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#driver_options Service#driver_options}
-        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#labels Service#labels}
-        :param no_copy: Populate volume with data from the target. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#no_copy Service#no_copy}
+        :param driver_name: Name of the driver to use to create the volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#driver_name Service#driver_name}
+        :param driver_options: key/value map of driver specific options. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#driver_options Service#driver_options}
+        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#labels Service#labels}
+        :param no_copy: Populate volume with data from the target. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#no_copy Service#no_copy}
         '''
         value = ServiceTaskSpecContainerSpecMountsVolumeOptions(
             driver_name=driver_name,
@@ -4645,8 +4645,8 @@ class ServiceTaskSpecContainerSpecMountsTmpfsOptions:
         size_bytes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param mode: The permission mode for the tmpfs mount in an integer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#mode Service#mode}
-        :param size_bytes: The size for the tmpfs mount in bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#size_bytes Service#size_bytes}
+        :param mode: The permission mode for the tmpfs mount in an integer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#mode Service#mode}
+        :param size_bytes: The size for the tmpfs mount in bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#size_bytes Service#size_bytes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9802d31fde4769212339a34dfb45067f5a2fb459b6969836709421f63e55c336)
@@ -4662,7 +4662,7 @@ class ServiceTaskSpecContainerSpecMountsTmpfsOptions:
     def mode(self) -> typing.Optional[jsii.Number]:
         '''The permission mode for the tmpfs mount in an integer.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#mode Service#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#mode Service#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4671,7 +4671,7 @@ class ServiceTaskSpecContainerSpecMountsTmpfsOptions:
     def size_bytes(self) -> typing.Optional[jsii.Number]:
         '''The size for the tmpfs mount in bytes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#size_bytes Service#size_bytes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#size_bytes Service#size_bytes}
         '''
         result = self._values.get("size_bytes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4788,10 +4788,10 @@ class ServiceTaskSpecContainerSpecMountsVolumeOptions:
         no_copy: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param driver_name: Name of the driver to use to create the volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#driver_name Service#driver_name}
-        :param driver_options: key/value map of driver specific options. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#driver_options Service#driver_options}
-        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#labels Service#labels}
-        :param no_copy: Populate volume with data from the target. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#no_copy Service#no_copy}
+        :param driver_name: Name of the driver to use to create the volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#driver_name Service#driver_name}
+        :param driver_options: key/value map of driver specific options. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#driver_options Service#driver_options}
+        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#labels Service#labels}
+        :param no_copy: Populate volume with data from the target. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#no_copy Service#no_copy}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f07e201271d489babf0eb6a88649e8971529078c3b485fb561155fa8ef5edbf7)
@@ -4813,7 +4813,7 @@ class ServiceTaskSpecContainerSpecMountsVolumeOptions:
     def driver_name(self) -> typing.Optional[builtins.str]:
         '''Name of the driver to use to create the volume.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#driver_name Service#driver_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#driver_name Service#driver_name}
         '''
         result = self._values.get("driver_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4824,7 +4824,7 @@ class ServiceTaskSpecContainerSpecMountsVolumeOptions:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''key/value map of driver specific options.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#driver_options Service#driver_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#driver_options Service#driver_options}
         '''
         result = self._values.get("driver_options")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -4835,7 +4835,7 @@ class ServiceTaskSpecContainerSpecMountsVolumeOptions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceTaskSpecContainerSpecMountsVolumeOptionsLabels"]]]:
         '''labels block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#labels Service#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#labels Service#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceTaskSpecContainerSpecMountsVolumeOptionsLabels"]]], result)
@@ -4846,7 +4846,7 @@ class ServiceTaskSpecContainerSpecMountsVolumeOptions:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Populate volume with data from the target.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#no_copy Service#no_copy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#no_copy Service#no_copy}
         '''
         result = self._values.get("no_copy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4871,8 +4871,8 @@ class ServiceTaskSpecContainerSpecMountsVolumeOptions:
 class ServiceTaskSpecContainerSpecMountsVolumeOptionsLabels:
     def __init__(self, *, label: builtins.str, value: builtins.str) -> None:
         '''
-        :param label: Name of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#label Service#label}
-        :param value: Value of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#value Service#value}
+        :param label: Name of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#label Service#label}
+        :param value: Value of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#value Service#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4fb001381fbb74b7dea09cf341fbc61803e166e2bbf972bbdbecf652a165bdf9)
@@ -4887,7 +4887,7 @@ class ServiceTaskSpecContainerSpecMountsVolumeOptionsLabels:
     def label(self) -> builtins.str:
         '''Name of the label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#label Service#label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#label Service#label}
         '''
         result = self._values.get("label")
         assert result is not None, "Required property 'label' is missing"
@@ -4897,7 +4897,7 @@ class ServiceTaskSpecContainerSpecMountsVolumeOptionsLabels:
     def value(self) -> builtins.str:
         '''Value of the label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#value Service#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#value Service#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -5265,9 +5265,9 @@ class ServiceTaskSpecContainerSpecOutputReference(
         search: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param nameservers: The IP addresses of the name servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#nameservers Service#nameservers}
-        :param options: A list of internal resolver variables to be modified (e.g., ``debug``, ``ndots:3``, etc.). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#options Service#options}
-        :param search: A search list for host-name lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#search Service#search}
+        :param nameservers: The IP addresses of the name servers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#nameservers Service#nameservers}
+        :param options: A list of internal resolver variables to be modified (e.g., ``debug``, ``ndots:3``, etc.). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#options Service#options}
+        :param search: A search list for host-name lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#search Service#search}
         '''
         value = ServiceTaskSpecContainerSpecDnsConfig(
             nameservers=nameservers, options=options, search=search
@@ -5286,11 +5286,11 @@ class ServiceTaskSpecContainerSpecOutputReference(
         timeout: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param test: The test to perform as list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#test Service#test}
-        :param interval: Time between running the check (ms|s|m|h). Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#interval Service#interval}
-        :param retries: Consecutive failures needed to report unhealthy. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#retries Service#retries}
-        :param start_period: Start period for the container to initialize before counting retries towards unstable (ms|s|m|h). Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#start_period Service#start_period}
-        :param timeout: Maximum time to allow one check to run (ms|s|m|h). Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#timeout Service#timeout}
+        :param test: The test to perform as list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#test Service#test}
+        :param interval: Time between running the check (ms|s|m|h). Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#interval Service#interval}
+        :param retries: Consecutive failures needed to report unhealthy. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#retries Service#retries}
+        :param start_period: Start period for the container to initialize before counting retries towards unstable (ms|s|m|h). Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#start_period Service#start_period}
+        :param timeout: Maximum time to allow one check to run (ms|s|m|h). Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#timeout Service#timeout}
         '''
         value = ServiceTaskSpecContainerSpecHealthcheck(
             test=test,
@@ -5349,8 +5349,8 @@ class ServiceTaskSpecContainerSpecOutputReference(
         se_linux_context: typing.Optional[typing.Union["ServiceTaskSpecContainerSpecPrivilegesSeLinuxContext", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param credential_spec: credential_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#credential_spec Service#credential_spec}
-        :param se_linux_context: se_linux_context block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#se_linux_context Service#se_linux_context}
+        :param credential_spec: credential_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#credential_spec Service#credential_spec}
+        :param se_linux_context: se_linux_context block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#se_linux_context Service#se_linux_context}
         '''
         value = ServiceTaskSpecContainerSpecPrivileges(
             credential_spec=credential_spec, se_linux_context=se_linux_context
@@ -5807,8 +5807,8 @@ class ServiceTaskSpecContainerSpecPrivileges:
         se_linux_context: typing.Optional[typing.Union["ServiceTaskSpecContainerSpecPrivilegesSeLinuxContext", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param credential_spec: credential_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#credential_spec Service#credential_spec}
-        :param se_linux_context: se_linux_context block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#se_linux_context Service#se_linux_context}
+        :param credential_spec: credential_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#credential_spec Service#credential_spec}
+        :param se_linux_context: se_linux_context block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#se_linux_context Service#se_linux_context}
         '''
         if isinstance(credential_spec, dict):
             credential_spec = ServiceTaskSpecContainerSpecPrivilegesCredentialSpec(**credential_spec)
@@ -5830,7 +5830,7 @@ class ServiceTaskSpecContainerSpecPrivileges:
     ) -> typing.Optional["ServiceTaskSpecContainerSpecPrivilegesCredentialSpec"]:
         '''credential_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#credential_spec Service#credential_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#credential_spec Service#credential_spec}
         '''
         result = self._values.get("credential_spec")
         return typing.cast(typing.Optional["ServiceTaskSpecContainerSpecPrivilegesCredentialSpec"], result)
@@ -5841,7 +5841,7 @@ class ServiceTaskSpecContainerSpecPrivileges:
     ) -> typing.Optional["ServiceTaskSpecContainerSpecPrivilegesSeLinuxContext"]:
         '''se_linux_context block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#se_linux_context Service#se_linux_context}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#se_linux_context Service#se_linux_context}
         '''
         result = self._values.get("se_linux_context")
         return typing.cast(typing.Optional["ServiceTaskSpecContainerSpecPrivilegesSeLinuxContext"], result)
@@ -5871,8 +5871,8 @@ class ServiceTaskSpecContainerSpecPrivilegesCredentialSpec:
         registry: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param file: Load credential spec from this file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#file Service#file}
-        :param registry: Load credential spec from this value in the Windows registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#registry Service#registry}
+        :param file: Load credential spec from this file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#file Service#file}
+        :param registry: Load credential spec from this value in the Windows registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#registry Service#registry}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fb94d118dd724f3a0c2830c93a3f9a939f458c645f6c989bd2a794acfec5dff6)
@@ -5888,7 +5888,7 @@ class ServiceTaskSpecContainerSpecPrivilegesCredentialSpec:
     def file(self) -> typing.Optional[builtins.str]:
         '''Load credential spec from this file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#file Service#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#file Service#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5897,7 +5897,7 @@ class ServiceTaskSpecContainerSpecPrivilegesCredentialSpec:
     def registry(self) -> typing.Optional[builtins.str]:
         '''Load credential spec from this value in the Windows registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#registry Service#registry}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#registry Service#registry}
         '''
         result = self._values.get("registry")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6022,8 +6022,8 @@ class ServiceTaskSpecContainerSpecPrivilegesOutputReference(
         registry: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param file: Load credential spec from this file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#file Service#file}
-        :param registry: Load credential spec from this value in the Windows registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#registry Service#registry}
+        :param file: Load credential spec from this file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#file Service#file}
+        :param registry: Load credential spec from this value in the Windows registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#registry Service#registry}
         '''
         value = ServiceTaskSpecContainerSpecPrivilegesCredentialSpec(
             file=file, registry=registry
@@ -6042,11 +6042,11 @@ class ServiceTaskSpecContainerSpecPrivilegesOutputReference(
         user: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disable: Disable SELinux. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#disable Service#disable}
-        :param level: SELinux level label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#level Service#level}
-        :param role: SELinux role label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#role Service#role}
-        :param type: SELinux type label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#type Service#type}
-        :param user: SELinux user label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#user Service#user}
+        :param disable: Disable SELinux. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#disable Service#disable}
+        :param level: SELinux level label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#level Service#level}
+        :param role: SELinux role label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#role Service#role}
+        :param type: SELinux type label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#type Service#type}
+        :param user: SELinux user label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#user Service#user}
         '''
         value = ServiceTaskSpecContainerSpecPrivilegesSeLinuxContext(
             disable=disable, level=level, role=role, type=type, user=user
@@ -6128,11 +6128,11 @@ class ServiceTaskSpecContainerSpecPrivilegesSeLinuxContext:
         user: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disable: Disable SELinux. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#disable Service#disable}
-        :param level: SELinux level label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#level Service#level}
-        :param role: SELinux role label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#role Service#role}
-        :param type: SELinux type label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#type Service#type}
-        :param user: SELinux user label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#user Service#user}
+        :param disable: Disable SELinux. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#disable Service#disable}
+        :param level: SELinux level label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#level Service#level}
+        :param role: SELinux role label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#role Service#role}
+        :param type: SELinux type label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#type Service#type}
+        :param user: SELinux user label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#user Service#user}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__679f8fd32dc7bd2bc72abeb0b9b8dc8ce005937a605b5e515cab5522e8738788)
@@ -6159,7 +6159,7 @@ class ServiceTaskSpecContainerSpecPrivilegesSeLinuxContext:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Disable SELinux.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#disable Service#disable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#disable Service#disable}
         '''
         result = self._values.get("disable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6168,7 +6168,7 @@ class ServiceTaskSpecContainerSpecPrivilegesSeLinuxContext:
     def level(self) -> typing.Optional[builtins.str]:
         '''SELinux level label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#level Service#level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#level Service#level}
         '''
         result = self._values.get("level")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6177,7 +6177,7 @@ class ServiceTaskSpecContainerSpecPrivilegesSeLinuxContext:
     def role(self) -> typing.Optional[builtins.str]:
         '''SELinux role label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#role Service#role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#role Service#role}
         '''
         result = self._values.get("role")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6186,7 +6186,7 @@ class ServiceTaskSpecContainerSpecPrivilegesSeLinuxContext:
     def type(self) -> typing.Optional[builtins.str]:
         '''SELinux type label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#type Service#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#type Service#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6195,7 +6195,7 @@ class ServiceTaskSpecContainerSpecPrivilegesSeLinuxContext:
     def user(self) -> typing.Optional[builtins.str]:
         '''SELinux user label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#user Service#user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#user Service#user}
         '''
         result = self._values.get("user")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6384,12 +6384,12 @@ class ServiceTaskSpecContainerSpecSecrets:
         secret_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param file_name: Represents the final filename in the filesystem. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#file_name Service#file_name}
-        :param secret_id: ID of the specific secret that we're referencing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#secret_id Service#secret_id}
-        :param file_gid: Represents the file GID. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#file_gid Service#file_gid}
-        :param file_mode: Represents represents the FileMode of the file. Defaults to ``0o444``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#file_mode Service#file_mode}
-        :param file_uid: Represents the file UID. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#file_uid Service#file_uid}
-        :param secret_name: Name of the secret that this references, but this is just provided for lookup/display purposes. The config in the reference will be identified by its ID Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#secret_name Service#secret_name}
+        :param file_name: Represents the final filename in the filesystem. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#file_name Service#file_name}
+        :param secret_id: ID of the specific secret that we're referencing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#secret_id Service#secret_id}
+        :param file_gid: Represents the file GID. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#file_gid Service#file_gid}
+        :param file_mode: Represents represents the FileMode of the file. Defaults to ``0o444``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#file_mode Service#file_mode}
+        :param file_uid: Represents the file UID. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#file_uid Service#file_uid}
+        :param secret_name: Name of the secret that this references, but this is just provided for lookup/display purposes. The config in the reference will be identified by its ID Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#secret_name Service#secret_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ce17d46180321a0e6cfe524aefc26eeacd56b96720ce656bd2029f40287eae85)
@@ -6416,7 +6416,7 @@ class ServiceTaskSpecContainerSpecSecrets:
     def file_name(self) -> builtins.str:
         '''Represents the final filename in the filesystem.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#file_name Service#file_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#file_name Service#file_name}
         '''
         result = self._values.get("file_name")
         assert result is not None, "Required property 'file_name' is missing"
@@ -6426,7 +6426,7 @@ class ServiceTaskSpecContainerSpecSecrets:
     def secret_id(self) -> builtins.str:
         '''ID of the specific secret that we're referencing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#secret_id Service#secret_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#secret_id Service#secret_id}
         '''
         result = self._values.get("secret_id")
         assert result is not None, "Required property 'secret_id' is missing"
@@ -6436,7 +6436,7 @@ class ServiceTaskSpecContainerSpecSecrets:
     def file_gid(self) -> typing.Optional[builtins.str]:
         '''Represents the file GID. Defaults to ``0``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#file_gid Service#file_gid}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#file_gid Service#file_gid}
         '''
         result = self._values.get("file_gid")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6445,7 +6445,7 @@ class ServiceTaskSpecContainerSpecSecrets:
     def file_mode(self) -> typing.Optional[jsii.Number]:
         '''Represents represents the FileMode of the file. Defaults to ``0o444``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#file_mode Service#file_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#file_mode Service#file_mode}
         '''
         result = self._values.get("file_mode")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6454,7 +6454,7 @@ class ServiceTaskSpecContainerSpecSecrets:
     def file_uid(self) -> typing.Optional[builtins.str]:
         '''Represents the file UID. Defaults to ``0``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#file_uid Service#file_uid}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#file_uid Service#file_uid}
         '''
         result = self._values.get("file_uid")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6465,7 +6465,7 @@ class ServiceTaskSpecContainerSpecSecrets:
 
         The config in the reference will be identified by its ID
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#secret_name Service#secret_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#secret_name Service#secret_name}
         '''
         result = self._values.get("secret_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6750,8 +6750,8 @@ class ServiceTaskSpecLogDriver:
         options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param name: The logging driver to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#name Service#name}
-        :param options: The options for the logging driver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#options Service#options}
+        :param name: The logging driver to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#name Service#name}
+        :param options: The options for the logging driver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#options Service#options}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5899da6d207b3477d925ccfc72eaa7f8eefbdd2593b1392beca62b6e4ad1ae67)
@@ -6767,7 +6767,7 @@ class ServiceTaskSpecLogDriver:
     def name(self) -> builtins.str:
         '''The logging driver to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#name Service#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#name Service#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -6777,7 +6777,7 @@ class ServiceTaskSpecLogDriver:
     def options(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''The options for the logging driver.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#options Service#options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#options Service#options}
         '''
         result = self._values.get("options")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -6881,9 +6881,9 @@ class ServiceTaskSpecNetworksAdvanced:
         driver_opts: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param name: The name/id of the network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#name Service#name}
-        :param aliases: The network aliases of the container in the specific network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#aliases Service#aliases}
-        :param driver_opts: An array of driver options for the network, e.g. ``opts1=value``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#driver_opts Service#driver_opts}
+        :param name: The name/id of the network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#name Service#name}
+        :param aliases: The network aliases of the container in the specific network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#aliases Service#aliases}
+        :param driver_opts: An array of driver options for the network, e.g. ``opts1=value``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#driver_opts Service#driver_opts}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2625b926e05b0e6827673d21ecbf073b1a23b9b9fe05b42457480bd8d3dc65a8)
@@ -6902,7 +6902,7 @@ class ServiceTaskSpecNetworksAdvanced:
     def name(self) -> builtins.str:
         '''The name/id of the network.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#name Service#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#name Service#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -6912,7 +6912,7 @@ class ServiceTaskSpecNetworksAdvanced:
     def aliases(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The network aliases of the container in the specific network.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#aliases Service#aliases}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#aliases Service#aliases}
         '''
         result = self._values.get("aliases")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6921,7 +6921,7 @@ class ServiceTaskSpecNetworksAdvanced:
     def driver_opts(self) -> typing.Optional[typing.List[builtins.str]]:
         '''An array of driver options for the network, e.g. ``opts1=value``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#driver_opts Service#driver_opts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#driver_opts Service#driver_opts}
         '''
         result = self._values.get("driver_opts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -7181,27 +7181,27 @@ class ServiceTaskSpecOutputReference(
         user: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param image: The image name to use for the containers of the service, like ``nginx:1.17.6``. Also use the data-source or resource of ``docker_image`` with the ``repo_digest`` or ``docker_registry_image`` with the ``name`` attribute for this, as shown in the examples. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#image Service#image}
-        :param args: Arguments to the command. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#args Service#args}
-        :param command: The command/entrypoint to be run in the image. According to the `docker cli <https://github.com/docker/cli/blob/v20.10.7/cli/command/service/opts.go#L705>`_ the override of the entrypoint is also passed to the ``command`` property and there is no ``entrypoint`` attribute in the ``ContainerSpec`` of the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#command Service#command}
-        :param configs: configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#configs Service#configs}
-        :param dir: The working directory for commands to run in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#dir Service#dir}
-        :param dns_config: dns_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#dns_config Service#dns_config}
-        :param env: A list of environment variables in the form VAR="value". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#env Service#env}
-        :param groups: A list of additional groups that the container process will run as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#groups Service#groups}
-        :param healthcheck: healthcheck block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#healthcheck Service#healthcheck}
-        :param hostname: The hostname to use for the container, as a valid RFC 1123 hostname. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#hostname Service#hostname}
-        :param hosts: hosts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#hosts Service#hosts}
-        :param isolation: Isolation technology of the containers running the service. (Windows only). Defaults to ``default``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#isolation Service#isolation}
-        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#labels Service#labels}
-        :param mounts: mounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#mounts Service#mounts}
-        :param privileges: privileges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#privileges Service#privileges}
-        :param read_only: Mount the container's root filesystem as read only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#read_only Service#read_only}
-        :param secrets: secrets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#secrets Service#secrets}
-        :param stop_grace_period: Amount of time to wait for the container to terminate before forcefully removing it (ms|s|m|h). If not specified or '0s' the destroy will not check if all tasks/containers of the service terminate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#stop_grace_period Service#stop_grace_period}
-        :param stop_signal: Signal to stop the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#stop_signal Service#stop_signal}
-        :param sysctl: Sysctls config (Linux only). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#sysctl Service#sysctl}
-        :param user: The user inside the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#user Service#user}
+        :param image: The image name to use for the containers of the service, like ``nginx:1.17.6``. Also use the data-source or resource of ``docker_image`` with the ``repo_digest`` or ``docker_registry_image`` with the ``name`` attribute for this, as shown in the examples. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#image Service#image}
+        :param args: Arguments to the command. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#args Service#args}
+        :param command: The command/entrypoint to be run in the image. According to the `docker cli <https://github.com/docker/cli/blob/v20.10.7/cli/command/service/opts.go#L705>`_ the override of the entrypoint is also passed to the ``command`` property and there is no ``entrypoint`` attribute in the ``ContainerSpec`` of the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#command Service#command}
+        :param configs: configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#configs Service#configs}
+        :param dir: The working directory for commands to run in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#dir Service#dir}
+        :param dns_config: dns_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#dns_config Service#dns_config}
+        :param env: A list of environment variables in the form VAR="value". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#env Service#env}
+        :param groups: A list of additional groups that the container process will run as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#groups Service#groups}
+        :param healthcheck: healthcheck block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#healthcheck Service#healthcheck}
+        :param hostname: The hostname to use for the container, as a valid RFC 1123 hostname. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#hostname Service#hostname}
+        :param hosts: hosts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#hosts Service#hosts}
+        :param isolation: Isolation technology of the containers running the service. (Windows only). Defaults to ``default``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#isolation Service#isolation}
+        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#labels Service#labels}
+        :param mounts: mounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#mounts Service#mounts}
+        :param privileges: privileges block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#privileges Service#privileges}
+        :param read_only: Mount the container's root filesystem as read only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#read_only Service#read_only}
+        :param secrets: secrets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#secrets Service#secrets}
+        :param stop_grace_period: Amount of time to wait for the container to terminate before forcefully removing it (ms|s|m|h). If not specified or '0s' the destroy will not check if all tasks/containers of the service terminate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#stop_grace_period Service#stop_grace_period}
+        :param stop_signal: Signal to stop the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#stop_signal Service#stop_signal}
+        :param sysctl: Sysctls config (Linux only). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#sysctl Service#sysctl}
+        :param user: The user inside the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#user Service#user}
         '''
         value = ServiceTaskSpecContainerSpec(
             image=image,
@@ -7237,8 +7237,8 @@ class ServiceTaskSpecOutputReference(
         options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param name: The logging driver to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#name Service#name}
-        :param options: The options for the logging driver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#options Service#options}
+        :param name: The logging driver to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#name Service#name}
+        :param options: The options for the logging driver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#options Service#options}
         '''
         value = ServiceTaskSpecLogDriver(name=name, options=options)
 
@@ -7267,10 +7267,10 @@ class ServiceTaskSpecOutputReference(
         prefs: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param constraints: An array of constraints. e.g.: ``node.role==manager``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#constraints Service#constraints}
-        :param max_replicas: Maximum number of replicas for per node (default value is ``0``, which is unlimited). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#max_replicas Service#max_replicas}
-        :param platforms: platforms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#platforms Service#platforms}
-        :param prefs: Preferences provide a way to make the scheduler aware of factors such as topology. They are provided in order from highest to lowest precedence, e.g.: ``spread=node.role.manager`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#prefs Service#prefs}
+        :param constraints: An array of constraints. e.g.: ``node.role==manager``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#constraints Service#constraints}
+        :param max_replicas: Maximum number of replicas for per node (default value is ``0``, which is unlimited). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#max_replicas Service#max_replicas}
+        :param platforms: platforms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#platforms Service#platforms}
+        :param prefs: Preferences provide a way to make the scheduler aware of factors such as topology. They are provided in order from highest to lowest precedence, e.g.: ``spread=node.role.manager`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#prefs Service#prefs}
         '''
         value = ServiceTaskSpecPlacement(
             constraints=constraints,
@@ -7289,8 +7289,8 @@ class ServiceTaskSpecOutputReference(
         reservation: typing.Optional[typing.Union["ServiceTaskSpecResourcesReservation", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#limits Service#limits}
-        :param reservation: reservation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#reservation Service#reservation}
+        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#limits Service#limits}
+        :param reservation: reservation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#reservation Service#reservation}
         '''
         value = ServiceTaskSpecResources(limits=limits, reservation=reservation)
 
@@ -7306,10 +7306,10 @@ class ServiceTaskSpecOutputReference(
         window: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param condition: Condition for restart. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#condition Service#condition}
-        :param delay: Delay between restart attempts (ms|s|m|h). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#delay Service#delay}
-        :param max_attempts: Maximum attempts to restart a given container before giving up (default value is ``0``, which is ignored). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#max_attempts Service#max_attempts}
-        :param window: The time window used to evaluate the restart policy (default value is ``0``, which is unbounded) (ms|s|m|h). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#window Service#window}
+        :param condition: Condition for restart. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#condition Service#condition}
+        :param delay: Delay between restart attempts (ms|s|m|h). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#delay Service#delay}
+        :param max_attempts: Maximum attempts to restart a given container before giving up (default value is ``0``, which is ignored). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#max_attempts Service#max_attempts}
+        :param window: The time window used to evaluate the restart policy (default value is ``0``, which is unbounded) (ms|s|m|h). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#window Service#window}
         '''
         value = ServiceTaskSpecRestartPolicy(
             condition=condition, delay=delay, max_attempts=max_attempts, window=window
@@ -7474,10 +7474,10 @@ class ServiceTaskSpecPlacement:
         prefs: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param constraints: An array of constraints. e.g.: ``node.role==manager``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#constraints Service#constraints}
-        :param max_replicas: Maximum number of replicas for per node (default value is ``0``, which is unlimited). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#max_replicas Service#max_replicas}
-        :param platforms: platforms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#platforms Service#platforms}
-        :param prefs: Preferences provide a way to make the scheduler aware of factors such as topology. They are provided in order from highest to lowest precedence, e.g.: ``spread=node.role.manager`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#prefs Service#prefs}
+        :param constraints: An array of constraints. e.g.: ``node.role==manager``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#constraints Service#constraints}
+        :param max_replicas: Maximum number of replicas for per node (default value is ``0``, which is unlimited). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#max_replicas Service#max_replicas}
+        :param platforms: platforms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#platforms Service#platforms}
+        :param prefs: Preferences provide a way to make the scheduler aware of factors such as topology. They are provided in order from highest to lowest precedence, e.g.: ``spread=node.role.manager`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#prefs Service#prefs}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6249eec5df7bd00a40075f9ce821749520469fd8f55ae0c73e9e8e4d465960b1)
@@ -7499,7 +7499,7 @@ class ServiceTaskSpecPlacement:
     def constraints(self) -> typing.Optional[typing.List[builtins.str]]:
         '''An array of constraints. e.g.: ``node.role==manager``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#constraints Service#constraints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#constraints Service#constraints}
         '''
         result = self._values.get("constraints")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -7508,7 +7508,7 @@ class ServiceTaskSpecPlacement:
     def max_replicas(self) -> typing.Optional[jsii.Number]:
         '''Maximum number of replicas for per node (default value is ``0``, which is unlimited).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#max_replicas Service#max_replicas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#max_replicas Service#max_replicas}
         '''
         result = self._values.get("max_replicas")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7519,7 +7519,7 @@ class ServiceTaskSpecPlacement:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceTaskSpecPlacementPlatforms"]]]:
         '''platforms block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#platforms Service#platforms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#platforms Service#platforms}
         '''
         result = self._values.get("platforms")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceTaskSpecPlacementPlatforms"]]], result)
@@ -7530,7 +7530,7 @@ class ServiceTaskSpecPlacement:
 
         They are provided in order from highest to lowest precedence, e.g.: ``spread=node.role.manager``
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#prefs Service#prefs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#prefs Service#prefs}
         '''
         result = self._values.get("prefs")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -7680,8 +7680,8 @@ class ServiceTaskSpecPlacementOutputReference(
 class ServiceTaskSpecPlacementPlatforms:
     def __init__(self, *, architecture: builtins.str, os: builtins.str) -> None:
         '''
-        :param architecture: The architecture, e.g. ``amd64``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#architecture Service#architecture}
-        :param os: The operation system, e.g. ``linux``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#os Service#os}
+        :param architecture: The architecture, e.g. ``amd64``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#architecture Service#architecture}
+        :param os: The operation system, e.g. ``linux``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#os Service#os}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__150cf837840d587deaf762c48e3fcefb6904be0c7d0263f19c3b7ae76effb627)
@@ -7696,7 +7696,7 @@ class ServiceTaskSpecPlacementPlatforms:
     def architecture(self) -> builtins.str:
         '''The architecture, e.g. ``amd64``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#architecture Service#architecture}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#architecture Service#architecture}
         '''
         result = self._values.get("architecture")
         assert result is not None, "Required property 'architecture' is missing"
@@ -7706,7 +7706,7 @@ class ServiceTaskSpecPlacementPlatforms:
     def os(self) -> builtins.str:
         '''The operation system, e.g. ``linux``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#os Service#os}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#os Service#os}
         '''
         result = self._values.get("os")
         assert result is not None, "Required property 'os' is missing"
@@ -7908,8 +7908,8 @@ class ServiceTaskSpecResources:
         reservation: typing.Optional[typing.Union["ServiceTaskSpecResourcesReservation", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#limits Service#limits}
-        :param reservation: reservation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#reservation Service#reservation}
+        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#limits Service#limits}
+        :param reservation: reservation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#reservation Service#reservation}
         '''
         if isinstance(limits, dict):
             limits = ServiceTaskSpecResourcesLimits(**limits)
@@ -7929,7 +7929,7 @@ class ServiceTaskSpecResources:
     def limits(self) -> typing.Optional["ServiceTaskSpecResourcesLimits"]:
         '''limits block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#limits Service#limits}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#limits Service#limits}
         '''
         result = self._values.get("limits")
         return typing.cast(typing.Optional["ServiceTaskSpecResourcesLimits"], result)
@@ -7938,7 +7938,7 @@ class ServiceTaskSpecResources:
     def reservation(self) -> typing.Optional["ServiceTaskSpecResourcesReservation"]:
         '''reservation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#reservation Service#reservation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#reservation Service#reservation}
         '''
         result = self._values.get("reservation")
         return typing.cast(typing.Optional["ServiceTaskSpecResourcesReservation"], result)
@@ -7968,8 +7968,8 @@ class ServiceTaskSpecResourcesLimits:
         nano_cpus: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param memory_bytes: The amounf of memory in bytes the container allocates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#memory_bytes Service#memory_bytes}
-        :param nano_cpus: CPU shares in units of ``1/1e9`` (or ``10^-9``) of the CPU. Should be at least ``1000000``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#nano_cpus Service#nano_cpus}
+        :param memory_bytes: The amounf of memory in bytes the container allocates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#memory_bytes Service#memory_bytes}
+        :param nano_cpus: CPU shares in units of ``1/1e9`` (or ``10^-9``) of the CPU. Should be at least ``1000000``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#nano_cpus Service#nano_cpus}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a6e21fefdf36f319274e85babb21fee82d14bb06d0aa05e8d6332681ac94133)
@@ -7985,7 +7985,7 @@ class ServiceTaskSpecResourcesLimits:
     def memory_bytes(self) -> typing.Optional[jsii.Number]:
         '''The amounf of memory in bytes the container allocates.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#memory_bytes Service#memory_bytes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#memory_bytes Service#memory_bytes}
         '''
         result = self._values.get("memory_bytes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7994,7 +7994,7 @@ class ServiceTaskSpecResourcesLimits:
     def nano_cpus(self) -> typing.Optional[jsii.Number]:
         '''CPU shares in units of ``1/1e9`` (or ``10^-9``) of the CPU. Should be at least ``1000000``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#nano_cpus Service#nano_cpus}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#nano_cpus Service#nano_cpus}
         '''
         result = self._values.get("nano_cpus")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8117,8 +8117,8 @@ class ServiceTaskSpecResourcesOutputReference(
         nano_cpus: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param memory_bytes: The amounf of memory in bytes the container allocates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#memory_bytes Service#memory_bytes}
-        :param nano_cpus: CPU shares in units of ``1/1e9`` (or ``10^-9``) of the CPU. Should be at least ``1000000``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#nano_cpus Service#nano_cpus}
+        :param memory_bytes: The amounf of memory in bytes the container allocates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#memory_bytes Service#memory_bytes}
+        :param nano_cpus: CPU shares in units of ``1/1e9`` (or ``10^-9``) of the CPU. Should be at least ``1000000``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#nano_cpus Service#nano_cpus}
         '''
         value = ServiceTaskSpecResourcesLimits(
             memory_bytes=memory_bytes, nano_cpus=nano_cpus
@@ -8135,9 +8135,9 @@ class ServiceTaskSpecResourcesOutputReference(
         nano_cpus: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param generic_resources: generic_resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#generic_resources Service#generic_resources}
-        :param memory_bytes: The amounf of memory in bytes the container allocates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#memory_bytes Service#memory_bytes}
-        :param nano_cpus: CPU shares in units of 1/1e9 (or 10^-9) of the CPU. Should be at least ``1000000``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#nano_cpus Service#nano_cpus}
+        :param generic_resources: generic_resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#generic_resources Service#generic_resources}
+        :param memory_bytes: The amounf of memory in bytes the container allocates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#memory_bytes Service#memory_bytes}
+        :param nano_cpus: CPU shares in units of 1/1e9 (or 10^-9) of the CPU. Should be at least ``1000000``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#nano_cpus Service#nano_cpus}
         '''
         value = ServiceTaskSpecResourcesReservation(
             generic_resources=generic_resources,
@@ -8208,9 +8208,9 @@ class ServiceTaskSpecResourcesReservation:
         nano_cpus: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param generic_resources: generic_resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#generic_resources Service#generic_resources}
-        :param memory_bytes: The amounf of memory in bytes the container allocates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#memory_bytes Service#memory_bytes}
-        :param nano_cpus: CPU shares in units of 1/1e9 (or 10^-9) of the CPU. Should be at least ``1000000``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#nano_cpus Service#nano_cpus}
+        :param generic_resources: generic_resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#generic_resources Service#generic_resources}
+        :param memory_bytes: The amounf of memory in bytes the container allocates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#memory_bytes Service#memory_bytes}
+        :param nano_cpus: CPU shares in units of 1/1e9 (or 10^-9) of the CPU. Should be at least ``1000000``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#nano_cpus Service#nano_cpus}
         '''
         if isinstance(generic_resources, dict):
             generic_resources = ServiceTaskSpecResourcesReservationGenericResources(**generic_resources)
@@ -8233,7 +8233,7 @@ class ServiceTaskSpecResourcesReservation:
     ) -> typing.Optional["ServiceTaskSpecResourcesReservationGenericResources"]:
         '''generic_resources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#generic_resources Service#generic_resources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#generic_resources Service#generic_resources}
         '''
         result = self._values.get("generic_resources")
         return typing.cast(typing.Optional["ServiceTaskSpecResourcesReservationGenericResources"], result)
@@ -8242,7 +8242,7 @@ class ServiceTaskSpecResourcesReservation:
     def memory_bytes(self) -> typing.Optional[jsii.Number]:
         '''The amounf of memory in bytes the container allocates.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#memory_bytes Service#memory_bytes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#memory_bytes Service#memory_bytes}
         '''
         result = self._values.get("memory_bytes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8251,7 +8251,7 @@ class ServiceTaskSpecResourcesReservation:
     def nano_cpus(self) -> typing.Optional[jsii.Number]:
         '''CPU shares in units of 1/1e9 (or 10^-9) of the CPU. Should be at least ``1000000``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#nano_cpus Service#nano_cpus}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#nano_cpus Service#nano_cpus}
         '''
         result = self._values.get("nano_cpus")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8284,8 +8284,8 @@ class ServiceTaskSpecResourcesReservationGenericResources:
         named_resources_spec: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param discrete_resources_spec: The Integer resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#discrete_resources_spec Service#discrete_resources_spec}
-        :param named_resources_spec: The String resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#named_resources_spec Service#named_resources_spec}
+        :param discrete_resources_spec: The Integer resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#discrete_resources_spec Service#discrete_resources_spec}
+        :param named_resources_spec: The String resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#named_resources_spec Service#named_resources_spec}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d26e9c32125eae16020fcc1ed6da646de1bd10b9a8d878c78f970811292c02b2)
@@ -8301,7 +8301,7 @@ class ServiceTaskSpecResourcesReservationGenericResources:
     def discrete_resources_spec(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The Integer resources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#discrete_resources_spec Service#discrete_resources_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#discrete_resources_spec Service#discrete_resources_spec}
         '''
         result = self._values.get("discrete_resources_spec")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -8310,7 +8310,7 @@ class ServiceTaskSpecResourcesReservationGenericResources:
     def named_resources_spec(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The String resources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#named_resources_spec Service#named_resources_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#named_resources_spec Service#named_resources_spec}
         '''
         result = self._values.get("named_resources_spec")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -8437,8 +8437,8 @@ class ServiceTaskSpecResourcesReservationOutputReference(
         named_resources_spec: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param discrete_resources_spec: The Integer resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#discrete_resources_spec Service#discrete_resources_spec}
-        :param named_resources_spec: The String resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#named_resources_spec Service#named_resources_spec}
+        :param discrete_resources_spec: The Integer resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#discrete_resources_spec Service#discrete_resources_spec}
+        :param named_resources_spec: The String resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#named_resources_spec Service#named_resources_spec}
         '''
         value = ServiceTaskSpecResourcesReservationGenericResources(
             discrete_resources_spec=discrete_resources_spec,
@@ -8543,10 +8543,10 @@ class ServiceTaskSpecRestartPolicy:
         window: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param condition: Condition for restart. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#condition Service#condition}
-        :param delay: Delay between restart attempts (ms|s|m|h). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#delay Service#delay}
-        :param max_attempts: Maximum attempts to restart a given container before giving up (default value is ``0``, which is ignored). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#max_attempts Service#max_attempts}
-        :param window: The time window used to evaluate the restart policy (default value is ``0``, which is unbounded) (ms|s|m|h). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#window Service#window}
+        :param condition: Condition for restart. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#condition Service#condition}
+        :param delay: Delay between restart attempts (ms|s|m|h). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#delay Service#delay}
+        :param max_attempts: Maximum attempts to restart a given container before giving up (default value is ``0``, which is ignored). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#max_attempts Service#max_attempts}
+        :param window: The time window used to evaluate the restart policy (default value is ``0``, which is unbounded) (ms|s|m|h). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#window Service#window}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__80de2a4eaf36f87c243b94af4fe179b1655cf23044e8e233570954d96fab41c7)
@@ -8568,7 +8568,7 @@ class ServiceTaskSpecRestartPolicy:
     def condition(self) -> typing.Optional[builtins.str]:
         '''Condition for restart.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#condition Service#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#condition Service#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8577,7 +8577,7 @@ class ServiceTaskSpecRestartPolicy:
     def delay(self) -> typing.Optional[builtins.str]:
         '''Delay between restart attempts (ms|s|m|h).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#delay Service#delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#delay Service#delay}
         '''
         result = self._values.get("delay")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8586,7 +8586,7 @@ class ServiceTaskSpecRestartPolicy:
     def max_attempts(self) -> typing.Optional[jsii.Number]:
         '''Maximum attempts to restart a given container before giving up (default value is ``0``, which is ignored).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#max_attempts Service#max_attempts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#max_attempts Service#max_attempts}
         '''
         result = self._values.get("max_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8595,7 +8595,7 @@ class ServiceTaskSpecRestartPolicy:
     def window(self) -> typing.Optional[builtins.str]:
         '''The time window used to evaluate the restart policy (default value is ``0``, which is unbounded) (ms|s|m|h).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#window Service#window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#window Service#window}
         '''
         result = self._values.get("window")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8756,12 +8756,12 @@ class ServiceUpdateConfig:
         parallelism: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param delay: Delay between task updates ``(ns|us|ms|s|m|h)``. Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#delay Service#delay}
-        :param failure_action: Action on update failure: ``pause``, ``continue`` or ``rollback``. Defaults to ``pause``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#failure_action Service#failure_action}
-        :param max_failure_ratio: Failure rate to tolerate during an update. Defaults to ``0.0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#max_failure_ratio Service#max_failure_ratio}
-        :param monitor: Duration after each task update to monitor for failure (ns|us|ms|s|m|h). Defaults to ``5s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#monitor Service#monitor}
-        :param order: Update order: either 'stop-first' or 'start-first'. Defaults to ``stop-first``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#order Service#order}
-        :param parallelism: Maximum number of tasks to be updated in one iteration. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#parallelism Service#parallelism}
+        :param delay: Delay between task updates ``(ns|us|ms|s|m|h)``. Defaults to ``0s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#delay Service#delay}
+        :param failure_action: Action on update failure: ``pause``, ``continue`` or ``rollback``. Defaults to ``pause``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#failure_action Service#failure_action}
+        :param max_failure_ratio: Failure rate to tolerate during an update. Defaults to ``0.0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#max_failure_ratio Service#max_failure_ratio}
+        :param monitor: Duration after each task update to monitor for failure (ns|us|ms|s|m|h). Defaults to ``5s``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#monitor Service#monitor}
+        :param order: Update order: either 'stop-first' or 'start-first'. Defaults to ``stop-first``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#order Service#order}
+        :param parallelism: Maximum number of tasks to be updated in one iteration. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#parallelism Service#parallelism}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bd3c5a1ad148d216530609661d273964493af57c026faf188eed0348f130116c)
@@ -8789,7 +8789,7 @@ class ServiceUpdateConfig:
     def delay(self) -> typing.Optional[builtins.str]:
         '''Delay between task updates ``(ns|us|ms|s|m|h)``. Defaults to ``0s``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#delay Service#delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#delay Service#delay}
         '''
         result = self._values.get("delay")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8798,7 +8798,7 @@ class ServiceUpdateConfig:
     def failure_action(self) -> typing.Optional[builtins.str]:
         '''Action on update failure: ``pause``, ``continue`` or ``rollback``. Defaults to ``pause``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#failure_action Service#failure_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#failure_action Service#failure_action}
         '''
         result = self._values.get("failure_action")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8807,7 +8807,7 @@ class ServiceUpdateConfig:
     def max_failure_ratio(self) -> typing.Optional[builtins.str]:
         '''Failure rate to tolerate during an update. Defaults to ``0.0``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#max_failure_ratio Service#max_failure_ratio}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#max_failure_ratio Service#max_failure_ratio}
         '''
         result = self._values.get("max_failure_ratio")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8816,7 +8816,7 @@ class ServiceUpdateConfig:
     def monitor(self) -> typing.Optional[builtins.str]:
         '''Duration after each task update to monitor for failure (ns|us|ms|s|m|h). Defaults to ``5s``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#monitor Service#monitor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#monitor Service#monitor}
         '''
         result = self._values.get("monitor")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8825,7 +8825,7 @@ class ServiceUpdateConfig:
     def order(self) -> typing.Optional[builtins.str]:
         '''Update order: either 'stop-first' or 'start-first'. Defaults to ``stop-first``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#order Service#order}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#order Service#order}
         '''
         result = self._values.get("order")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8834,7 +8834,7 @@ class ServiceUpdateConfig:
     def parallelism(self) -> typing.Optional[jsii.Number]:
         '''Maximum number of tasks to be updated in one iteration. Defaults to ``1``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/service#parallelism Service#parallelism}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/service#parallelism Service#parallelism}
         '''
         result = self._values.get("parallelism")
         return typing.cast(typing.Optional[jsii.Number], result)

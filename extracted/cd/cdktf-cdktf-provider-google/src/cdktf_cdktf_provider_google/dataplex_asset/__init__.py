@@ -1,7 +1,7 @@
 r'''
 # `google_dataplex_asset`
 
-Refer to the Terraform Registry for docs: [`google_dataplex_asset`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset).
+Refer to the Terraform Registry for docs: [`google_dataplex_asset`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataplexAsset(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataplexAsset.DataplexAsset",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset google_dataplex_asset}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset google_dataplex_asset}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class DataplexAsset(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset google_dataplex_asset} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset google_dataplex_asset} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param dataplex_zone: The zone for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#dataplex_zone DataplexAsset#dataplex_zone}
-        :param discovery_spec: discovery_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#discovery_spec DataplexAsset#discovery_spec}
-        :param lake: The lake for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#lake DataplexAsset#lake}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#location DataplexAsset#location}
-        :param name: The name of the asset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#name DataplexAsset#name}
-        :param resource_spec: resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#resource_spec DataplexAsset#resource_spec}
-        :param description: Optional. Description of the asset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#description DataplexAsset#description}
-        :param display_name: Optional. User friendly display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#display_name DataplexAsset#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#id DataplexAsset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Optional. User defined labels for the asset. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field ``effective_labels`` for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#labels DataplexAsset#labels}
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#project DataplexAsset#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#timeouts DataplexAsset#timeouts}
+        :param dataplex_zone: The zone for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#dataplex_zone DataplexAsset#dataplex_zone}
+        :param discovery_spec: discovery_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#discovery_spec DataplexAsset#discovery_spec}
+        :param lake: The lake for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#lake DataplexAsset#lake}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#location DataplexAsset#location}
+        :param name: The name of the asset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#name DataplexAsset#name}
+        :param resource_spec: resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#resource_spec DataplexAsset#resource_spec}
+        :param description: Optional. Description of the asset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#description DataplexAsset#description}
+        :param display_name: Optional. User friendly display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#display_name DataplexAsset#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#id DataplexAsset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Optional. User defined labels for the asset. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field ``effective_labels`` for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#labels DataplexAsset#labels}
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#project DataplexAsset#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#timeouts DataplexAsset#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class DataplexAsset(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataplexAsset to import.
-        :param import_from_id: The id of the existing DataplexAsset that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataplexAsset that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataplexAsset to import is found.
         '''
         if __debug__:
@@ -159,12 +159,12 @@ class DataplexAsset(
         schedule: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Required. Whether discovery is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#enabled DataplexAsset#enabled}
-        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#csv_options DataplexAsset#csv_options}
-        :param exclude_patterns: Optional. The list of patterns to apply for selecting data to exclude during discovery. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#exclude_patterns DataplexAsset#exclude_patterns}
-        :param include_patterns: Optional. The list of patterns to apply for selecting data to include during discovery if only a subset of the data should considered. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#include_patterns DataplexAsset#include_patterns}
-        :param json_options: json_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#json_options DataplexAsset#json_options}
-        :param schedule: Optional. Cron schedule (https://en.wikipedia.org/wiki/Cron) for running discovery periodically. Successive discovery runs must be scheduled at least 60 minutes apart. The default value is to run discovery every 60 minutes. To explicitly set a timezone to the cron tab, apply a prefix in the cron tab: "CRON_TZ=${IANA_TIME_ZONE}" or TZ=${IANA_TIME_ZONE}". The ${IANA_TIME_ZONE} may only be a valid string from IANA time zone database. For example, "CRON_TZ=America/New_York 1 * * * *", or "TZ=America/New_York 1 * * * *". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#schedule DataplexAsset#schedule}
+        :param enabled: Required. Whether discovery is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#enabled DataplexAsset#enabled}
+        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#csv_options DataplexAsset#csv_options}
+        :param exclude_patterns: Optional. The list of patterns to apply for selecting data to exclude during discovery. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#exclude_patterns DataplexAsset#exclude_patterns}
+        :param include_patterns: Optional. The list of patterns to apply for selecting data to include during discovery if only a subset of the data should considered. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#include_patterns DataplexAsset#include_patterns}
+        :param json_options: json_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#json_options DataplexAsset#json_options}
+        :param schedule: Optional. Cron schedule (https://en.wikipedia.org/wiki/Cron) for running discovery periodically. Successive discovery runs must be scheduled at least 60 minutes apart. The default value is to run discovery every 60 minutes. To explicitly set a timezone to the cron tab, apply a prefix in the cron tab: "CRON_TZ=${IANA_TIME_ZONE}" or TZ=${IANA_TIME_ZONE}". The ${IANA_TIME_ZONE} may only be a valid string from IANA time zone database. For example, "CRON_TZ=America/New_York 1 * * * *", or "TZ=America/New_York 1 * * * *". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#schedule DataplexAsset#schedule}
         '''
         value = DataplexAssetDiscoverySpec(
             enabled=enabled,
@@ -186,9 +186,9 @@ class DataplexAsset(
         read_access_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Required. Immutable. Type of resource. Possible values: STORAGE_BUCKET, BIGQUERY_DATASET. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#type DataplexAsset#type}
-        :param name: Immutable. Relative name of the cloud resource that contains the data that is being managed within a lake. For example: ``projects/{project_number}/buckets/{bucket_id}`` ``projects/{project_number}/datasets/{dataset_id}`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#name DataplexAsset#name}
-        :param read_access_mode: Optional. Determines how read permissions are handled for each asset and their associated tables. Only available to storage buckets assets. Possible values: DIRECT, MANAGED Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#read_access_mode DataplexAsset#read_access_mode}
+        :param type: Required. Immutable. Type of resource. Possible values: STORAGE_BUCKET, BIGQUERY_DATASET. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#type DataplexAsset#type}
+        :param name: Immutable. Relative name of the cloud resource that contains the data that is being managed within a lake. For example: ``projects/{project_number}/buckets/{bucket_id}`` ``projects/{project_number}/datasets/{dataset_id}`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#name DataplexAsset#name}
+        :param read_access_mode: Optional. Determines how read permissions are handled for each asset and their associated tables. Only available to storage buckets assets. Possible values: DIRECT, MANAGED Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#read_access_mode DataplexAsset#read_access_mode}
         '''
         value = DataplexAssetResourceSpec(
             type=type, name=name, read_access_mode=read_access_mode
@@ -205,9 +205,9 @@ class DataplexAsset(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#create DataplexAsset#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#delete DataplexAsset#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#update DataplexAsset#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#create DataplexAsset#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#delete DataplexAsset#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#update DataplexAsset#update}.
         '''
         value = DataplexAssetTimeouts(create=create, delete=delete, update=update)
 
@@ -540,18 +540,18 @@ class DataplexAssetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param dataplex_zone: The zone for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#dataplex_zone DataplexAsset#dataplex_zone}
-        :param discovery_spec: discovery_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#discovery_spec DataplexAsset#discovery_spec}
-        :param lake: The lake for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#lake DataplexAsset#lake}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#location DataplexAsset#location}
-        :param name: The name of the asset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#name DataplexAsset#name}
-        :param resource_spec: resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#resource_spec DataplexAsset#resource_spec}
-        :param description: Optional. Description of the asset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#description DataplexAsset#description}
-        :param display_name: Optional. User friendly display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#display_name DataplexAsset#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#id DataplexAsset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Optional. User defined labels for the asset. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field ``effective_labels`` for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#labels DataplexAsset#labels}
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#project DataplexAsset#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#timeouts DataplexAsset#timeouts}
+        :param dataplex_zone: The zone for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#dataplex_zone DataplexAsset#dataplex_zone}
+        :param discovery_spec: discovery_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#discovery_spec DataplexAsset#discovery_spec}
+        :param lake: The lake for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#lake DataplexAsset#lake}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#location DataplexAsset#location}
+        :param name: The name of the asset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#name DataplexAsset#name}
+        :param resource_spec: resource_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#resource_spec DataplexAsset#resource_spec}
+        :param description: Optional. Description of the asset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#description DataplexAsset#description}
+        :param display_name: Optional. User friendly display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#display_name DataplexAsset#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#id DataplexAsset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Optional. User defined labels for the asset. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field ``effective_labels`` for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#labels DataplexAsset#labels}
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#project DataplexAsset#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#timeouts DataplexAsset#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -685,7 +685,7 @@ class DataplexAssetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dataplex_zone(self) -> builtins.str:
         '''The zone for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#dataplex_zone DataplexAsset#dataplex_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#dataplex_zone DataplexAsset#dataplex_zone}
         '''
         result = self._values.get("dataplex_zone")
         assert result is not None, "Required property 'dataplex_zone' is missing"
@@ -695,7 +695,7 @@ class DataplexAssetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def discovery_spec(self) -> "DataplexAssetDiscoverySpec":
         '''discovery_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#discovery_spec DataplexAsset#discovery_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#discovery_spec DataplexAsset#discovery_spec}
         '''
         result = self._values.get("discovery_spec")
         assert result is not None, "Required property 'discovery_spec' is missing"
@@ -705,7 +705,7 @@ class DataplexAssetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def lake(self) -> builtins.str:
         '''The lake for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#lake DataplexAsset#lake}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#lake DataplexAsset#lake}
         '''
         result = self._values.get("lake")
         assert result is not None, "Required property 'lake' is missing"
@@ -715,7 +715,7 @@ class DataplexAssetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#location DataplexAsset#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#location DataplexAsset#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -725,7 +725,7 @@ class DataplexAssetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the asset.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#name DataplexAsset#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#name DataplexAsset#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -735,7 +735,7 @@ class DataplexAssetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def resource_spec(self) -> "DataplexAssetResourceSpec":
         '''resource_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#resource_spec DataplexAsset#resource_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#resource_spec DataplexAsset#resource_spec}
         '''
         result = self._values.get("resource_spec")
         assert result is not None, "Required property 'resource_spec' is missing"
@@ -745,7 +745,7 @@ class DataplexAssetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Optional. Description of the asset.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#description DataplexAsset#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#description DataplexAsset#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -754,14 +754,14 @@ class DataplexAssetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Optional. User friendly display name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#display_name DataplexAsset#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#display_name DataplexAsset#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#id DataplexAsset#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#id DataplexAsset#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -776,7 +776,7 @@ class DataplexAssetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field ``effective_labels`` for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#labels DataplexAsset#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#labels DataplexAsset#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -785,7 +785,7 @@ class DataplexAssetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''The project for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#project DataplexAsset#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#project DataplexAsset#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -794,7 +794,7 @@ class DataplexAssetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataplexAssetTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#timeouts DataplexAsset#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#timeouts DataplexAsset#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataplexAssetTimeouts"], result)
@@ -835,12 +835,12 @@ class DataplexAssetDiscoverySpec:
         schedule: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Required. Whether discovery is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#enabled DataplexAsset#enabled}
-        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#csv_options DataplexAsset#csv_options}
-        :param exclude_patterns: Optional. The list of patterns to apply for selecting data to exclude during discovery. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#exclude_patterns DataplexAsset#exclude_patterns}
-        :param include_patterns: Optional. The list of patterns to apply for selecting data to include during discovery if only a subset of the data should considered. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#include_patterns DataplexAsset#include_patterns}
-        :param json_options: json_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#json_options DataplexAsset#json_options}
-        :param schedule: Optional. Cron schedule (https://en.wikipedia.org/wiki/Cron) for running discovery periodically. Successive discovery runs must be scheduled at least 60 minutes apart. The default value is to run discovery every 60 minutes. To explicitly set a timezone to the cron tab, apply a prefix in the cron tab: "CRON_TZ=${IANA_TIME_ZONE}" or TZ=${IANA_TIME_ZONE}". The ${IANA_TIME_ZONE} may only be a valid string from IANA time zone database. For example, "CRON_TZ=America/New_York 1 * * * *", or "TZ=America/New_York 1 * * * *". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#schedule DataplexAsset#schedule}
+        :param enabled: Required. Whether discovery is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#enabled DataplexAsset#enabled}
+        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#csv_options DataplexAsset#csv_options}
+        :param exclude_patterns: Optional. The list of patterns to apply for selecting data to exclude during discovery. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#exclude_patterns DataplexAsset#exclude_patterns}
+        :param include_patterns: Optional. The list of patterns to apply for selecting data to include during discovery if only a subset of the data should considered. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#include_patterns DataplexAsset#include_patterns}
+        :param json_options: json_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#json_options DataplexAsset#json_options}
+        :param schedule: Optional. Cron schedule (https://en.wikipedia.org/wiki/Cron) for running discovery periodically. Successive discovery runs must be scheduled at least 60 minutes apart. The default value is to run discovery every 60 minutes. To explicitly set a timezone to the cron tab, apply a prefix in the cron tab: "CRON_TZ=${IANA_TIME_ZONE}" or TZ=${IANA_TIME_ZONE}". The ${IANA_TIME_ZONE} may only be a valid string from IANA time zone database. For example, "CRON_TZ=America/New_York 1 * * * *", or "TZ=America/New_York 1 * * * *". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#schedule DataplexAsset#schedule}
         '''
         if isinstance(csv_options, dict):
             csv_options = DataplexAssetDiscoverySpecCsvOptions(**csv_options)
@@ -872,7 +872,7 @@ class DataplexAssetDiscoverySpec:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Required. Whether discovery is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#enabled DataplexAsset#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#enabled DataplexAsset#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -882,7 +882,7 @@ class DataplexAssetDiscoverySpec:
     def csv_options(self) -> typing.Optional["DataplexAssetDiscoverySpecCsvOptions"]:
         '''csv_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#csv_options DataplexAsset#csv_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#csv_options DataplexAsset#csv_options}
         '''
         result = self._values.get("csv_options")
         return typing.cast(typing.Optional["DataplexAssetDiscoverySpecCsvOptions"], result)
@@ -893,7 +893,7 @@ class DataplexAssetDiscoverySpec:
 
         The list of patterns to apply for selecting data to exclude during discovery. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#exclude_patterns DataplexAsset#exclude_patterns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#exclude_patterns DataplexAsset#exclude_patterns}
         '''
         result = self._values.get("exclude_patterns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -904,7 +904,7 @@ class DataplexAssetDiscoverySpec:
 
         The list of patterns to apply for selecting data to include during discovery if only a subset of the data should considered. For Cloud Storage bucket assets, these are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these are interpreted as patterns to match table names.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#include_patterns DataplexAsset#include_patterns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#include_patterns DataplexAsset#include_patterns}
         '''
         result = self._values.get("include_patterns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -913,7 +913,7 @@ class DataplexAssetDiscoverySpec:
     def json_options(self) -> typing.Optional["DataplexAssetDiscoverySpecJsonOptions"]:
         '''json_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#json_options DataplexAsset#json_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#json_options DataplexAsset#json_options}
         '''
         result = self._values.get("json_options")
         return typing.cast(typing.Optional["DataplexAssetDiscoverySpecJsonOptions"], result)
@@ -924,7 +924,7 @@ class DataplexAssetDiscoverySpec:
 
         Cron schedule (https://en.wikipedia.org/wiki/Cron) for running discovery periodically. Successive discovery runs must be scheduled at least 60 minutes apart. The default value is to run discovery every 60 minutes. To explicitly set a timezone to the cron tab, apply a prefix in the cron tab: "CRON_TZ=${IANA_TIME_ZONE}" or TZ=${IANA_TIME_ZONE}". The ${IANA_TIME_ZONE} may only be a valid string from IANA time zone database. For example, "CRON_TZ=America/New_York 1 * * * *", or "TZ=America/New_York 1 * * * *".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#schedule DataplexAsset#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#schedule DataplexAsset#schedule}
         '''
         result = self._values.get("schedule")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -961,10 +961,10 @@ class DataplexAssetDiscoverySpecCsvOptions:
         header_rows: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param delimiter: Optional. The delimiter being used to separate values. This defaults to ','. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#delimiter DataplexAsset#delimiter}
-        :param disable_type_inference: Optional. Whether to disable the inference of data type for CSV data. If true, all columns will be registered as strings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#disable_type_inference DataplexAsset#disable_type_inference}
-        :param encoding: Optional. The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#encoding DataplexAsset#encoding}
-        :param header_rows: Optional. The number of rows to interpret as header rows that should be skipped when reading data rows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#header_rows DataplexAsset#header_rows}
+        :param delimiter: Optional. The delimiter being used to separate values. This defaults to ','. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#delimiter DataplexAsset#delimiter}
+        :param disable_type_inference: Optional. Whether to disable the inference of data type for CSV data. If true, all columns will be registered as strings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#disable_type_inference DataplexAsset#disable_type_inference}
+        :param encoding: Optional. The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#encoding DataplexAsset#encoding}
+        :param header_rows: Optional. The number of rows to interpret as header rows that should be skipped when reading data rows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#header_rows DataplexAsset#header_rows}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b7e458f346608fbdc0e7290b7c77117cebc5aa70566bc1ab9110ad27afb95f8)
@@ -986,7 +986,7 @@ class DataplexAssetDiscoverySpecCsvOptions:
     def delimiter(self) -> typing.Optional[builtins.str]:
         '''Optional. The delimiter being used to separate values. This defaults to ','.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#delimiter DataplexAsset#delimiter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#delimiter DataplexAsset#delimiter}
         '''
         result = self._values.get("delimiter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -999,7 +999,7 @@ class DataplexAssetDiscoverySpecCsvOptions:
 
         Whether to disable the inference of data type for CSV data. If true, all columns will be registered as strings.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#disable_type_inference DataplexAsset#disable_type_inference}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#disable_type_inference DataplexAsset#disable_type_inference}
         '''
         result = self._values.get("disable_type_inference")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1008,7 +1008,7 @@ class DataplexAssetDiscoverySpecCsvOptions:
     def encoding(self) -> typing.Optional[builtins.str]:
         '''Optional. The character encoding of the data. The default is UTF-8.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#encoding DataplexAsset#encoding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#encoding DataplexAsset#encoding}
         '''
         result = self._values.get("encoding")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1017,7 +1017,7 @@ class DataplexAssetDiscoverySpecCsvOptions:
     def header_rows(self) -> typing.Optional[jsii.Number]:
         '''Optional. The number of rows to interpret as header rows that should be skipped when reading data rows.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#header_rows DataplexAsset#header_rows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#header_rows DataplexAsset#header_rows}
         '''
         result = self._values.get("header_rows")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1177,8 +1177,8 @@ class DataplexAssetDiscoverySpecJsonOptions:
         encoding: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disable_type_inference: Optional. Whether to disable the inference of data type for Json data. If true, all columns will be registered as their primitive types (strings, number or boolean). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#disable_type_inference DataplexAsset#disable_type_inference}
-        :param encoding: Optional. The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#encoding DataplexAsset#encoding}
+        :param disable_type_inference: Optional. Whether to disable the inference of data type for Json data. If true, all columns will be registered as their primitive types (strings, number or boolean). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#disable_type_inference DataplexAsset#disable_type_inference}
+        :param encoding: Optional. The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#encoding DataplexAsset#encoding}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__80a41e617f4c3716830deb87ccb64a238eaee0eb4d7a2e0b04082e77f1440b8f)
@@ -1198,7 +1198,7 @@ class DataplexAssetDiscoverySpecJsonOptions:
 
         Whether to disable the inference of data type for Json data. If true, all columns will be registered as their primitive types (strings, number or boolean).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#disable_type_inference DataplexAsset#disable_type_inference}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#disable_type_inference DataplexAsset#disable_type_inference}
         '''
         result = self._values.get("disable_type_inference")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1207,7 +1207,7 @@ class DataplexAssetDiscoverySpecJsonOptions:
     def encoding(self) -> typing.Optional[builtins.str]:
         '''Optional. The character encoding of the data. The default is UTF-8.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#encoding DataplexAsset#encoding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#encoding DataplexAsset#encoding}
         '''
         result = self._values.get("encoding")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1339,10 +1339,10 @@ class DataplexAssetDiscoverySpecOutputReference(
         header_rows: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param delimiter: Optional. The delimiter being used to separate values. This defaults to ','. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#delimiter DataplexAsset#delimiter}
-        :param disable_type_inference: Optional. Whether to disable the inference of data type for CSV data. If true, all columns will be registered as strings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#disable_type_inference DataplexAsset#disable_type_inference}
-        :param encoding: Optional. The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#encoding DataplexAsset#encoding}
-        :param header_rows: Optional. The number of rows to interpret as header rows that should be skipped when reading data rows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#header_rows DataplexAsset#header_rows}
+        :param delimiter: Optional. The delimiter being used to separate values. This defaults to ','. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#delimiter DataplexAsset#delimiter}
+        :param disable_type_inference: Optional. Whether to disable the inference of data type for CSV data. If true, all columns will be registered as strings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#disable_type_inference DataplexAsset#disable_type_inference}
+        :param encoding: Optional. The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#encoding DataplexAsset#encoding}
+        :param header_rows: Optional. The number of rows to interpret as header rows that should be skipped when reading data rows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#header_rows DataplexAsset#header_rows}
         '''
         value = DataplexAssetDiscoverySpecCsvOptions(
             delimiter=delimiter,
@@ -1361,8 +1361,8 @@ class DataplexAssetDiscoverySpecOutputReference(
         encoding: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disable_type_inference: Optional. Whether to disable the inference of data type for Json data. If true, all columns will be registered as their primitive types (strings, number or boolean). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#disable_type_inference DataplexAsset#disable_type_inference}
-        :param encoding: Optional. The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#encoding DataplexAsset#encoding}
+        :param disable_type_inference: Optional. Whether to disable the inference of data type for Json data. If true, all columns will be registered as their primitive types (strings, number or boolean). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#disable_type_inference DataplexAsset#disable_type_inference}
+        :param encoding: Optional. The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#encoding DataplexAsset#encoding}
         '''
         value = DataplexAssetDiscoverySpecJsonOptions(
             disable_type_inference=disable_type_inference, encoding=encoding
@@ -1846,9 +1846,9 @@ class DataplexAssetResourceSpec:
         read_access_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Required. Immutable. Type of resource. Possible values: STORAGE_BUCKET, BIGQUERY_DATASET. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#type DataplexAsset#type}
-        :param name: Immutable. Relative name of the cloud resource that contains the data that is being managed within a lake. For example: ``projects/{project_number}/buckets/{bucket_id}`` ``projects/{project_number}/datasets/{dataset_id}`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#name DataplexAsset#name}
-        :param read_access_mode: Optional. Determines how read permissions are handled for each asset and their associated tables. Only available to storage buckets assets. Possible values: DIRECT, MANAGED Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#read_access_mode DataplexAsset#read_access_mode}
+        :param type: Required. Immutable. Type of resource. Possible values: STORAGE_BUCKET, BIGQUERY_DATASET. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#type DataplexAsset#type}
+        :param name: Immutable. Relative name of the cloud resource that contains the data that is being managed within a lake. For example: ``projects/{project_number}/buckets/{bucket_id}`` ``projects/{project_number}/datasets/{dataset_id}`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#name DataplexAsset#name}
+        :param read_access_mode: Optional. Determines how read permissions are handled for each asset and their associated tables. Only available to storage buckets assets. Possible values: DIRECT, MANAGED Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#read_access_mode DataplexAsset#read_access_mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e97c3edd2b17d1f2406e704f03b5b13b9fc61cd5449d24d6fa726eab79662598)
@@ -1867,7 +1867,7 @@ class DataplexAssetResourceSpec:
     def type(self) -> builtins.str:
         '''Required. Immutable. Type of resource. Possible values: STORAGE_BUCKET, BIGQUERY_DATASET.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#type DataplexAsset#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#type DataplexAsset#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -1879,7 +1879,7 @@ class DataplexAssetResourceSpec:
 
         Relative name of the cloud resource that contains the data that is being managed within a lake. For example: ``projects/{project_number}/buckets/{bucket_id}`` ``projects/{project_number}/datasets/{dataset_id}``
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#name DataplexAsset#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#name DataplexAsset#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1890,7 +1890,7 @@ class DataplexAssetResourceSpec:
 
         Determines how read permissions are handled for each asset and their associated tables. Only available to storage buckets assets. Possible values: DIRECT, MANAGED
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#read_access_mode DataplexAsset#read_access_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#read_access_mode DataplexAsset#read_access_mode}
         '''
         result = self._values.get("read_access_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2315,9 +2315,9 @@ class DataplexAssetTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#create DataplexAsset#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#delete DataplexAsset#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#update DataplexAsset#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#create DataplexAsset#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#delete DataplexAsset#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#update DataplexAsset#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59e6cace3236311eb3a56e1b840bda4120d8867f2d7bc8486934eabe8f12b107)
@@ -2334,19 +2334,19 @@ class DataplexAssetTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#create DataplexAsset#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#create DataplexAsset#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#delete DataplexAsset#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#delete DataplexAsset#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataplex_asset#update DataplexAsset#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataplex_asset#update DataplexAsset#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

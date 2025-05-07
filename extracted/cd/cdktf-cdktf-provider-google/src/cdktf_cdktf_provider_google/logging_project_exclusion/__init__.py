@@ -1,7 +1,7 @@
 r'''
 # `google_logging_project_exclusion`
 
-Refer to the Terraform Registry for docs: [`google_logging_project_exclusion`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion).
+Refer to the Terraform Registry for docs: [`google_logging_project_exclusion`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LoggingProjectExclusion(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.loggingProjectExclusion.LoggingProjectExclusion",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion google_logging_project_exclusion}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion google_logging_project_exclusion}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class LoggingProjectExclusion(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion google_logging_project_exclusion} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion google_logging_project_exclusion} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filter: The filter to apply when excluding logs. Only log entries that match the filter are excluded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion#filter LoggingProjectExclusion#filter}
-        :param name: The name of the logging exclusion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion#name LoggingProjectExclusion#name}
-        :param description: A human-readable description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion#description LoggingProjectExclusion#description}
-        :param disabled: Whether this exclusion rule should be disabled or not. This defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion#disabled LoggingProjectExclusion#disabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion#id LoggingProjectExclusion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion#project LoggingProjectExclusion#project}.
+        :param filter: The filter to apply when excluding logs. Only log entries that match the filter are excluded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion#filter LoggingProjectExclusion#filter}
+        :param name: The name of the logging exclusion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion#name LoggingProjectExclusion#name}
+        :param description: A human-readable description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion#description LoggingProjectExclusion#description}
+        :param disabled: Whether this exclusion rule should be disabled or not. This defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion#disabled LoggingProjectExclusion#disabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion#id LoggingProjectExclusion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion#project LoggingProjectExclusion#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class LoggingProjectExclusion(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LoggingProjectExclusion to import.
-        :param import_from_id: The id of the existing LoggingProjectExclusion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LoggingProjectExclusion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LoggingProjectExclusion to import is found.
         '''
         if __debug__:
@@ -311,12 +311,12 @@ class LoggingProjectExclusionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filter: The filter to apply when excluding logs. Only log entries that match the filter are excluded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion#filter LoggingProjectExclusion#filter}
-        :param name: The name of the logging exclusion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion#name LoggingProjectExclusion#name}
-        :param description: A human-readable description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion#description LoggingProjectExclusion#description}
-        :param disabled: Whether this exclusion rule should be disabled or not. This defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion#disabled LoggingProjectExclusion#disabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion#id LoggingProjectExclusion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion#project LoggingProjectExclusion#project}.
+        :param filter: The filter to apply when excluding logs. Only log entries that match the filter are excluded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion#filter LoggingProjectExclusion#filter}
+        :param name: The name of the logging exclusion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion#name LoggingProjectExclusion#name}
+        :param description: A human-readable description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion#description LoggingProjectExclusion#description}
+        :param disabled: Whether this exclusion rule should be disabled or not. This defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion#disabled LoggingProjectExclusion#disabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion#id LoggingProjectExclusion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion#project LoggingProjectExclusion#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -430,7 +430,7 @@ class LoggingProjectExclusionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> builtins.str:
         '''The filter to apply when excluding logs. Only log entries that match the filter are excluded.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion#filter LoggingProjectExclusion#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion#filter LoggingProjectExclusion#filter}
         '''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
@@ -440,7 +440,7 @@ class LoggingProjectExclusionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the logging exclusion.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion#name LoggingProjectExclusion#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion#name LoggingProjectExclusion#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -450,7 +450,7 @@ class LoggingProjectExclusionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A human-readable description.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion#description LoggingProjectExclusion#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion#description LoggingProjectExclusion#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -461,14 +461,14 @@ class LoggingProjectExclusionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this exclusion rule should be disabled or not. This defaults to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion#disabled LoggingProjectExclusion#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion#disabled LoggingProjectExclusion#disabled}
         '''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion#id LoggingProjectExclusion#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion#id LoggingProjectExclusion#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -478,7 +478,7 @@ class LoggingProjectExclusionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_project_exclusion#project LoggingProjectExclusion#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_project_exclusion#project LoggingProjectExclusion#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

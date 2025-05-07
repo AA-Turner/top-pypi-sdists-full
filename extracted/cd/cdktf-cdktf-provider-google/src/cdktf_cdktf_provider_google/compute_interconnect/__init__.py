@@ -1,7 +1,7 @@
 r'''
 # `google_compute_interconnect`
 
-Refer to the Terraform Registry for docs: [`google_compute_interconnect`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect).
+Refer to the Terraform Registry for docs: [`google_compute_interconnect`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeInterconnect(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeInterconnect.ComputeInterconnect",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect google_compute_interconnect}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect google_compute_interconnect}.'''
 
     def __init__(
         self,
@@ -76,27 +76,27 @@ class ComputeInterconnect(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect google_compute_interconnect} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect google_compute_interconnect} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param interconnect_type: Type of interconnect. Note that a value IT_PRIVATE has been deprecated in favor of DEDICATED. Can take one of the following values: - PARTNER: A partner-managed interconnection shared between customers though a partner. - DEDICATED: A dedicated physical interconnection with the customer. Possible values: ["DEDICATED", "PARTNER", "IT_PRIVATE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#interconnect_type ComputeInterconnect#interconnect_type}
-        :param link_type: Type of link requested. Note that this field indicates the speed of each of the links in the bundle, not the speed of the entire bundle. Can take one of the following values: - LINK_TYPE_ETHERNET_10G_LR: A 10G Ethernet with LR optics. - LINK_TYPE_ETHERNET_100G_LR: A 100G Ethernet with LR optics. - LINK_TYPE_ETHERNET_400G_LR4: A 400G Ethernet with LR4 optics Possible values: ["LINK_TYPE_ETHERNET_10G_LR", "LINK_TYPE_ETHERNET_100G_LR", "LINK_TYPE_ETHERNET_400G_LR4"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#link_type ComputeInterconnect#link_type}
-        :param location: URL of the InterconnectLocation object that represents where this connection is to be provisioned. Specifies the location inside Google's Networks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#location ComputeInterconnect#location}
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#name ComputeInterconnect#name}
-        :param requested_link_count: Target number of physical links in the link bundle, as requested by the customer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#requested_link_count ComputeInterconnect#requested_link_count}
-        :param admin_enabled: Administrative status of the interconnect. When this is set to true, the Interconnect is functional and can carry traffic. When set to false, no packets can be carried over the interconnect and no BGP routes are exchanged over it. By default, the status is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#admin_enabled ComputeInterconnect#admin_enabled}
-        :param customer_name: Customer name, to put in the Letter of Authorization as the party authorized to request a crossconnect. This field is required for Dedicated and Partner Interconnect, should not be specified for cross-cloud interconnect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#customer_name ComputeInterconnect#customer_name}
-        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#description ComputeInterconnect#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#id ComputeInterconnect#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels for this resource. These can only be added or modified by the setLabels method. Each label key/value pair must comply with RFC1035. Label values may be empty. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#labels ComputeInterconnect#labels}
-        :param macsec: macsec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#macsec ComputeInterconnect#macsec}
-        :param macsec_enabled: Enable or disable MACsec on this Interconnect connection. MACsec enablement fails if the MACsec object is not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#macsec_enabled ComputeInterconnect#macsec_enabled}
-        :param noc_contact_email: Email address to contact the customer NOC for operations and maintenance notifications regarding this Interconnect. If specified, this will be used for notifications in addition to all other forms described, such as Cloud Monitoring logs alerting and Cloud Notifications. This field is required for users who sign up for Cloud Interconnect using workforce identity federation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#noc_contact_email ComputeInterconnect#noc_contact_email}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#project ComputeInterconnect#project}.
-        :param remote_location: Indicates that this is a Cross-Cloud Interconnect. This field specifies the location outside of Google's network that the interconnect is connected to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#remote_location ComputeInterconnect#remote_location}
-        :param requested_features: interconnects.list of features requested for this Interconnect connection. Options: IF_MACSEC ( If specified then the connection is created on MACsec capable hardware ports. If not specified, the default value is false, which allocates non-MACsec capable ports first if available). Note that MACSEC is still technically allowed for compatibility reasons, but it does not work with the API, and will be removed in an upcoming major version. Possible values: ["MACSEC", "IF_MACSEC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#requested_features ComputeInterconnect#requested_features}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#timeouts ComputeInterconnect#timeouts}
+        :param interconnect_type: Type of interconnect. Note that a value IT_PRIVATE has been deprecated in favor of DEDICATED. Can take one of the following values: - PARTNER: A partner-managed interconnection shared between customers though a partner. - DEDICATED: A dedicated physical interconnection with the customer. Possible values: ["DEDICATED", "PARTNER", "IT_PRIVATE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#interconnect_type ComputeInterconnect#interconnect_type}
+        :param link_type: Type of link requested. Note that this field indicates the speed of each of the links in the bundle, not the speed of the entire bundle. Can take one of the following values: - LINK_TYPE_ETHERNET_10G_LR: A 10G Ethernet with LR optics. - LINK_TYPE_ETHERNET_100G_LR: A 100G Ethernet with LR optics. - LINK_TYPE_ETHERNET_400G_LR4: A 400G Ethernet with LR4 optics Possible values: ["LINK_TYPE_ETHERNET_10G_LR", "LINK_TYPE_ETHERNET_100G_LR", "LINK_TYPE_ETHERNET_400G_LR4"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#link_type ComputeInterconnect#link_type}
+        :param location: URL of the InterconnectLocation object that represents where this connection is to be provisioned. Specifies the location inside Google's Networks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#location ComputeInterconnect#location}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#name ComputeInterconnect#name}
+        :param requested_link_count: Target number of physical links in the link bundle, as requested by the customer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#requested_link_count ComputeInterconnect#requested_link_count}
+        :param admin_enabled: Administrative status of the interconnect. When this is set to true, the Interconnect is functional and can carry traffic. When set to false, no packets can be carried over the interconnect and no BGP routes are exchanged over it. By default, the status is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#admin_enabled ComputeInterconnect#admin_enabled}
+        :param customer_name: Customer name, to put in the Letter of Authorization as the party authorized to request a crossconnect. This field is required for Dedicated and Partner Interconnect, should not be specified for cross-cloud interconnect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#customer_name ComputeInterconnect#customer_name}
+        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#description ComputeInterconnect#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#id ComputeInterconnect#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels for this resource. These can only be added or modified by the setLabels method. Each label key/value pair must comply with RFC1035. Label values may be empty. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#labels ComputeInterconnect#labels}
+        :param macsec: macsec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#macsec ComputeInterconnect#macsec}
+        :param macsec_enabled: Enable or disable MACsec on this Interconnect connection. MACsec enablement fails if the MACsec object is not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#macsec_enabled ComputeInterconnect#macsec_enabled}
+        :param noc_contact_email: Email address to contact the customer NOC for operations and maintenance notifications regarding this Interconnect. If specified, this will be used for notifications in addition to all other forms described, such as Cloud Monitoring logs alerting and Cloud Notifications. This field is required for users who sign up for Cloud Interconnect using workforce identity federation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#noc_contact_email ComputeInterconnect#noc_contact_email}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#project ComputeInterconnect#project}.
+        :param remote_location: Indicates that this is a Cross-Cloud Interconnect. This field specifies the location outside of Google's network that the interconnect is connected to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#remote_location ComputeInterconnect#remote_location}
+        :param requested_features: interconnects.list of features requested for this Interconnect connection. Options: IF_MACSEC ( If specified then the connection is created on MACsec capable hardware ports. If not specified, the default value is false, which allocates non-MACsec capable ports first if available). Note that MACSEC is still technically allowed for compatibility reasons, but it does not work with the API, and will be removed in an upcoming major version. Possible values: ["MACSEC", "IF_MACSEC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#requested_features ComputeInterconnect#requested_features}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#timeouts ComputeInterconnect#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -151,7 +151,7 @@ class ComputeInterconnect(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeInterconnect to import.
-        :param import_from_id: The id of the existing ComputeInterconnect that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeInterconnect that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeInterconnect to import is found.
         '''
         if __debug__:
@@ -170,8 +170,8 @@ class ComputeInterconnect(
         fail_open: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param pre_shared_keys: pre_shared_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#pre_shared_keys ComputeInterconnect#pre_shared_keys}
-        :param fail_open: If set to true, the Interconnect connection is configured with a should-secure MACsec security policy, that allows the Google router to fallback to cleartext traffic if the MKA session cannot be established. By default, the Interconnect connection is configured with a must-secure security policy that drops all traffic if the MKA session cannot be established with your router. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#fail_open ComputeInterconnect#fail_open}
+        :param pre_shared_keys: pre_shared_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#pre_shared_keys ComputeInterconnect#pre_shared_keys}
+        :param fail_open: If set to true, the Interconnect connection is configured with a should-secure MACsec security policy, that allows the Google router to fallback to cleartext traffic if the MKA session cannot be established. By default, the Interconnect connection is configured with a must-secure security policy that drops all traffic if the MKA session cannot be established with your router. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#fail_open ComputeInterconnect#fail_open}
         '''
         value = ComputeInterconnectMacsec(
             pre_shared_keys=pre_shared_keys, fail_open=fail_open
@@ -188,9 +188,9 @@ class ComputeInterconnect(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#create ComputeInterconnect#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#delete ComputeInterconnect#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#update ComputeInterconnect#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#create ComputeInterconnect#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#delete ComputeInterconnect#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#update ComputeInterconnect#update}.
         '''
         value = ComputeInterconnectTimeouts(
             create=create, delete=delete, update=update
@@ -847,23 +847,23 @@ class ComputeInterconnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param interconnect_type: Type of interconnect. Note that a value IT_PRIVATE has been deprecated in favor of DEDICATED. Can take one of the following values: - PARTNER: A partner-managed interconnection shared between customers though a partner. - DEDICATED: A dedicated physical interconnection with the customer. Possible values: ["DEDICATED", "PARTNER", "IT_PRIVATE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#interconnect_type ComputeInterconnect#interconnect_type}
-        :param link_type: Type of link requested. Note that this field indicates the speed of each of the links in the bundle, not the speed of the entire bundle. Can take one of the following values: - LINK_TYPE_ETHERNET_10G_LR: A 10G Ethernet with LR optics. - LINK_TYPE_ETHERNET_100G_LR: A 100G Ethernet with LR optics. - LINK_TYPE_ETHERNET_400G_LR4: A 400G Ethernet with LR4 optics Possible values: ["LINK_TYPE_ETHERNET_10G_LR", "LINK_TYPE_ETHERNET_100G_LR", "LINK_TYPE_ETHERNET_400G_LR4"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#link_type ComputeInterconnect#link_type}
-        :param location: URL of the InterconnectLocation object that represents where this connection is to be provisioned. Specifies the location inside Google's Networks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#location ComputeInterconnect#location}
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#name ComputeInterconnect#name}
-        :param requested_link_count: Target number of physical links in the link bundle, as requested by the customer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#requested_link_count ComputeInterconnect#requested_link_count}
-        :param admin_enabled: Administrative status of the interconnect. When this is set to true, the Interconnect is functional and can carry traffic. When set to false, no packets can be carried over the interconnect and no BGP routes are exchanged over it. By default, the status is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#admin_enabled ComputeInterconnect#admin_enabled}
-        :param customer_name: Customer name, to put in the Letter of Authorization as the party authorized to request a crossconnect. This field is required for Dedicated and Partner Interconnect, should not be specified for cross-cloud interconnect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#customer_name ComputeInterconnect#customer_name}
-        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#description ComputeInterconnect#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#id ComputeInterconnect#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels for this resource. These can only be added or modified by the setLabels method. Each label key/value pair must comply with RFC1035. Label values may be empty. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#labels ComputeInterconnect#labels}
-        :param macsec: macsec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#macsec ComputeInterconnect#macsec}
-        :param macsec_enabled: Enable or disable MACsec on this Interconnect connection. MACsec enablement fails if the MACsec object is not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#macsec_enabled ComputeInterconnect#macsec_enabled}
-        :param noc_contact_email: Email address to contact the customer NOC for operations and maintenance notifications regarding this Interconnect. If specified, this will be used for notifications in addition to all other forms described, such as Cloud Monitoring logs alerting and Cloud Notifications. This field is required for users who sign up for Cloud Interconnect using workforce identity federation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#noc_contact_email ComputeInterconnect#noc_contact_email}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#project ComputeInterconnect#project}.
-        :param remote_location: Indicates that this is a Cross-Cloud Interconnect. This field specifies the location outside of Google's network that the interconnect is connected to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#remote_location ComputeInterconnect#remote_location}
-        :param requested_features: interconnects.list of features requested for this Interconnect connection. Options: IF_MACSEC ( If specified then the connection is created on MACsec capable hardware ports. If not specified, the default value is false, which allocates non-MACsec capable ports first if available). Note that MACSEC is still technically allowed for compatibility reasons, but it does not work with the API, and will be removed in an upcoming major version. Possible values: ["MACSEC", "IF_MACSEC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#requested_features ComputeInterconnect#requested_features}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#timeouts ComputeInterconnect#timeouts}
+        :param interconnect_type: Type of interconnect. Note that a value IT_PRIVATE has been deprecated in favor of DEDICATED. Can take one of the following values: - PARTNER: A partner-managed interconnection shared between customers though a partner. - DEDICATED: A dedicated physical interconnection with the customer. Possible values: ["DEDICATED", "PARTNER", "IT_PRIVATE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#interconnect_type ComputeInterconnect#interconnect_type}
+        :param link_type: Type of link requested. Note that this field indicates the speed of each of the links in the bundle, not the speed of the entire bundle. Can take one of the following values: - LINK_TYPE_ETHERNET_10G_LR: A 10G Ethernet with LR optics. - LINK_TYPE_ETHERNET_100G_LR: A 100G Ethernet with LR optics. - LINK_TYPE_ETHERNET_400G_LR4: A 400G Ethernet with LR4 optics Possible values: ["LINK_TYPE_ETHERNET_10G_LR", "LINK_TYPE_ETHERNET_100G_LR", "LINK_TYPE_ETHERNET_400G_LR4"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#link_type ComputeInterconnect#link_type}
+        :param location: URL of the InterconnectLocation object that represents where this connection is to be provisioned. Specifies the location inside Google's Networks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#location ComputeInterconnect#location}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#name ComputeInterconnect#name}
+        :param requested_link_count: Target number of physical links in the link bundle, as requested by the customer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#requested_link_count ComputeInterconnect#requested_link_count}
+        :param admin_enabled: Administrative status of the interconnect. When this is set to true, the Interconnect is functional and can carry traffic. When set to false, no packets can be carried over the interconnect and no BGP routes are exchanged over it. By default, the status is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#admin_enabled ComputeInterconnect#admin_enabled}
+        :param customer_name: Customer name, to put in the Letter of Authorization as the party authorized to request a crossconnect. This field is required for Dedicated and Partner Interconnect, should not be specified for cross-cloud interconnect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#customer_name ComputeInterconnect#customer_name}
+        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#description ComputeInterconnect#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#id ComputeInterconnect#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels for this resource. These can only be added or modified by the setLabels method. Each label key/value pair must comply with RFC1035. Label values may be empty. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#labels ComputeInterconnect#labels}
+        :param macsec: macsec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#macsec ComputeInterconnect#macsec}
+        :param macsec_enabled: Enable or disable MACsec on this Interconnect connection. MACsec enablement fails if the MACsec object is not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#macsec_enabled ComputeInterconnect#macsec_enabled}
+        :param noc_contact_email: Email address to contact the customer NOC for operations and maintenance notifications regarding this Interconnect. If specified, this will be used for notifications in addition to all other forms described, such as Cloud Monitoring logs alerting and Cloud Notifications. This field is required for users who sign up for Cloud Interconnect using workforce identity federation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#noc_contact_email ComputeInterconnect#noc_contact_email}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#project ComputeInterconnect#project}.
+        :param remote_location: Indicates that this is a Cross-Cloud Interconnect. This field specifies the location outside of Google's network that the interconnect is connected to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#remote_location ComputeInterconnect#remote_location}
+        :param requested_features: interconnects.list of features requested for this Interconnect connection. Options: IF_MACSEC ( If specified then the connection is created on MACsec capable hardware ports. If not specified, the default value is false, which allocates non-MACsec capable ports first if available). Note that MACSEC is still technically allowed for compatibility reasons, but it does not work with the API, and will be removed in an upcoming major version. Possible values: ["MACSEC", "IF_MACSEC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#requested_features ComputeInterconnect#requested_features}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#timeouts ComputeInterconnect#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1017,7 +1017,7 @@ class ComputeInterconnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - PARTNER: A partner-managed interconnection shared between customers though a partner.
         - DEDICATED: A dedicated physical interconnection with the customer. Possible values: ["DEDICATED", "PARTNER", "IT_PRIVATE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#interconnect_type ComputeInterconnect#interconnect_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#interconnect_type ComputeInterconnect#interconnect_type}
         '''
         result = self._values.get("interconnect_type")
         assert result is not None, "Required property 'interconnect_type' is missing"
@@ -1034,7 +1034,7 @@ class ComputeInterconnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - LINK_TYPE_ETHERNET_100G_LR: A 100G Ethernet with LR optics.
         - LINK_TYPE_ETHERNET_400G_LR4: A 400G Ethernet with LR4 optics Possible values: ["LINK_TYPE_ETHERNET_10G_LR", "LINK_TYPE_ETHERNET_100G_LR", "LINK_TYPE_ETHERNET_400G_LR4"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#link_type ComputeInterconnect#link_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#link_type ComputeInterconnect#link_type}
         '''
         result = self._values.get("link_type")
         assert result is not None, "Required property 'link_type' is missing"
@@ -1044,7 +1044,7 @@ class ComputeInterconnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''URL of the InterconnectLocation object that represents where this connection is to be provisioned. Specifies the location inside Google's Networks.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#location ComputeInterconnect#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#location ComputeInterconnect#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1060,7 +1060,7 @@ class ComputeInterconnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         character must be a lowercase letter, and all following characters must be a dash,
         lowercase letter, or digit, except the last character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#name ComputeInterconnect#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#name ComputeInterconnect#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1070,7 +1070,7 @@ class ComputeInterconnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def requested_link_count(self) -> jsii.Number:
         '''Target number of physical links in the link bundle, as requested by the customer.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#requested_link_count ComputeInterconnect#requested_link_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#requested_link_count ComputeInterconnect#requested_link_count}
         '''
         result = self._values.get("requested_link_count")
         assert result is not None, "Required property 'requested_link_count' is missing"
@@ -1086,7 +1086,7 @@ class ComputeInterconnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         functional and can carry traffic. When set to false, no packets can be carried over the
         interconnect and no BGP routes are exchanged over it. By default, the status is set to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#admin_enabled ComputeInterconnect#admin_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#admin_enabled ComputeInterconnect#admin_enabled}
         '''
         result = self._values.get("admin_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1098,7 +1098,7 @@ class ComputeInterconnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         This field is required for Dedicated and Partner Interconnect, should not be specified
         for cross-cloud interconnect.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#customer_name ComputeInterconnect#customer_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#customer_name ComputeInterconnect#customer_name}
         '''
         result = self._values.get("customer_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1107,14 +1107,14 @@ class ComputeInterconnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource. Provide this property when you create the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#description ComputeInterconnect#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#description ComputeInterconnect#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#id ComputeInterconnect#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#id ComputeInterconnect#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1132,7 +1132,7 @@ class ComputeInterconnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#labels ComputeInterconnect#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#labels ComputeInterconnect#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1141,7 +1141,7 @@ class ComputeInterconnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def macsec(self) -> typing.Optional["ComputeInterconnectMacsec"]:
         '''macsec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#macsec ComputeInterconnect#macsec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#macsec ComputeInterconnect#macsec}
         '''
         result = self._values.get("macsec")
         return typing.cast(typing.Optional["ComputeInterconnectMacsec"], result)
@@ -1152,7 +1152,7 @@ class ComputeInterconnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable or disable MACsec on this Interconnect connection. MACsec enablement fails if the MACsec object is not specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#macsec_enabled ComputeInterconnect#macsec_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#macsec_enabled ComputeInterconnect#macsec_enabled}
         '''
         result = self._values.get("macsec_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1166,14 +1166,14 @@ class ComputeInterconnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         This field is required for users who sign up for Cloud Interconnect using workforce identity
         federation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#noc_contact_email ComputeInterconnect#noc_contact_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#noc_contact_email ComputeInterconnect#noc_contact_email}
         '''
         result = self._values.get("noc_contact_email")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#project ComputeInterconnect#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#project ComputeInterconnect#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1184,7 +1184,7 @@ class ComputeInterconnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         This field specifies the location outside
         of Google's network that the interconnect is connected to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#remote_location ComputeInterconnect#remote_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#remote_location ComputeInterconnect#remote_location}
         '''
         result = self._values.get("remote_location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1193,7 +1193,7 @@ class ComputeInterconnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def requested_features(self) -> typing.Optional[typing.List[builtins.str]]:
         '''interconnects.list of features requested for this Interconnect connection. Options: IF_MACSEC ( If specified then the connection is created on MACsec capable hardware ports. If not specified, the default value is false, which allocates non-MACsec capable ports first if available). Note that MACSEC is still technically allowed for compatibility reasons, but it does not work with the API, and will be removed in an upcoming major version. Possible values: ["MACSEC", "IF_MACSEC"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#requested_features ComputeInterconnect#requested_features}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#requested_features ComputeInterconnect#requested_features}
         '''
         result = self._values.get("requested_features")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1202,7 +1202,7 @@ class ComputeInterconnectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeInterconnectTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#timeouts ComputeInterconnect#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#timeouts ComputeInterconnect#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeInterconnectTimeouts"], result)
@@ -1411,8 +1411,8 @@ class ComputeInterconnectMacsec:
         fail_open: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param pre_shared_keys: pre_shared_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#pre_shared_keys ComputeInterconnect#pre_shared_keys}
-        :param fail_open: If set to true, the Interconnect connection is configured with a should-secure MACsec security policy, that allows the Google router to fallback to cleartext traffic if the MKA session cannot be established. By default, the Interconnect connection is configured with a must-secure security policy that drops all traffic if the MKA session cannot be established with your router. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#fail_open ComputeInterconnect#fail_open}
+        :param pre_shared_keys: pre_shared_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#pre_shared_keys ComputeInterconnect#pre_shared_keys}
+        :param fail_open: If set to true, the Interconnect connection is configured with a should-secure MACsec security policy, that allows the Google router to fallback to cleartext traffic if the MKA session cannot be established. By default, the Interconnect connection is configured with a must-secure security policy that drops all traffic if the MKA session cannot be established with your router. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#fail_open ComputeInterconnect#fail_open}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0d18210cc183fd6bd47de113f9f07f79025b8b5a2de1004258eb364180409540)
@@ -1430,7 +1430,7 @@ class ComputeInterconnectMacsec:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeInterconnectMacsecPreSharedKeys"]]:
         '''pre_shared_keys block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#pre_shared_keys ComputeInterconnect#pre_shared_keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#pre_shared_keys ComputeInterconnect#pre_shared_keys}
         '''
         result = self._values.get("pre_shared_keys")
         assert result is not None, "Required property 'pre_shared_keys' is missing"
@@ -1446,7 +1446,7 @@ class ComputeInterconnectMacsec:
         connection is configured with a must-secure security policy that drops all traffic
         if the MKA session cannot be established with your router.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#fail_open ComputeInterconnect#fail_open}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#fail_open ComputeInterconnect#fail_open}
         '''
         result = self._values.get("fail_open")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1561,9 +1561,9 @@ class ComputeInterconnectMacsecPreSharedKeys:
         start_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: A name for this pre-shared key. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#name ComputeInterconnect#name}
-        :param fail_open: If set to true, the Interconnect connection is configured with a should-secure MACsec security policy, that allows the Google router to fallback to cleartext traffic if the MKA session cannot be established. By default, the Interconnect connection is configured with a must-secure security policy that drops all traffic if the MKA session cannot be established with your router. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#fail_open ComputeInterconnect#fail_open}
-        :param start_time: A RFC3339 timestamp on or after which the key is valid. startTime can be in the future. If the keychain has a single key, startTime can be omitted. If the keychain has multiple keys, startTime is mandatory for each key. The start times of keys must be in increasing order. The start times of two consecutive keys must be at least 6 hours apart. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#start_time ComputeInterconnect#start_time}
+        :param name: A name for this pre-shared key. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#name ComputeInterconnect#name}
+        :param fail_open: If set to true, the Interconnect connection is configured with a should-secure MACsec security policy, that allows the Google router to fallback to cleartext traffic if the MKA session cannot be established. By default, the Interconnect connection is configured with a must-secure security policy that drops all traffic if the MKA session cannot be established with your router. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#fail_open ComputeInterconnect#fail_open}
+        :param start_time: A RFC3339 timestamp on or after which the key is valid. startTime can be in the future. If the keychain has a single key, startTime can be omitted. If the keychain has multiple keys, startTime is mandatory for each key. The start times of keys must be in increasing order. The start times of two consecutive keys must be at least 6 hours apart. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#start_time ComputeInterconnect#start_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ef7984a58095e693975d0e9d7dec9fc8e078a109acb08c59a7256d491c40aa7e)
@@ -1588,7 +1588,7 @@ class ComputeInterconnectMacsecPreSharedKeys:
         must be a lowercase letter, and all following characters must be a dash, lowercase
         letter, or digit, except the last character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#name ComputeInterconnect#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#name ComputeInterconnect#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1604,7 +1604,7 @@ class ComputeInterconnectMacsecPreSharedKeys:
         connection is configured with a must-secure security policy that drops all traffic
         if the MKA session cannot be established with your router.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#fail_open ComputeInterconnect#fail_open}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#fail_open ComputeInterconnect#fail_open}
         '''
         result = self._values.get("fail_open")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1619,7 +1619,7 @@ class ComputeInterconnectMacsecPreSharedKeys:
         be in increasing order. The start times of two consecutive keys must be at least 6
         hours apart.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#start_time ComputeInterconnect#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#start_time ComputeInterconnect#start_time}
         '''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1851,9 +1851,9 @@ class ComputeInterconnectTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#create ComputeInterconnect#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#delete ComputeInterconnect#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#update ComputeInterconnect#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#create ComputeInterconnect#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#delete ComputeInterconnect#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#update ComputeInterconnect#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f2632f1a6b0ef313cf406357e154281fd1267f9b0cbb7755499d36b8c56367d)
@@ -1870,19 +1870,19 @@ class ComputeInterconnectTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#create ComputeInterconnect#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#create ComputeInterconnect#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#delete ComputeInterconnect#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#delete ComputeInterconnect#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_interconnect#update ComputeInterconnect#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_interconnect#update ComputeInterconnect#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

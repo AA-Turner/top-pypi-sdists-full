@@ -1,7 +1,7 @@
 r'''
 # `google_os_config_v2_policy_orchestrator_for_folder`
 
-Refer to the Terraform Registry for docs: [`google_os_config_v2_policy_orchestrator_for_folder`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder).
+Refer to the Terraform Registry for docs: [`google_os_config_v2_policy_orchestrator_for_folder`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OsConfigV2PolicyOrchestratorForFolder(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.osConfigV2PolicyOrchestratorForFolder.OsConfigV2PolicyOrchestratorForFolder",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder google_os_config_v2_policy_orchestrator_for_folder}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder google_os_config_v2_policy_orchestrator_for_folder}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class OsConfigV2PolicyOrchestratorForFolder(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder google_os_config_v2_policy_orchestrator_for_folder} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder google_os_config_v2_policy_orchestrator_for_folder} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param action: Action to be done by the orchestrator in 'projects/{project_id}/zones/{zone_id}' locations defined by the 'orchestration_scope'. Allowed values: - 'UPSERT' - Orchestrator will create or update target resources. - 'DELETE' - Orchestrator will delete target resources, if they exist Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#action OsConfigV2PolicyOrchestratorForFolder#action}
-        :param folder_id: The parent resource name in the form of 'folders/{folder_id}/locations/global'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#folder_id OsConfigV2PolicyOrchestratorForFolder#folder_id}
-        :param orchestrated_resource: orchestrated_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#orchestrated_resource OsConfigV2PolicyOrchestratorForFolder#orchestrated_resource}
-        :param policy_orchestrator_id: The logical identifier of the policy orchestrator, with the following restrictions:. - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the parent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#policy_orchestrator_id OsConfigV2PolicyOrchestratorForFolder#policy_orchestrator_id}
-        :param description: Freeform text describing the purpose of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#description OsConfigV2PolicyOrchestratorForFolder#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#labels OsConfigV2PolicyOrchestratorForFolder#labels}
-        :param orchestration_scope: orchestration_scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#orchestration_scope OsConfigV2PolicyOrchestratorForFolder#orchestration_scope}
-        :param state: State of the orchestrator. Can be updated to change orchestrator behaviour. Allowed values: - 'ACTIVE' - orchestrator is actively looking for actions to be taken. - 'STOPPED' - orchestrator won't make any changes. Note: There might be more states added in the future. We use string here instead of an enum, to avoid the need of propagating new states to all the client code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#state OsConfigV2PolicyOrchestratorForFolder#state}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#timeouts OsConfigV2PolicyOrchestratorForFolder#timeouts}
+        :param action: Action to be done by the orchestrator in 'projects/{project_id}/zones/{zone_id}' locations defined by the 'orchestration_scope'. Allowed values: - 'UPSERT' - Orchestrator will create or update target resources. - 'DELETE' - Orchestrator will delete target resources, if they exist Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#action OsConfigV2PolicyOrchestratorForFolder#action}
+        :param folder_id: The parent resource name in the form of 'folders/{folder_id}/locations/global'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#folder_id OsConfigV2PolicyOrchestratorForFolder#folder_id}
+        :param orchestrated_resource: orchestrated_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#orchestrated_resource OsConfigV2PolicyOrchestratorForFolder#orchestrated_resource}
+        :param policy_orchestrator_id: The logical identifier of the policy orchestrator, with the following restrictions:. - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the parent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#policy_orchestrator_id OsConfigV2PolicyOrchestratorForFolder#policy_orchestrator_id}
+        :param description: Freeform text describing the purpose of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#description OsConfigV2PolicyOrchestratorForFolder#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#labels OsConfigV2PolicyOrchestratorForFolder#labels}
+        :param orchestration_scope: orchestration_scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#orchestration_scope OsConfigV2PolicyOrchestratorForFolder#orchestration_scope}
+        :param state: State of the orchestrator. Can be updated to change orchestrator behaviour. Allowed values: - 'ACTIVE' - orchestrator is actively looking for actions to be taken. - 'STOPPED' - orchestrator won't make any changes. Note: There might be more states added in the future. We use string here instead of an enum, to avoid the need of propagating new states to all the client code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#state OsConfigV2PolicyOrchestratorForFolder#state}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#timeouts OsConfigV2PolicyOrchestratorForFolder#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class OsConfigV2PolicyOrchestratorForFolder(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OsConfigV2PolicyOrchestratorForFolder to import.
-        :param import_from_id: The id of the existing OsConfigV2PolicyOrchestratorForFolder that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OsConfigV2PolicyOrchestratorForFolder that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OsConfigV2PolicyOrchestratorForFolder to import is found.
         '''
         if __debug__:
@@ -149,8 +149,8 @@ class OsConfigV2PolicyOrchestratorForFolder(
         os_policy_assignment_v1_payload: typing.Optional[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1Payload", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param id: ID of the resource to be used while generating set of affected resources. For UPSERT action the value is auto-generated during PolicyOrchestrator creation when not set. When the value is set it should following next restrictions: - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the project. For DELETE action, ID must be specified explicitly during PolicyOrchestrator creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param os_policy_assignment_v1_payload: os_policy_assignment_v1_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_policy_assignment_v1_payload OsConfigV2PolicyOrchestratorForFolder#os_policy_assignment_v1_payload}
+        :param id: ID of the resource to be used while generating set of affected resources. For UPSERT action the value is auto-generated during PolicyOrchestrator creation when not set. When the value is set it should following next restrictions: - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the project. For DELETE action, ID must be specified explicitly during PolicyOrchestrator creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param os_policy_assignment_v1_payload: os_policy_assignment_v1_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_policy_assignment_v1_payload OsConfigV2PolicyOrchestratorForFolder#os_policy_assignment_v1_payload}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResource(
             id=id, os_policy_assignment_v1_payload=os_policy_assignment_v1_payload
@@ -165,7 +165,7 @@ class OsConfigV2PolicyOrchestratorForFolder(
         selectors: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectors", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#selectors OsConfigV2PolicyOrchestratorForFolder#selectors}
+        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#selectors OsConfigV2PolicyOrchestratorForFolder#selectors}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestrationScope(
             selectors=selectors
@@ -182,9 +182,9 @@ class OsConfigV2PolicyOrchestratorForFolder(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#create OsConfigV2PolicyOrchestratorForFolder#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#delete OsConfigV2PolicyOrchestratorForFolder#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#update OsConfigV2PolicyOrchestratorForFolder#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#create OsConfigV2PolicyOrchestratorForFolder#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#delete OsConfigV2PolicyOrchestratorForFolder#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#update OsConfigV2PolicyOrchestratorForFolder#update}.
         '''
         value = OsConfigV2PolicyOrchestratorForFolderTimeouts(
             create=create, delete=delete, update=update
@@ -490,16 +490,16 @@ class OsConfigV2PolicyOrchestratorForFolderConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param action: Action to be done by the orchestrator in 'projects/{project_id}/zones/{zone_id}' locations defined by the 'orchestration_scope'. Allowed values: - 'UPSERT' - Orchestrator will create or update target resources. - 'DELETE' - Orchestrator will delete target resources, if they exist Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#action OsConfigV2PolicyOrchestratorForFolder#action}
-        :param folder_id: The parent resource name in the form of 'folders/{folder_id}/locations/global'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#folder_id OsConfigV2PolicyOrchestratorForFolder#folder_id}
-        :param orchestrated_resource: orchestrated_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#orchestrated_resource OsConfigV2PolicyOrchestratorForFolder#orchestrated_resource}
-        :param policy_orchestrator_id: The logical identifier of the policy orchestrator, with the following restrictions:. - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the parent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#policy_orchestrator_id OsConfigV2PolicyOrchestratorForFolder#policy_orchestrator_id}
-        :param description: Freeform text describing the purpose of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#description OsConfigV2PolicyOrchestratorForFolder#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#labels OsConfigV2PolicyOrchestratorForFolder#labels}
-        :param orchestration_scope: orchestration_scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#orchestration_scope OsConfigV2PolicyOrchestratorForFolder#orchestration_scope}
-        :param state: State of the orchestrator. Can be updated to change orchestrator behaviour. Allowed values: - 'ACTIVE' - orchestrator is actively looking for actions to be taken. - 'STOPPED' - orchestrator won't make any changes. Note: There might be more states added in the future. We use string here instead of an enum, to avoid the need of propagating new states to all the client code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#state OsConfigV2PolicyOrchestratorForFolder#state}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#timeouts OsConfigV2PolicyOrchestratorForFolder#timeouts}
+        :param action: Action to be done by the orchestrator in 'projects/{project_id}/zones/{zone_id}' locations defined by the 'orchestration_scope'. Allowed values: - 'UPSERT' - Orchestrator will create or update target resources. - 'DELETE' - Orchestrator will delete target resources, if they exist Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#action OsConfigV2PolicyOrchestratorForFolder#action}
+        :param folder_id: The parent resource name in the form of 'folders/{folder_id}/locations/global'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#folder_id OsConfigV2PolicyOrchestratorForFolder#folder_id}
+        :param orchestrated_resource: orchestrated_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#orchestrated_resource OsConfigV2PolicyOrchestratorForFolder#orchestrated_resource}
+        :param policy_orchestrator_id: The logical identifier of the policy orchestrator, with the following restrictions:. - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the parent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#policy_orchestrator_id OsConfigV2PolicyOrchestratorForFolder#policy_orchestrator_id}
+        :param description: Freeform text describing the purpose of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#description OsConfigV2PolicyOrchestratorForFolder#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#labels OsConfigV2PolicyOrchestratorForFolder#labels}
+        :param orchestration_scope: orchestration_scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#orchestration_scope OsConfigV2PolicyOrchestratorForFolder#orchestration_scope}
+        :param state: State of the orchestrator. Can be updated to change orchestrator behaviour. Allowed values: - 'ACTIVE' - orchestrator is actively looking for actions to be taken. - 'STOPPED' - orchestrator won't make any changes. Note: There might be more states added in the future. We use string here instead of an enum, to avoid the need of propagating new states to all the client code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#state OsConfigV2PolicyOrchestratorForFolder#state}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#timeouts OsConfigV2PolicyOrchestratorForFolder#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -634,7 +634,7 @@ class OsConfigV2PolicyOrchestratorForFolderConfig(
         - 'UPSERT' - Orchestrator will create or update target resources.
         - 'DELETE' - Orchestrator will delete target resources, if they exist
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#action OsConfigV2PolicyOrchestratorForFolder#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#action OsConfigV2PolicyOrchestratorForFolder#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -644,7 +644,7 @@ class OsConfigV2PolicyOrchestratorForFolderConfig(
     def folder_id(self) -> builtins.str:
         '''The parent resource name in the form of 'folders/{folder_id}/locations/global'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#folder_id OsConfigV2PolicyOrchestratorForFolder#folder_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#folder_id OsConfigV2PolicyOrchestratorForFolder#folder_id}
         '''
         result = self._values.get("folder_id")
         assert result is not None, "Required property 'folder_id' is missing"
@@ -656,7 +656,7 @@ class OsConfigV2PolicyOrchestratorForFolderConfig(
     ) -> "OsConfigV2PolicyOrchestratorForFolderOrchestratedResource":
         '''orchestrated_resource block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#orchestrated_resource OsConfigV2PolicyOrchestratorForFolder#orchestrated_resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#orchestrated_resource OsConfigV2PolicyOrchestratorForFolder#orchestrated_resource}
         '''
         result = self._values.get("orchestrated_resource")
         assert result is not None, "Required property 'orchestrated_resource' is missing"
@@ -672,7 +672,7 @@ class OsConfigV2PolicyOrchestratorForFolderConfig(
         - Must end with a number or a letter.
         - Must be unique within the parent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#policy_orchestrator_id OsConfigV2PolicyOrchestratorForFolder#policy_orchestrator_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#policy_orchestrator_id OsConfigV2PolicyOrchestratorForFolder#policy_orchestrator_id}
         '''
         result = self._values.get("policy_orchestrator_id")
         assert result is not None, "Required property 'policy_orchestrator_id' is missing"
@@ -682,14 +682,14 @@ class OsConfigV2PolicyOrchestratorForFolderConfig(
     def description(self) -> typing.Optional[builtins.str]:
         '''Freeform text describing the purpose of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#description OsConfigV2PolicyOrchestratorForFolder#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#description OsConfigV2PolicyOrchestratorForFolder#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -704,7 +704,7 @@ class OsConfigV2PolicyOrchestratorForFolderConfig(
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#labels OsConfigV2PolicyOrchestratorForFolder#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#labels OsConfigV2PolicyOrchestratorForFolder#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -715,7 +715,7 @@ class OsConfigV2PolicyOrchestratorForFolderConfig(
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestrationScope"]:
         '''orchestration_scope block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#orchestration_scope OsConfigV2PolicyOrchestratorForFolder#orchestration_scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#orchestration_scope OsConfigV2PolicyOrchestratorForFolder#orchestration_scope}
         '''
         result = self._values.get("orchestration_scope")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestrationScope"], result)
@@ -734,7 +734,7 @@ class OsConfigV2PolicyOrchestratorForFolderConfig(
         instead of an enum, to avoid the need of propagating new states to all the
         client code.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#state OsConfigV2PolicyOrchestratorForFolder#state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#state OsConfigV2PolicyOrchestratorForFolder#state}
         '''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -745,7 +745,7 @@ class OsConfigV2PolicyOrchestratorForFolderConfig(
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#timeouts OsConfigV2PolicyOrchestratorForFolder#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#timeouts OsConfigV2PolicyOrchestratorForFolder#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderTimeouts"], result)
@@ -778,8 +778,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResource:
         os_policy_assignment_v1_payload: typing.Optional[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1Payload", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param id: ID of the resource to be used while generating set of affected resources. For UPSERT action the value is auto-generated during PolicyOrchestrator creation when not set. When the value is set it should following next restrictions: - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the project. For DELETE action, ID must be specified explicitly during PolicyOrchestrator creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param os_policy_assignment_v1_payload: os_policy_assignment_v1_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_policy_assignment_v1_payload OsConfigV2PolicyOrchestratorForFolder#os_policy_assignment_v1_payload}
+        :param id: ID of the resource to be used while generating set of affected resources. For UPSERT action the value is auto-generated during PolicyOrchestrator creation when not set. When the value is set it should following next restrictions: - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the project. For DELETE action, ID must be specified explicitly during PolicyOrchestrator creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param os_policy_assignment_v1_payload: os_policy_assignment_v1_payload block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_policy_assignment_v1_payload OsConfigV2PolicyOrchestratorForFolder#os_policy_assignment_v1_payload}
         '''
         if isinstance(os_policy_assignment_v1_payload, dict):
             os_policy_assignment_v1_payload = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1Payload(**os_policy_assignment_v1_payload)
@@ -810,7 +810,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResource:
         For DELETE action, ID must be specified explicitly during
         PolicyOrchestrator creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -824,7 +824,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResource:
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1Payload"]:
         '''os_policy_assignment_v1_payload block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_policy_assignment_v1_payload OsConfigV2PolicyOrchestratorForFolder#os_policy_assignment_v1_payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_policy_assignment_v1_payload OsConfigV2PolicyOrchestratorForFolder#os_policy_assignment_v1_payload}
         '''
         result = self._values.get("os_policy_assignment_v1_payload")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1Payload"], result)
@@ -863,11 +863,11 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_filter: instance_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#instance_filter OsConfigV2PolicyOrchestratorForFolder#instance_filter}
-        :param os_policies: os_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_policies OsConfigV2PolicyOrchestratorForFolder#os_policies}
-        :param rollout: rollout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#rollout OsConfigV2PolicyOrchestratorForFolder#rollout}
-        :param description: OS policy assignment description. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#description OsConfigV2PolicyOrchestratorForFolder#description}
-        :param name: Resource name. Format: 'projects/{project_number}/locations/{location}/osPolicyAssignments/{os_policy_assignment_id}' This field is ignored when you create an OS policy assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
+        :param instance_filter: instance_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#instance_filter OsConfigV2PolicyOrchestratorForFolder#instance_filter}
+        :param os_policies: os_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_policies OsConfigV2PolicyOrchestratorForFolder#os_policies}
+        :param rollout: rollout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#rollout OsConfigV2PolicyOrchestratorForFolder#rollout}
+        :param description: OS policy assignment description. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#description OsConfigV2PolicyOrchestratorForFolder#description}
+        :param name: Resource name. Format: 'projects/{project_number}/locations/{location}/osPolicyAssignments/{os_policy_assignment_id}' This field is ignored when you create an OS policy assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
         '''
         if isinstance(instance_filter, dict):
             instance_filter = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadInstanceFilter(**instance_filter)
@@ -896,7 +896,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> "OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadInstanceFilter":
         '''instance_filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#instance_filter OsConfigV2PolicyOrchestratorForFolder#instance_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#instance_filter OsConfigV2PolicyOrchestratorForFolder#instance_filter}
         '''
         result = self._values.get("instance_filter")
         assert result is not None, "Required property 'instance_filter' is missing"
@@ -908,7 +908,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPolicies"]]:
         '''os_policies block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_policies OsConfigV2PolicyOrchestratorForFolder#os_policies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_policies OsConfigV2PolicyOrchestratorForFolder#os_policies}
         '''
         result = self._values.get("os_policies")
         assert result is not None, "Required property 'os_policies' is missing"
@@ -920,7 +920,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> "OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadRollout":
         '''rollout block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#rollout OsConfigV2PolicyOrchestratorForFolder#rollout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#rollout OsConfigV2PolicyOrchestratorForFolder#rollout}
         '''
         result = self._values.get("rollout")
         assert result is not None, "Required property 'rollout' is missing"
@@ -930,7 +930,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def description(self) -> typing.Optional[builtins.str]:
         '''OS policy assignment description. Length of the description is limited to 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#description OsConfigV2PolicyOrchestratorForFolder#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#description OsConfigV2PolicyOrchestratorForFolder#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -944,7 +944,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
 
         This field is ignored when you create an OS policy assignment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -981,10 +981,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         inventories: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadInstanceFilterInventories", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param all: Target all VMs in the project. If true, no other criteria is permitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#all OsConfigV2PolicyOrchestratorForFolder#all}
-        :param exclusion_labels: exclusion_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#exclusion_labels OsConfigV2PolicyOrchestratorForFolder#exclusion_labels}
-        :param inclusion_labels: inclusion_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#inclusion_labels OsConfigV2PolicyOrchestratorForFolder#inclusion_labels}
-        :param inventories: inventories block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#inventories OsConfigV2PolicyOrchestratorForFolder#inventories}
+        :param all: Target all VMs in the project. If true, no other criteria is permitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#all OsConfigV2PolicyOrchestratorForFolder#all}
+        :param exclusion_labels: exclusion_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#exclusion_labels OsConfigV2PolicyOrchestratorForFolder#exclusion_labels}
+        :param inclusion_labels: inclusion_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#inclusion_labels OsConfigV2PolicyOrchestratorForFolder#inclusion_labels}
+        :param inventories: inventories block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#inventories OsConfigV2PolicyOrchestratorForFolder#inventories}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__79b6c2dc23fdcc6ddc774ab1284b4190b41b22ea79a3b7f0499166d058d4de6a)
@@ -1008,7 +1008,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Target all VMs in the project. If true, no other criteria is permitted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#all OsConfigV2PolicyOrchestratorForFolder#all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#all OsConfigV2PolicyOrchestratorForFolder#all}
         '''
         result = self._values.get("all")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1019,7 +1019,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadInstanceFilterExclusionLabels"]]]:
         '''exclusion_labels block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#exclusion_labels OsConfigV2PolicyOrchestratorForFolder#exclusion_labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#exclusion_labels OsConfigV2PolicyOrchestratorForFolder#exclusion_labels}
         '''
         result = self._values.get("exclusion_labels")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadInstanceFilterExclusionLabels"]]], result)
@@ -1030,7 +1030,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadInstanceFilterInclusionLabels"]]]:
         '''inclusion_labels block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#inclusion_labels OsConfigV2PolicyOrchestratorForFolder#inclusion_labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#inclusion_labels OsConfigV2PolicyOrchestratorForFolder#inclusion_labels}
         '''
         result = self._values.get("inclusion_labels")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadInstanceFilterInclusionLabels"]]], result)
@@ -1041,7 +1041,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadInstanceFilterInventories"]]]:
         '''inventories block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#inventories OsConfigV2PolicyOrchestratorForFolder#inventories}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#inventories OsConfigV2PolicyOrchestratorForFolder#inventories}
         '''
         result = self._values.get("inventories")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadInstanceFilterInventories"]]], result)
@@ -1070,7 +1070,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param labels: Labels are identified by key/value pairs in this map. A VM should contain all the key/value pairs specified in this map to be selected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#labels OsConfigV2PolicyOrchestratorForFolder#labels}
+        :param labels: Labels are identified by key/value pairs in this map. A VM should contain all the key/value pairs specified in this map to be selected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#labels OsConfigV2PolicyOrchestratorForFolder#labels}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5a1207a96046fb3d09bfdf24e8f3e8b0e2eaf87ad1d2fb8083fdc147b22b543b)
@@ -1086,7 +1086,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         A VM should contain all the key/value pairs specified in this
         map to be selected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#labels OsConfigV2PolicyOrchestratorForFolder#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#labels OsConfigV2PolicyOrchestratorForFolder#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1275,7 +1275,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param labels: Labels are identified by key/value pairs in this map. A VM should contain all the key/value pairs specified in this map to be selected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#labels OsConfigV2PolicyOrchestratorForFolder#labels}
+        :param labels: Labels are identified by key/value pairs in this map. A VM should contain all the key/value pairs specified in this map to be selected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#labels OsConfigV2PolicyOrchestratorForFolder#labels}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6487b66e0276f3362f1ead6b8612b0bf9d0187d1193fc01c9e620929224aff90)
@@ -1291,7 +1291,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         A VM should contain all the key/value pairs specified in this
         map to be selected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#labels OsConfigV2PolicyOrchestratorForFolder#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#labels OsConfigV2PolicyOrchestratorForFolder#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1481,8 +1481,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         os_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param os_short_name: The OS short name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_short_name OsConfigV2PolicyOrchestratorForFolder#os_short_name}
-        :param os_version: The OS version. Prefix matches are supported if asterisk(*) is provided as the last character. For example, to match all versions with a major version of '7', specify the following value for this field '7.*' An empty string matches all OS versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_version OsConfigV2PolicyOrchestratorForFolder#os_version}
+        :param os_short_name: The OS short name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_short_name OsConfigV2PolicyOrchestratorForFolder#os_short_name}
+        :param os_version: The OS version. Prefix matches are supported if asterisk(*) is provided as the last character. For example, to match all versions with a major version of '7', specify the following value for this field '7.*' An empty string matches all OS versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_version OsConfigV2PolicyOrchestratorForFolder#os_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5e03d16cb27c1f8963bfae36eec3143542e719f2f30787d91f105d79fabedf8e)
@@ -1498,7 +1498,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def os_short_name(self) -> builtins.str:
         '''The OS short name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_short_name OsConfigV2PolicyOrchestratorForFolder#os_short_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_short_name OsConfigV2PolicyOrchestratorForFolder#os_short_name}
         '''
         result = self._values.get("os_short_name")
         assert result is not None, "Required property 'os_short_name' is missing"
@@ -1514,7 +1514,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
 
         An empty string matches all OS versions.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_version OsConfigV2PolicyOrchestratorForFolder#os_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_version OsConfigV2PolicyOrchestratorForFolder#os_version}
         '''
         result = self._values.get("os_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1885,11 +1885,11 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: The id of the OS policy with the following restrictions:. - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param mode: Policy mode Possible values: ["VALIDATION", "ENFORCEMENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#mode OsConfigV2PolicyOrchestratorForFolder#mode}
-        :param resource_groups: resource_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#resource_groups OsConfigV2PolicyOrchestratorForFolder#resource_groups}
-        :param allow_no_resource_group_match: This flag determines the OS policy compliance status when none of the resource groups within the policy are applicable for a VM. Set this value to 'true' if the policy needs to be reported as compliant even if the policy has nothing to validate or enforce. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_no_resource_group_match OsConfigV2PolicyOrchestratorForFolder#allow_no_resource_group_match}
-        :param description: Policy description. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#description OsConfigV2PolicyOrchestratorForFolder#description}
+        :param id: The id of the OS policy with the following restrictions:. - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param mode: Policy mode Possible values: ["VALIDATION", "ENFORCEMENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#mode OsConfigV2PolicyOrchestratorForFolder#mode}
+        :param resource_groups: resource_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#resource_groups OsConfigV2PolicyOrchestratorForFolder#resource_groups}
+        :param allow_no_resource_group_match: This flag determines the OS policy compliance status when none of the resource groups within the policy are applicable for a VM. Set this value to 'true' if the policy needs to be reported as compliant even if the policy has nothing to validate or enforce. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_no_resource_group_match OsConfigV2PolicyOrchestratorForFolder#allow_no_resource_group_match}
+        :param description: Policy description. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#description OsConfigV2PolicyOrchestratorForFolder#description}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aecbc6d624861c97b52f17e887f18492adbad0d6eae384daed3a2e023338b45e)
@@ -1918,7 +1918,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         - Must end with a number or a letter.
         - Must be unique within the assignment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1931,7 +1931,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def mode(self) -> builtins.str:
         '''Policy mode Possible values: ["VALIDATION", "ENFORCEMENT"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#mode OsConfigV2PolicyOrchestratorForFolder#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#mode OsConfigV2PolicyOrchestratorForFolder#mode}
         '''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
@@ -1943,7 +1943,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroups"]]:
         '''resource_groups block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#resource_groups OsConfigV2PolicyOrchestratorForFolder#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#resource_groups OsConfigV2PolicyOrchestratorForFolder#resource_groups}
         '''
         result = self._values.get("resource_groups")
         assert result is not None, "Required property 'resource_groups' is missing"
@@ -1959,7 +1959,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         to 'true' if the policy needs to be reported as compliant even if the
         policy has nothing to validate or enforce.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_no_resource_group_match OsConfigV2PolicyOrchestratorForFolder#allow_no_resource_group_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_no_resource_group_match OsConfigV2PolicyOrchestratorForFolder#allow_no_resource_group_match}
         '''
         result = self._values.get("allow_no_resource_group_match")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1968,7 +1968,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def description(self) -> typing.Optional[builtins.str]:
         '''Policy description. Length of the description is limited to 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#description OsConfigV2PolicyOrchestratorForFolder#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#description OsConfigV2PolicyOrchestratorForFolder#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2245,8 +2245,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         inventory_filters: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsInventoryFilters", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#resources OsConfigV2PolicyOrchestratorForFolder#resources}
-        :param inventory_filters: inventory_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#inventory_filters OsConfigV2PolicyOrchestratorForFolder#inventory_filters}
+        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#resources OsConfigV2PolicyOrchestratorForFolder#resources}
+        :param inventory_filters: inventory_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#inventory_filters OsConfigV2PolicyOrchestratorForFolder#inventory_filters}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f318b775965f084c1e32024c71f181cf621770b5d609ff7f6ecfaee972ea6598)
@@ -2264,7 +2264,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResources"]]:
         '''resources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#resources OsConfigV2PolicyOrchestratorForFolder#resources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#resources OsConfigV2PolicyOrchestratorForFolder#resources}
         '''
         result = self._values.get("resources")
         assert result is not None, "Required property 'resources' is missing"
@@ -2276,7 +2276,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsInventoryFilters"]]]:
         '''inventory_filters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#inventory_filters OsConfigV2PolicyOrchestratorForFolder#inventory_filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#inventory_filters OsConfigV2PolicyOrchestratorForFolder#inventory_filters}
         '''
         result = self._values.get("inventory_filters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsInventoryFilters"]]], result)
@@ -2306,8 +2306,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         os_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param os_short_name: The OS short name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_short_name OsConfigV2PolicyOrchestratorForFolder#os_short_name}
-        :param os_version: The OS version. Prefix matches are supported if asterisk(*) is provided as the last character. For example, to match all versions with a major version of '7', specify the following value for this field '7.*' An empty string matches all OS versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_version OsConfigV2PolicyOrchestratorForFolder#os_version}
+        :param os_short_name: The OS short name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_short_name OsConfigV2PolicyOrchestratorForFolder#os_short_name}
+        :param os_version: The OS version. Prefix matches are supported if asterisk(*) is provided as the last character. For example, to match all versions with a major version of '7', specify the following value for this field '7.*' An empty string matches all OS versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_version OsConfigV2PolicyOrchestratorForFolder#os_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__95800059d479783a4303643a9726f32d181096f370702d7496baf478f882fdba)
@@ -2323,7 +2323,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def os_short_name(self) -> builtins.str:
         '''The OS short name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_short_name OsConfigV2PolicyOrchestratorForFolder#os_short_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_short_name OsConfigV2PolicyOrchestratorForFolder#os_short_name}
         '''
         result = self._values.get("os_short_name")
         assert result is not None, "Required property 'os_short_name' is missing"
@@ -2339,7 +2339,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
 
         An empty string matches all OS versions.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_version OsConfigV2PolicyOrchestratorForFolder#os_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_version OsConfigV2PolicyOrchestratorForFolder#os_version}
         '''
         result = self._values.get("os_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2748,11 +2748,11 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         repository: typing.Optional[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepository", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param id: The id of the resource with the following restrictions:. - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the OS policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param exec: exec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#exec OsConfigV2PolicyOrchestratorForFolder#exec}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
-        :param pkg: pkg block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#pkg OsConfigV2PolicyOrchestratorForFolder#pkg}
-        :param repository: repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#repository OsConfigV2PolicyOrchestratorForFolder#repository}
+        :param id: The id of the resource with the following restrictions:. - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the OS policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param exec: exec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#exec OsConfigV2PolicyOrchestratorForFolder#exec}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
+        :param pkg: pkg block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#pkg OsConfigV2PolicyOrchestratorForFolder#pkg}
+        :param repository: repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#repository OsConfigV2PolicyOrchestratorForFolder#repository}
         '''
         if isinstance(exec, dict):
             exec = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExec(**exec)
@@ -2791,7 +2791,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         - Must end with a number or a letter.
         - Must be unique within the OS policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2806,7 +2806,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExec"]:
         '''exec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#exec OsConfigV2PolicyOrchestratorForFolder#exec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#exec OsConfigV2PolicyOrchestratorForFolder#exec}
         '''
         result = self._values.get("exec")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExec"], result)
@@ -2817,7 +2817,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesFile"], result)
@@ -2828,7 +2828,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkg"]:
         '''pkg block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#pkg OsConfigV2PolicyOrchestratorForFolder#pkg}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#pkg OsConfigV2PolicyOrchestratorForFolder#pkg}
         '''
         result = self._values.get("pkg")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkg"], result)
@@ -2839,7 +2839,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepository"]:
         '''repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#repository OsConfigV2PolicyOrchestratorForFolder#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#repository OsConfigV2PolicyOrchestratorForFolder#repository}
         '''
         result = self._values.get("repository")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepository"], result)
@@ -2869,8 +2869,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         enforce: typing.Optional[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecEnforce", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param validate: validate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#validate OsConfigV2PolicyOrchestratorForFolder#validate}
-        :param enforce: enforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#enforce OsConfigV2PolicyOrchestratorForFolder#enforce}
+        :param validate: validate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#validate OsConfigV2PolicyOrchestratorForFolder#validate}
+        :param enforce: enforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#enforce OsConfigV2PolicyOrchestratorForFolder#enforce}
         '''
         if isinstance(validate, dict):
             validate = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecValidate(**validate)
@@ -2892,7 +2892,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> "OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecValidate":
         '''validate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#validate OsConfigV2PolicyOrchestratorForFolder#validate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#validate OsConfigV2PolicyOrchestratorForFolder#validate}
         '''
         result = self._values.get("validate")
         assert result is not None, "Required property 'validate' is missing"
@@ -2904,7 +2904,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecEnforce"]:
         '''enforce block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#enforce OsConfigV2PolicyOrchestratorForFolder#enforce}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#enforce OsConfigV2PolicyOrchestratorForFolder#enforce}
         '''
         result = self._values.get("enforce")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecEnforce"], result)
@@ -2943,11 +2943,11 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         script: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param interpreter: The script interpreter to use. Possible values: ["NONE", "SHELL", "POWERSHELL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#interpreter OsConfigV2PolicyOrchestratorForFolder#interpreter}
-        :param args: Optional arguments to pass to the source during execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#args OsConfigV2PolicyOrchestratorForFolder#args}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
-        :param output_file_path: Only recorded for enforce Exec. Path to an output file (that is created by this Exec) whose content will be recorded in OSPolicyResourceCompliance after a successful run. Absence or failure to read this file will result in this ExecResource being non-compliant. Output file size is limited to 500K bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#output_file_path OsConfigV2PolicyOrchestratorForFolder#output_file_path}
-        :param script: An inline script. The size of the script is limited to 32KiB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#script OsConfigV2PolicyOrchestratorForFolder#script}
+        :param interpreter: The script interpreter to use. Possible values: ["NONE", "SHELL", "POWERSHELL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#interpreter OsConfigV2PolicyOrchestratorForFolder#interpreter}
+        :param args: Optional arguments to pass to the source during execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#args OsConfigV2PolicyOrchestratorForFolder#args}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
+        :param output_file_path: Only recorded for enforce Exec. Path to an output file (that is created by this Exec) whose content will be recorded in OSPolicyResourceCompliance after a successful run. Absence or failure to read this file will result in this ExecResource being non-compliant. Output file size is limited to 500K bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#output_file_path OsConfigV2PolicyOrchestratorForFolder#output_file_path}
+        :param script: An inline script. The size of the script is limited to 32KiB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#script OsConfigV2PolicyOrchestratorForFolder#script}
         '''
         if isinstance(file, dict):
             file = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecEnforceFile(**file)
@@ -2974,7 +2974,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def interpreter(self) -> builtins.str:
         '''The script interpreter to use. Possible values: ["NONE", "SHELL", "POWERSHELL"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#interpreter OsConfigV2PolicyOrchestratorForFolder#interpreter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#interpreter OsConfigV2PolicyOrchestratorForFolder#interpreter}
         '''
         result = self._values.get("interpreter")
         assert result is not None, "Required property 'interpreter' is missing"
@@ -2984,7 +2984,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def args(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Optional arguments to pass to the source during execution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#args OsConfigV2PolicyOrchestratorForFolder#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#args OsConfigV2PolicyOrchestratorForFolder#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2995,7 +2995,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecEnforceFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecEnforceFile"], result)
@@ -3010,7 +3010,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         this ExecResource being non-compliant. Output file size is limited to
         500K bytes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#output_file_path OsConfigV2PolicyOrchestratorForFolder#output_file_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#output_file_path OsConfigV2PolicyOrchestratorForFolder#output_file_path}
         '''
         result = self._values.get("output_file_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3019,7 +3019,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def script(self) -> typing.Optional[builtins.str]:
         '''An inline script. The size of the script is limited to 32KiB.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#script OsConfigV2PolicyOrchestratorForFolder#script}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#script OsConfigV2PolicyOrchestratorForFolder#script}
         '''
         result = self._values.get("script")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3056,10 +3056,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         remote: typing.Optional[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecEnforceFileRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
         '''
         if isinstance(gcs, dict):
             gcs = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecEnforceFileGcs(**gcs)
@@ -3090,7 +3090,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         Remote: A checksum must be specified.
         Cloud Storage: An object generation number must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
         '''
         result = self._values.get("allow_insecure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3101,7 +3101,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecEnforceFileGcs"]:
         '''gcs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
         '''
         result = self._values.get("gcs")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecEnforceFileGcs"], result)
@@ -3110,7 +3110,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def local_path(self) -> typing.Optional[builtins.str]:
         '''A local path within the VM to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
         '''
         result = self._values.get("local_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3121,7 +3121,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecEnforceFileRemote"]:
         '''remote block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
         '''
         result = self._values.get("remote")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecEnforceFileRemote"], result)
@@ -3152,9 +3152,9 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         generation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__73b0b6378d768dbb1e3f64e2d7bf6c578f75956915ab597f342df01670b70ae2)
@@ -3172,7 +3172,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def bucket(self) -> builtins.str:
         '''Bucket of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -3182,7 +3182,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def object(self) -> builtins.str:
         '''Name of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
         '''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
@@ -3192,7 +3192,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def generation(self) -> typing.Optional[builtins.str]:
         '''Generation number of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
         '''
         result = self._values.get("generation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3331,9 +3331,9 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         generation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecEnforceFileGcs(
             bucket=bucket, object=object, generation=generation
@@ -3349,8 +3349,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecEnforceFileRemote(
             uri=uri, sha256_checksum=sha256_checksum
@@ -3474,8 +3474,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fe071e5bd62328d77ef95e761c906055c0e42548e180bacf1393e3e75e697d05)
@@ -3491,7 +3491,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def uri(self) -> builtins.str:
         '''URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -3501,7 +3501,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def sha256_checksum(self) -> typing.Optional[builtins.str]:
         '''SHA256 checksum of the remote file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
         '''
         result = self._values.get("sha256_checksum")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3624,10 +3624,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         remote: typing.Optional[typing.Union[OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecEnforceFileRemote, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecEnforceFile(
             allow_insecure=allow_insecure,
@@ -3785,11 +3785,11 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         script: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param interpreter: The script interpreter to use. Possible values: ["NONE", "SHELL", "POWERSHELL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#interpreter OsConfigV2PolicyOrchestratorForFolder#interpreter}
-        :param args: Optional arguments to pass to the source during execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#args OsConfigV2PolicyOrchestratorForFolder#args}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
-        :param output_file_path: Only recorded for enforce Exec. Path to an output file (that is created by this Exec) whose content will be recorded in OSPolicyResourceCompliance after a successful run. Absence or failure to read this file will result in this ExecResource being non-compliant. Output file size is limited to 500K bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#output_file_path OsConfigV2PolicyOrchestratorForFolder#output_file_path}
-        :param script: An inline script. The size of the script is limited to 32KiB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#script OsConfigV2PolicyOrchestratorForFolder#script}
+        :param interpreter: The script interpreter to use. Possible values: ["NONE", "SHELL", "POWERSHELL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#interpreter OsConfigV2PolicyOrchestratorForFolder#interpreter}
+        :param args: Optional arguments to pass to the source during execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#args OsConfigV2PolicyOrchestratorForFolder#args}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
+        :param output_file_path: Only recorded for enforce Exec. Path to an output file (that is created by this Exec) whose content will be recorded in OSPolicyResourceCompliance after a successful run. Absence or failure to read this file will result in this ExecResource being non-compliant. Output file size is limited to 500K bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#output_file_path OsConfigV2PolicyOrchestratorForFolder#output_file_path}
+        :param script: An inline script. The size of the script is limited to 32KiB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#script OsConfigV2PolicyOrchestratorForFolder#script}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecEnforce(
             interpreter=interpreter,
@@ -3812,11 +3812,11 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         script: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param interpreter: The script interpreter to use. Possible values: ["NONE", "SHELL", "POWERSHELL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#interpreter OsConfigV2PolicyOrchestratorForFolder#interpreter}
-        :param args: Optional arguments to pass to the source during execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#args OsConfigV2PolicyOrchestratorForFolder#args}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
-        :param output_file_path: Only recorded for enforce Exec. Path to an output file (that is created by this Exec) whose content will be recorded in OSPolicyResourceCompliance after a successful run. Absence or failure to read this file will result in this ExecResource being non-compliant. Output file size is limited to 500K bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#output_file_path OsConfigV2PolicyOrchestratorForFolder#output_file_path}
-        :param script: An inline script. The size of the script is limited to 32KiB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#script OsConfigV2PolicyOrchestratorForFolder#script}
+        :param interpreter: The script interpreter to use. Possible values: ["NONE", "SHELL", "POWERSHELL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#interpreter OsConfigV2PolicyOrchestratorForFolder#interpreter}
+        :param args: Optional arguments to pass to the source during execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#args OsConfigV2PolicyOrchestratorForFolder#args}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
+        :param output_file_path: Only recorded for enforce Exec. Path to an output file (that is created by this Exec) whose content will be recorded in OSPolicyResourceCompliance after a successful run. Absence or failure to read this file will result in this ExecResource being non-compliant. Output file size is limited to 500K bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#output_file_path OsConfigV2PolicyOrchestratorForFolder#output_file_path}
+        :param script: An inline script. The size of the script is limited to 32KiB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#script OsConfigV2PolicyOrchestratorForFolder#script}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecValidate(
             interpreter=interpreter,
@@ -3900,11 +3900,11 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         script: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param interpreter: The script interpreter to use. Possible values: ["NONE", "SHELL", "POWERSHELL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#interpreter OsConfigV2PolicyOrchestratorForFolder#interpreter}
-        :param args: Optional arguments to pass to the source during execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#args OsConfigV2PolicyOrchestratorForFolder#args}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
-        :param output_file_path: Only recorded for enforce Exec. Path to an output file (that is created by this Exec) whose content will be recorded in OSPolicyResourceCompliance after a successful run. Absence or failure to read this file will result in this ExecResource being non-compliant. Output file size is limited to 500K bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#output_file_path OsConfigV2PolicyOrchestratorForFolder#output_file_path}
-        :param script: An inline script. The size of the script is limited to 32KiB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#script OsConfigV2PolicyOrchestratorForFolder#script}
+        :param interpreter: The script interpreter to use. Possible values: ["NONE", "SHELL", "POWERSHELL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#interpreter OsConfigV2PolicyOrchestratorForFolder#interpreter}
+        :param args: Optional arguments to pass to the source during execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#args OsConfigV2PolicyOrchestratorForFolder#args}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
+        :param output_file_path: Only recorded for enforce Exec. Path to an output file (that is created by this Exec) whose content will be recorded in OSPolicyResourceCompliance after a successful run. Absence or failure to read this file will result in this ExecResource being non-compliant. Output file size is limited to 500K bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#output_file_path OsConfigV2PolicyOrchestratorForFolder#output_file_path}
+        :param script: An inline script. The size of the script is limited to 32KiB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#script OsConfigV2PolicyOrchestratorForFolder#script}
         '''
         if isinstance(file, dict):
             file = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecValidateFile(**file)
@@ -3931,7 +3931,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def interpreter(self) -> builtins.str:
         '''The script interpreter to use. Possible values: ["NONE", "SHELL", "POWERSHELL"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#interpreter OsConfigV2PolicyOrchestratorForFolder#interpreter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#interpreter OsConfigV2PolicyOrchestratorForFolder#interpreter}
         '''
         result = self._values.get("interpreter")
         assert result is not None, "Required property 'interpreter' is missing"
@@ -3941,7 +3941,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def args(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Optional arguments to pass to the source during execution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#args OsConfigV2PolicyOrchestratorForFolder#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#args OsConfigV2PolicyOrchestratorForFolder#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3952,7 +3952,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecValidateFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecValidateFile"], result)
@@ -3967,7 +3967,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         this ExecResource being non-compliant. Output file size is limited to
         500K bytes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#output_file_path OsConfigV2PolicyOrchestratorForFolder#output_file_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#output_file_path OsConfigV2PolicyOrchestratorForFolder#output_file_path}
         '''
         result = self._values.get("output_file_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3976,7 +3976,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def script(self) -> typing.Optional[builtins.str]:
         '''An inline script. The size of the script is limited to 32KiB.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#script OsConfigV2PolicyOrchestratorForFolder#script}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#script OsConfigV2PolicyOrchestratorForFolder#script}
         '''
         result = self._values.get("script")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4013,10 +4013,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         remote: typing.Optional[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecValidateFileRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
         '''
         if isinstance(gcs, dict):
             gcs = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecValidateFileGcs(**gcs)
@@ -4047,7 +4047,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         Remote: A checksum must be specified.
         Cloud Storage: An object generation number must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
         '''
         result = self._values.get("allow_insecure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4058,7 +4058,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecValidateFileGcs"]:
         '''gcs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
         '''
         result = self._values.get("gcs")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecValidateFileGcs"], result)
@@ -4067,7 +4067,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def local_path(self) -> typing.Optional[builtins.str]:
         '''A local path within the VM to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
         '''
         result = self._values.get("local_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4078,7 +4078,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecValidateFileRemote"]:
         '''remote block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
         '''
         result = self._values.get("remote")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecValidateFileRemote"], result)
@@ -4109,9 +4109,9 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         generation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8ede81bf6cc903394b0d16b1b944f9f3b787ad6a07ee2ddd36a8bcc25edf764d)
@@ -4129,7 +4129,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def bucket(self) -> builtins.str:
         '''Bucket of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -4139,7 +4139,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def object(self) -> builtins.str:
         '''Name of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
         '''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
@@ -4149,7 +4149,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def generation(self) -> typing.Optional[builtins.str]:
         '''Generation number of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
         '''
         result = self._values.get("generation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4288,9 +4288,9 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         generation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecValidateFileGcs(
             bucket=bucket, object=object, generation=generation
@@ -4306,8 +4306,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecValidateFileRemote(
             uri=uri, sha256_checksum=sha256_checksum
@@ -4431,8 +4431,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a87c29a11435e62f312d79665233ff3f910782cf9c9cc88fc401bdc9a7ee09e)
@@ -4448,7 +4448,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def uri(self) -> builtins.str:
         '''URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -4458,7 +4458,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def sha256_checksum(self) -> typing.Optional[builtins.str]:
         '''SHA256 checksum of the remote file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
         '''
         result = self._values.get("sha256_checksum")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4581,10 +4581,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         remote: typing.Optional[typing.Union[OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecValidateFileRemote, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecValidateFile(
             allow_insecure=allow_insecure,
@@ -4733,11 +4733,11 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         permissions: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param path: The absolute path of the file within the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#path OsConfigV2PolicyOrchestratorForFolder#path}
-        :param state: Desired state of the file. Possible values: ["PRESENT", "ABSENT", "CONTENTS_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#state OsConfigV2PolicyOrchestratorForFolder#state}
-        :param content: A a file with this content. The size of the content is limited to 32KiB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#content OsConfigV2PolicyOrchestratorForFolder#content}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
-        :param permissions: Consists of three octal digits which represent, in order, the permissions of the owner, group, and other users for the file (similarly to the numeric mode used in the linux chmod utility). Each digit represents a three bit number with the 4 bit corresponding to the read permissions, the 2 bit corresponds to the write bit, and the one bit corresponds to the execute permission. Default behavior is 755. Below are some examples of permissions and their associated values: read, write, and execute: 7 read and execute: 5 read and write: 6 read only: 4 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#permissions OsConfigV2PolicyOrchestratorForFolder#permissions}
+        :param path: The absolute path of the file within the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#path OsConfigV2PolicyOrchestratorForFolder#path}
+        :param state: Desired state of the file. Possible values: ["PRESENT", "ABSENT", "CONTENTS_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#state OsConfigV2PolicyOrchestratorForFolder#state}
+        :param content: A a file with this content. The size of the content is limited to 32KiB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#content OsConfigV2PolicyOrchestratorForFolder#content}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
+        :param permissions: Consists of three octal digits which represent, in order, the permissions of the owner, group, and other users for the file (similarly to the numeric mode used in the linux chmod utility). Each digit represents a three bit number with the 4 bit corresponding to the read permissions, the 2 bit corresponds to the write bit, and the one bit corresponds to the execute permission. Default behavior is 755. Below are some examples of permissions and their associated values: read, write, and execute: 7 read and execute: 5 read and write: 6 read only: 4 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#permissions OsConfigV2PolicyOrchestratorForFolder#permissions}
         '''
         if isinstance(file, dict):
             file = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesFileFile(**file)
@@ -4763,7 +4763,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def path(self) -> builtins.str:
         '''The absolute path of the file within the VM.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#path OsConfigV2PolicyOrchestratorForFolder#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#path OsConfigV2PolicyOrchestratorForFolder#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -4773,7 +4773,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def state(self) -> builtins.str:
         '''Desired state of the file. Possible values: ["PRESENT", "ABSENT", "CONTENTS_MATCH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#state OsConfigV2PolicyOrchestratorForFolder#state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#state OsConfigV2PolicyOrchestratorForFolder#state}
         '''
         result = self._values.get("state")
         assert result is not None, "Required property 'state' is missing"
@@ -4783,7 +4783,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def content(self) -> typing.Optional[builtins.str]:
         '''A a file with this content. The size of the content is limited to 32KiB.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#content OsConfigV2PolicyOrchestratorForFolder#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#content OsConfigV2PolicyOrchestratorForFolder#content}
         '''
         result = self._values.get("content")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4794,7 +4794,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesFileFile"]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesFileFile"], result)
@@ -4814,7 +4814,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         read and write: 6
         read only: 4
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#permissions OsConfigV2PolicyOrchestratorForFolder#permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#permissions OsConfigV2PolicyOrchestratorForFolder#permissions}
         '''
         result = self._values.get("permissions")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4851,10 +4851,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         remote: typing.Optional[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesFileFileRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
         '''
         if isinstance(gcs, dict):
             gcs = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesFileFileGcs(**gcs)
@@ -4885,7 +4885,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         Remote: A checksum must be specified.
         Cloud Storage: An object generation number must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
         '''
         result = self._values.get("allow_insecure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4896,7 +4896,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesFileFileGcs"]:
         '''gcs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
         '''
         result = self._values.get("gcs")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesFileFileGcs"], result)
@@ -4905,7 +4905,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def local_path(self) -> typing.Optional[builtins.str]:
         '''A local path within the VM to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
         '''
         result = self._values.get("local_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4916,7 +4916,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesFileFileRemote"]:
         '''remote block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
         '''
         result = self._values.get("remote")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesFileFileRemote"], result)
@@ -4947,9 +4947,9 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         generation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__41630765a2d6778da793b71220e72ff6f23ed2d9342e6370d6941ee9d096cd1f)
@@ -4967,7 +4967,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def bucket(self) -> builtins.str:
         '''Bucket of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -4977,7 +4977,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def object(self) -> builtins.str:
         '''Name of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
         '''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
@@ -4987,7 +4987,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def generation(self) -> typing.Optional[builtins.str]:
         '''Generation number of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
         '''
         result = self._values.get("generation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5126,9 +5126,9 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         generation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesFileFileGcs(
             bucket=bucket, object=object, generation=generation
@@ -5144,8 +5144,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesFileFileRemote(
             uri=uri, sha256_checksum=sha256_checksum
@@ -5269,8 +5269,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b1dc1ebd52dfd114cf6af5f430c51eb22e1fb98342431f9ad0c786131741620f)
@@ -5286,7 +5286,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def uri(self) -> builtins.str:
         '''URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -5296,7 +5296,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def sha256_checksum(self) -> typing.Optional[builtins.str]:
         '''SHA256 checksum of the remote file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
         '''
         result = self._values.get("sha256_checksum")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5419,10 +5419,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         remote: typing.Optional[typing.Union[OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesFileFileRemote, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesFileFile(
             allow_insecure=allow_insecure,
@@ -5672,8 +5672,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         enforce: typing.Optional[typing.Union[OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExecEnforce, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param validate: validate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#validate OsConfigV2PolicyOrchestratorForFolder#validate}
-        :param enforce: enforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#enforce OsConfigV2PolicyOrchestratorForFolder#enforce}
+        :param validate: validate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#validate OsConfigV2PolicyOrchestratorForFolder#validate}
+        :param enforce: enforce block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#enforce OsConfigV2PolicyOrchestratorForFolder#enforce}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesExec(
             validate=validate, enforce=enforce
@@ -5692,11 +5692,11 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         permissions: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param path: The absolute path of the file within the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#path OsConfigV2PolicyOrchestratorForFolder#path}
-        :param state: Desired state of the file. Possible values: ["PRESENT", "ABSENT", "CONTENTS_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#state OsConfigV2PolicyOrchestratorForFolder#state}
-        :param content: A a file with this content. The size of the content is limited to 32KiB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#content OsConfigV2PolicyOrchestratorForFolder#content}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
-        :param permissions: Consists of three octal digits which represent, in order, the permissions of the owner, group, and other users for the file (similarly to the numeric mode used in the linux chmod utility). Each digit represents a three bit number with the 4 bit corresponding to the read permissions, the 2 bit corresponds to the write bit, and the one bit corresponds to the execute permission. Default behavior is 755. Below are some examples of permissions and their associated values: read, write, and execute: 7 read and execute: 5 read and write: 6 read only: 4 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#permissions OsConfigV2PolicyOrchestratorForFolder#permissions}
+        :param path: The absolute path of the file within the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#path OsConfigV2PolicyOrchestratorForFolder#path}
+        :param state: Desired state of the file. Possible values: ["PRESENT", "ABSENT", "CONTENTS_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#state OsConfigV2PolicyOrchestratorForFolder#state}
+        :param content: A a file with this content. The size of the content is limited to 32KiB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#content OsConfigV2PolicyOrchestratorForFolder#content}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#file OsConfigV2PolicyOrchestratorForFolder#file}
+        :param permissions: Consists of three octal digits which represent, in order, the permissions of the owner, group, and other users for the file (similarly to the numeric mode used in the linux chmod utility). Each digit represents a three bit number with the 4 bit corresponding to the read permissions, the 2 bit corresponds to the write bit, and the one bit corresponds to the execute permission. Default behavior is 755. Below are some examples of permissions and their associated values: read, write, and execute: 7 read and execute: 5 read and write: 6 read only: 4 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#permissions OsConfigV2PolicyOrchestratorForFolder#permissions}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesFile(
             path=path, state=state, content=content, file=file, permissions=permissions
@@ -5718,14 +5718,14 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         zypper: typing.Optional[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgZypper", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param desired_state: The desired state the agent should maintain for this package. Possible values: ["INSTALLED", "REMOVED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#desired_state OsConfigV2PolicyOrchestratorForFolder#desired_state}
-        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#apt OsConfigV2PolicyOrchestratorForFolder#apt}
-        :param deb: deb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#deb OsConfigV2PolicyOrchestratorForFolder#deb}
-        :param googet: googet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#googet OsConfigV2PolicyOrchestratorForFolder#googet}
-        :param msi: msi block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#msi OsConfigV2PolicyOrchestratorForFolder#msi}
-        :param rpm: rpm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#rpm OsConfigV2PolicyOrchestratorForFolder#rpm}
-        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#yum OsConfigV2PolicyOrchestratorForFolder#yum}
-        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#zypper OsConfigV2PolicyOrchestratorForFolder#zypper}
+        :param desired_state: The desired state the agent should maintain for this package. Possible values: ["INSTALLED", "REMOVED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#desired_state OsConfigV2PolicyOrchestratorForFolder#desired_state}
+        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#apt OsConfigV2PolicyOrchestratorForFolder#apt}
+        :param deb: deb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#deb OsConfigV2PolicyOrchestratorForFolder#deb}
+        :param googet: googet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#googet OsConfigV2PolicyOrchestratorForFolder#googet}
+        :param msi: msi block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#msi OsConfigV2PolicyOrchestratorForFolder#msi}
+        :param rpm: rpm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#rpm OsConfigV2PolicyOrchestratorForFolder#rpm}
+        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#yum OsConfigV2PolicyOrchestratorForFolder#yum}
+        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#zypper OsConfigV2PolicyOrchestratorForFolder#zypper}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkg(
             desired_state=desired_state,
@@ -5750,10 +5750,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         zypper: typing.Optional[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepositoryZypper", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#apt OsConfigV2PolicyOrchestratorForFolder#apt}
-        :param goo: goo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#goo OsConfigV2PolicyOrchestratorForFolder#goo}
-        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#yum OsConfigV2PolicyOrchestratorForFolder#yum}
-        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#zypper OsConfigV2PolicyOrchestratorForFolder#zypper}
+        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#apt OsConfigV2PolicyOrchestratorForFolder#apt}
+        :param goo: goo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#goo OsConfigV2PolicyOrchestratorForFolder#goo}
+        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#yum OsConfigV2PolicyOrchestratorForFolder#yum}
+        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#zypper OsConfigV2PolicyOrchestratorForFolder#zypper}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepository(
             apt=apt, goo=goo, yum=yum, zypper=zypper
@@ -5896,14 +5896,14 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         zypper: typing.Optional[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgZypper", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param desired_state: The desired state the agent should maintain for this package. Possible values: ["INSTALLED", "REMOVED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#desired_state OsConfigV2PolicyOrchestratorForFolder#desired_state}
-        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#apt OsConfigV2PolicyOrchestratorForFolder#apt}
-        :param deb: deb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#deb OsConfigV2PolicyOrchestratorForFolder#deb}
-        :param googet: googet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#googet OsConfigV2PolicyOrchestratorForFolder#googet}
-        :param msi: msi block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#msi OsConfigV2PolicyOrchestratorForFolder#msi}
-        :param rpm: rpm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#rpm OsConfigV2PolicyOrchestratorForFolder#rpm}
-        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#yum OsConfigV2PolicyOrchestratorForFolder#yum}
-        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#zypper OsConfigV2PolicyOrchestratorForFolder#zypper}
+        :param desired_state: The desired state the agent should maintain for this package. Possible values: ["INSTALLED", "REMOVED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#desired_state OsConfigV2PolicyOrchestratorForFolder#desired_state}
+        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#apt OsConfigV2PolicyOrchestratorForFolder#apt}
+        :param deb: deb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#deb OsConfigV2PolicyOrchestratorForFolder#deb}
+        :param googet: googet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#googet OsConfigV2PolicyOrchestratorForFolder#googet}
+        :param msi: msi block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#msi OsConfigV2PolicyOrchestratorForFolder#msi}
+        :param rpm: rpm block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#rpm OsConfigV2PolicyOrchestratorForFolder#rpm}
+        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#yum OsConfigV2PolicyOrchestratorForFolder#yum}
+        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#zypper OsConfigV2PolicyOrchestratorForFolder#zypper}
         '''
         if isinstance(apt, dict):
             apt = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgApt(**apt)
@@ -5951,7 +5951,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def desired_state(self) -> builtins.str:
         '''The desired state the agent should maintain for this package. Possible values: ["INSTALLED", "REMOVED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#desired_state OsConfigV2PolicyOrchestratorForFolder#desired_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#desired_state OsConfigV2PolicyOrchestratorForFolder#desired_state}
         '''
         result = self._values.get("desired_state")
         assert result is not None, "Required property 'desired_state' is missing"
@@ -5963,7 +5963,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgApt"]:
         '''apt block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#apt OsConfigV2PolicyOrchestratorForFolder#apt}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#apt OsConfigV2PolicyOrchestratorForFolder#apt}
         '''
         result = self._values.get("apt")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgApt"], result)
@@ -5974,7 +5974,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgDeb"]:
         '''deb block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#deb OsConfigV2PolicyOrchestratorForFolder#deb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#deb OsConfigV2PolicyOrchestratorForFolder#deb}
         '''
         result = self._values.get("deb")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgDeb"], result)
@@ -5985,7 +5985,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgGooget"]:
         '''googet block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#googet OsConfigV2PolicyOrchestratorForFolder#googet}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#googet OsConfigV2PolicyOrchestratorForFolder#googet}
         '''
         result = self._values.get("googet")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgGooget"], result)
@@ -5996,7 +5996,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgMsi"]:
         '''msi block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#msi OsConfigV2PolicyOrchestratorForFolder#msi}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#msi OsConfigV2PolicyOrchestratorForFolder#msi}
         '''
         result = self._values.get("msi")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgMsi"], result)
@@ -6007,7 +6007,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgRpm"]:
         '''rpm block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#rpm OsConfigV2PolicyOrchestratorForFolder#rpm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#rpm OsConfigV2PolicyOrchestratorForFolder#rpm}
         '''
         result = self._values.get("rpm")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgRpm"], result)
@@ -6018,7 +6018,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgYum"]:
         '''yum block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#yum OsConfigV2PolicyOrchestratorForFolder#yum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#yum OsConfigV2PolicyOrchestratorForFolder#yum}
         '''
         result = self._values.get("yum")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgYum"], result)
@@ -6029,7 +6029,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgZypper"]:
         '''zypper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#zypper OsConfigV2PolicyOrchestratorForFolder#zypper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#zypper OsConfigV2PolicyOrchestratorForFolder#zypper}
         '''
         result = self._values.get("zypper")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgZypper"], result)
@@ -6054,7 +6054,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
 class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgApt:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
+        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c6c5a5ad9ea23d84ee6bc744fb1c811fa8a78a7e794e57d5d5ba2d3774ec8d9)
@@ -6067,7 +6067,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def name(self) -> builtins.str:
         '''Package name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -6153,8 +6153,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         pull_deps: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#source OsConfigV2PolicyOrchestratorForFolder#source}
-        :param pull_deps: Whether dependencies should also be installed. - install when false: 'dpkg -i package' - install when true: 'apt-get update && apt-get -y install package.deb' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#pull_deps OsConfigV2PolicyOrchestratorForFolder#pull_deps}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#source OsConfigV2PolicyOrchestratorForFolder#source}
+        :param pull_deps: Whether dependencies should also be installed. - install when false: 'dpkg -i package' - install when true: 'apt-get update && apt-get -y install package.deb' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#pull_deps OsConfigV2PolicyOrchestratorForFolder#pull_deps}
         '''
         if isinstance(source, dict):
             source = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgDebSource(**source)
@@ -6174,7 +6174,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> "OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgDebSource":
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#source OsConfigV2PolicyOrchestratorForFolder#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#source OsConfigV2PolicyOrchestratorForFolder#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -6190,7 +6190,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         - install when true: 'apt-get update && apt-get -y install
           package.deb'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#pull_deps OsConfigV2PolicyOrchestratorForFolder#pull_deps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#pull_deps OsConfigV2PolicyOrchestratorForFolder#pull_deps}
         '''
         result = self._values.get("pull_deps")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6237,10 +6237,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         remote: typing.Optional[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgDebSourceRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgDebSource(
             allow_insecure=allow_insecure,
@@ -6329,10 +6329,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         remote: typing.Optional[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgDebSourceRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
         '''
         if isinstance(gcs, dict):
             gcs = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgDebSourceGcs(**gcs)
@@ -6363,7 +6363,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         Remote: A checksum must be specified.
         Cloud Storage: An object generation number must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
         '''
         result = self._values.get("allow_insecure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6374,7 +6374,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgDebSourceGcs"]:
         '''gcs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
         '''
         result = self._values.get("gcs")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgDebSourceGcs"], result)
@@ -6383,7 +6383,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def local_path(self) -> typing.Optional[builtins.str]:
         '''A local path within the VM to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
         '''
         result = self._values.get("local_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6394,7 +6394,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgDebSourceRemote"]:
         '''remote block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
         '''
         result = self._values.get("remote")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgDebSourceRemote"], result)
@@ -6425,9 +6425,9 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         generation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77eae1d4a1ee27e11ad3cd7b2358832f9080ba038c1ce18d968f35ac7676d6a2)
@@ -6445,7 +6445,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def bucket(self) -> builtins.str:
         '''Bucket of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -6455,7 +6455,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def object(self) -> builtins.str:
         '''Name of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
         '''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
@@ -6465,7 +6465,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def generation(self) -> typing.Optional[builtins.str]:
         '''Generation number of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
         '''
         result = self._values.get("generation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6604,9 +6604,9 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         generation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgDebSourceGcs(
             bucket=bucket, object=object, generation=generation
@@ -6622,8 +6622,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgDebSourceRemote(
             uri=uri, sha256_checksum=sha256_checksum
@@ -6747,8 +6747,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6666c23de9b85fb4eb52bf10f602902c36e8dc54cd4ba7f2f98a830e924db228)
@@ -6764,7 +6764,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def uri(self) -> builtins.str:
         '''URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -6774,7 +6774,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def sha256_checksum(self) -> typing.Optional[builtins.str]:
         '''SHA256 checksum of the remote file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
         '''
         result = self._values.get("sha256_checksum")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6875,7 +6875,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
 class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgGooget:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
+        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__844664a190860c64cd8a1803288af33032cd0b36bd82ef37ce3bfbfec9c4f707)
@@ -6888,7 +6888,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def name(self) -> builtins.str:
         '''Package name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -6974,8 +6974,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         properties: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#source OsConfigV2PolicyOrchestratorForFolder#source}
-        :param properties: Additional properties to use during installation. This should be in the format of Property=Setting. Appended to the defaults of 'ACTION=INSTALL REBOOT=ReallySuppress'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#properties OsConfigV2PolicyOrchestratorForFolder#properties}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#source OsConfigV2PolicyOrchestratorForFolder#source}
+        :param properties: Additional properties to use during installation. This should be in the format of Property=Setting. Appended to the defaults of 'ACTION=INSTALL REBOOT=ReallySuppress'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#properties OsConfigV2PolicyOrchestratorForFolder#properties}
         '''
         if isinstance(source, dict):
             source = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgMsiSource(**source)
@@ -6995,7 +6995,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> "OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgMsiSource":
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#source OsConfigV2PolicyOrchestratorForFolder#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#source OsConfigV2PolicyOrchestratorForFolder#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -7005,7 +7005,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def properties(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Additional properties to use during installation. This should be in the format of Property=Setting. Appended to the defaults of 'ACTION=INSTALL REBOOT=ReallySuppress'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#properties OsConfigV2PolicyOrchestratorForFolder#properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#properties OsConfigV2PolicyOrchestratorForFolder#properties}
         '''
         result = self._values.get("properties")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -7052,10 +7052,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         remote: typing.Optional[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgMsiSourceRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgMsiSource(
             allow_insecure=allow_insecure,
@@ -7139,10 +7139,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         remote: typing.Optional[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgMsiSourceRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
         '''
         if isinstance(gcs, dict):
             gcs = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgMsiSourceGcs(**gcs)
@@ -7173,7 +7173,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         Remote: A checksum must be specified.
         Cloud Storage: An object generation number must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
         '''
         result = self._values.get("allow_insecure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7184,7 +7184,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgMsiSourceGcs"]:
         '''gcs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
         '''
         result = self._values.get("gcs")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgMsiSourceGcs"], result)
@@ -7193,7 +7193,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def local_path(self) -> typing.Optional[builtins.str]:
         '''A local path within the VM to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
         '''
         result = self._values.get("local_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7204,7 +7204,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgMsiSourceRemote"]:
         '''remote block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
         '''
         result = self._values.get("remote")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgMsiSourceRemote"], result)
@@ -7235,9 +7235,9 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         generation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5da562d65e9982c19c877a190c522614cbaaecb0b63b4058aa266c3267f854e8)
@@ -7255,7 +7255,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def bucket(self) -> builtins.str:
         '''Bucket of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -7265,7 +7265,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def object(self) -> builtins.str:
         '''Name of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
         '''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
@@ -7275,7 +7275,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def generation(self) -> typing.Optional[builtins.str]:
         '''Generation number of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
         '''
         result = self._values.get("generation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7414,9 +7414,9 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         generation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgMsiSourceGcs(
             bucket=bucket, object=object, generation=generation
@@ -7432,8 +7432,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgMsiSourceRemote(
             uri=uri, sha256_checksum=sha256_checksum
@@ -7557,8 +7557,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ba5a26a446d5bde79648fe4651db1968db9384245783951ef05988da8edd8a42)
@@ -7574,7 +7574,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def uri(self) -> builtins.str:
         '''URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -7584,7 +7584,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def sha256_checksum(self) -> typing.Optional[builtins.str]:
         '''SHA256 checksum of the remote file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
         '''
         result = self._values.get("sha256_checksum")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7700,7 +7700,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     @jsii.member(jsii_name="putApt")
     def put_apt(self, *, name: builtins.str) -> None:
         '''
-        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
+        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgApt(
             name=name
@@ -7716,8 +7716,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         pull_deps: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#source OsConfigV2PolicyOrchestratorForFolder#source}
-        :param pull_deps: Whether dependencies should also be installed. - install when false: 'dpkg -i package' - install when true: 'apt-get update && apt-get -y install package.deb' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#pull_deps OsConfigV2PolicyOrchestratorForFolder#pull_deps}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#source OsConfigV2PolicyOrchestratorForFolder#source}
+        :param pull_deps: Whether dependencies should also be installed. - install when false: 'dpkg -i package' - install when true: 'apt-get update && apt-get -y install package.deb' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#pull_deps OsConfigV2PolicyOrchestratorForFolder#pull_deps}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgDeb(
             source=source, pull_deps=pull_deps
@@ -7728,7 +7728,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     @jsii.member(jsii_name="putGooget")
     def put_googet(self, *, name: builtins.str) -> None:
         '''
-        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
+        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgGooget(
             name=name
@@ -7744,8 +7744,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         properties: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#source OsConfigV2PolicyOrchestratorForFolder#source}
-        :param properties: Additional properties to use during installation. This should be in the format of Property=Setting. Appended to the defaults of 'ACTION=INSTALL REBOOT=ReallySuppress'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#properties OsConfigV2PolicyOrchestratorForFolder#properties}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#source OsConfigV2PolicyOrchestratorForFolder#source}
+        :param properties: Additional properties to use during installation. This should be in the format of Property=Setting. Appended to the defaults of 'ACTION=INSTALL REBOOT=ReallySuppress'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#properties OsConfigV2PolicyOrchestratorForFolder#properties}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgMsi(
             source=source, properties=properties
@@ -7761,8 +7761,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         pull_deps: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#source OsConfigV2PolicyOrchestratorForFolder#source}
-        :param pull_deps: Whether dependencies should also be installed. - install when false: 'rpm --upgrade --replacepkgs package.rpm' - install when true: 'yum -y install package.rpm' or 'zypper -y install package.rpm' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#pull_deps OsConfigV2PolicyOrchestratorForFolder#pull_deps}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#source OsConfigV2PolicyOrchestratorForFolder#source}
+        :param pull_deps: Whether dependencies should also be installed. - install when false: 'rpm --upgrade --replacepkgs package.rpm' - install when true: 'yum -y install package.rpm' or 'zypper -y install package.rpm' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#pull_deps OsConfigV2PolicyOrchestratorForFolder#pull_deps}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgRpm(
             source=source, pull_deps=pull_deps
@@ -7773,7 +7773,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     @jsii.member(jsii_name="putYum")
     def put_yum(self, *, name: builtins.str) -> None:
         '''
-        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
+        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgYum(
             name=name
@@ -7784,7 +7784,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     @jsii.member(jsii_name="putZypper")
     def put_zypper(self, *, name: builtins.str) -> None:
         '''
-        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
+        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgZypper(
             name=name
@@ -7966,8 +7966,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         pull_deps: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#source OsConfigV2PolicyOrchestratorForFolder#source}
-        :param pull_deps: Whether dependencies should also be installed. - install when false: 'rpm --upgrade --replacepkgs package.rpm' - install when true: 'yum -y install package.rpm' or 'zypper -y install package.rpm' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#pull_deps OsConfigV2PolicyOrchestratorForFolder#pull_deps}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#source OsConfigV2PolicyOrchestratorForFolder#source}
+        :param pull_deps: Whether dependencies should also be installed. - install when false: 'rpm --upgrade --replacepkgs package.rpm' - install when true: 'yum -y install package.rpm' or 'zypper -y install package.rpm' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#pull_deps OsConfigV2PolicyOrchestratorForFolder#pull_deps}
         '''
         if isinstance(source, dict):
             source = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgRpmSource(**source)
@@ -7987,7 +7987,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> "OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgRpmSource":
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#source OsConfigV2PolicyOrchestratorForFolder#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#source OsConfigV2PolicyOrchestratorForFolder#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -8003,7 +8003,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         - install when true: 'yum -y install package.rpm' or
           'zypper -y install package.rpm'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#pull_deps OsConfigV2PolicyOrchestratorForFolder#pull_deps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#pull_deps OsConfigV2PolicyOrchestratorForFolder#pull_deps}
         '''
         result = self._values.get("pull_deps")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8050,10 +8050,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         remote: typing.Optional[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgRpmSourceRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgRpmSource(
             allow_insecure=allow_insecure,
@@ -8142,10 +8142,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         remote: typing.Optional[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgRpmSourceRemote", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
-        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
-        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
+        :param allow_insecure: Defaults to false. When false, files are subject to validations based on the file type:. Remote: A checksum must be specified. Cloud Storage: An object generation number must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
+        :param gcs: gcs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
+        :param local_path: A local path within the VM to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
         '''
         if isinstance(gcs, dict):
             gcs = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgRpmSourceGcs(**gcs)
@@ -8176,7 +8176,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         Remote: A checksum must be specified.
         Cloud Storage: An object generation number must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#allow_insecure OsConfigV2PolicyOrchestratorForFolder#allow_insecure}
         '''
         result = self._values.get("allow_insecure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8187,7 +8187,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgRpmSourceGcs"]:
         '''gcs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gcs OsConfigV2PolicyOrchestratorForFolder#gcs}
         '''
         result = self._values.get("gcs")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgRpmSourceGcs"], result)
@@ -8196,7 +8196,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def local_path(self) -> typing.Optional[builtins.str]:
         '''A local path within the VM to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#local_path OsConfigV2PolicyOrchestratorForFolder#local_path}
         '''
         result = self._values.get("local_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8207,7 +8207,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgRpmSourceRemote"]:
         '''remote block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#remote OsConfigV2PolicyOrchestratorForFolder#remote}
         '''
         result = self._values.get("remote")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgRpmSourceRemote"], result)
@@ -8238,9 +8238,9 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         generation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3153cb7808a0942f8f655916df7e96f23f1d1f39a70468768811c42ba9e57069)
@@ -8258,7 +8258,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def bucket(self) -> builtins.str:
         '''Bucket of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -8268,7 +8268,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def object(self) -> builtins.str:
         '''Name of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
         '''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
@@ -8278,7 +8278,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def generation(self) -> typing.Optional[builtins.str]:
         '''Generation number of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
         '''
         result = self._values.get("generation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8417,9 +8417,9 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         generation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
-        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#bucket OsConfigV2PolicyOrchestratorForFolder#bucket}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#object OsConfigV2PolicyOrchestratorForFolder#object}
+        :param generation: Generation number of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#generation OsConfigV2PolicyOrchestratorForFolder#generation}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgRpmSourceGcs(
             bucket=bucket, object=object, generation=generation
@@ -8435,8 +8435,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgRpmSourceRemote(
             uri=uri, sha256_checksum=sha256_checksum
@@ -8560,8 +8560,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         sha256_checksum: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
-        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
+        :param uri: URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        :param sha256_checksum: SHA256 checksum of the remote file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a4fdff664aab3a2d8e89742ec40ca63b7d3e4fc512b31a4e012e71f92ea33370)
@@ -8577,7 +8577,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def uri(self) -> builtins.str:
         '''URI from which to fetch the object. It should contain both the protocol and path following the format '{protocol}://{location}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -8587,7 +8587,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def sha256_checksum(self) -> typing.Optional[builtins.str]:
         '''SHA256 checksum of the remote file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#sha256_checksum OsConfigV2PolicyOrchestratorForFolder#sha256_checksum}
         '''
         result = self._values.get("sha256_checksum")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8688,7 +8688,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
 class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgYum:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
+        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f1c75f4812caff9d5abd3d71e60c85ae52e5ed8751e86ea4dee0045335be997d)
@@ -8701,7 +8701,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def name(self) -> builtins.str:
         '''Package name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -8782,7 +8782,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
 class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesPkgZypper:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
+        :param name: Package name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__64e98935d154dc422fd86da39260f4f539f765b3389991402f4a04acafeac9fd)
@@ -8795,7 +8795,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def name(self) -> builtins.str:
         '''Package name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -8883,10 +8883,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         zypper: typing.Optional[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepositoryZypper", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#apt OsConfigV2PolicyOrchestratorForFolder#apt}
-        :param goo: goo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#goo OsConfigV2PolicyOrchestratorForFolder#goo}
-        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#yum OsConfigV2PolicyOrchestratorForFolder#yum}
-        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#zypper OsConfigV2PolicyOrchestratorForFolder#zypper}
+        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#apt OsConfigV2PolicyOrchestratorForFolder#apt}
+        :param goo: goo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#goo OsConfigV2PolicyOrchestratorForFolder#goo}
+        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#yum OsConfigV2PolicyOrchestratorForFolder#yum}
+        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#zypper OsConfigV2PolicyOrchestratorForFolder#zypper}
         '''
         if isinstance(apt, dict):
             apt = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepositoryApt(**apt)
@@ -8918,7 +8918,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepositoryApt"]:
         '''apt block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#apt OsConfigV2PolicyOrchestratorForFolder#apt}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#apt OsConfigV2PolicyOrchestratorForFolder#apt}
         '''
         result = self._values.get("apt")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepositoryApt"], result)
@@ -8929,7 +8929,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepositoryGoo"]:
         '''goo block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#goo OsConfigV2PolicyOrchestratorForFolder#goo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#goo OsConfigV2PolicyOrchestratorForFolder#goo}
         '''
         result = self._values.get("goo")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepositoryGoo"], result)
@@ -8940,7 +8940,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepositoryYum"]:
         '''yum block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#yum OsConfigV2PolicyOrchestratorForFolder#yum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#yum OsConfigV2PolicyOrchestratorForFolder#yum}
         '''
         result = self._values.get("yum")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepositoryYum"], result)
@@ -8951,7 +8951,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepositoryZypper"]:
         '''zypper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#zypper OsConfigV2PolicyOrchestratorForFolder#zypper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#zypper OsConfigV2PolicyOrchestratorForFolder#zypper}
         '''
         result = self._values.get("zypper")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepositoryZypper"], result)
@@ -8990,11 +8990,11 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         gpg_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param archive_type: Type of archive files in this repository. Possible values: ["DEB", "DEB_SRC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#archive_type OsConfigV2PolicyOrchestratorForFolder#archive_type}
-        :param components: List of components for this repository. Must contain at least one item. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#components OsConfigV2PolicyOrchestratorForFolder#components}
-        :param distribution: Distribution of this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#distribution OsConfigV2PolicyOrchestratorForFolder#distribution}
-        :param uri: URI for this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
-        :param gpg_key: URI of the key file for this repository. The agent maintains a keyring at '/etc/apt/trusted.gpg.d/osconfig_agent_managed.gpg'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gpg_key OsConfigV2PolicyOrchestratorForFolder#gpg_key}
+        :param archive_type: Type of archive files in this repository. Possible values: ["DEB", "DEB_SRC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#archive_type OsConfigV2PolicyOrchestratorForFolder#archive_type}
+        :param components: List of components for this repository. Must contain at least one item. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#components OsConfigV2PolicyOrchestratorForFolder#components}
+        :param distribution: Distribution of this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#distribution OsConfigV2PolicyOrchestratorForFolder#distribution}
+        :param uri: URI for this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        :param gpg_key: URI of the key file for this repository. The agent maintains a keyring at '/etc/apt/trusted.gpg.d/osconfig_agent_managed.gpg'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gpg_key OsConfigV2PolicyOrchestratorForFolder#gpg_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8c4545a67eafa1ef01a9a45caf37e461414970ab02ad50014cd54ba60cd1c073)
@@ -9016,7 +9016,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def archive_type(self) -> builtins.str:
         '''Type of archive files in this repository. Possible values: ["DEB", "DEB_SRC"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#archive_type OsConfigV2PolicyOrchestratorForFolder#archive_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#archive_type OsConfigV2PolicyOrchestratorForFolder#archive_type}
         '''
         result = self._values.get("archive_type")
         assert result is not None, "Required property 'archive_type' is missing"
@@ -9026,7 +9026,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def components(self) -> typing.List[builtins.str]:
         '''List of components for this repository. Must contain at least one item.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#components OsConfigV2PolicyOrchestratorForFolder#components}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#components OsConfigV2PolicyOrchestratorForFolder#components}
         '''
         result = self._values.get("components")
         assert result is not None, "Required property 'components' is missing"
@@ -9036,7 +9036,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def distribution(self) -> builtins.str:
         '''Distribution of this repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#distribution OsConfigV2PolicyOrchestratorForFolder#distribution}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#distribution OsConfigV2PolicyOrchestratorForFolder#distribution}
         '''
         result = self._values.get("distribution")
         assert result is not None, "Required property 'distribution' is missing"
@@ -9046,7 +9046,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def uri(self) -> builtins.str:
         '''URI for this repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -9056,7 +9056,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def gpg_key(self) -> typing.Optional[builtins.str]:
         '''URI of the key file for this repository. The agent maintains a keyring at '/etc/apt/trusted.gpg.d/osconfig_agent_managed.gpg'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gpg_key OsConfigV2PolicyOrchestratorForFolder#gpg_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gpg_key OsConfigV2PolicyOrchestratorForFolder#gpg_key}
         '''
         result = self._values.get("gpg_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9208,8 +9208,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
 class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepositoryGoo:
     def __init__(self, *, name: builtins.str, url: builtins.str) -> None:
         '''
-        :param name: The name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
-        :param url: The url of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#url OsConfigV2PolicyOrchestratorForFolder#url}
+        :param name: The name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
+        :param url: The url of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#url OsConfigV2PolicyOrchestratorForFolder#url}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a094c5539ce14ff341aa4da1605673fb49e84dee08fc5b8b386d945e146f1e4a)
@@ -9224,7 +9224,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def name(self) -> builtins.str:
         '''The name of the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -9234,7 +9234,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def url(self) -> builtins.str:
         '''The url of the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#url OsConfigV2PolicyOrchestratorForFolder#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#url OsConfigV2PolicyOrchestratorForFolder#url}
         '''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
@@ -9355,11 +9355,11 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         gpg_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param archive_type: Type of archive files in this repository. Possible values: ["DEB", "DEB_SRC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#archive_type OsConfigV2PolicyOrchestratorForFolder#archive_type}
-        :param components: List of components for this repository. Must contain at least one item. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#components OsConfigV2PolicyOrchestratorForFolder#components}
-        :param distribution: Distribution of this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#distribution OsConfigV2PolicyOrchestratorForFolder#distribution}
-        :param uri: URI for this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
-        :param gpg_key: URI of the key file for this repository. The agent maintains a keyring at '/etc/apt/trusted.gpg.d/osconfig_agent_managed.gpg'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gpg_key OsConfigV2PolicyOrchestratorForFolder#gpg_key}
+        :param archive_type: Type of archive files in this repository. Possible values: ["DEB", "DEB_SRC"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#archive_type OsConfigV2PolicyOrchestratorForFolder#archive_type}
+        :param components: List of components for this repository. Must contain at least one item. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#components OsConfigV2PolicyOrchestratorForFolder#components}
+        :param distribution: Distribution of this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#distribution OsConfigV2PolicyOrchestratorForFolder#distribution}
+        :param uri: URI for this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#uri OsConfigV2PolicyOrchestratorForFolder#uri}
+        :param gpg_key: URI of the key file for this repository. The agent maintains a keyring at '/etc/apt/trusted.gpg.d/osconfig_agent_managed.gpg'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gpg_key OsConfigV2PolicyOrchestratorForFolder#gpg_key}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepositoryApt(
             archive_type=archive_type,
@@ -9374,8 +9374,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     @jsii.member(jsii_name="putGoo")
     def put_goo(self, *, name: builtins.str, url: builtins.str) -> None:
         '''
-        :param name: The name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
-        :param url: The url of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#url OsConfigV2PolicyOrchestratorForFolder#url}
+        :param name: The name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
+        :param url: The url of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#url OsConfigV2PolicyOrchestratorForFolder#url}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepositoryGoo(
             name=name, url=url
@@ -9393,10 +9393,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         gpg_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#base_url OsConfigV2PolicyOrchestratorForFolder#base_url}
-        :param id: A one word, unique name for this repository. This is the 'repo id' in the yum config file and also the 'display_name' if 'display_name' is omitted. This id is also used as the unique identifier when checking for resource conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#display_name OsConfigV2PolicyOrchestratorForFolder#display_name}
-        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gpg_keys OsConfigV2PolicyOrchestratorForFolder#gpg_keys}
+        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#base_url OsConfigV2PolicyOrchestratorForFolder#base_url}
+        :param id: A one word, unique name for this repository. This is the 'repo id' in the yum config file and also the 'display_name' if 'display_name' is omitted. This id is also used as the unique identifier when checking for resource conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#display_name OsConfigV2PolicyOrchestratorForFolder#display_name}
+        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gpg_keys OsConfigV2PolicyOrchestratorForFolder#gpg_keys}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepositoryYum(
             base_url=base_url, id=id, display_name=display_name, gpg_keys=gpg_keys
@@ -9414,10 +9414,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         gpg_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#base_url OsConfigV2PolicyOrchestratorForFolder#base_url}
-        :param id: A one word, unique name for this repository. This is the 'repo id' in the zypper config file and also the 'display_name' if 'display_name' is omitted. This id is also used as the unique identifier when checking for GuestPolicy conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#display_name OsConfigV2PolicyOrchestratorForFolder#display_name}
-        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gpg_keys OsConfigV2PolicyOrchestratorForFolder#gpg_keys}
+        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#base_url OsConfigV2PolicyOrchestratorForFolder#base_url}
+        :param id: A one word, unique name for this repository. This is the 'repo id' in the zypper config file and also the 'display_name' if 'display_name' is omitted. This id is also used as the unique identifier when checking for GuestPolicy conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#display_name OsConfigV2PolicyOrchestratorForFolder#display_name}
+        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gpg_keys OsConfigV2PolicyOrchestratorForFolder#gpg_keys}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadOsPoliciesResourceGroupsResourcesRepositoryZypper(
             base_url=base_url, id=id, display_name=display_name, gpg_keys=gpg_keys
@@ -9535,10 +9535,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         gpg_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#base_url OsConfigV2PolicyOrchestratorForFolder#base_url}
-        :param id: A one word, unique name for this repository. This is the 'repo id' in the yum config file and also the 'display_name' if 'display_name' is omitted. This id is also used as the unique identifier when checking for resource conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#display_name OsConfigV2PolicyOrchestratorForFolder#display_name}
-        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gpg_keys OsConfigV2PolicyOrchestratorForFolder#gpg_keys}
+        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#base_url OsConfigV2PolicyOrchestratorForFolder#base_url}
+        :param id: A one word, unique name for this repository. This is the 'repo id' in the yum config file and also the 'display_name' if 'display_name' is omitted. This id is also used as the unique identifier when checking for resource conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#display_name OsConfigV2PolicyOrchestratorForFolder#display_name}
+        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gpg_keys OsConfigV2PolicyOrchestratorForFolder#gpg_keys}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9089f0bd0d51440e6cdb5130f32526cafbd2327a92f6a4f5c965fec0a6154b6d)
@@ -9559,7 +9559,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def base_url(self) -> builtins.str:
         '''The location of the repository directory.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#base_url OsConfigV2PolicyOrchestratorForFolder#base_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#base_url OsConfigV2PolicyOrchestratorForFolder#base_url}
         '''
         result = self._values.get("base_url")
         assert result is not None, "Required property 'base_url' is missing"
@@ -9574,7 +9574,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         'display_name' is omitted. This id is also used as the unique
         identifier when checking for resource conflicts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -9587,7 +9587,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The display name of the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#display_name OsConfigV2PolicyOrchestratorForFolder#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#display_name OsConfigV2PolicyOrchestratorForFolder#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9596,7 +9596,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def gpg_keys(self) -> typing.Optional[typing.List[builtins.str]]:
         '''URIs of GPG keys.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gpg_keys OsConfigV2PolicyOrchestratorForFolder#gpg_keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gpg_keys OsConfigV2PolicyOrchestratorForFolder#gpg_keys}
         '''
         result = self._values.get("gpg_keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -9747,10 +9747,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         gpg_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#base_url OsConfigV2PolicyOrchestratorForFolder#base_url}
-        :param id: A one word, unique name for this repository. This is the 'repo id' in the zypper config file and also the 'display_name' if 'display_name' is omitted. This id is also used as the unique identifier when checking for GuestPolicy conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#display_name OsConfigV2PolicyOrchestratorForFolder#display_name}
-        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gpg_keys OsConfigV2PolicyOrchestratorForFolder#gpg_keys}
+        :param base_url: The location of the repository directory. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#base_url OsConfigV2PolicyOrchestratorForFolder#base_url}
+        :param id: A one word, unique name for this repository. This is the 'repo id' in the zypper config file and also the 'display_name' if 'display_name' is omitted. This id is also used as the unique identifier when checking for GuestPolicy conflicts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param display_name: The display name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#display_name OsConfigV2PolicyOrchestratorForFolder#display_name}
+        :param gpg_keys: URIs of GPG keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gpg_keys OsConfigV2PolicyOrchestratorForFolder#gpg_keys}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1ae04d79e58b1e4b00831f9698b0b339909607c2145f721f999c3f0a04f30ba2)
@@ -9771,7 +9771,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def base_url(self) -> builtins.str:
         '''The location of the repository directory.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#base_url OsConfigV2PolicyOrchestratorForFolder#base_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#base_url OsConfigV2PolicyOrchestratorForFolder#base_url}
         '''
         result = self._values.get("base_url")
         assert result is not None, "Required property 'base_url' is missing"
@@ -9786,7 +9786,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         'display_name' is omitted. This id is also used as the unique
         identifier when checking for GuestPolicy conflicts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#id OsConfigV2PolicyOrchestratorForFolder#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -9799,7 +9799,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The display name of the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#display_name OsConfigV2PolicyOrchestratorForFolder#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#display_name OsConfigV2PolicyOrchestratorForFolder#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9808,7 +9808,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def gpg_keys(self) -> typing.Optional[typing.List[builtins.str]]:
         '''URIs of GPG keys.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gpg_keys OsConfigV2PolicyOrchestratorForFolder#gpg_keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#gpg_keys OsConfigV2PolicyOrchestratorForFolder#gpg_keys}
         '''
         result = self._values.get("gpg_keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -9969,10 +9969,10 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         inventories: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadInstanceFilterInventories, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param all: Target all VMs in the project. If true, no other criteria is permitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#all OsConfigV2PolicyOrchestratorForFolder#all}
-        :param exclusion_labels: exclusion_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#exclusion_labels OsConfigV2PolicyOrchestratorForFolder#exclusion_labels}
-        :param inclusion_labels: inclusion_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#inclusion_labels OsConfigV2PolicyOrchestratorForFolder#inclusion_labels}
-        :param inventories: inventories block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#inventories OsConfigV2PolicyOrchestratorForFolder#inventories}
+        :param all: Target all VMs in the project. If true, no other criteria is permitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#all OsConfigV2PolicyOrchestratorForFolder#all}
+        :param exclusion_labels: exclusion_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#exclusion_labels OsConfigV2PolicyOrchestratorForFolder#exclusion_labels}
+        :param inclusion_labels: inclusion_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#inclusion_labels OsConfigV2PolicyOrchestratorForFolder#inclusion_labels}
+        :param inventories: inventories block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#inventories OsConfigV2PolicyOrchestratorForFolder#inventories}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadInstanceFilter(
             all=all,
@@ -10004,8 +10004,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         min_wait_duration: builtins.str,
     ) -> None:
         '''
-        :param disruption_budget: disruption_budget block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#disruption_budget OsConfigV2PolicyOrchestratorForFolder#disruption_budget}
-        :param min_wait_duration: This determines the minimum duration of time to wait after the configuration changes are applied through the current rollout. A VM continues to count towards the 'disruption_budget' at least until this duration of time has passed after configuration changes are applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#min_wait_duration OsConfigV2PolicyOrchestratorForFolder#min_wait_duration}
+        :param disruption_budget: disruption_budget block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#disruption_budget OsConfigV2PolicyOrchestratorForFolder#disruption_budget}
+        :param min_wait_duration: This determines the minimum duration of time to wait after the configuration changes are applied through the current rollout. A VM continues to count towards the 'disruption_budget' at least until this duration of time has passed after configuration changes are applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#min_wait_duration OsConfigV2PolicyOrchestratorForFolder#min_wait_duration}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadRollout(
             disruption_budget=disruption_budget, min_wait_duration=min_wait_duration
@@ -10171,8 +10171,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         min_wait_duration: builtins.str,
     ) -> None:
         '''
-        :param disruption_budget: disruption_budget block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#disruption_budget OsConfigV2PolicyOrchestratorForFolder#disruption_budget}
-        :param min_wait_duration: This determines the minimum duration of time to wait after the configuration changes are applied through the current rollout. A VM continues to count towards the 'disruption_budget' at least until this duration of time has passed after configuration changes are applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#min_wait_duration OsConfigV2PolicyOrchestratorForFolder#min_wait_duration}
+        :param disruption_budget: disruption_budget block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#disruption_budget OsConfigV2PolicyOrchestratorForFolder#disruption_budget}
+        :param min_wait_duration: This determines the minimum duration of time to wait after the configuration changes are applied through the current rollout. A VM continues to count towards the 'disruption_budget' at least until this duration of time has passed after configuration changes are applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#min_wait_duration OsConfigV2PolicyOrchestratorForFolder#min_wait_duration}
         '''
         if isinstance(disruption_budget, dict):
             disruption_budget = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadRolloutDisruptionBudget(**disruption_budget)
@@ -10191,7 +10191,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     ) -> "OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadRolloutDisruptionBudget":
         '''disruption_budget block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#disruption_budget OsConfigV2PolicyOrchestratorForFolder#disruption_budget}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#disruption_budget OsConfigV2PolicyOrchestratorForFolder#disruption_budget}
         '''
         result = self._values.get("disruption_budget")
         assert result is not None, "Required property 'disruption_budget' is missing"
@@ -10206,7 +10206,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         until this duration of time has passed after configuration changes are
         applied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#min_wait_duration OsConfigV2PolicyOrchestratorForFolder#min_wait_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#min_wait_duration OsConfigV2PolicyOrchestratorForFolder#min_wait_duration}
         '''
         result = self._values.get("min_wait_duration")
         assert result is not None, "Required property 'min_wait_duration' is missing"
@@ -10237,8 +10237,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fixed: Specifies a fixed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#fixed OsConfigV2PolicyOrchestratorForFolder#fixed}
-        :param percent: Specifies the relative value defined as a percentage, which will be multiplied by a reference value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#percent OsConfigV2PolicyOrchestratorForFolder#percent}
+        :param fixed: Specifies a fixed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#fixed OsConfigV2PolicyOrchestratorForFolder#fixed}
+        :param percent: Specifies the relative value defined as a percentage, which will be multiplied by a reference value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#percent OsConfigV2PolicyOrchestratorForFolder#percent}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__679411d3dd4f68fd1535a18f273c20a0e714a9bc7933c53c32bb7aaeb368cdc8)
@@ -10254,7 +10254,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def fixed(self) -> typing.Optional[jsii.Number]:
         '''Specifies a fixed value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#fixed OsConfigV2PolicyOrchestratorForFolder#fixed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#fixed OsConfigV2PolicyOrchestratorForFolder#fixed}
         '''
         result = self._values.get("fixed")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -10263,7 +10263,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
     def percent(self) -> typing.Optional[jsii.Number]:
         '''Specifies the relative value defined as a percentage, which will be multiplied by a reference value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#percent OsConfigV2PolicyOrchestratorForFolder#percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#percent OsConfigV2PolicyOrchestratorForFolder#percent}
         '''
         result = self._values.get("percent")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -10388,8 +10388,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmen
         percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fixed: Specifies a fixed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#fixed OsConfigV2PolicyOrchestratorForFolder#fixed}
-        :param percent: Specifies the relative value defined as a percentage, which will be multiplied by a reference value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#percent OsConfigV2PolicyOrchestratorForFolder#percent}
+        :param fixed: Specifies a fixed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#fixed OsConfigV2PolicyOrchestratorForFolder#fixed}
+        :param percent: Specifies the relative value defined as a percentage, which will be multiplied by a reference value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#percent OsConfigV2PolicyOrchestratorForFolder#percent}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1PayloadRolloutDisruptionBudget(
             fixed=fixed, percent=percent
@@ -10477,11 +10477,11 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_filter: instance_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#instance_filter OsConfigV2PolicyOrchestratorForFolder#instance_filter}
-        :param os_policies: os_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_policies OsConfigV2PolicyOrchestratorForFolder#os_policies}
-        :param rollout: rollout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#rollout OsConfigV2PolicyOrchestratorForFolder#rollout}
-        :param description: OS policy assignment description. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#description OsConfigV2PolicyOrchestratorForFolder#description}
-        :param name: Resource name. Format: 'projects/{project_number}/locations/{location}/osPolicyAssignments/{os_policy_assignment_id}' This field is ignored when you create an OS policy assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
+        :param instance_filter: instance_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#instance_filter OsConfigV2PolicyOrchestratorForFolder#instance_filter}
+        :param os_policies: os_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#os_policies OsConfigV2PolicyOrchestratorForFolder#os_policies}
+        :param rollout: rollout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#rollout OsConfigV2PolicyOrchestratorForFolder#rollout}
+        :param description: OS policy assignment description. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#description OsConfigV2PolicyOrchestratorForFolder#description}
+        :param name: Resource name. Format: 'projects/{project_number}/locations/{location}/osPolicyAssignments/{os_policy_assignment_id}' This field is ignored when you create an OS policy assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#name OsConfigV2PolicyOrchestratorForFolder#name}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestratedResourceOsPolicyAssignmentV1Payload(
             instance_filter=instance_filter,
@@ -10562,7 +10562,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestrationScope:
         selectors: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectors", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#selectors OsConfigV2PolicyOrchestratorForFolder#selectors}
+        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#selectors OsConfigV2PolicyOrchestratorForFolder#selectors}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f091fb61a4b21ba645151a3ddff16cf2f9f2de3a6f04caf606a7fb939fc749e6)
@@ -10577,7 +10577,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestrationScope:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectors"]]]:
         '''selectors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#selectors OsConfigV2PolicyOrchestratorForFolder#selectors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#selectors OsConfigV2PolicyOrchestratorForFolder#selectors}
         '''
         result = self._values.get("selectors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectors"]]], result)
@@ -10679,8 +10679,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectors:
         resource_hierarchy_selector: typing.Optional[typing.Union["OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectorsResourceHierarchySelector", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param location_selector: location_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#location_selector OsConfigV2PolicyOrchestratorForFolder#location_selector}
-        :param resource_hierarchy_selector: resource_hierarchy_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#resource_hierarchy_selector OsConfigV2PolicyOrchestratorForFolder#resource_hierarchy_selector}
+        :param location_selector: location_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#location_selector OsConfigV2PolicyOrchestratorForFolder#location_selector}
+        :param resource_hierarchy_selector: resource_hierarchy_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#resource_hierarchy_selector OsConfigV2PolicyOrchestratorForFolder#resource_hierarchy_selector}
         '''
         if isinstance(location_selector, dict):
             location_selector = OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectorsLocationSelector(**location_selector)
@@ -10702,7 +10702,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectors:
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectorsLocationSelector"]:
         '''location_selector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#location_selector OsConfigV2PolicyOrchestratorForFolder#location_selector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#location_selector OsConfigV2PolicyOrchestratorForFolder#location_selector}
         '''
         result = self._values.get("location_selector")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectorsLocationSelector"], result)
@@ -10713,7 +10713,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectors:
     ) -> typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectorsResourceHierarchySelector"]:
         '''resource_hierarchy_selector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#resource_hierarchy_selector OsConfigV2PolicyOrchestratorForFolder#resource_hierarchy_selector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#resource_hierarchy_selector OsConfigV2PolicyOrchestratorForFolder#resource_hierarchy_selector}
         '''
         result = self._values.get("resource_hierarchy_selector")
         return typing.cast(typing.Optional["OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectorsResourceHierarchySelector"], result)
@@ -10835,7 +10835,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectorsLocationSe
         included_locations: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param included_locations: Names of the locations in scope. Format: 'us-central1-a'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#included_locations OsConfigV2PolicyOrchestratorForFolder#included_locations}
+        :param included_locations: Names of the locations in scope. Format: 'us-central1-a'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#included_locations OsConfigV2PolicyOrchestratorForFolder#included_locations}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__27111af04bfc448936175e3b0e9c8e579d2e08750345dcd715645770d3b09da8)
@@ -10848,7 +10848,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectorsLocationSe
     def included_locations(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Names of the locations in scope. Format: 'us-central1-a'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#included_locations OsConfigV2PolicyOrchestratorForFolder#included_locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#included_locations OsConfigV2PolicyOrchestratorForFolder#included_locations}
         '''
         result = self._values.get("included_locations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -10957,7 +10957,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectorsOutputRefe
         included_locations: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param included_locations: Names of the locations in scope. Format: 'us-central1-a'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#included_locations OsConfigV2PolicyOrchestratorForFolder#included_locations}
+        :param included_locations: Names of the locations in scope. Format: 'us-central1-a'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#included_locations OsConfigV2PolicyOrchestratorForFolder#included_locations}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectorsLocationSelector(
             included_locations=included_locations
@@ -10973,8 +10973,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectorsOutputRefe
         included_projects: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param included_folders: Names of the folders in scope. Format: 'folders/{folder_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#included_folders OsConfigV2PolicyOrchestratorForFolder#included_folders}
-        :param included_projects: Names of the projects in scope. Format: 'projects/{project_number}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#included_projects OsConfigV2PolicyOrchestratorForFolder#included_projects}
+        :param included_folders: Names of the folders in scope. Format: 'folders/{folder_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#included_folders OsConfigV2PolicyOrchestratorForFolder#included_folders}
+        :param included_projects: Names of the projects in scope. Format: 'projects/{project_number}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#included_projects OsConfigV2PolicyOrchestratorForFolder#included_projects}
         '''
         value = OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectorsResourceHierarchySelector(
             included_folders=included_folders, included_projects=included_projects
@@ -11052,8 +11052,8 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectorsResourceHi
         included_projects: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param included_folders: Names of the folders in scope. Format: 'folders/{folder_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#included_folders OsConfigV2PolicyOrchestratorForFolder#included_folders}
-        :param included_projects: Names of the projects in scope. Format: 'projects/{project_number}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#included_projects OsConfigV2PolicyOrchestratorForFolder#included_projects}
+        :param included_folders: Names of the folders in scope. Format: 'folders/{folder_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#included_folders OsConfigV2PolicyOrchestratorForFolder#included_folders}
+        :param included_projects: Names of the projects in scope. Format: 'projects/{project_number}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#included_projects OsConfigV2PolicyOrchestratorForFolder#included_projects}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7f1fcad7f9eb88363a4c92cf12da6c75d6d5991d307f2d4f8c6db9b9d3e0b0f3)
@@ -11069,7 +11069,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectorsResourceHi
     def included_folders(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Names of the folders in scope. Format: 'folders/{folder_id}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#included_folders OsConfigV2PolicyOrchestratorForFolder#included_folders}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#included_folders OsConfigV2PolicyOrchestratorForFolder#included_folders}
         '''
         result = self._values.get("included_folders")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -11078,7 +11078,7 @@ class OsConfigV2PolicyOrchestratorForFolderOrchestrationScopeSelectorsResourceHi
     def included_projects(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Names of the projects in scope. Format: 'projects/{project_number}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#included_projects OsConfigV2PolicyOrchestratorForFolder#included_projects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#included_projects OsConfigV2PolicyOrchestratorForFolder#included_projects}
         '''
         result = self._values.get("included_projects")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -12328,9 +12328,9 @@ class OsConfigV2PolicyOrchestratorForFolderTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#create OsConfigV2PolicyOrchestratorForFolder#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#delete OsConfigV2PolicyOrchestratorForFolder#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#update OsConfigV2PolicyOrchestratorForFolder#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#create OsConfigV2PolicyOrchestratorForFolder#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#delete OsConfigV2PolicyOrchestratorForFolder#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#update OsConfigV2PolicyOrchestratorForFolder#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__84cb78dd831243f5b8a1e9e1b94871cfa23ffe8ebcf3ec4422e1baba6005dbc6)
@@ -12347,19 +12347,19 @@ class OsConfigV2PolicyOrchestratorForFolderTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#create OsConfigV2PolicyOrchestratorForFolder#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#create OsConfigV2PolicyOrchestratorForFolder#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#delete OsConfigV2PolicyOrchestratorForFolder#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#delete OsConfigV2PolicyOrchestratorForFolder#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#update OsConfigV2PolicyOrchestratorForFolder#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_v2_policy_orchestrator_for_folder#update OsConfigV2PolicyOrchestratorForFolder#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

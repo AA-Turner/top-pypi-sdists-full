@@ -1,7 +1,7 @@
 r'''
 # `google_bigtable_instance`
 
-Refer to the Terraform Registry for docs: [`google_bigtable_instance`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance).
+Refer to the Terraform Registry for docs: [`google_bigtable_instance`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BigtableInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.bigtableInstance.BigtableInstance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance google_bigtable_instance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance google_bigtable_instance}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class BigtableInstance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance google_bigtable_instance} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance google_bigtable_instance} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name (also called Instance Id in the Cloud Console) of the Cloud Bigtable instance. Must be 6-33 characters and must only contain hyphens, lowercase letters and numbers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#name BigtableInstance#name}
-        :param cluster: cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#cluster BigtableInstance#cluster}
-        :param deletion_protection: When the field is set to true or unset in Terraform state, a terraform apply or terraform destroy that would delete the instance will fail. When the field is set to false, deleting the instance is allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#deletion_protection BigtableInstance#deletion_protection}
-        :param display_name: The human-readable display name of the Bigtable instance. Defaults to the instance name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#display_name BigtableInstance#display_name}
-        :param force_destroy: When deleting a BigTable instance, this boolean option will delete all backups within the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#force_destroy BigtableInstance#force_destroy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#id BigtableInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_type: The instance type to create. One of "DEVELOPMENT" or "PRODUCTION". Defaults to "PRODUCTION". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#instance_type BigtableInstance#instance_type}
-        :param labels: A mapping of labels to assign to the resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#labels BigtableInstance#labels}
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#project BigtableInstance#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#timeouts BigtableInstance#timeouts}
+        :param name: The name (also called Instance Id in the Cloud Console) of the Cloud Bigtable instance. Must be 6-33 characters and must only contain hyphens, lowercase letters and numbers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#name BigtableInstance#name}
+        :param cluster: cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#cluster BigtableInstance#cluster}
+        :param deletion_protection: When the field is set to true or unset in Terraform state, a terraform apply or terraform destroy that would delete the instance will fail. When the field is set to false, deleting the instance is allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#deletion_protection BigtableInstance#deletion_protection}
+        :param display_name: The human-readable display name of the Bigtable instance. Defaults to the instance name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#display_name BigtableInstance#display_name}
+        :param force_destroy: When deleting a BigTable instance, this boolean option will delete all backups within the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#force_destroy BigtableInstance#force_destroy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#id BigtableInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_type: The instance type to create. One of "DEVELOPMENT" or "PRODUCTION". Defaults to "PRODUCTION". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#instance_type BigtableInstance#instance_type}
+        :param labels: A mapping of labels to assign to the resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#labels BigtableInstance#labels}
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#project BigtableInstance#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#timeouts BigtableInstance#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class BigtableInstance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BigtableInstance to import.
-        :param import_from_id: The id of the existing BigtableInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BigtableInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BigtableInstance to import is found.
         '''
         if __debug__:
@@ -163,9 +163,9 @@ class BigtableInstance(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#create BigtableInstance#create}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#read BigtableInstance#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#update BigtableInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#create BigtableInstance#create}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#read BigtableInstance#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#update BigtableInstance#update}.
         '''
         value = BigtableInstanceTimeouts(create=create, read=read, update=update)
 
@@ -412,6 +412,7 @@ class BigtableInstance(
         "cluster_id": "clusterId",
         "autoscaling_config": "autoscalingConfig",
         "kms_key_name": "kmsKeyName",
+        "node_scaling_factor": "nodeScalingFactor",
         "num_nodes": "numNodes",
         "storage_type": "storageType",
         "zone": "zone",
@@ -424,17 +425,19 @@ class BigtableInstanceCluster:
         cluster_id: builtins.str,
         autoscaling_config: typing.Optional[typing.Union["BigtableInstanceClusterAutoscalingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         kms_key_name: typing.Optional[builtins.str] = None,
+        node_scaling_factor: typing.Optional[builtins.str] = None,
         num_nodes: typing.Optional[jsii.Number] = None,
         storage_type: typing.Optional[builtins.str] = None,
         zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cluster_id: The ID of the Cloud Bigtable cluster. Must be 6-30 characters and must only contain hyphens, lowercase letters and numbers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#cluster_id BigtableInstance#cluster_id}
-        :param autoscaling_config: autoscaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#autoscaling_config BigtableInstance#autoscaling_config}
-        :param kms_key_name: Describes the Cloud KMS encryption key that will be used to protect the destination Bigtable cluster. The requirements for this key are: 1) The Cloud Bigtable service account associated with the project that contains this cluster must be granted the cloudkms.cryptoKeyEncrypterDecrypter role on the CMEK key. 2) Only regional keys can be used and the region of the CMEK key must match the region of the cluster. 3) All clusters within an instance must use the same CMEK key. Values are of the form projects/{project}/locations/{location}/keyRings/{keyring}/cryptoKeys/{key} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#kms_key_name BigtableInstance#kms_key_name}
-        :param num_nodes: The number of nodes in the cluster. If no value is set, Cloud Bigtable automatically allocates nodes based on your data footprint and optimized for 50% storage utilization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#num_nodes BigtableInstance#num_nodes}
-        :param storage_type: The storage type to use. One of "SSD" or "HDD". Defaults to "SSD". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#storage_type BigtableInstance#storage_type}
-        :param zone: The zone to create the Cloud Bigtable cluster in. Each cluster must have a different zone in the same region. Zones that support Bigtable instances are noted on the Cloud Bigtable locations page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#zone BigtableInstance#zone}
+        :param cluster_id: The ID of the Cloud Bigtable cluster. Must be 6-30 characters and must only contain hyphens, lowercase letters and numbers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#cluster_id BigtableInstance#cluster_id}
+        :param autoscaling_config: autoscaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#autoscaling_config BigtableInstance#autoscaling_config}
+        :param kms_key_name: Describes the Cloud KMS encryption key that will be used to protect the destination Bigtable cluster. The requirements for this key are: 1) The Cloud Bigtable service account associated with the project that contains this cluster must be granted the cloudkms.cryptoKeyEncrypterDecrypter role on the CMEK key. 2) Only regional keys can be used and the region of the CMEK key must match the region of the cluster. 3) All clusters within an instance must use the same CMEK key. Values are of the form projects/{project}/locations/{location}/keyRings/{keyring}/cryptoKeys/{key} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#kms_key_name BigtableInstance#kms_key_name}
+        :param node_scaling_factor: The node scaling factor of this cluster. One of "NodeScalingFactor1X" or "NodeScalingFactor2X". Defaults to "NodeScalingFactor1X". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#node_scaling_factor BigtableInstance#node_scaling_factor}
+        :param num_nodes: The number of nodes in the cluster. If no value is set, Cloud Bigtable automatically allocates nodes based on your data footprint and optimized for 50% storage utilization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#num_nodes BigtableInstance#num_nodes}
+        :param storage_type: The storage type to use. One of "SSD" or "HDD". Defaults to "SSD". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#storage_type BigtableInstance#storage_type}
+        :param zone: The zone to create the Cloud Bigtable cluster in. Each cluster must have a different zone in the same region. Zones that support Bigtable instances are noted on the Cloud Bigtable locations page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#zone BigtableInstance#zone}
         '''
         if isinstance(autoscaling_config, dict):
             autoscaling_config = BigtableInstanceClusterAutoscalingConfig(**autoscaling_config)
@@ -443,6 +446,7 @@ class BigtableInstanceCluster:
             check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
             check_type(argname="argument autoscaling_config", value=autoscaling_config, expected_type=type_hints["autoscaling_config"])
             check_type(argname="argument kms_key_name", value=kms_key_name, expected_type=type_hints["kms_key_name"])
+            check_type(argname="argument node_scaling_factor", value=node_scaling_factor, expected_type=type_hints["node_scaling_factor"])
             check_type(argname="argument num_nodes", value=num_nodes, expected_type=type_hints["num_nodes"])
             check_type(argname="argument storage_type", value=storage_type, expected_type=type_hints["storage_type"])
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
@@ -453,6 +457,8 @@ class BigtableInstanceCluster:
             self._values["autoscaling_config"] = autoscaling_config
         if kms_key_name is not None:
             self._values["kms_key_name"] = kms_key_name
+        if node_scaling_factor is not None:
+            self._values["node_scaling_factor"] = node_scaling_factor
         if num_nodes is not None:
             self._values["num_nodes"] = num_nodes
         if storage_type is not None:
@@ -466,7 +472,7 @@ class BigtableInstanceCluster:
 
         Must be 6-30 characters and must only contain hyphens, lowercase letters and numbers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#cluster_id BigtableInstance#cluster_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#cluster_id BigtableInstance#cluster_id}
         '''
         result = self._values.get("cluster_id")
         assert result is not None, "Required property 'cluster_id' is missing"
@@ -478,7 +484,7 @@ class BigtableInstanceCluster:
     ) -> typing.Optional["BigtableInstanceClusterAutoscalingConfig"]:
         '''autoscaling_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#autoscaling_config BigtableInstance#autoscaling_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#autoscaling_config BigtableInstance#autoscaling_config}
         '''
         result = self._values.get("autoscaling_config")
         return typing.cast(typing.Optional["BigtableInstanceClusterAutoscalingConfig"], result)
@@ -489,9 +495,18 @@ class BigtableInstanceCluster:
 
         The requirements for this key are: 1) The Cloud Bigtable service account associated with the project that contains this cluster must be granted the cloudkms.cryptoKeyEncrypterDecrypter role on the CMEK key. 2) Only regional keys can be used and the region of the CMEK key must match the region of the cluster. 3) All clusters within an instance must use the same CMEK key. Values are of the form projects/{project}/locations/{location}/keyRings/{keyring}/cryptoKeys/{key}
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#kms_key_name BigtableInstance#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#kms_key_name BigtableInstance#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def node_scaling_factor(self) -> typing.Optional[builtins.str]:
+        '''The node scaling factor of this cluster. One of "NodeScalingFactor1X" or "NodeScalingFactor2X". Defaults to "NodeScalingFactor1X".
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#node_scaling_factor BigtableInstance#node_scaling_factor}
+        '''
+        result = self._values.get("node_scaling_factor")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -500,7 +515,7 @@ class BigtableInstanceCluster:
 
         If no value is set, Cloud Bigtable automatically allocates nodes based on your data footprint and optimized for 50% storage utilization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#num_nodes BigtableInstance#num_nodes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#num_nodes BigtableInstance#num_nodes}
         '''
         result = self._values.get("num_nodes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -509,7 +524,7 @@ class BigtableInstanceCluster:
     def storage_type(self) -> typing.Optional[builtins.str]:
         '''The storage type to use. One of "SSD" or "HDD". Defaults to "SSD".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#storage_type BigtableInstance#storage_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#storage_type BigtableInstance#storage_type}
         '''
         result = self._values.get("storage_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -520,7 +535,7 @@ class BigtableInstanceCluster:
 
         Each cluster must have a different zone in the same region. Zones that support Bigtable instances are noted on the Cloud Bigtable locations page.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#zone BigtableInstance#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#zone BigtableInstance#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -557,10 +572,10 @@ class BigtableInstanceClusterAutoscalingConfig:
         storage_target: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cpu_target: The target CPU utilization for autoscaling. Value must be between 10 and 80. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#cpu_target BigtableInstance#cpu_target}
-        :param max_nodes: The maximum number of nodes for autoscaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#max_nodes BigtableInstance#max_nodes}
-        :param min_nodes: The minimum number of nodes for autoscaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#min_nodes BigtableInstance#min_nodes}
-        :param storage_target: The target storage utilization for autoscaling, in GB, for each node in a cluster. This number is limited between 2560 (2.5TiB) and 5120 (5TiB) for a SSD cluster and between 8192 (8TiB) and 16384 (16 TiB) for an HDD cluster. If not set, whatever is already set for the cluster will not change, or if the cluster is just being created, it will use the default value of 2560 for SSD clusters and 8192 for HDD clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#storage_target BigtableInstance#storage_target}
+        :param cpu_target: The target CPU utilization for autoscaling. Value must be between 10 and 80. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#cpu_target BigtableInstance#cpu_target}
+        :param max_nodes: The maximum number of nodes for autoscaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#max_nodes BigtableInstance#max_nodes}
+        :param min_nodes: The minimum number of nodes for autoscaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#min_nodes BigtableInstance#min_nodes}
+        :param storage_target: The target storage utilization for autoscaling, in GB, for each node in a cluster. This number is limited between 2560 (2.5TiB) and 5120 (5TiB) for a SSD cluster and between 8192 (8TiB) and 16384 (16 TiB) for an HDD cluster. If not set, whatever is already set for the cluster will not change, or if the cluster is just being created, it will use the default value of 2560 for SSD clusters and 8192 for HDD clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#storage_target BigtableInstance#storage_target}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d48b8c1dec59ded29a46ecf78af8ce81b3fbd4e85a88f2bcdeb7e4291f0a973e)
@@ -580,7 +595,7 @@ class BigtableInstanceClusterAutoscalingConfig:
     def cpu_target(self) -> jsii.Number:
         '''The target CPU utilization for autoscaling. Value must be between 10 and 80.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#cpu_target BigtableInstance#cpu_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#cpu_target BigtableInstance#cpu_target}
         '''
         result = self._values.get("cpu_target")
         assert result is not None, "Required property 'cpu_target' is missing"
@@ -590,7 +605,7 @@ class BigtableInstanceClusterAutoscalingConfig:
     def max_nodes(self) -> jsii.Number:
         '''The maximum number of nodes for autoscaling.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#max_nodes BigtableInstance#max_nodes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#max_nodes BigtableInstance#max_nodes}
         '''
         result = self._values.get("max_nodes")
         assert result is not None, "Required property 'max_nodes' is missing"
@@ -600,7 +615,7 @@ class BigtableInstanceClusterAutoscalingConfig:
     def min_nodes(self) -> jsii.Number:
         '''The minimum number of nodes for autoscaling.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#min_nodes BigtableInstance#min_nodes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#min_nodes BigtableInstance#min_nodes}
         '''
         result = self._values.get("min_nodes")
         assert result is not None, "Required property 'min_nodes' is missing"
@@ -612,7 +627,7 @@ class BigtableInstanceClusterAutoscalingConfig:
 
         This number is limited between 2560 (2.5TiB) and 5120 (5TiB) for a SSD cluster and between 8192 (8TiB) and 16384 (16 TiB) for an HDD cluster. If not set, whatever is already set for the cluster will not change, or if the cluster is just being created, it will use the default value of 2560 for SSD clusters and 8192 for HDD clusters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#storage_target BigtableInstance#storage_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#storage_target BigtableInstance#storage_target}
         '''
         result = self._values.get("storage_target")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -865,10 +880,10 @@ class BigtableInstanceClusterOutputReference(
         storage_target: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cpu_target: The target CPU utilization for autoscaling. Value must be between 10 and 80. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#cpu_target BigtableInstance#cpu_target}
-        :param max_nodes: The maximum number of nodes for autoscaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#max_nodes BigtableInstance#max_nodes}
-        :param min_nodes: The minimum number of nodes for autoscaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#min_nodes BigtableInstance#min_nodes}
-        :param storage_target: The target storage utilization for autoscaling, in GB, for each node in a cluster. This number is limited between 2560 (2.5TiB) and 5120 (5TiB) for a SSD cluster and between 8192 (8TiB) and 16384 (16 TiB) for an HDD cluster. If not set, whatever is already set for the cluster will not change, or if the cluster is just being created, it will use the default value of 2560 for SSD clusters and 8192 for HDD clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#storage_target BigtableInstance#storage_target}
+        :param cpu_target: The target CPU utilization for autoscaling. Value must be between 10 and 80. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#cpu_target BigtableInstance#cpu_target}
+        :param max_nodes: The maximum number of nodes for autoscaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#max_nodes BigtableInstance#max_nodes}
+        :param min_nodes: The minimum number of nodes for autoscaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#min_nodes BigtableInstance#min_nodes}
+        :param storage_target: The target storage utilization for autoscaling, in GB, for each node in a cluster. This number is limited between 2560 (2.5TiB) and 5120 (5TiB) for a SSD cluster and between 8192 (8TiB) and 16384 (16 TiB) for an HDD cluster. If not set, whatever is already set for the cluster will not change, or if the cluster is just being created, it will use the default value of 2560 for SSD clusters and 8192 for HDD clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#storage_target BigtableInstance#storage_target}
         '''
         value = BigtableInstanceClusterAutoscalingConfig(
             cpu_target=cpu_target,
@@ -886,6 +901,10 @@ class BigtableInstanceClusterOutputReference(
     @jsii.member(jsii_name="resetKmsKeyName")
     def reset_kms_key_name(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetKmsKeyName", []))
+
+    @jsii.member(jsii_name="resetNodeScalingFactor")
+    def reset_node_scaling_factor(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetNodeScalingFactor", []))
 
     @jsii.member(jsii_name="resetNumNodes")
     def reset_num_nodes(self) -> None:
@@ -929,6 +948,11 @@ class BigtableInstanceClusterOutputReference(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyNameInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="nodeScalingFactorInput")
+    def node_scaling_factor_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nodeScalingFactorInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="numNodesInput")
     def num_nodes_input(self) -> typing.Optional[jsii.Number]:
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "numNodesInput"))
@@ -966,6 +990,18 @@ class BigtableInstanceClusterOutputReference(
             type_hints = typing.get_type_hints(_typecheckingstub__297ecc81a67c4b1cd20598be174563fc8dfecf0cf33581a27940ad4dfb7cb463)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="nodeScalingFactor")
+    def node_scaling_factor(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodeScalingFactor"))
+
+    @node_scaling_factor.setter
+    def node_scaling_factor(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__843c61b01121ed7886926f2df818972fb5d2d4aba50f38bccb728da92b3d3cbb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "nodeScalingFactor", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="numNodes")
@@ -1074,16 +1110,16 @@ class BigtableInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name (also called Instance Id in the Cloud Console) of the Cloud Bigtable instance. Must be 6-33 characters and must only contain hyphens, lowercase letters and numbers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#name BigtableInstance#name}
-        :param cluster: cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#cluster BigtableInstance#cluster}
-        :param deletion_protection: When the field is set to true or unset in Terraform state, a terraform apply or terraform destroy that would delete the instance will fail. When the field is set to false, deleting the instance is allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#deletion_protection BigtableInstance#deletion_protection}
-        :param display_name: The human-readable display name of the Bigtable instance. Defaults to the instance name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#display_name BigtableInstance#display_name}
-        :param force_destroy: When deleting a BigTable instance, this boolean option will delete all backups within the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#force_destroy BigtableInstance#force_destroy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#id BigtableInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_type: The instance type to create. One of "DEVELOPMENT" or "PRODUCTION". Defaults to "PRODUCTION". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#instance_type BigtableInstance#instance_type}
-        :param labels: A mapping of labels to assign to the resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#labels BigtableInstance#labels}
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#project BigtableInstance#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#timeouts BigtableInstance#timeouts}
+        :param name: The name (also called Instance Id in the Cloud Console) of the Cloud Bigtable instance. Must be 6-33 characters and must only contain hyphens, lowercase letters and numbers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#name BigtableInstance#name}
+        :param cluster: cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#cluster BigtableInstance#cluster}
+        :param deletion_protection: When the field is set to true or unset in Terraform state, a terraform apply or terraform destroy that would delete the instance will fail. When the field is set to false, deleting the instance is allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#deletion_protection BigtableInstance#deletion_protection}
+        :param display_name: The human-readable display name of the Bigtable instance. Defaults to the instance name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#display_name BigtableInstance#display_name}
+        :param force_destroy: When deleting a BigTable instance, this boolean option will delete all backups within the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#force_destroy BigtableInstance#force_destroy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#id BigtableInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_type: The instance type to create. One of "DEVELOPMENT" or "PRODUCTION". Defaults to "PRODUCTION". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#instance_type BigtableInstance#instance_type}
+        :param labels: A mapping of labels to assign to the resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#labels BigtableInstance#labels}
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#project BigtableInstance#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#timeouts BigtableInstance#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1214,7 +1250,7 @@ class BigtableInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Must be 6-33 characters and must only contain hyphens, lowercase letters and numbers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#name BigtableInstance#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#name BigtableInstance#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1226,7 +1262,7 @@ class BigtableInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[BigtableInstanceCluster]]]:
         '''cluster block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#cluster BigtableInstance#cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#cluster BigtableInstance#cluster}
         '''
         result = self._values.get("cluster")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[BigtableInstanceCluster]]], result)
@@ -1239,7 +1275,7 @@ class BigtableInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         When the field is set to false, deleting the instance is allowed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#deletion_protection BigtableInstance#deletion_protection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#deletion_protection BigtableInstance#deletion_protection}
         '''
         result = self._values.get("deletion_protection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1248,7 +1284,7 @@ class BigtableInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The human-readable display name of the Bigtable instance. Defaults to the instance name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#display_name BigtableInstance#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#display_name BigtableInstance#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1259,14 +1295,14 @@ class BigtableInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When deleting a BigTable instance, this boolean option will delete all backups within the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#force_destroy BigtableInstance#force_destroy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#force_destroy BigtableInstance#force_destroy}
         '''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#id BigtableInstance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#id BigtableInstance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1278,7 +1314,7 @@ class BigtableInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance_type(self) -> typing.Optional[builtins.str]:
         '''The instance type to create. One of "DEVELOPMENT" or "PRODUCTION". Defaults to "PRODUCTION".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#instance_type BigtableInstance#instance_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#instance_type BigtableInstance#instance_type}
         '''
         result = self._values.get("instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1290,7 +1326,7 @@ class BigtableInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#labels BigtableInstance#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#labels BigtableInstance#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1301,7 +1337,7 @@ class BigtableInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#project BigtableInstance#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#project BigtableInstance#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1310,7 +1346,7 @@ class BigtableInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BigtableInstanceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#timeouts BigtableInstance#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#timeouts BigtableInstance#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BigtableInstanceTimeouts"], result)
@@ -1341,9 +1377,9 @@ class BigtableInstanceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#create BigtableInstance#create}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#read BigtableInstance#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#update BigtableInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#create BigtableInstance#create}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#read BigtableInstance#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#update BigtableInstance#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__db9cb72ff41ea716bd5bd92fcbbd57f34a20e92bf62ee4e982a947f125a34b82)
@@ -1360,19 +1396,19 @@ class BigtableInstanceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#create BigtableInstance#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#create BigtableInstance#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#read BigtableInstance#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#read BigtableInstance#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_instance#update BigtableInstance#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_instance#update BigtableInstance#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1596,6 +1632,7 @@ def _typecheckingstub__227a18aee33ce500ea5af2ff0e9996d29dfb8bd8762e8b89efebe8f7a
     cluster_id: builtins.str,
     autoscaling_config: typing.Optional[typing.Union[BigtableInstanceClusterAutoscalingConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     kms_key_name: typing.Optional[builtins.str] = None,
+    node_scaling_factor: typing.Optional[builtins.str] = None,
     num_nodes: typing.Optional[jsii.Number] = None,
     storage_type: typing.Optional[builtins.str] = None,
     zone: typing.Optional[builtins.str] = None,
@@ -1704,6 +1741,12 @@ def _typecheckingstub__0a05008147a741b71c1efba876875f8f9348a0362f5a3462d51365c13
     pass
 
 def _typecheckingstub__297ecc81a67c4b1cd20598be174563fc8dfecf0cf33581a27940ad4dfb7cb463(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__843c61b01121ed7886926f2df818972fb5d2d4aba50f38bccb728da92b3d3cbb(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""

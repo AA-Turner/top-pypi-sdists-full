@@ -1,10 +1,12 @@
 from langchain_pinecone import __all__
 
 EXPECTED_ALL = [
-    "PineconeSparseVectorStore",
-    "PineconeVectorStore",
-    "Pinecone",
     "PineconeEmbeddings",
+    "PineconeSparseEmbeddings",
+    "PineconeVectorStore",
+    "PineconeSparseVectorStore",
+    "Pinecone",
+    "PineconeRerank",
 ]
 
 

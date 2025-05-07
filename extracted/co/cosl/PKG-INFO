@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cosl
-Version: 0.0.57
+Version: 0.1.0
 Summary: Utils for COS Lite charms
 Project-URL: Homepage, https://github.com/canonical/cos-lib
 Project-URL: Bug Tracker, https://github.com/canonical/cos-lib/issues

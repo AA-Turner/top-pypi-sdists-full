@@ -1,7 +1,7 @@
 r'''
 # `google_netapp_volume`
 
-Refer to the Terraform Registry for docs: [`google_netapp_volume`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume).
+Refer to the Terraform Registry for docs: [`google_netapp_volume`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetappVolume(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.netappVolume.NetappVolume",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume google_netapp_volume}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume google_netapp_volume}.'''
 
     def __init__(
         self,
@@ -84,35 +84,35 @@ class NetappVolume(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume google_netapp_volume} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume google_netapp_volume} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param capacity_gib: Capacity of the volume (in GiB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#capacity_gib NetappVolume#capacity_gib}
-        :param location: Name of the pool location. Usually a region name, expect for some STANDARD service level pools which require a zone name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#location NetappVolume#location}
-        :param name: The name of the volume. Needs to be unique per location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#name NetappVolume#name}
-        :param protocols: The protocol of the volume. Allowed combinations are '['NFSV3']', '['NFSV4']', '['SMB']', '['NFSV3', 'NFSV4']', '['SMB', 'NFSV3']' and '['SMB', 'NFSV4']'. Possible values: ["NFSV3", "NFSV4", "SMB"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#protocols NetappVolume#protocols}
-        :param share_name: Share name (SMB) or export path (NFS) of the volume. Needs to be unique per location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#share_name NetappVolume#share_name}
-        :param storage_pool: Name of the storage pool to create the volume in. Pool needs enough spare capacity to accommodate the volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#storage_pool NetappVolume#storage_pool}
-        :param backup_config: backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#backup_config NetappVolume#backup_config}
-        :param deletion_policy: Policy to determine if the volume should be deleted forcefully. Volumes may have nested snapshot resources. Deleting such a volume will fail. Setting this parameter to FORCE will delete volumes including nested snapshots. Possible values: DEFAULT, FORCE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#deletion_policy NetappVolume#deletion_policy}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#description NetappVolume#description}
-        :param export_policy: export_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#export_policy NetappVolume#export_policy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#id NetappVolume#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kerberos_enabled: Flag indicating if the volume is a kerberos volume or not, export policy rules control kerberos security modes (krb5, krb5i, krb5p). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#kerberos_enabled NetappVolume#kerberos_enabled}
-        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#labels NetappVolume#labels}
-        :param large_capacity: Optional. Flag indicating if the volume will be a large capacity volume or a regular volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#large_capacity NetappVolume#large_capacity}
-        :param multiple_endpoints: Optional. Flag indicating if the volume will have an IP address per node for volumes supporting multiple IP endpoints. Only the volume with largeCapacity will be allowed to have multiple endpoints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#multiple_endpoints NetappVolume#multiple_endpoints}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#project NetappVolume#project}.
-        :param restore_parameters: restore_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#restore_parameters NetappVolume#restore_parameters}
-        :param restricted_actions: List of actions that are restricted on this volume. Possible values: ["DELETE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#restricted_actions NetappVolume#restricted_actions}
-        :param security_style: Security Style of the Volume. Use UNIX to use UNIX or NFSV4 ACLs for file permissions. Use NTFS to use NTFS ACLs for file permissions. Can only be set for volumes which use SMB together with NFS as protocol. Possible values: ["NTFS", "UNIX"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#security_style NetappVolume#security_style}
-        :param smb_settings: Settings for volumes with SMB access. Possible values: ["ENCRYPT_DATA", "BROWSABLE", "CHANGE_NOTIFY", "NON_BROWSABLE", "OPLOCKS", "SHOW_SNAPSHOT", "SHOW_PREVIOUS_VERSIONS", "ACCESS_BASED_ENUMERATION", "CONTINUOUSLY_AVAILABLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#smb_settings NetappVolume#smb_settings}
-        :param snapshot_directory: If enabled, a NFS volume will contain a read-only .snapshot directory which provides access to each of the volume's snapshots. Will enable "Previous Versions" support for SMB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#snapshot_directory NetappVolume#snapshot_directory}
-        :param snapshot_policy: snapshot_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#snapshot_policy NetappVolume#snapshot_policy}
-        :param tiering_policy: tiering_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#tiering_policy NetappVolume#tiering_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#timeouts NetappVolume#timeouts}
-        :param unix_permissions: Unix permission the mount point will be created with. Default is 0770. Applicable for UNIX security style volumes only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#unix_permissions NetappVolume#unix_permissions}
+        :param capacity_gib: Capacity of the volume (in GiB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#capacity_gib NetappVolume#capacity_gib}
+        :param location: Name of the pool location. Usually a region name, expect for some STANDARD service level pools which require a zone name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#location NetappVolume#location}
+        :param name: The name of the volume. Needs to be unique per location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#name NetappVolume#name}
+        :param protocols: The protocol of the volume. Allowed combinations are '['NFSV3']', '['NFSV4']', '['SMB']', '['NFSV3', 'NFSV4']', '['SMB', 'NFSV3']' and '['SMB', 'NFSV4']'. Possible values: ["NFSV3", "NFSV4", "SMB"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#protocols NetappVolume#protocols}
+        :param share_name: Share name (SMB) or export path (NFS) of the volume. Needs to be unique per location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#share_name NetappVolume#share_name}
+        :param storage_pool: Name of the storage pool to create the volume in. Pool needs enough spare capacity to accommodate the volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#storage_pool NetappVolume#storage_pool}
+        :param backup_config: backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#backup_config NetappVolume#backup_config}
+        :param deletion_policy: Policy to determine if the volume should be deleted forcefully. Volumes may have nested snapshot resources. Deleting such a volume will fail. Setting this parameter to FORCE will delete volumes including nested snapshots. Possible values: DEFAULT, FORCE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#deletion_policy NetappVolume#deletion_policy}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#description NetappVolume#description}
+        :param export_policy: export_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#export_policy NetappVolume#export_policy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#id NetappVolume#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kerberos_enabled: Flag indicating if the volume is a kerberos volume or not, export policy rules control kerberos security modes (krb5, krb5i, krb5p). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#kerberos_enabled NetappVolume#kerberos_enabled}
+        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#labels NetappVolume#labels}
+        :param large_capacity: Optional. Flag indicating if the volume will be a large capacity volume or a regular volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#large_capacity NetappVolume#large_capacity}
+        :param multiple_endpoints: Optional. Flag indicating if the volume will have an IP address per node for volumes supporting multiple IP endpoints. Only the volume with largeCapacity will be allowed to have multiple endpoints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#multiple_endpoints NetappVolume#multiple_endpoints}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#project NetappVolume#project}.
+        :param restore_parameters: restore_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#restore_parameters NetappVolume#restore_parameters}
+        :param restricted_actions: List of actions that are restricted on this volume. Possible values: ["DELETE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#restricted_actions NetappVolume#restricted_actions}
+        :param security_style: Security Style of the Volume. Use UNIX to use UNIX or NFSV4 ACLs for file permissions. Use NTFS to use NTFS ACLs for file permissions. Can only be set for volumes which use SMB together with NFS as protocol. Possible values: ["NTFS", "UNIX"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#security_style NetappVolume#security_style}
+        :param smb_settings: Settings for volumes with SMB access. Possible values: ["ENCRYPT_DATA", "BROWSABLE", "CHANGE_NOTIFY", "NON_BROWSABLE", "OPLOCKS", "SHOW_SNAPSHOT", "SHOW_PREVIOUS_VERSIONS", "ACCESS_BASED_ENUMERATION", "CONTINUOUSLY_AVAILABLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#smb_settings NetappVolume#smb_settings}
+        :param snapshot_directory: If enabled, a NFS volume will contain a read-only .snapshot directory which provides access to each of the volume's snapshots. Will enable "Previous Versions" support for SMB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#snapshot_directory NetappVolume#snapshot_directory}
+        :param snapshot_policy: snapshot_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#snapshot_policy NetappVolume#snapshot_policy}
+        :param tiering_policy: tiering_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#tiering_policy NetappVolume#tiering_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#timeouts NetappVolume#timeouts}
+        :param unix_permissions: Unix permission the mount point will be created with. Default is 0770. Applicable for UNIX security style volumes only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#unix_permissions NetappVolume#unix_permissions}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -175,7 +175,7 @@ class NetappVolume(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetappVolume to import.
-        :param import_from_id: The id of the existing NetappVolume that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetappVolume that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetappVolume to import is found.
         '''
         if __debug__:
@@ -195,9 +195,9 @@ class NetappVolume(
         scheduled_backup_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param backup_policies: Specify a single backup policy ID for scheduled backups. Format: 'projects/{{projectId}}/locations/{{location}}/backupPolicies/{{backupPolicyName}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#backup_policies NetappVolume#backup_policies}
-        :param backup_vault: ID of the backup vault to use. A backup vault is reqired to create manual or scheduled backups. Format: 'projects/{{projectId}}/locations/{{location}}/backupVaults/{{backupVaultName}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#backup_vault NetappVolume#backup_vault}
-        :param scheduled_backup_enabled: When set to true, scheduled backup is enabled on the volume. Omit if no backup_policy is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#scheduled_backup_enabled NetappVolume#scheduled_backup_enabled}
+        :param backup_policies: Specify a single backup policy ID for scheduled backups. Format: 'projects/{{projectId}}/locations/{{location}}/backupPolicies/{{backupPolicyName}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#backup_policies NetappVolume#backup_policies}
+        :param backup_vault: ID of the backup vault to use. A backup vault is reqired to create manual or scheduled backups. Format: 'projects/{{projectId}}/locations/{{location}}/backupVaults/{{backupVaultName}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#backup_vault NetappVolume#backup_vault}
+        :param scheduled_backup_enabled: When set to true, scheduled backup is enabled on the volume. Omit if no backup_policy is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#scheduled_backup_enabled NetappVolume#scheduled_backup_enabled}
         '''
         value = NetappVolumeBackupConfig(
             backup_policies=backup_policies,
@@ -214,7 +214,7 @@ class NetappVolume(
         rules: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetappVolumeExportPolicyRules", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#rules NetappVolume#rules}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#rules NetappVolume#rules}
         '''
         value = NetappVolumeExportPolicy(rules=rules)
 
@@ -228,8 +228,8 @@ class NetappVolume(
         source_snapshot: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source_backup: Full name of the backup to use for creating this volume. 'source_snapshot' and 'source_backup' cannot be used simultaneously. Format: 'projects/{{project}}/locations/{{location}}/backupVaults/{{backupVaultId}}/backups/{{backup}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#source_backup NetappVolume#source_backup}
-        :param source_snapshot: Full name of the snapshot to use for creating this volume. 'source_snapshot' and 'source_backup' cannot be used simultaneously. Format: 'projects/{{project}}/locations/{{location}}/volumes/{{volume}}/snapshots/{{snapshot}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#source_snapshot NetappVolume#source_snapshot}
+        :param source_backup: Full name of the backup to use for creating this volume. 'source_snapshot' and 'source_backup' cannot be used simultaneously. Format: 'projects/{{project}}/locations/{{location}}/backupVaults/{{backupVaultId}}/backups/{{backup}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#source_backup NetappVolume#source_backup}
+        :param source_snapshot: Full name of the snapshot to use for creating this volume. 'source_snapshot' and 'source_backup' cannot be used simultaneously. Format: 'projects/{{project}}/locations/{{location}}/volumes/{{volume}}/snapshots/{{snapshot}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#source_snapshot NetappVolume#source_snapshot}
         '''
         value = NetappVolumeRestoreParameters(
             source_backup=source_backup, source_snapshot=source_snapshot
@@ -248,11 +248,11 @@ class NetappVolume(
         weekly_schedule: typing.Optional[typing.Union["NetappVolumeSnapshotPolicyWeeklySchedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#daily_schedule NetappVolume#daily_schedule}
-        :param enabled: Enables automated snapshot creation according to defined schedule. Default is false. To disable automatic snapshot creation you have to remove the whole snapshot_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#enabled NetappVolume#enabled}
-        :param hourly_schedule: hourly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#hourly_schedule NetappVolume#hourly_schedule}
-        :param monthly_schedule: monthly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#monthly_schedule NetappVolume#monthly_schedule}
-        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#weekly_schedule NetappVolume#weekly_schedule}
+        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#daily_schedule NetappVolume#daily_schedule}
+        :param enabled: Enables automated snapshot creation according to defined schedule. Default is false. To disable automatic snapshot creation you have to remove the whole snapshot_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#enabled NetappVolume#enabled}
+        :param hourly_schedule: hourly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#hourly_schedule NetappVolume#hourly_schedule}
+        :param monthly_schedule: monthly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#monthly_schedule NetappVolume#monthly_schedule}
+        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#weekly_schedule NetappVolume#weekly_schedule}
         '''
         value = NetappVolumeSnapshotPolicy(
             daily_schedule=daily_schedule,
@@ -272,8 +272,8 @@ class NetappVolume(
         tier_action: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cooling_threshold_days: Optional. Time in days to mark the volume's data block as cold and make it eligible for tiering, can be range from 2-183. Default is 31. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#cooling_threshold_days NetappVolume#cooling_threshold_days}
-        :param tier_action: Optional. Flag indicating if the volume has tiering policy enable/pause. Default is PAUSED. Default value: "PAUSED" Possible values: ["ENABLED", "PAUSED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#tier_action NetappVolume#tier_action}
+        :param cooling_threshold_days: Optional. Time in days to mark the volume's data block as cold and make it eligible for tiering, can be range from 2-183. Default is 31. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#cooling_threshold_days NetappVolume#cooling_threshold_days}
+        :param tier_action: Optional. Flag indicating if the volume has tiering policy enable/pause. Default is PAUSED. Default value: "PAUSED" Possible values: ["ENABLED", "PAUSED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#tier_action NetappVolume#tier_action}
         '''
         value = NetappVolumeTieringPolicy(
             cooling_threshold_days=cooling_threshold_days, tier_action=tier_action
@@ -290,9 +290,9 @@ class NetappVolume(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#create NetappVolume#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#delete NetappVolume#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#update NetappVolume#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#create NetappVolume#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#delete NetappVolume#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#update NetappVolume#update}.
         '''
         value = NetappVolumeTimeouts(create=create, delete=delete, update=update)
 
@@ -913,9 +913,9 @@ class NetappVolumeBackupConfig:
         scheduled_backup_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param backup_policies: Specify a single backup policy ID for scheduled backups. Format: 'projects/{{projectId}}/locations/{{location}}/backupPolicies/{{backupPolicyName}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#backup_policies NetappVolume#backup_policies}
-        :param backup_vault: ID of the backup vault to use. A backup vault is reqired to create manual or scheduled backups. Format: 'projects/{{projectId}}/locations/{{location}}/backupVaults/{{backupVaultName}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#backup_vault NetappVolume#backup_vault}
-        :param scheduled_backup_enabled: When set to true, scheduled backup is enabled on the volume. Omit if no backup_policy is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#scheduled_backup_enabled NetappVolume#scheduled_backup_enabled}
+        :param backup_policies: Specify a single backup policy ID for scheduled backups. Format: 'projects/{{projectId}}/locations/{{location}}/backupPolicies/{{backupPolicyName}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#backup_policies NetappVolume#backup_policies}
+        :param backup_vault: ID of the backup vault to use. A backup vault is reqired to create manual or scheduled backups. Format: 'projects/{{projectId}}/locations/{{location}}/backupVaults/{{backupVaultName}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#backup_vault NetappVolume#backup_vault}
+        :param scheduled_backup_enabled: When set to true, scheduled backup is enabled on the volume. Omit if no backup_policy is specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#scheduled_backup_enabled NetappVolume#scheduled_backup_enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__821ac5814a922a46b6d368158d449c5781ce67ae288ed0156fc0f80bebcbb2aa)
@@ -934,7 +934,7 @@ class NetappVolumeBackupConfig:
     def backup_policies(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify a single backup policy ID for scheduled backups. Format: 'projects/{{projectId}}/locations/{{location}}/backupPolicies/{{backupPolicyName}}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#backup_policies NetappVolume#backup_policies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#backup_policies NetappVolume#backup_policies}
         '''
         result = self._values.get("backup_policies")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -943,7 +943,7 @@ class NetappVolumeBackupConfig:
     def backup_vault(self) -> typing.Optional[builtins.str]:
         '''ID of the backup vault to use. A backup vault is reqired to create manual or scheduled backups. Format: 'projects/{{projectId}}/locations/{{location}}/backupVaults/{{backupVaultName}}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#backup_vault NetappVolume#backup_vault}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#backup_vault NetappVolume#backup_vault}
         '''
         result = self._values.get("backup_vault")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -954,7 +954,7 @@ class NetappVolumeBackupConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When set to true, scheduled backup is enabled on the volume. Omit if no backup_policy is specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#scheduled_backup_enabled NetappVolume#scheduled_backup_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#scheduled_backup_enabled NetappVolume#scheduled_backup_enabled}
         '''
         result = self._values.get("scheduled_backup_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1157,31 +1157,31 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param capacity_gib: Capacity of the volume (in GiB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#capacity_gib NetappVolume#capacity_gib}
-        :param location: Name of the pool location. Usually a region name, expect for some STANDARD service level pools which require a zone name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#location NetappVolume#location}
-        :param name: The name of the volume. Needs to be unique per location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#name NetappVolume#name}
-        :param protocols: The protocol of the volume. Allowed combinations are '['NFSV3']', '['NFSV4']', '['SMB']', '['NFSV3', 'NFSV4']', '['SMB', 'NFSV3']' and '['SMB', 'NFSV4']'. Possible values: ["NFSV3", "NFSV4", "SMB"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#protocols NetappVolume#protocols}
-        :param share_name: Share name (SMB) or export path (NFS) of the volume. Needs to be unique per location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#share_name NetappVolume#share_name}
-        :param storage_pool: Name of the storage pool to create the volume in. Pool needs enough spare capacity to accommodate the volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#storage_pool NetappVolume#storage_pool}
-        :param backup_config: backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#backup_config NetappVolume#backup_config}
-        :param deletion_policy: Policy to determine if the volume should be deleted forcefully. Volumes may have nested snapshot resources. Deleting such a volume will fail. Setting this parameter to FORCE will delete volumes including nested snapshots. Possible values: DEFAULT, FORCE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#deletion_policy NetappVolume#deletion_policy}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#description NetappVolume#description}
-        :param export_policy: export_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#export_policy NetappVolume#export_policy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#id NetappVolume#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kerberos_enabled: Flag indicating if the volume is a kerberos volume or not, export policy rules control kerberos security modes (krb5, krb5i, krb5p). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#kerberos_enabled NetappVolume#kerberos_enabled}
-        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#labels NetappVolume#labels}
-        :param large_capacity: Optional. Flag indicating if the volume will be a large capacity volume or a regular volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#large_capacity NetappVolume#large_capacity}
-        :param multiple_endpoints: Optional. Flag indicating if the volume will have an IP address per node for volumes supporting multiple IP endpoints. Only the volume with largeCapacity will be allowed to have multiple endpoints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#multiple_endpoints NetappVolume#multiple_endpoints}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#project NetappVolume#project}.
-        :param restore_parameters: restore_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#restore_parameters NetappVolume#restore_parameters}
-        :param restricted_actions: List of actions that are restricted on this volume. Possible values: ["DELETE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#restricted_actions NetappVolume#restricted_actions}
-        :param security_style: Security Style of the Volume. Use UNIX to use UNIX or NFSV4 ACLs for file permissions. Use NTFS to use NTFS ACLs for file permissions. Can only be set for volumes which use SMB together with NFS as protocol. Possible values: ["NTFS", "UNIX"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#security_style NetappVolume#security_style}
-        :param smb_settings: Settings for volumes with SMB access. Possible values: ["ENCRYPT_DATA", "BROWSABLE", "CHANGE_NOTIFY", "NON_BROWSABLE", "OPLOCKS", "SHOW_SNAPSHOT", "SHOW_PREVIOUS_VERSIONS", "ACCESS_BASED_ENUMERATION", "CONTINUOUSLY_AVAILABLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#smb_settings NetappVolume#smb_settings}
-        :param snapshot_directory: If enabled, a NFS volume will contain a read-only .snapshot directory which provides access to each of the volume's snapshots. Will enable "Previous Versions" support for SMB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#snapshot_directory NetappVolume#snapshot_directory}
-        :param snapshot_policy: snapshot_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#snapshot_policy NetappVolume#snapshot_policy}
-        :param tiering_policy: tiering_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#tiering_policy NetappVolume#tiering_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#timeouts NetappVolume#timeouts}
-        :param unix_permissions: Unix permission the mount point will be created with. Default is 0770. Applicable for UNIX security style volumes only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#unix_permissions NetappVolume#unix_permissions}
+        :param capacity_gib: Capacity of the volume (in GiB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#capacity_gib NetappVolume#capacity_gib}
+        :param location: Name of the pool location. Usually a region name, expect for some STANDARD service level pools which require a zone name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#location NetappVolume#location}
+        :param name: The name of the volume. Needs to be unique per location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#name NetappVolume#name}
+        :param protocols: The protocol of the volume. Allowed combinations are '['NFSV3']', '['NFSV4']', '['SMB']', '['NFSV3', 'NFSV4']', '['SMB', 'NFSV3']' and '['SMB', 'NFSV4']'. Possible values: ["NFSV3", "NFSV4", "SMB"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#protocols NetappVolume#protocols}
+        :param share_name: Share name (SMB) or export path (NFS) of the volume. Needs to be unique per location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#share_name NetappVolume#share_name}
+        :param storage_pool: Name of the storage pool to create the volume in. Pool needs enough spare capacity to accommodate the volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#storage_pool NetappVolume#storage_pool}
+        :param backup_config: backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#backup_config NetappVolume#backup_config}
+        :param deletion_policy: Policy to determine if the volume should be deleted forcefully. Volumes may have nested snapshot resources. Deleting such a volume will fail. Setting this parameter to FORCE will delete volumes including nested snapshots. Possible values: DEFAULT, FORCE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#deletion_policy NetappVolume#deletion_policy}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#description NetappVolume#description}
+        :param export_policy: export_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#export_policy NetappVolume#export_policy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#id NetappVolume#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kerberos_enabled: Flag indicating if the volume is a kerberos volume or not, export policy rules control kerberos security modes (krb5, krb5i, krb5p). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#kerberos_enabled NetappVolume#kerberos_enabled}
+        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#labels NetappVolume#labels}
+        :param large_capacity: Optional. Flag indicating if the volume will be a large capacity volume or a regular volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#large_capacity NetappVolume#large_capacity}
+        :param multiple_endpoints: Optional. Flag indicating if the volume will have an IP address per node for volumes supporting multiple IP endpoints. Only the volume with largeCapacity will be allowed to have multiple endpoints. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#multiple_endpoints NetappVolume#multiple_endpoints}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#project NetappVolume#project}.
+        :param restore_parameters: restore_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#restore_parameters NetappVolume#restore_parameters}
+        :param restricted_actions: List of actions that are restricted on this volume. Possible values: ["DELETE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#restricted_actions NetappVolume#restricted_actions}
+        :param security_style: Security Style of the Volume. Use UNIX to use UNIX or NFSV4 ACLs for file permissions. Use NTFS to use NTFS ACLs for file permissions. Can only be set for volumes which use SMB together with NFS as protocol. Possible values: ["NTFS", "UNIX"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#security_style NetappVolume#security_style}
+        :param smb_settings: Settings for volumes with SMB access. Possible values: ["ENCRYPT_DATA", "BROWSABLE", "CHANGE_NOTIFY", "NON_BROWSABLE", "OPLOCKS", "SHOW_SNAPSHOT", "SHOW_PREVIOUS_VERSIONS", "ACCESS_BASED_ENUMERATION", "CONTINUOUSLY_AVAILABLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#smb_settings NetappVolume#smb_settings}
+        :param snapshot_directory: If enabled, a NFS volume will contain a read-only .snapshot directory which provides access to each of the volume's snapshots. Will enable "Previous Versions" support for SMB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#snapshot_directory NetappVolume#snapshot_directory}
+        :param snapshot_policy: snapshot_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#snapshot_policy NetappVolume#snapshot_policy}
+        :param tiering_policy: tiering_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#tiering_policy NetappVolume#tiering_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#timeouts NetappVolume#timeouts}
+        :param unix_permissions: Unix permission the mount point will be created with. Default is 0770. Applicable for UNIX security style volumes only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#unix_permissions NetappVolume#unix_permissions}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1360,7 +1360,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def capacity_gib(self) -> builtins.str:
         '''Capacity of the volume (in GiB).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#capacity_gib NetappVolume#capacity_gib}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#capacity_gib NetappVolume#capacity_gib}
         '''
         result = self._values.get("capacity_gib")
         assert result is not None, "Required property 'capacity_gib' is missing"
@@ -1372,7 +1372,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Usually a region name, expect for some STANDARD service level pools which require a zone name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#location NetappVolume#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#location NetappVolume#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1382,7 +1382,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the volume. Needs to be unique per location.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#name NetappVolume#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#name NetappVolume#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1394,7 +1394,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Allowed combinations are '['NFSV3']', '['NFSV4']', '['SMB']', '['NFSV3', 'NFSV4']', '['SMB', 'NFSV3']' and '['SMB', 'NFSV4']'. Possible values: ["NFSV3", "NFSV4", "SMB"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#protocols NetappVolume#protocols}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#protocols NetappVolume#protocols}
         '''
         result = self._values.get("protocols")
         assert result is not None, "Required property 'protocols' is missing"
@@ -1404,7 +1404,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def share_name(self) -> builtins.str:
         '''Share name (SMB) or export path (NFS) of the volume. Needs to be unique per location.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#share_name NetappVolume#share_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#share_name NetappVolume#share_name}
         '''
         result = self._values.get("share_name")
         assert result is not None, "Required property 'share_name' is missing"
@@ -1414,7 +1414,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage_pool(self) -> builtins.str:
         '''Name of the storage pool to create the volume in. Pool needs enough spare capacity to accommodate the volume.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#storage_pool NetappVolume#storage_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#storage_pool NetappVolume#storage_pool}
         '''
         result = self._values.get("storage_pool")
         assert result is not None, "Required property 'storage_pool' is missing"
@@ -1424,7 +1424,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def backup_config(self) -> typing.Optional[NetappVolumeBackupConfig]:
         '''backup_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#backup_config NetappVolume#backup_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#backup_config NetappVolume#backup_config}
         '''
         result = self._values.get("backup_config")
         return typing.cast(typing.Optional[NetappVolumeBackupConfig], result)
@@ -1437,7 +1437,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Setting this parameter to FORCE will delete volumes including nested snapshots.
         Possible values: DEFAULT, FORCE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#deletion_policy NetappVolume#deletion_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#deletion_policy NetappVolume#deletion_policy}
         '''
         result = self._values.get("deletion_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1446,7 +1446,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#description NetappVolume#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#description NetappVolume#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1455,14 +1455,14 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def export_policy(self) -> typing.Optional["NetappVolumeExportPolicy"]:
         '''export_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#export_policy NetappVolume#export_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#export_policy NetappVolume#export_policy}
         '''
         result = self._values.get("export_policy")
         return typing.cast(typing.Optional["NetappVolumeExportPolicy"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#id NetappVolume#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#id NetappVolume#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1476,7 +1476,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Flag indicating if the volume is a kerberos volume or not, export policy rules control kerberos security modes (krb5, krb5i, krb5p).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#kerberos_enabled NetappVolume#kerberos_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#kerberos_enabled NetappVolume#kerberos_enabled}
         '''
         result = self._values.get("kerberos_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1488,7 +1488,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#labels NetappVolume#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#labels NetappVolume#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1499,7 +1499,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Optional. Flag indicating if the volume will be a large capacity volume or a regular volume.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#large_capacity NetappVolume#large_capacity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#large_capacity NetappVolume#large_capacity}
         '''
         result = self._values.get("large_capacity")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1513,14 +1513,14 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Flag indicating if the volume will have an IP address per node for volumes supporting multiple IP endpoints.
         Only the volume with largeCapacity will be allowed to have multiple endpoints.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#multiple_endpoints NetappVolume#multiple_endpoints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#multiple_endpoints NetappVolume#multiple_endpoints}
         '''
         result = self._values.get("multiple_endpoints")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#project NetappVolume#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#project NetappVolume#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1528,7 +1528,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def restore_parameters(self) -> typing.Optional["NetappVolumeRestoreParameters"]:
         '''restore_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#restore_parameters NetappVolume#restore_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#restore_parameters NetappVolume#restore_parameters}
         '''
         result = self._values.get("restore_parameters")
         return typing.cast(typing.Optional["NetappVolumeRestoreParameters"], result)
@@ -1537,7 +1537,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def restricted_actions(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of actions that are restricted on this volume. Possible values: ["DELETE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#restricted_actions NetappVolume#restricted_actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#restricted_actions NetappVolume#restricted_actions}
         '''
         result = self._values.get("restricted_actions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1549,7 +1549,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Use UNIX to use UNIX or NFSV4 ACLs for file permissions.
         Use NTFS to use NTFS ACLs for file permissions. Can only be set for volumes which use SMB together with NFS as protocol. Possible values: ["NTFS", "UNIX"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#security_style NetappVolume#security_style}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#security_style NetappVolume#security_style}
         '''
         result = self._values.get("security_style")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1558,7 +1558,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def smb_settings(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Settings for volumes with SMB access. Possible values: ["ENCRYPT_DATA", "BROWSABLE", "CHANGE_NOTIFY", "NON_BROWSABLE", "OPLOCKS", "SHOW_SNAPSHOT", "SHOW_PREVIOUS_VERSIONS", "ACCESS_BASED_ENUMERATION", "CONTINUOUSLY_AVAILABLE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#smb_settings NetappVolume#smb_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#smb_settings NetappVolume#smb_settings}
         '''
         result = self._values.get("smb_settings")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1569,7 +1569,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If enabled, a NFS volume will contain a read-only .snapshot directory which provides access to each of the volume's snapshots. Will enable "Previous Versions" support for SMB.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#snapshot_directory NetappVolume#snapshot_directory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#snapshot_directory NetappVolume#snapshot_directory}
         '''
         result = self._values.get("snapshot_directory")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1578,7 +1578,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def snapshot_policy(self) -> typing.Optional["NetappVolumeSnapshotPolicy"]:
         '''snapshot_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#snapshot_policy NetappVolume#snapshot_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#snapshot_policy NetappVolume#snapshot_policy}
         '''
         result = self._values.get("snapshot_policy")
         return typing.cast(typing.Optional["NetappVolumeSnapshotPolicy"], result)
@@ -1587,7 +1587,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tiering_policy(self) -> typing.Optional["NetappVolumeTieringPolicy"]:
         '''tiering_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#tiering_policy NetappVolume#tiering_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#tiering_policy NetappVolume#tiering_policy}
         '''
         result = self._values.get("tiering_policy")
         return typing.cast(typing.Optional["NetappVolumeTieringPolicy"], result)
@@ -1596,7 +1596,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["NetappVolumeTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#timeouts NetappVolume#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#timeouts NetappVolume#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NetappVolumeTimeouts"], result)
@@ -1605,7 +1605,7 @@ class NetappVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def unix_permissions(self) -> typing.Optional[builtins.str]:
         '''Unix permission the mount point will be created with. Default is 0770. Applicable for UNIX security style volumes only.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#unix_permissions NetappVolume#unix_permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#unix_permissions NetappVolume#unix_permissions}
         '''
         result = self._values.get("unix_permissions")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1634,7 +1634,7 @@ class NetappVolumeExportPolicy:
         rules: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetappVolumeExportPolicyRules", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#rules NetappVolume#rules}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#rules NetappVolume#rules}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__67a90f90d6a1dcf18b544dba035ef668febee31b34316d57ec43fd11b327a95d)
@@ -1649,7 +1649,7 @@ class NetappVolumeExportPolicy:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetappVolumeExportPolicyRules"]]:
         '''rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#rules NetappVolume#rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#rules NetappVolume#rules}
         '''
         result = self._values.get("rules")
         assert result is not None, "Required property 'rules' is missing"
@@ -1759,17 +1759,17 @@ class NetappVolumeExportPolicyRules:
         nfsv4: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param access_type: Defines the access type for clients matching the 'allowedClients' specification. Possible values: ["READ_ONLY", "READ_WRITE", "READ_NONE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#access_type NetappVolume#access_type}
-        :param allowed_clients: Defines the client ingress specification (allowed clients) as a comma separated list with IPv4 CIDRs or IPv4 host addresses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#allowed_clients NetappVolume#allowed_clients}
-        :param has_root_access: If enabled, the root user (UID = 0) of the specified clients doesn't get mapped to nobody (UID = 65534). This is also known as no_root_squash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#has_root_access NetappVolume#has_root_access}
-        :param kerberos5_i_read_only: If enabled (true) the rule defines a read only access for clients matching the 'allowedClients' specification. It enables nfs clients to mount using 'integrity' kerberos security mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#kerberos5i_read_only NetappVolume#kerberos5i_read_only}
-        :param kerberos5_i_read_write: If enabled (true) the rule defines read and write access for clients matching the 'allowedClients' specification. It enables nfs clients to mount using 'integrity' kerberos security mode. The 'kerberos5iReadOnly' value is ignored if this is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#kerberos5i_read_write NetappVolume#kerberos5i_read_write}
-        :param kerberos5_p_read_only: If enabled (true) the rule defines a read only access for clients matching the 'allowedClients' specification. It enables nfs clients to mount using 'privacy' kerberos security mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#kerberos5p_read_only NetappVolume#kerberos5p_read_only}
-        :param kerberos5_p_read_write: If enabled (true) the rule defines read and write access for clients matching the 'allowedClients' specification. It enables nfs clients to mount using 'privacy' kerberos security mode. The 'kerberos5pReadOnly' value is ignored if this is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#kerberos5p_read_write NetappVolume#kerberos5p_read_write}
-        :param kerberos5_read_only: If enabled (true) the rule defines a read only access for clients matching the 'allowedClients' specification. It enables nfs clients to mount using 'authentication' kerberos security mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#kerberos5_read_only NetappVolume#kerberos5_read_only}
-        :param kerberos5_read_write: If enabled (true) the rule defines read and write access for clients matching the 'allowedClients' specification. It enables nfs clients to mount using 'authentication' kerberos security mode. The 'kerberos5ReadOnly' value is ignored if this is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#kerberos5_read_write NetappVolume#kerberos5_read_write}
-        :param nfsv3: Enable to apply the export rule to NFSV3 clients. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#nfsv3 NetappVolume#nfsv3}
-        :param nfsv4: Enable to apply the export rule to NFSV4.1 clients. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#nfsv4 NetappVolume#nfsv4}
+        :param access_type: Defines the access type for clients matching the 'allowedClients' specification. Possible values: ["READ_ONLY", "READ_WRITE", "READ_NONE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#access_type NetappVolume#access_type}
+        :param allowed_clients: Defines the client ingress specification (allowed clients) as a comma separated list with IPv4 CIDRs or IPv4 host addresses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#allowed_clients NetappVolume#allowed_clients}
+        :param has_root_access: If enabled, the root user (UID = 0) of the specified clients doesn't get mapped to nobody (UID = 65534). This is also known as no_root_squash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#has_root_access NetappVolume#has_root_access}
+        :param kerberos5_i_read_only: If enabled (true) the rule defines a read only access for clients matching the 'allowedClients' specification. It enables nfs clients to mount using 'integrity' kerberos security mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#kerberos5i_read_only NetappVolume#kerberos5i_read_only}
+        :param kerberos5_i_read_write: If enabled (true) the rule defines read and write access for clients matching the 'allowedClients' specification. It enables nfs clients to mount using 'integrity' kerberos security mode. The 'kerberos5iReadOnly' value is ignored if this is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#kerberos5i_read_write NetappVolume#kerberos5i_read_write}
+        :param kerberos5_p_read_only: If enabled (true) the rule defines a read only access for clients matching the 'allowedClients' specification. It enables nfs clients to mount using 'privacy' kerberos security mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#kerberos5p_read_only NetappVolume#kerberos5p_read_only}
+        :param kerberos5_p_read_write: If enabled (true) the rule defines read and write access for clients matching the 'allowedClients' specification. It enables nfs clients to mount using 'privacy' kerberos security mode. The 'kerberos5pReadOnly' value is ignored if this is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#kerberos5p_read_write NetappVolume#kerberos5p_read_write}
+        :param kerberos5_read_only: If enabled (true) the rule defines a read only access for clients matching the 'allowedClients' specification. It enables nfs clients to mount using 'authentication' kerberos security mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#kerberos5_read_only NetappVolume#kerberos5_read_only}
+        :param kerberos5_read_write: If enabled (true) the rule defines read and write access for clients matching the 'allowedClients' specification. It enables nfs clients to mount using 'authentication' kerberos security mode. The 'kerberos5ReadOnly' value is ignored if this is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#kerberos5_read_write NetappVolume#kerberos5_read_write}
+        :param nfsv3: Enable to apply the export rule to NFSV3 clients. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#nfsv3 NetappVolume#nfsv3}
+        :param nfsv4: Enable to apply the export rule to NFSV4.1 clients. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#nfsv4 NetappVolume#nfsv4}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f99bf72bf1e8172cb9eeabe38e4be2a396d9555134a81b25d995862a62b67d66)
@@ -1812,7 +1812,7 @@ class NetappVolumeExportPolicyRules:
     def access_type(self) -> typing.Optional[builtins.str]:
         '''Defines the access type for clients matching the 'allowedClients' specification. Possible values: ["READ_ONLY", "READ_WRITE", "READ_NONE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#access_type NetappVolume#access_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#access_type NetappVolume#access_type}
         '''
         result = self._values.get("access_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1821,7 +1821,7 @@ class NetappVolumeExportPolicyRules:
     def allowed_clients(self) -> typing.Optional[builtins.str]:
         '''Defines the client ingress specification (allowed clients) as a comma separated list with IPv4 CIDRs or IPv4 host addresses.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#allowed_clients NetappVolume#allowed_clients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#allowed_clients NetappVolume#allowed_clients}
         '''
         result = self._values.get("allowed_clients")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1832,7 +1832,7 @@ class NetappVolumeExportPolicyRules:
 
         This is also known as no_root_squash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#has_root_access NetappVolume#has_root_access}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#has_root_access NetappVolume#has_root_access}
         '''
         result = self._values.get("has_root_access")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1845,7 +1845,7 @@ class NetappVolumeExportPolicyRules:
 
         It enables nfs clients to mount using 'integrity' kerberos security mode.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#kerberos5i_read_only NetappVolume#kerberos5i_read_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#kerberos5i_read_only NetappVolume#kerberos5i_read_only}
         '''
         result = self._values.get("kerberos5_i_read_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1858,7 +1858,7 @@ class NetappVolumeExportPolicyRules:
 
         It enables nfs clients to mount using 'integrity' kerberos security mode. The 'kerberos5iReadOnly' value is ignored if this is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#kerberos5i_read_write NetappVolume#kerberos5i_read_write}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#kerberos5i_read_write NetappVolume#kerberos5i_read_write}
         '''
         result = self._values.get("kerberos5_i_read_write")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1871,7 +1871,7 @@ class NetappVolumeExportPolicyRules:
 
         It enables nfs clients to mount using 'privacy' kerberos security mode.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#kerberos5p_read_only NetappVolume#kerberos5p_read_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#kerberos5p_read_only NetappVolume#kerberos5p_read_only}
         '''
         result = self._values.get("kerberos5_p_read_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1884,7 +1884,7 @@ class NetappVolumeExportPolicyRules:
 
         It enables nfs clients to mount using 'privacy' kerberos security mode. The 'kerberos5pReadOnly' value is ignored if this is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#kerberos5p_read_write NetappVolume#kerberos5p_read_write}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#kerberos5p_read_write NetappVolume#kerberos5p_read_write}
         '''
         result = self._values.get("kerberos5_p_read_write")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1897,7 +1897,7 @@ class NetappVolumeExportPolicyRules:
 
         It enables nfs clients to mount using 'authentication' kerberos security mode.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#kerberos5_read_only NetappVolume#kerberos5_read_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#kerberos5_read_only NetappVolume#kerberos5_read_only}
         '''
         result = self._values.get("kerberos5_read_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1910,7 +1910,7 @@ class NetappVolumeExportPolicyRules:
 
         It enables nfs clients to mount using 'authentication' kerberos security mode. The 'kerberos5ReadOnly' value is ignored if this is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#kerberos5_read_write NetappVolume#kerberos5_read_write}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#kerberos5_read_write NetappVolume#kerberos5_read_write}
         '''
         result = self._values.get("kerberos5_read_write")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1921,7 +1921,7 @@ class NetappVolumeExportPolicyRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable to apply the export rule to NFSV3 clients.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#nfsv3 NetappVolume#nfsv3}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#nfsv3 NetappVolume#nfsv3}
         '''
         result = self._values.get("nfsv3")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1932,7 +1932,7 @@ class NetappVolumeExportPolicyRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable to apply the export rule to NFSV4.1 clients.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#nfsv4 NetappVolume#nfsv4}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#nfsv4 NetappVolume#nfsv4}
         '''
         result = self._values.get("nfsv4")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2535,8 +2535,8 @@ class NetappVolumeRestoreParameters:
         source_snapshot: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source_backup: Full name of the backup to use for creating this volume. 'source_snapshot' and 'source_backup' cannot be used simultaneously. Format: 'projects/{{project}}/locations/{{location}}/backupVaults/{{backupVaultId}}/backups/{{backup}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#source_backup NetappVolume#source_backup}
-        :param source_snapshot: Full name of the snapshot to use for creating this volume. 'source_snapshot' and 'source_backup' cannot be used simultaneously. Format: 'projects/{{project}}/locations/{{location}}/volumes/{{volume}}/snapshots/{{snapshot}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#source_snapshot NetappVolume#source_snapshot}
+        :param source_backup: Full name of the backup to use for creating this volume. 'source_snapshot' and 'source_backup' cannot be used simultaneously. Format: 'projects/{{project}}/locations/{{location}}/backupVaults/{{backupVaultId}}/backups/{{backup}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#source_backup NetappVolume#source_backup}
+        :param source_snapshot: Full name of the snapshot to use for creating this volume. 'source_snapshot' and 'source_backup' cannot be used simultaneously. Format: 'projects/{{project}}/locations/{{location}}/volumes/{{volume}}/snapshots/{{snapshot}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#source_snapshot NetappVolume#source_snapshot}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ce4c82883f88ec04ab7dcbf1a0f0e0f56cdbd116d885aa3ebe10641743dd7173)
@@ -2552,7 +2552,7 @@ class NetappVolumeRestoreParameters:
     def source_backup(self) -> typing.Optional[builtins.str]:
         '''Full name of the backup to use for creating this volume. 'source_snapshot' and 'source_backup' cannot be used simultaneously. Format: 'projects/{{project}}/locations/{{location}}/backupVaults/{{backupVaultId}}/backups/{{backup}}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#source_backup NetappVolume#source_backup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#source_backup NetappVolume#source_backup}
         '''
         result = self._values.get("source_backup")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2561,7 +2561,7 @@ class NetappVolumeRestoreParameters:
     def source_snapshot(self) -> typing.Optional[builtins.str]:
         '''Full name of the snapshot to use for creating this volume. 'source_snapshot' and 'source_backup' cannot be used simultaneously. Format: 'projects/{{project}}/locations/{{location}}/volumes/{{volume}}/snapshots/{{snapshot}}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#source_snapshot NetappVolume#source_snapshot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#source_snapshot NetappVolume#source_snapshot}
         '''
         result = self._values.get("source_snapshot")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2678,11 +2678,11 @@ class NetappVolumeSnapshotPolicy:
         weekly_schedule: typing.Optional[typing.Union["NetappVolumeSnapshotPolicyWeeklySchedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#daily_schedule NetappVolume#daily_schedule}
-        :param enabled: Enables automated snapshot creation according to defined schedule. Default is false. To disable automatic snapshot creation you have to remove the whole snapshot_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#enabled NetappVolume#enabled}
-        :param hourly_schedule: hourly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#hourly_schedule NetappVolume#hourly_schedule}
-        :param monthly_schedule: monthly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#monthly_schedule NetappVolume#monthly_schedule}
-        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#weekly_schedule NetappVolume#weekly_schedule}
+        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#daily_schedule NetappVolume#daily_schedule}
+        :param enabled: Enables automated snapshot creation according to defined schedule. Default is false. To disable automatic snapshot creation you have to remove the whole snapshot_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#enabled NetappVolume#enabled}
+        :param hourly_schedule: hourly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#hourly_schedule NetappVolume#hourly_schedule}
+        :param monthly_schedule: monthly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#monthly_schedule NetappVolume#monthly_schedule}
+        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#weekly_schedule NetappVolume#weekly_schedule}
         '''
         if isinstance(daily_schedule, dict):
             daily_schedule = NetappVolumeSnapshotPolicyDailySchedule(**daily_schedule)
@@ -2717,7 +2717,7 @@ class NetappVolumeSnapshotPolicy:
     ) -> typing.Optional["NetappVolumeSnapshotPolicyDailySchedule"]:
         '''daily_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#daily_schedule NetappVolume#daily_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#daily_schedule NetappVolume#daily_schedule}
         '''
         result = self._values.get("daily_schedule")
         return typing.cast(typing.Optional["NetappVolumeSnapshotPolicyDailySchedule"], result)
@@ -2731,7 +2731,7 @@ class NetappVolumeSnapshotPolicy:
         Default is false.
         To disable automatic snapshot creation you have to remove the whole snapshot_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#enabled NetappVolume#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#enabled NetappVolume#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2742,7 +2742,7 @@ class NetappVolumeSnapshotPolicy:
     ) -> typing.Optional["NetappVolumeSnapshotPolicyHourlySchedule"]:
         '''hourly_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#hourly_schedule NetappVolume#hourly_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#hourly_schedule NetappVolume#hourly_schedule}
         '''
         result = self._values.get("hourly_schedule")
         return typing.cast(typing.Optional["NetappVolumeSnapshotPolicyHourlySchedule"], result)
@@ -2753,7 +2753,7 @@ class NetappVolumeSnapshotPolicy:
     ) -> typing.Optional["NetappVolumeSnapshotPolicyMonthlySchedule"]:
         '''monthly_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#monthly_schedule NetappVolume#monthly_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#monthly_schedule NetappVolume#monthly_schedule}
         '''
         result = self._values.get("monthly_schedule")
         return typing.cast(typing.Optional["NetappVolumeSnapshotPolicyMonthlySchedule"], result)
@@ -2764,7 +2764,7 @@ class NetappVolumeSnapshotPolicy:
     ) -> typing.Optional["NetappVolumeSnapshotPolicyWeeklySchedule"]:
         '''weekly_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#weekly_schedule NetappVolume#weekly_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#weekly_schedule NetappVolume#weekly_schedule}
         '''
         result = self._values.get("weekly_schedule")
         return typing.cast(typing.Optional["NetappVolumeSnapshotPolicyWeeklySchedule"], result)
@@ -2799,9 +2799,9 @@ class NetappVolumeSnapshotPolicyDailySchedule:
         minute: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param snapshots_to_keep: The maximum number of snapshots to keep for the daily schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
-        :param hour: Set the hour to create the snapshot (0-23), defaults to midnight (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#hour NetappVolume#hour}
-        :param minute: Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#minute NetappVolume#minute}
+        :param snapshots_to_keep: The maximum number of snapshots to keep for the daily schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
+        :param hour: Set the hour to create the snapshot (0-23), defaults to midnight (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#hour NetappVolume#hour}
+        :param minute: Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#minute NetappVolume#minute}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__441a3aca9996f688cc92e41a22afad801b43d0df5eb220f885cd3e64bc8c352a)
@@ -2820,7 +2820,7 @@ class NetappVolumeSnapshotPolicyDailySchedule:
     def snapshots_to_keep(self) -> jsii.Number:
         '''The maximum number of snapshots to keep for the daily schedule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
         '''
         result = self._values.get("snapshots_to_keep")
         assert result is not None, "Required property 'snapshots_to_keep' is missing"
@@ -2830,7 +2830,7 @@ class NetappVolumeSnapshotPolicyDailySchedule:
     def hour(self) -> typing.Optional[jsii.Number]:
         '''Set the hour to create the snapshot (0-23), defaults to midnight (0).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#hour NetappVolume#hour}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#hour NetappVolume#hour}
         '''
         result = self._values.get("hour")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2839,7 +2839,7 @@ class NetappVolumeSnapshotPolicyDailySchedule:
     def minute(self) -> typing.Optional[jsii.Number]:
         '''Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#minute NetappVolume#minute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#minute NetappVolume#minute}
         '''
         result = self._values.get("minute")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2966,8 +2966,8 @@ class NetappVolumeSnapshotPolicyHourlySchedule:
         minute: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param snapshots_to_keep: The maximum number of snapshots to keep for the hourly schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
-        :param minute: Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#minute NetappVolume#minute}
+        :param snapshots_to_keep: The maximum number of snapshots to keep for the hourly schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
+        :param minute: Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#minute NetappVolume#minute}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b3fd70592509813918929528998f37f440cf64caab29bcff644a23ccae1b5544)
@@ -2983,7 +2983,7 @@ class NetappVolumeSnapshotPolicyHourlySchedule:
     def snapshots_to_keep(self) -> jsii.Number:
         '''The maximum number of snapshots to keep for the hourly schedule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
         '''
         result = self._values.get("snapshots_to_keep")
         assert result is not None, "Required property 'snapshots_to_keep' is missing"
@@ -2993,7 +2993,7 @@ class NetappVolumeSnapshotPolicyHourlySchedule:
     def minute(self) -> typing.Optional[jsii.Number]:
         '''Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#minute NetappVolume#minute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#minute NetappVolume#minute}
         '''
         result = self._values.get("minute")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3106,10 +3106,10 @@ class NetappVolumeSnapshotPolicyMonthlySchedule:
         minute: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param snapshots_to_keep: The maximum number of snapshots to keep for the monthly schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
-        :param days_of_month: Set the day or days of the month to make a snapshot (1-31). Accepts a comma separated number of days. Defaults to '1'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#days_of_month NetappVolume#days_of_month}
-        :param hour: Set the hour to create the snapshot (0-23), defaults to midnight (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#hour NetappVolume#hour}
-        :param minute: Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#minute NetappVolume#minute}
+        :param snapshots_to_keep: The maximum number of snapshots to keep for the monthly schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
+        :param days_of_month: Set the day or days of the month to make a snapshot (1-31). Accepts a comma separated number of days. Defaults to '1'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#days_of_month NetappVolume#days_of_month}
+        :param hour: Set the hour to create the snapshot (0-23), defaults to midnight (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#hour NetappVolume#hour}
+        :param minute: Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#minute NetappVolume#minute}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a68e6de25be66d9f49dd352ef18d0cdf1a3666345a41ed595616ac0b40f70655)
@@ -3131,7 +3131,7 @@ class NetappVolumeSnapshotPolicyMonthlySchedule:
     def snapshots_to_keep(self) -> jsii.Number:
         '''The maximum number of snapshots to keep for the monthly schedule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
         '''
         result = self._values.get("snapshots_to_keep")
         assert result is not None, "Required property 'snapshots_to_keep' is missing"
@@ -3143,7 +3143,7 @@ class NetappVolumeSnapshotPolicyMonthlySchedule:
 
         Accepts a comma separated number of days. Defaults to '1'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#days_of_month NetappVolume#days_of_month}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#days_of_month NetappVolume#days_of_month}
         '''
         result = self._values.get("days_of_month")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3152,7 +3152,7 @@ class NetappVolumeSnapshotPolicyMonthlySchedule:
     def hour(self) -> typing.Optional[jsii.Number]:
         '''Set the hour to create the snapshot (0-23), defaults to midnight (0).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#hour NetappVolume#hour}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#hour NetappVolume#hour}
         '''
         result = self._values.get("hour")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3161,7 +3161,7 @@ class NetappVolumeSnapshotPolicyMonthlySchedule:
     def minute(self) -> typing.Optional[jsii.Number]:
         '''Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#minute NetappVolume#minute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#minute NetappVolume#minute}
         '''
         result = self._values.get("minute")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3325,9 +3325,9 @@ class NetappVolumeSnapshotPolicyOutputReference(
         minute: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param snapshots_to_keep: The maximum number of snapshots to keep for the daily schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
-        :param hour: Set the hour to create the snapshot (0-23), defaults to midnight (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#hour NetappVolume#hour}
-        :param minute: Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#minute NetappVolume#minute}
+        :param snapshots_to_keep: The maximum number of snapshots to keep for the daily schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
+        :param hour: Set the hour to create the snapshot (0-23), defaults to midnight (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#hour NetappVolume#hour}
+        :param minute: Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#minute NetappVolume#minute}
         '''
         value = NetappVolumeSnapshotPolicyDailySchedule(
             snapshots_to_keep=snapshots_to_keep, hour=hour, minute=minute
@@ -3343,8 +3343,8 @@ class NetappVolumeSnapshotPolicyOutputReference(
         minute: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param snapshots_to_keep: The maximum number of snapshots to keep for the hourly schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
-        :param minute: Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#minute NetappVolume#minute}
+        :param snapshots_to_keep: The maximum number of snapshots to keep for the hourly schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
+        :param minute: Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#minute NetappVolume#minute}
         '''
         value = NetappVolumeSnapshotPolicyHourlySchedule(
             snapshots_to_keep=snapshots_to_keep, minute=minute
@@ -3362,10 +3362,10 @@ class NetappVolumeSnapshotPolicyOutputReference(
         minute: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param snapshots_to_keep: The maximum number of snapshots to keep for the monthly schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
-        :param days_of_month: Set the day or days of the month to make a snapshot (1-31). Accepts a comma separated number of days. Defaults to '1'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#days_of_month NetappVolume#days_of_month}
-        :param hour: Set the hour to create the snapshot (0-23), defaults to midnight (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#hour NetappVolume#hour}
-        :param minute: Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#minute NetappVolume#minute}
+        :param snapshots_to_keep: The maximum number of snapshots to keep for the monthly schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
+        :param days_of_month: Set the day or days of the month to make a snapshot (1-31). Accepts a comma separated number of days. Defaults to '1'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#days_of_month NetappVolume#days_of_month}
+        :param hour: Set the hour to create the snapshot (0-23), defaults to midnight (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#hour NetappVolume#hour}
+        :param minute: Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#minute NetappVolume#minute}
         '''
         value = NetappVolumeSnapshotPolicyMonthlySchedule(
             snapshots_to_keep=snapshots_to_keep,
@@ -3386,10 +3386,10 @@ class NetappVolumeSnapshotPolicyOutputReference(
         minute: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param snapshots_to_keep: The maximum number of snapshots to keep for the weekly schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
-        :param day: Set the day or days of the week to make a snapshot. Accepts a comma separated days of the week. Defaults to 'Sunday'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#day NetappVolume#day}
-        :param hour: Set the hour to create the snapshot (0-23), defaults to midnight (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#hour NetappVolume#hour}
-        :param minute: Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#minute NetappVolume#minute}
+        :param snapshots_to_keep: The maximum number of snapshots to keep for the weekly schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
+        :param day: Set the day or days of the week to make a snapshot. Accepts a comma separated days of the week. Defaults to 'Sunday'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#day NetappVolume#day}
+        :param hour: Set the hour to create the snapshot (0-23), defaults to midnight (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#hour NetappVolume#hour}
+        :param minute: Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#minute NetappVolume#minute}
         '''
         value = NetappVolumeSnapshotPolicyWeeklySchedule(
             snapshots_to_keep=snapshots_to_keep, day=day, hour=hour, minute=minute
@@ -3529,10 +3529,10 @@ class NetappVolumeSnapshotPolicyWeeklySchedule:
         minute: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param snapshots_to_keep: The maximum number of snapshots to keep for the weekly schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
-        :param day: Set the day or days of the week to make a snapshot. Accepts a comma separated days of the week. Defaults to 'Sunday'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#day NetappVolume#day}
-        :param hour: Set the hour to create the snapshot (0-23), defaults to midnight (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#hour NetappVolume#hour}
-        :param minute: Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#minute NetappVolume#minute}
+        :param snapshots_to_keep: The maximum number of snapshots to keep for the weekly schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
+        :param day: Set the day or days of the week to make a snapshot. Accepts a comma separated days of the week. Defaults to 'Sunday'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#day NetappVolume#day}
+        :param hour: Set the hour to create the snapshot (0-23), defaults to midnight (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#hour NetappVolume#hour}
+        :param minute: Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#minute NetappVolume#minute}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2931361a4dde5f9ea8d38e75d7b86891cb8c03a5b19d0d5edf483a40455b37b0)
@@ -3554,7 +3554,7 @@ class NetappVolumeSnapshotPolicyWeeklySchedule:
     def snapshots_to_keep(self) -> jsii.Number:
         '''The maximum number of snapshots to keep for the weekly schedule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#snapshots_to_keep NetappVolume#snapshots_to_keep}
         '''
         result = self._values.get("snapshots_to_keep")
         assert result is not None, "Required property 'snapshots_to_keep' is missing"
@@ -3566,7 +3566,7 @@ class NetappVolumeSnapshotPolicyWeeklySchedule:
 
         Accepts a comma separated days of the week. Defaults to 'Sunday'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#day NetappVolume#day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#day NetappVolume#day}
         '''
         result = self._values.get("day")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3575,7 +3575,7 @@ class NetappVolumeSnapshotPolicyWeeklySchedule:
     def hour(self) -> typing.Optional[jsii.Number]:
         '''Set the hour to create the snapshot (0-23), defaults to midnight (0).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#hour NetappVolume#hour}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#hour NetappVolume#hour}
         '''
         result = self._values.get("hour")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3584,7 +3584,7 @@ class NetappVolumeSnapshotPolicyWeeklySchedule:
     def minute(self) -> typing.Optional[jsii.Number]:
         '''Set the minute of the hour to create the snapshot (0-59), defaults to the top of the hour (0).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#minute NetappVolume#minute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#minute NetappVolume#minute}
         '''
         result = self._values.get("minute")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3735,8 +3735,8 @@ class NetappVolumeTieringPolicy:
         tier_action: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cooling_threshold_days: Optional. Time in days to mark the volume's data block as cold and make it eligible for tiering, can be range from 2-183. Default is 31. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#cooling_threshold_days NetappVolume#cooling_threshold_days}
-        :param tier_action: Optional. Flag indicating if the volume has tiering policy enable/pause. Default is PAUSED. Default value: "PAUSED" Possible values: ["ENABLED", "PAUSED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#tier_action NetappVolume#tier_action}
+        :param cooling_threshold_days: Optional. Time in days to mark the volume's data block as cold and make it eligible for tiering, can be range from 2-183. Default is 31. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#cooling_threshold_days NetappVolume#cooling_threshold_days}
+        :param tier_action: Optional. Flag indicating if the volume has tiering policy enable/pause. Default is PAUSED. Default value: "PAUSED" Possible values: ["ENABLED", "PAUSED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#tier_action NetappVolume#tier_action}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__509c53214293776f39dd4ba23dfbb6edd4c3535d8375bd67c8632a69e812335f)
@@ -3755,7 +3755,7 @@ class NetappVolumeTieringPolicy:
         Time in days to mark the volume's data block as cold and make it eligible for tiering, can be range from 2-183.
         Default is 31.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#cooling_threshold_days NetappVolume#cooling_threshold_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#cooling_threshold_days NetappVolume#cooling_threshold_days}
         '''
         result = self._values.get("cooling_threshold_days")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3766,7 +3766,7 @@ class NetappVolumeTieringPolicy:
 
         Flag indicating if the volume has tiering policy enable/pause. Default is PAUSED. Default value: "PAUSED" Possible values: ["ENABLED", "PAUSED"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#tier_action NetappVolume#tier_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#tier_action NetappVolume#tier_action}
         '''
         result = self._values.get("tier_action")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3872,9 +3872,9 @@ class NetappVolumeTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#create NetappVolume#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#delete NetappVolume#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#update NetappVolume#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#create NetappVolume#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#delete NetappVolume#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#update NetappVolume#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c14f6cc296b4e9597387ed2a40bd4972ab11f5b1c6b3875c378e78501efb527)
@@ -3891,19 +3891,19 @@ class NetappVolumeTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#create NetappVolume#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#create NetappVolume#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#delete NetappVolume#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#delete NetappVolume#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_volume#update NetappVolume#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_volume#update NetappVolume#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

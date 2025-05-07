@@ -1,7 +1,7 @@
 r'''
 # `google_memorystore_instance`
 
-Refer to the Terraform Registry for docs: [`google_memorystore_instance`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance).
+Refer to the Terraform Registry for docs: [`google_memorystore_instance`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MemorystoreInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.memorystoreInstance.MemorystoreInstance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance google_memorystore_instance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance google_memorystore_instance}.'''
 
     def __init__(
         self,
@@ -82,33 +82,33 @@ class MemorystoreInstance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance google_memorystore_instance} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance google_memorystore_instance} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_id: Required. The ID to use for the instance, which will become the final component of the instance's resource name. This value is subject to the following restrictions: - Must be 4-63 characters in length - Must begin with a letter or digit - Must contain only lowercase letters, digits, and hyphens - Must not end with a hyphen - Must be unique within a location Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#instance_id MemorystoreInstance#instance_id}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. See documentation for resource type 'memorystore.googleapis.com/CertificateAuthority'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#location MemorystoreInstance#location}
-        :param shard_count: Required. Number of shards for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#shard_count MemorystoreInstance#shard_count}
-        :param authorization_mode: Optional. Immutable. Authorization mode of the instance. Possible values: AUTH_DISABLED IAM_AUTH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#authorization_mode MemorystoreInstance#authorization_mode}
-        :param automated_backup_config: automated_backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#automated_backup_config MemorystoreInstance#automated_backup_config}
-        :param cross_instance_replication_config: cross_instance_replication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#cross_instance_replication_config MemorystoreInstance#cross_instance_replication_config}
-        :param deletion_protection_enabled: Optional. If set to true deletion of the instance will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#deletion_protection_enabled MemorystoreInstance#deletion_protection_enabled}
-        :param desired_psc_auto_connections: desired_psc_auto_connections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#desired_psc_auto_connections MemorystoreInstance#desired_psc_auto_connections}
-        :param engine_configs: Optional. User-provided engine configurations for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#engine_configs MemorystoreInstance#engine_configs}
-        :param engine_version: Optional. Engine version of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#engine_version MemorystoreInstance#engine_version}
-        :param gcs_source: gcs_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#gcs_source MemorystoreInstance#gcs_source}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#id MemorystoreInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Optional. Labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#labels MemorystoreInstance#labels}
-        :param maintenance_policy: maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#maintenance_policy MemorystoreInstance#maintenance_policy}
-        :param managed_backup_source: managed_backup_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#managed_backup_source MemorystoreInstance#managed_backup_source}
-        :param mode: Optional. cluster or cluster-disabled. Possible values: CLUSTER CLUSTER_DISABLED Possible values: ["CLUSTER", "CLUSTER_DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#mode MemorystoreInstance#mode}
-        :param node_type: Optional. Machine type for individual nodes of the instance. Possible values: SHARED_CORE_NANO HIGHMEM_MEDIUM HIGHMEM_XLARGE STANDARD_SMALL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#node_type MemorystoreInstance#node_type}
-        :param persistence_config: persistence_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#persistence_config MemorystoreInstance#persistence_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#project MemorystoreInstance#project}.
-        :param replica_count: Optional. Number of replica nodes per shard. If omitted the default is 0 replicas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#replica_count MemorystoreInstance#replica_count}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#timeouts MemorystoreInstance#timeouts}
-        :param transit_encryption_mode: Optional. Immutable. In-transit encryption mode of the instance. Possible values: TRANSIT_ENCRYPTION_DISABLED SERVER_AUTHENTICATION. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#transit_encryption_mode MemorystoreInstance#transit_encryption_mode}
-        :param zone_distribution_config: zone_distribution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#zone_distribution_config MemorystoreInstance#zone_distribution_config}
+        :param instance_id: Required. The ID to use for the instance, which will become the final component of the instance's resource name. This value is subject to the following restrictions: - Must be 4-63 characters in length - Must begin with a letter or digit - Must contain only lowercase letters, digits, and hyphens - Must not end with a hyphen - Must be unique within a location Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#instance_id MemorystoreInstance#instance_id}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. See documentation for resource type 'memorystore.googleapis.com/CertificateAuthority'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#location MemorystoreInstance#location}
+        :param shard_count: Required. Number of shards for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#shard_count MemorystoreInstance#shard_count}
+        :param authorization_mode: Optional. Immutable. Authorization mode of the instance. Possible values: AUTH_DISABLED IAM_AUTH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#authorization_mode MemorystoreInstance#authorization_mode}
+        :param automated_backup_config: automated_backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#automated_backup_config MemorystoreInstance#automated_backup_config}
+        :param cross_instance_replication_config: cross_instance_replication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#cross_instance_replication_config MemorystoreInstance#cross_instance_replication_config}
+        :param deletion_protection_enabled: Optional. If set to true deletion of the instance will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#deletion_protection_enabled MemorystoreInstance#deletion_protection_enabled}
+        :param desired_psc_auto_connections: desired_psc_auto_connections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#desired_psc_auto_connections MemorystoreInstance#desired_psc_auto_connections}
+        :param engine_configs: Optional. User-provided engine configurations for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#engine_configs MemorystoreInstance#engine_configs}
+        :param engine_version: Optional. Engine version of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#engine_version MemorystoreInstance#engine_version}
+        :param gcs_source: gcs_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#gcs_source MemorystoreInstance#gcs_source}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#id MemorystoreInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Optional. Labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#labels MemorystoreInstance#labels}
+        :param maintenance_policy: maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#maintenance_policy MemorystoreInstance#maintenance_policy}
+        :param managed_backup_source: managed_backup_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#managed_backup_source MemorystoreInstance#managed_backup_source}
+        :param mode: Optional. cluster or cluster-disabled. Possible values: CLUSTER CLUSTER_DISABLED Possible values: ["CLUSTER", "CLUSTER_DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#mode MemorystoreInstance#mode}
+        :param node_type: Optional. Machine type for individual nodes of the instance. Possible values: SHARED_CORE_NANO HIGHMEM_MEDIUM HIGHMEM_XLARGE STANDARD_SMALL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#node_type MemorystoreInstance#node_type}
+        :param persistence_config: persistence_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#persistence_config MemorystoreInstance#persistence_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#project MemorystoreInstance#project}.
+        :param replica_count: Optional. Number of replica nodes per shard. If omitted the default is 0 replicas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#replica_count MemorystoreInstance#replica_count}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#timeouts MemorystoreInstance#timeouts}
+        :param transit_encryption_mode: Optional. Immutable. In-transit encryption mode of the instance. Possible values: TRANSIT_ENCRYPTION_DISABLED SERVER_AUTHENTICATION. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#transit_encryption_mode MemorystoreInstance#transit_encryption_mode}
+        :param zone_distribution_config: zone_distribution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#zone_distribution_config MemorystoreInstance#zone_distribution_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -169,7 +169,7 @@ class MemorystoreInstance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MemorystoreInstance to import.
-        :param import_from_id: The id of the existing MemorystoreInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MemorystoreInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MemorystoreInstance to import is found.
         '''
         if __debug__:
@@ -188,8 +188,8 @@ class MemorystoreInstance(
         retention: builtins.str,
     ) -> None:
         '''
-        :param fixed_frequency_schedule: fixed_frequency_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#fixed_frequency_schedule MemorystoreInstance#fixed_frequency_schedule}
-        :param retention: How long to keep automated backups before the backups are deleted. The value should be between 1 day and 365 days. If not specified, the default value is 35 days. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". The default_value is "3024000s" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#retention MemorystoreInstance#retention}
+        :param fixed_frequency_schedule: fixed_frequency_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#fixed_frequency_schedule MemorystoreInstance#fixed_frequency_schedule}
+        :param retention: How long to keep automated backups before the backups are deleted. The value should be between 1 day and 365 days. If not specified, the default value is 35 days. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". The default_value is "3024000s" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#retention MemorystoreInstance#retention}
         '''
         value = MemorystoreInstanceAutomatedBackupConfig(
             fixed_frequency_schedule=fixed_frequency_schedule, retention=retention
@@ -206,9 +206,9 @@ class MemorystoreInstance(
         secondary_instances: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MemorystoreInstanceCrossInstanceReplicationConfigSecondaryInstances", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param instance_role: The instance role supports the following values: 1. 'INSTANCE_ROLE_UNSPECIFIED': This is an independent instance that has never participated in cross instance replication. It allows both reads and writes. 2. 'NONE': This is an independent instance that previously participated in cross instance replication(either as a 'PRIMARY' or 'SECONDARY' cluster). It allows both reads and writes. 3. 'PRIMARY': This instance serves as the replication source for secondary instance that are replicating from it. Any data written to it is automatically replicated to its secondary clusters. It allows both reads and writes. 4. 'SECONDARY': This instance replicates data from the primary instance. It allows only reads. Possible values: ["INSTANCE_ROLE_UNSPECIFIED", "NONE", "PRIMARY", "SECONDARY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#instance_role MemorystoreInstance#instance_role}
-        :param primary_instance: primary_instance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#primary_instance MemorystoreInstance#primary_instance}
-        :param secondary_instances: secondary_instances block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#secondary_instances MemorystoreInstance#secondary_instances}
+        :param instance_role: The instance role supports the following values: 1. 'INSTANCE_ROLE_UNSPECIFIED': This is an independent instance that has never participated in cross instance replication. It allows both reads and writes. 2. 'NONE': This is an independent instance that previously participated in cross instance replication(either as a 'PRIMARY' or 'SECONDARY' cluster). It allows both reads and writes. 3. 'PRIMARY': This instance serves as the replication source for secondary instance that are replicating from it. Any data written to it is automatically replicated to its secondary clusters. It allows both reads and writes. 4. 'SECONDARY': This instance replicates data from the primary instance. It allows only reads. Possible values: ["INSTANCE_ROLE_UNSPECIFIED", "NONE", "PRIMARY", "SECONDARY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#instance_role MemorystoreInstance#instance_role}
+        :param primary_instance: primary_instance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#primary_instance MemorystoreInstance#primary_instance}
+        :param secondary_instances: secondary_instances block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#secondary_instances MemorystoreInstance#secondary_instances}
         '''
         value = MemorystoreInstanceCrossInstanceReplicationConfig(
             instance_role=instance_role,
@@ -234,7 +234,7 @@ class MemorystoreInstance(
     @jsii.member(jsii_name="putGcsSource")
     def put_gcs_source(self, *, uris: typing.Sequence[builtins.str]) -> None:
         '''
-        :param uris: URIs of the GCS objects to import. Example: gs://bucket1/object1, gs//bucket2/folder2/object2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#uris MemorystoreInstance#uris}
+        :param uris: URIs of the GCS objects to import. Example: gs://bucket1/object1, gs//bucket2/folder2/object2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#uris MemorystoreInstance#uris}
         '''
         value = MemorystoreInstanceGcsSource(uris=uris)
 
@@ -247,7 +247,7 @@ class MemorystoreInstance(
         weekly_maintenance_window: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindow", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param weekly_maintenance_window: weekly_maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#weekly_maintenance_window MemorystoreInstance#weekly_maintenance_window}
+        :param weekly_maintenance_window: weekly_maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#weekly_maintenance_window MemorystoreInstance#weekly_maintenance_window}
         '''
         value = MemorystoreInstanceMaintenancePolicy(
             weekly_maintenance_window=weekly_maintenance_window
@@ -258,7 +258,7 @@ class MemorystoreInstance(
     @jsii.member(jsii_name="putManagedBackupSource")
     def put_managed_backup_source(self, *, backup: builtins.str) -> None:
         '''
-        :param backup: Example: //memorystore.googleapis.com/projects/{project}/locations/{location}/backups/{backupId}. In this case, it assumes the backup is under memorystore.googleapis.com. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#backup MemorystoreInstance#backup}
+        :param backup: Example: //memorystore.googleapis.com/projects/{project}/locations/{location}/backups/{backupId}. In this case, it assumes the backup is under memorystore.googleapis.com. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#backup MemorystoreInstance#backup}
         '''
         value = MemorystoreInstanceManagedBackupSource(backup=backup)
 
@@ -273,9 +273,9 @@ class MemorystoreInstance(
         rdb_config: typing.Optional[typing.Union["MemorystoreInstancePersistenceConfigRdbConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param aof_config: aof_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#aof_config MemorystoreInstance#aof_config}
-        :param mode: Optional. Current persistence mode. Possible values: DISABLED RDB AOF Possible values: ["DISABLED", "RDB", "AOF"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#mode MemorystoreInstance#mode}
-        :param rdb_config: rdb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#rdb_config MemorystoreInstance#rdb_config}
+        :param aof_config: aof_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#aof_config MemorystoreInstance#aof_config}
+        :param mode: Optional. Current persistence mode. Possible values: DISABLED RDB AOF Possible values: ["DISABLED", "RDB", "AOF"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#mode MemorystoreInstance#mode}
+        :param rdb_config: rdb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#rdb_config MemorystoreInstance#rdb_config}
         '''
         value = MemorystoreInstancePersistenceConfig(
             aof_config=aof_config, mode=mode, rdb_config=rdb_config
@@ -292,9 +292,9 @@ class MemorystoreInstance(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#create MemorystoreInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#delete MemorystoreInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#update MemorystoreInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#create MemorystoreInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#delete MemorystoreInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#update MemorystoreInstance#update}.
         '''
         value = MemorystoreInstanceTimeouts(
             create=create, delete=delete, update=update
@@ -310,8 +310,8 @@ class MemorystoreInstance(
         zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param mode: Optional. Current zone distribution mode. Defaults to MULTI_ZONE. Possible values: MULTI_ZONE SINGLE_ZONE Possible values: ["MULTI_ZONE", "SINGLE_ZONE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#mode MemorystoreInstance#mode}
-        :param zone: Optional. Defines zone where all resources will be allocated with SINGLE_ZONE mode. Ignored for MULTI_ZONE mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#zone MemorystoreInstance#zone}
+        :param mode: Optional. Current zone distribution mode. Defaults to MULTI_ZONE. Possible values: MULTI_ZONE SINGLE_ZONE Possible values: ["MULTI_ZONE", "SINGLE_ZONE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#mode MemorystoreInstance#mode}
+        :param zone: Optional. Defines zone where all resources will be allocated with SINGLE_ZONE mode. Ignored for MULTI_ZONE mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#zone MemorystoreInstance#zone}
         '''
         value = MemorystoreInstanceZoneDistributionConfig(mode=mode, zone=zone)
 
@@ -871,8 +871,8 @@ class MemorystoreInstanceAutomatedBackupConfig:
         retention: builtins.str,
     ) -> None:
         '''
-        :param fixed_frequency_schedule: fixed_frequency_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#fixed_frequency_schedule MemorystoreInstance#fixed_frequency_schedule}
-        :param retention: How long to keep automated backups before the backups are deleted. The value should be between 1 day and 365 days. If not specified, the default value is 35 days. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". The default_value is "3024000s" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#retention MemorystoreInstance#retention}
+        :param fixed_frequency_schedule: fixed_frequency_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#fixed_frequency_schedule MemorystoreInstance#fixed_frequency_schedule}
+        :param retention: How long to keep automated backups before the backups are deleted. The value should be between 1 day and 365 days. If not specified, the default value is 35 days. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". The default_value is "3024000s" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#retention MemorystoreInstance#retention}
         '''
         if isinstance(fixed_frequency_schedule, dict):
             fixed_frequency_schedule = MemorystoreInstanceAutomatedBackupConfigFixedFrequencySchedule(**fixed_frequency_schedule)
@@ -891,7 +891,7 @@ class MemorystoreInstanceAutomatedBackupConfig:
     ) -> "MemorystoreInstanceAutomatedBackupConfigFixedFrequencySchedule":
         '''fixed_frequency_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#fixed_frequency_schedule MemorystoreInstance#fixed_frequency_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#fixed_frequency_schedule MemorystoreInstance#fixed_frequency_schedule}
         '''
         result = self._values.get("fixed_frequency_schedule")
         assert result is not None, "Required property 'fixed_frequency_schedule' is missing"
@@ -904,7 +904,7 @@ class MemorystoreInstanceAutomatedBackupConfig:
         The value should be between 1 day and 365 days. If not specified, the default value is 35 days.
         A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". The default_value is "3024000s"
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#retention MemorystoreInstance#retention}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#retention MemorystoreInstance#retention}
         '''
         result = self._values.get("retention")
         assert result is not None, "Required property 'retention' is missing"
@@ -934,7 +934,7 @@ class MemorystoreInstanceAutomatedBackupConfigFixedFrequencySchedule:
         start_time: typing.Union["MemorystoreInstanceAutomatedBackupConfigFixedFrequencyScheduleStartTime", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#start_time MemorystoreInstance#start_time}
+        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#start_time MemorystoreInstance#start_time}
         '''
         if isinstance(start_time, dict):
             start_time = MemorystoreInstanceAutomatedBackupConfigFixedFrequencyScheduleStartTime(**start_time)
@@ -951,7 +951,7 @@ class MemorystoreInstanceAutomatedBackupConfigFixedFrequencySchedule:
     ) -> "MemorystoreInstanceAutomatedBackupConfigFixedFrequencyScheduleStartTime":
         '''start_time block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#start_time MemorystoreInstance#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#start_time MemorystoreInstance#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -992,7 +992,7 @@ class MemorystoreInstanceAutomatedBackupConfigFixedFrequencyScheduleOutputRefere
     @jsii.member(jsii_name="putStartTime")
     def put_start_time(self, *, hours: jsii.Number) -> None:
         '''
-        :param hours: Hours of a day in 24 hour format. Must be greater than or equal to 0 and typically must be less than or equal to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#hours MemorystoreInstance#hours}
+        :param hours: Hours of a day in 24 hour format. Must be greater than or equal to 0 and typically must be less than or equal to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#hours MemorystoreInstance#hours}
         '''
         value = MemorystoreInstanceAutomatedBackupConfigFixedFrequencyScheduleStartTime(
             hours=hours
@@ -1040,7 +1040,7 @@ class MemorystoreInstanceAutomatedBackupConfigFixedFrequencyScheduleOutputRefere
 class MemorystoreInstanceAutomatedBackupConfigFixedFrequencyScheduleStartTime:
     def __init__(self, *, hours: jsii.Number) -> None:
         '''
-        :param hours: Hours of a day in 24 hour format. Must be greater than or equal to 0 and typically must be less than or equal to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#hours MemorystoreInstance#hours}
+        :param hours: Hours of a day in 24 hour format. Must be greater than or equal to 0 and typically must be less than or equal to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#hours MemorystoreInstance#hours}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0913ec7042d3b4fb773d953757b7e761434f3f64757abe856f5e2669b93ed07f)
@@ -1056,7 +1056,7 @@ class MemorystoreInstanceAutomatedBackupConfigFixedFrequencyScheduleStartTime:
         Must be greater than or equal to 0 and typically must be less than or equal to 23.
         An API may choose to allow the value "24:00:00" for scenarios like business closing time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#hours MemorystoreInstance#hours}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#hours MemorystoreInstance#hours}
         '''
         result = self._values.get("hours")
         assert result is not None, "Required property 'hours' is missing"
@@ -1156,7 +1156,7 @@ class MemorystoreInstanceAutomatedBackupConfigOutputReference(
         start_time: typing.Union[MemorystoreInstanceAutomatedBackupConfigFixedFrequencyScheduleStartTime, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#start_time MemorystoreInstance#start_time}
+        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#start_time MemorystoreInstance#start_time}
         '''
         value = MemorystoreInstanceAutomatedBackupConfigFixedFrequencySchedule(
             start_time=start_time
@@ -1292,29 +1292,29 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_id: Required. The ID to use for the instance, which will become the final component of the instance's resource name. This value is subject to the following restrictions: - Must be 4-63 characters in length - Must begin with a letter or digit - Must contain only lowercase letters, digits, and hyphens - Must not end with a hyphen - Must be unique within a location Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#instance_id MemorystoreInstance#instance_id}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. See documentation for resource type 'memorystore.googleapis.com/CertificateAuthority'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#location MemorystoreInstance#location}
-        :param shard_count: Required. Number of shards for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#shard_count MemorystoreInstance#shard_count}
-        :param authorization_mode: Optional. Immutable. Authorization mode of the instance. Possible values: AUTH_DISABLED IAM_AUTH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#authorization_mode MemorystoreInstance#authorization_mode}
-        :param automated_backup_config: automated_backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#automated_backup_config MemorystoreInstance#automated_backup_config}
-        :param cross_instance_replication_config: cross_instance_replication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#cross_instance_replication_config MemorystoreInstance#cross_instance_replication_config}
-        :param deletion_protection_enabled: Optional. If set to true deletion of the instance will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#deletion_protection_enabled MemorystoreInstance#deletion_protection_enabled}
-        :param desired_psc_auto_connections: desired_psc_auto_connections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#desired_psc_auto_connections MemorystoreInstance#desired_psc_auto_connections}
-        :param engine_configs: Optional. User-provided engine configurations for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#engine_configs MemorystoreInstance#engine_configs}
-        :param engine_version: Optional. Engine version of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#engine_version MemorystoreInstance#engine_version}
-        :param gcs_source: gcs_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#gcs_source MemorystoreInstance#gcs_source}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#id MemorystoreInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Optional. Labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#labels MemorystoreInstance#labels}
-        :param maintenance_policy: maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#maintenance_policy MemorystoreInstance#maintenance_policy}
-        :param managed_backup_source: managed_backup_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#managed_backup_source MemorystoreInstance#managed_backup_source}
-        :param mode: Optional. cluster or cluster-disabled. Possible values: CLUSTER CLUSTER_DISABLED Possible values: ["CLUSTER", "CLUSTER_DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#mode MemorystoreInstance#mode}
-        :param node_type: Optional. Machine type for individual nodes of the instance. Possible values: SHARED_CORE_NANO HIGHMEM_MEDIUM HIGHMEM_XLARGE STANDARD_SMALL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#node_type MemorystoreInstance#node_type}
-        :param persistence_config: persistence_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#persistence_config MemorystoreInstance#persistence_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#project MemorystoreInstance#project}.
-        :param replica_count: Optional. Number of replica nodes per shard. If omitted the default is 0 replicas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#replica_count MemorystoreInstance#replica_count}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#timeouts MemorystoreInstance#timeouts}
-        :param transit_encryption_mode: Optional. Immutable. In-transit encryption mode of the instance. Possible values: TRANSIT_ENCRYPTION_DISABLED SERVER_AUTHENTICATION. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#transit_encryption_mode MemorystoreInstance#transit_encryption_mode}
-        :param zone_distribution_config: zone_distribution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#zone_distribution_config MemorystoreInstance#zone_distribution_config}
+        :param instance_id: Required. The ID to use for the instance, which will become the final component of the instance's resource name. This value is subject to the following restrictions: - Must be 4-63 characters in length - Must begin with a letter or digit - Must contain only lowercase letters, digits, and hyphens - Must not end with a hyphen - Must be unique within a location Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#instance_id MemorystoreInstance#instance_id}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. See documentation for resource type 'memorystore.googleapis.com/CertificateAuthority'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#location MemorystoreInstance#location}
+        :param shard_count: Required. Number of shards for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#shard_count MemorystoreInstance#shard_count}
+        :param authorization_mode: Optional. Immutable. Authorization mode of the instance. Possible values: AUTH_DISABLED IAM_AUTH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#authorization_mode MemorystoreInstance#authorization_mode}
+        :param automated_backup_config: automated_backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#automated_backup_config MemorystoreInstance#automated_backup_config}
+        :param cross_instance_replication_config: cross_instance_replication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#cross_instance_replication_config MemorystoreInstance#cross_instance_replication_config}
+        :param deletion_protection_enabled: Optional. If set to true deletion of the instance will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#deletion_protection_enabled MemorystoreInstance#deletion_protection_enabled}
+        :param desired_psc_auto_connections: desired_psc_auto_connections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#desired_psc_auto_connections MemorystoreInstance#desired_psc_auto_connections}
+        :param engine_configs: Optional. User-provided engine configurations for the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#engine_configs MemorystoreInstance#engine_configs}
+        :param engine_version: Optional. Engine version of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#engine_version MemorystoreInstance#engine_version}
+        :param gcs_source: gcs_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#gcs_source MemorystoreInstance#gcs_source}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#id MemorystoreInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Optional. Labels to represent user-provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#labels MemorystoreInstance#labels}
+        :param maintenance_policy: maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#maintenance_policy MemorystoreInstance#maintenance_policy}
+        :param managed_backup_source: managed_backup_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#managed_backup_source MemorystoreInstance#managed_backup_source}
+        :param mode: Optional. cluster or cluster-disabled. Possible values: CLUSTER CLUSTER_DISABLED Possible values: ["CLUSTER", "CLUSTER_DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#mode MemorystoreInstance#mode}
+        :param node_type: Optional. Machine type for individual nodes of the instance. Possible values: SHARED_CORE_NANO HIGHMEM_MEDIUM HIGHMEM_XLARGE STANDARD_SMALL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#node_type MemorystoreInstance#node_type}
+        :param persistence_config: persistence_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#persistence_config MemorystoreInstance#persistence_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#project MemorystoreInstance#project}.
+        :param replica_count: Optional. Number of replica nodes per shard. If omitted the default is 0 replicas. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#replica_count MemorystoreInstance#replica_count}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#timeouts MemorystoreInstance#timeouts}
+        :param transit_encryption_mode: Optional. Immutable. In-transit encryption mode of the instance. Possible values: TRANSIT_ENCRYPTION_DISABLED SERVER_AUTHENTICATION. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#transit_encryption_mode MemorystoreInstance#transit_encryption_mode}
+        :param zone_distribution_config: zone_distribution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#zone_distribution_config MemorystoreInstance#zone_distribution_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1502,7 +1502,7 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - Must not end with a hyphen
         - Must be unique within a location
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#instance_id MemorystoreInstance#instance_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#instance_id MemorystoreInstance#instance_id}
         '''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
@@ -1514,7 +1514,7 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         It identifies the resource within its parent collection as described in https://google.aip.dev/122. See documentation for resource type 'memorystore.googleapis.com/CertificateAuthority'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#location MemorystoreInstance#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#location MemorystoreInstance#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1524,7 +1524,7 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def shard_count(self) -> jsii.Number:
         '''Required. Number of shards for the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#shard_count MemorystoreInstance#shard_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#shard_count MemorystoreInstance#shard_count}
         '''
         result = self._values.get("shard_count")
         assert result is not None, "Required property 'shard_count' is missing"
@@ -1534,7 +1534,7 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def authorization_mode(self) -> typing.Optional[builtins.str]:
         '''Optional. Immutable. Authorization mode of the instance. Possible values:  AUTH_DISABLED IAM_AUTH.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#authorization_mode MemorystoreInstance#authorization_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#authorization_mode MemorystoreInstance#authorization_mode}
         '''
         result = self._values.get("authorization_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1545,7 +1545,7 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[MemorystoreInstanceAutomatedBackupConfig]:
         '''automated_backup_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#automated_backup_config MemorystoreInstance#automated_backup_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#automated_backup_config MemorystoreInstance#automated_backup_config}
         '''
         result = self._values.get("automated_backup_config")
         return typing.cast(typing.Optional[MemorystoreInstanceAutomatedBackupConfig], result)
@@ -1556,7 +1556,7 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["MemorystoreInstanceCrossInstanceReplicationConfig"]:
         '''cross_instance_replication_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#cross_instance_replication_config MemorystoreInstance#cross_instance_replication_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#cross_instance_replication_config MemorystoreInstance#cross_instance_replication_config}
         '''
         result = self._values.get("cross_instance_replication_config")
         return typing.cast(typing.Optional["MemorystoreInstanceCrossInstanceReplicationConfig"], result)
@@ -1567,7 +1567,7 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Optional. If set to true deletion of the instance will fail.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#deletion_protection_enabled MemorystoreInstance#deletion_protection_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#deletion_protection_enabled MemorystoreInstance#deletion_protection_enabled}
         '''
         result = self._values.get("deletion_protection_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1578,7 +1578,7 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MemorystoreInstanceDesiredPscAutoConnections"]]]:
         '''desired_psc_auto_connections block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#desired_psc_auto_connections MemorystoreInstance#desired_psc_auto_connections}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#desired_psc_auto_connections MemorystoreInstance#desired_psc_auto_connections}
         '''
         result = self._values.get("desired_psc_auto_connections")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MemorystoreInstanceDesiredPscAutoConnections"]]], result)
@@ -1589,7 +1589,7 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Optional. User-provided engine configurations for the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#engine_configs MemorystoreInstance#engine_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#engine_configs MemorystoreInstance#engine_configs}
         '''
         result = self._values.get("engine_configs")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1598,7 +1598,7 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def engine_version(self) -> typing.Optional[builtins.str]:
         '''Optional. Engine version of the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#engine_version MemorystoreInstance#engine_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#engine_version MemorystoreInstance#engine_version}
         '''
         result = self._values.get("engine_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1607,14 +1607,14 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def gcs_source(self) -> typing.Optional["MemorystoreInstanceGcsSource"]:
         '''gcs_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#gcs_source MemorystoreInstance#gcs_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#gcs_source MemorystoreInstance#gcs_source}
         '''
         result = self._values.get("gcs_source")
         return typing.cast(typing.Optional["MemorystoreInstanceGcsSource"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#id MemorystoreInstance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#id MemorystoreInstance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1629,7 +1629,7 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#labels MemorystoreInstance#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#labels MemorystoreInstance#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1640,7 +1640,7 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["MemorystoreInstanceMaintenancePolicy"]:
         '''maintenance_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#maintenance_policy MemorystoreInstance#maintenance_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#maintenance_policy MemorystoreInstance#maintenance_policy}
         '''
         result = self._values.get("maintenance_policy")
         return typing.cast(typing.Optional["MemorystoreInstanceMaintenancePolicy"], result)
@@ -1651,7 +1651,7 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["MemorystoreInstanceManagedBackupSource"]:
         '''managed_backup_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#managed_backup_source MemorystoreInstance#managed_backup_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#managed_backup_source MemorystoreInstance#managed_backup_source}
         '''
         result = self._values.get("managed_backup_source")
         return typing.cast(typing.Optional["MemorystoreInstanceManagedBackupSource"], result)
@@ -1660,7 +1660,7 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def mode(self) -> typing.Optional[builtins.str]:
         '''Optional. cluster or cluster-disabled.   Possible values:  CLUSTER  CLUSTER_DISABLED Possible values: ["CLUSTER", "CLUSTER_DISABLED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#mode MemorystoreInstance#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#mode MemorystoreInstance#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1669,7 +1669,7 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def node_type(self) -> typing.Optional[builtins.str]:
         '''Optional. Machine type for individual nodes of the instance.   Possible values:  SHARED_CORE_NANO HIGHMEM_MEDIUM HIGHMEM_XLARGE STANDARD_SMALL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#node_type MemorystoreInstance#node_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#node_type MemorystoreInstance#node_type}
         '''
         result = self._values.get("node_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1680,14 +1680,14 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["MemorystoreInstancePersistenceConfig"]:
         '''persistence_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#persistence_config MemorystoreInstance#persistence_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#persistence_config MemorystoreInstance#persistence_config}
         '''
         result = self._values.get("persistence_config")
         return typing.cast(typing.Optional["MemorystoreInstancePersistenceConfig"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#project MemorystoreInstance#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#project MemorystoreInstance#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1695,7 +1695,7 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def replica_count(self) -> typing.Optional[jsii.Number]:
         '''Optional. Number of replica nodes per shard. If omitted the default is 0 replicas.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#replica_count MemorystoreInstance#replica_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#replica_count MemorystoreInstance#replica_count}
         '''
         result = self._values.get("replica_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1704,7 +1704,7 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MemorystoreInstanceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#timeouts MemorystoreInstance#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#timeouts MemorystoreInstance#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MemorystoreInstanceTimeouts"], result)
@@ -1713,7 +1713,7 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def transit_encryption_mode(self) -> typing.Optional[builtins.str]:
         '''Optional. Immutable. In-transit encryption mode of the instance.   Possible values:  TRANSIT_ENCRYPTION_DISABLED SERVER_AUTHENTICATION.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#transit_encryption_mode MemorystoreInstance#transit_encryption_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#transit_encryption_mode MemorystoreInstance#transit_encryption_mode}
         '''
         result = self._values.get("transit_encryption_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1724,7 +1724,7 @@ class MemorystoreInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["MemorystoreInstanceZoneDistributionConfig"]:
         '''zone_distribution_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#zone_distribution_config MemorystoreInstance#zone_distribution_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#zone_distribution_config MemorystoreInstance#zone_distribution_config}
         '''
         result = self._values.get("zone_distribution_config")
         return typing.cast(typing.Optional["MemorystoreInstanceZoneDistributionConfig"], result)
@@ -1759,9 +1759,9 @@ class MemorystoreInstanceCrossInstanceReplicationConfig:
         secondary_instances: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MemorystoreInstanceCrossInstanceReplicationConfigSecondaryInstances", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param instance_role: The instance role supports the following values: 1. 'INSTANCE_ROLE_UNSPECIFIED': This is an independent instance that has never participated in cross instance replication. It allows both reads and writes. 2. 'NONE': This is an independent instance that previously participated in cross instance replication(either as a 'PRIMARY' or 'SECONDARY' cluster). It allows both reads and writes. 3. 'PRIMARY': This instance serves as the replication source for secondary instance that are replicating from it. Any data written to it is automatically replicated to its secondary clusters. It allows both reads and writes. 4. 'SECONDARY': This instance replicates data from the primary instance. It allows only reads. Possible values: ["INSTANCE_ROLE_UNSPECIFIED", "NONE", "PRIMARY", "SECONDARY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#instance_role MemorystoreInstance#instance_role}
-        :param primary_instance: primary_instance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#primary_instance MemorystoreInstance#primary_instance}
-        :param secondary_instances: secondary_instances block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#secondary_instances MemorystoreInstance#secondary_instances}
+        :param instance_role: The instance role supports the following values: 1. 'INSTANCE_ROLE_UNSPECIFIED': This is an independent instance that has never participated in cross instance replication. It allows both reads and writes. 2. 'NONE': This is an independent instance that previously participated in cross instance replication(either as a 'PRIMARY' or 'SECONDARY' cluster). It allows both reads and writes. 3. 'PRIMARY': This instance serves as the replication source for secondary instance that are replicating from it. Any data written to it is automatically replicated to its secondary clusters. It allows both reads and writes. 4. 'SECONDARY': This instance replicates data from the primary instance. It allows only reads. Possible values: ["INSTANCE_ROLE_UNSPECIFIED", "NONE", "PRIMARY", "SECONDARY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#instance_role MemorystoreInstance#instance_role}
+        :param primary_instance: primary_instance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#primary_instance MemorystoreInstance#primary_instance}
+        :param secondary_instances: secondary_instances block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#secondary_instances MemorystoreInstance#secondary_instances}
         '''
         if isinstance(primary_instance, dict):
             primary_instance = MemorystoreInstanceCrossInstanceReplicationConfigPrimaryInstance(**primary_instance)
@@ -1787,7 +1787,7 @@ class MemorystoreInstanceCrossInstanceReplicationConfig:
         3. 'PRIMARY': This instance serves as the replication source for secondary instance that are replicating from it. Any data written to it is automatically replicated to its secondary clusters. It allows both reads and writes.
         4. 'SECONDARY': This instance replicates data from the primary instance. It allows only reads. Possible values: ["INSTANCE_ROLE_UNSPECIFIED", "NONE", "PRIMARY", "SECONDARY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#instance_role MemorystoreInstance#instance_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#instance_role MemorystoreInstance#instance_role}
         '''
         result = self._values.get("instance_role")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1798,7 +1798,7 @@ class MemorystoreInstanceCrossInstanceReplicationConfig:
     ) -> typing.Optional["MemorystoreInstanceCrossInstanceReplicationConfigPrimaryInstance"]:
         '''primary_instance block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#primary_instance MemorystoreInstance#primary_instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#primary_instance MemorystoreInstance#primary_instance}
         '''
         result = self._values.get("primary_instance")
         return typing.cast(typing.Optional["MemorystoreInstanceCrossInstanceReplicationConfigPrimaryInstance"], result)
@@ -1809,7 +1809,7 @@ class MemorystoreInstanceCrossInstanceReplicationConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MemorystoreInstanceCrossInstanceReplicationConfigSecondaryInstances"]]]:
         '''secondary_instances block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#secondary_instances MemorystoreInstance#secondary_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#secondary_instances MemorystoreInstance#secondary_instances}
         '''
         result = self._values.get("secondary_instances")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MemorystoreInstanceCrossInstanceReplicationConfigSecondaryInstances"]]], result)
@@ -2310,7 +2310,7 @@ class MemorystoreInstanceCrossInstanceReplicationConfigOutputReference(
         instance: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance: The full resource path of the primary instance in the format: projects/{project}/locations/{region}/instances/{instance-id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#instance MemorystoreInstance#instance}
+        :param instance: The full resource path of the primary instance in the format: projects/{project}/locations/{region}/instances/{instance-id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#instance MemorystoreInstance#instance}
         '''
         value = MemorystoreInstanceCrossInstanceReplicationConfigPrimaryInstance(
             instance=instance
@@ -2426,7 +2426,7 @@ class MemorystoreInstanceCrossInstanceReplicationConfigOutputReference(
 class MemorystoreInstanceCrossInstanceReplicationConfigPrimaryInstance:
     def __init__(self, *, instance: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param instance: The full resource path of the primary instance in the format: projects/{project}/locations/{region}/instances/{instance-id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#instance MemorystoreInstance#instance}
+        :param instance: The full resource path of the primary instance in the format: projects/{project}/locations/{region}/instances/{instance-id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#instance MemorystoreInstance#instance}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a1d377fae5c6a0c9762f727755ce9d211b5ee031c84af1a1f2ed7a1ccbf50141)
@@ -2439,7 +2439,7 @@ class MemorystoreInstanceCrossInstanceReplicationConfigPrimaryInstance:
     def instance(self) -> typing.Optional[builtins.str]:
         '''The full resource path of the primary instance in the format: projects/{project}/locations/{region}/instances/{instance-id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#instance MemorystoreInstance#instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#instance MemorystoreInstance#instance}
         '''
         result = self._values.get("instance")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2528,7 +2528,7 @@ class MemorystoreInstanceCrossInstanceReplicationConfigPrimaryInstanceOutputRefe
 class MemorystoreInstanceCrossInstanceReplicationConfigSecondaryInstances:
     def __init__(self, *, instance: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param instance: The full resource path of the Nth instance in the format: projects/{project}/locations/{region}/instance/{instance-id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#instance MemorystoreInstance#instance}
+        :param instance: The full resource path of the Nth instance in the format: projects/{project}/locations/{region}/instance/{instance-id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#instance MemorystoreInstance#instance}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4f3aa051a57d67b220e81216be639aa1510684b82c307425435389f1847e10c7)
@@ -2541,7 +2541,7 @@ class MemorystoreInstanceCrossInstanceReplicationConfigSecondaryInstances:
     def instance(self) -> typing.Optional[builtins.str]:
         '''The full resource path of the Nth instance in the format: projects/{project}/locations/{region}/instance/{instance-id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#instance MemorystoreInstance#instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#instance MemorystoreInstance#instance}
         '''
         result = self._values.get("instance")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2729,8 +2729,8 @@ class MemorystoreInstanceCrossInstanceReplicationConfigSecondaryInstancesOutputR
 class MemorystoreInstanceDesiredPscAutoConnections:
     def __init__(self, *, network: builtins.str, project_id: builtins.str) -> None:
         '''
-        :param network: Required. The consumer network where the IP address resides, in the form of projects/{project_id}/global/networks/{network_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#network MemorystoreInstance#network}
-        :param project_id: Required. The consumer project_id where the forwarding rule is created from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#project_id MemorystoreInstance#project_id}
+        :param network: Required. The consumer network where the IP address resides, in the form of projects/{project_id}/global/networks/{network_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#network MemorystoreInstance#network}
+        :param project_id: Required. The consumer project_id where the forwarding rule is created from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#project_id MemorystoreInstance#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__76db34ada6b358af4632b8cec3b794296d03488bdf8a6fb3ac955d2f5c08246e)
@@ -2745,7 +2745,7 @@ class MemorystoreInstanceDesiredPscAutoConnections:
     def network(self) -> builtins.str:
         '''Required. The consumer network where the IP address resides, in the form of projects/{project_id}/global/networks/{network_id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#network MemorystoreInstance#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#network MemorystoreInstance#network}
         '''
         result = self._values.get("network")
         assert result is not None, "Required property 'network' is missing"
@@ -2755,7 +2755,7 @@ class MemorystoreInstanceDesiredPscAutoConnections:
     def project_id(self) -> builtins.str:
         '''Required. The consumer project_id where the forwarding rule is created from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#project_id MemorystoreInstance#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#project_id MemorystoreInstance#project_id}
         '''
         result = self._values.get("project_id")
         assert result is not None, "Required property 'project_id' is missing"
@@ -3576,7 +3576,7 @@ class MemorystoreInstanceEndpointsOutputReference(
 class MemorystoreInstanceGcsSource:
     def __init__(self, *, uris: typing.Sequence[builtins.str]) -> None:
         '''
-        :param uris: URIs of the GCS objects to import. Example: gs://bucket1/object1, gs//bucket2/folder2/object2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#uris MemorystoreInstance#uris}
+        :param uris: URIs of the GCS objects to import. Example: gs://bucket1/object1, gs//bucket2/folder2/object2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#uris MemorystoreInstance#uris}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__73b749c4f7ba1b6cf572e7eb69b71583f33f518271bb9305139d877d37020f9a)
@@ -3589,7 +3589,7 @@ class MemorystoreInstanceGcsSource:
     def uris(self) -> typing.List[builtins.str]:
         '''URIs of the GCS objects to import. Example: gs://bucket1/object1, gs//bucket2/folder2/object2.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#uris MemorystoreInstance#uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#uris MemorystoreInstance#uris}
         '''
         result = self._values.get("uris")
         assert result is not None, "Required property 'uris' is missing"
@@ -3672,7 +3672,7 @@ class MemorystoreInstanceMaintenancePolicy:
         weekly_maintenance_window: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindow", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param weekly_maintenance_window: weekly_maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#weekly_maintenance_window MemorystoreInstance#weekly_maintenance_window}
+        :param weekly_maintenance_window: weekly_maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#weekly_maintenance_window MemorystoreInstance#weekly_maintenance_window}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__42103fc76fcee89e33455c0ca69698a7e3bab09897451b8ba0165de79e38a5c7)
@@ -3687,7 +3687,7 @@ class MemorystoreInstanceMaintenancePolicy:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindow"]]]:
         '''weekly_maintenance_window block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#weekly_maintenance_window MemorystoreInstance#weekly_maintenance_window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#weekly_maintenance_window MemorystoreInstance#weekly_maintenance_window}
         '''
         result = self._values.get("weekly_maintenance_window")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindow"]]], result)
@@ -3794,8 +3794,8 @@ class MemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindow:
         start_time: typing.Union["MemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindowStartTime", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param day: The day of week that maintenance updates occur. - DAY_OF_WEEK_UNSPECIFIED: The day of the week is unspecified. - MONDAY: Monday - TUESDAY: Tuesday - WEDNESDAY: Wednesday - THURSDAY: Thursday - FRIDAY: Friday - SATURDAY: Saturday - SUNDAY: Sunday Possible values: ["DAY_OF_WEEK_UNSPECIFIED", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#day MemorystoreInstance#day}
-        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#start_time MemorystoreInstance#start_time}
+        :param day: The day of week that maintenance updates occur. - DAY_OF_WEEK_UNSPECIFIED: The day of the week is unspecified. - MONDAY: Monday - TUESDAY: Tuesday - WEDNESDAY: Wednesday - THURSDAY: Thursday - FRIDAY: Friday - SATURDAY: Saturday - SUNDAY: Sunday Possible values: ["DAY_OF_WEEK_UNSPECIFIED", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#day MemorystoreInstance#day}
+        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#start_time MemorystoreInstance#start_time}
         '''
         if isinstance(start_time, dict):
             start_time = MemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindowStartTime(**start_time)
@@ -3821,7 +3821,7 @@ class MemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindow:
         - SATURDAY: Saturday
         - SUNDAY: Sunday Possible values: ["DAY_OF_WEEK_UNSPECIFIED", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#day MemorystoreInstance#day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#day MemorystoreInstance#day}
         '''
         result = self._values.get("day")
         assert result is not None, "Required property 'day' is missing"
@@ -3833,7 +3833,7 @@ class MemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindow:
     ) -> "MemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindowStartTime":
         '''start_time block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#start_time MemorystoreInstance#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#start_time MemorystoreInstance#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -3980,10 +3980,10 @@ class MemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindowOutputReference
         seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#hours MemorystoreInstance#hours}
-        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#minutes MemorystoreInstance#minutes}
-        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#nanos MemorystoreInstance#nanos}
-        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. An API may allow the value 60 if it allows leap-seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#seconds MemorystoreInstance#seconds}
+        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#hours MemorystoreInstance#hours}
+        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#minutes MemorystoreInstance#minutes}
+        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#nanos MemorystoreInstance#nanos}
+        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. An API may allow the value 60 if it allows leap-seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#seconds MemorystoreInstance#seconds}
         '''
         value = MemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindowStartTime(
             hours=hours, minutes=minutes, nanos=nanos, seconds=seconds
@@ -4065,10 +4065,10 @@ class MemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindowStartTime:
         seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#hours MemorystoreInstance#hours}
-        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#minutes MemorystoreInstance#minutes}
-        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#nanos MemorystoreInstance#nanos}
-        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. An API may allow the value 60 if it allows leap-seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#seconds MemorystoreInstance#seconds}
+        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#hours MemorystoreInstance#hours}
+        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#minutes MemorystoreInstance#minutes}
+        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#nanos MemorystoreInstance#nanos}
+        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. An API may allow the value 60 if it allows leap-seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#seconds MemorystoreInstance#seconds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__91ed2aa4ac8f9e1070d576cd026bce68c49d268f4a07351d02da29e4659db6c7)
@@ -4093,7 +4093,7 @@ class MemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindowStartTime:
         Should be from 0 to 23.
         An API may choose to allow the value "24:00:00" for scenarios like business closing time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#hours MemorystoreInstance#hours}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#hours MemorystoreInstance#hours}
         '''
         result = self._values.get("hours")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4102,7 +4102,7 @@ class MemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindowStartTime:
     def minutes(self) -> typing.Optional[jsii.Number]:
         '''Minutes of hour of day. Must be from 0 to 59.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#minutes MemorystoreInstance#minutes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#minutes MemorystoreInstance#minutes}
         '''
         result = self._values.get("minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4111,7 +4111,7 @@ class MemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindowStartTime:
     def nanos(self) -> typing.Optional[jsii.Number]:
         '''Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#nanos MemorystoreInstance#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#nanos MemorystoreInstance#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4123,7 +4123,7 @@ class MemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindowStartTime:
         Must normally be from 0 to 59.
         An API may allow the value 60 if it allows leap-seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#seconds MemorystoreInstance#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#seconds MemorystoreInstance#seconds}
         '''
         result = self._values.get("seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4424,7 +4424,7 @@ class MemorystoreInstanceMaintenanceScheduleOutputReference(
 class MemorystoreInstanceManagedBackupSource:
     def __init__(self, *, backup: builtins.str) -> None:
         '''
-        :param backup: Example: //memorystore.googleapis.com/projects/{project}/locations/{location}/backups/{backupId}. In this case, it assumes the backup is under memorystore.googleapis.com. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#backup MemorystoreInstance#backup}
+        :param backup: Example: //memorystore.googleapis.com/projects/{project}/locations/{location}/backups/{backupId}. In this case, it assumes the backup is under memorystore.googleapis.com. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#backup MemorystoreInstance#backup}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6aa4cda62d6205ac9b3e26d23c6a61453ab37d6e7745576c8cd274d9a2045153)
@@ -4437,7 +4437,7 @@ class MemorystoreInstanceManagedBackupSource:
     def backup(self) -> builtins.str:
         '''Example: //memorystore.googleapis.com/projects/{project}/locations/{location}/backups/{backupId}. In this case, it assumes the backup is under memorystore.googleapis.com.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#backup MemorystoreInstance#backup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#backup MemorystoreInstance#backup}
         '''
         result = self._values.get("backup")
         assert result is not None, "Required property 'backup' is missing"
@@ -4667,9 +4667,9 @@ class MemorystoreInstancePersistenceConfig:
         rdb_config: typing.Optional[typing.Union["MemorystoreInstancePersistenceConfigRdbConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param aof_config: aof_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#aof_config MemorystoreInstance#aof_config}
-        :param mode: Optional. Current persistence mode. Possible values: DISABLED RDB AOF Possible values: ["DISABLED", "RDB", "AOF"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#mode MemorystoreInstance#mode}
-        :param rdb_config: rdb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#rdb_config MemorystoreInstance#rdb_config}
+        :param aof_config: aof_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#aof_config MemorystoreInstance#aof_config}
+        :param mode: Optional. Current persistence mode. Possible values: DISABLED RDB AOF Possible values: ["DISABLED", "RDB", "AOF"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#mode MemorystoreInstance#mode}
+        :param rdb_config: rdb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#rdb_config MemorystoreInstance#rdb_config}
         '''
         if isinstance(aof_config, dict):
             aof_config = MemorystoreInstancePersistenceConfigAofConfig(**aof_config)
@@ -4694,7 +4694,7 @@ class MemorystoreInstancePersistenceConfig:
     ) -> typing.Optional["MemorystoreInstancePersistenceConfigAofConfig"]:
         '''aof_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#aof_config MemorystoreInstance#aof_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#aof_config MemorystoreInstance#aof_config}
         '''
         result = self._values.get("aof_config")
         return typing.cast(typing.Optional["MemorystoreInstancePersistenceConfigAofConfig"], result)
@@ -4703,7 +4703,7 @@ class MemorystoreInstancePersistenceConfig:
     def mode(self) -> typing.Optional[builtins.str]:
         '''Optional. Current persistence mode.   Possible values: DISABLED RDB AOF Possible values: ["DISABLED", "RDB", "AOF"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#mode MemorystoreInstance#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#mode MemorystoreInstance#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4714,7 +4714,7 @@ class MemorystoreInstancePersistenceConfig:
     ) -> typing.Optional["MemorystoreInstancePersistenceConfigRdbConfig"]:
         '''rdb_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#rdb_config MemorystoreInstance#rdb_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#rdb_config MemorystoreInstance#rdb_config}
         '''
         result = self._values.get("rdb_config")
         return typing.cast(typing.Optional["MemorystoreInstancePersistenceConfigRdbConfig"], result)
@@ -4739,7 +4739,7 @@ class MemorystoreInstancePersistenceConfig:
 class MemorystoreInstancePersistenceConfigAofConfig:
     def __init__(self, *, append_fsync: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param append_fsync: Optional. The fsync mode. Possible values: NEVER EVERY_SEC ALWAYS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#append_fsync MemorystoreInstance#append_fsync}
+        :param append_fsync: Optional. The fsync mode. Possible values: NEVER EVERY_SEC ALWAYS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#append_fsync MemorystoreInstance#append_fsync}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3b54e3ca144d7d6c06914605ba866043ec9bcd168b3ba038f7788a3f7b84ef38)
@@ -4752,7 +4752,7 @@ class MemorystoreInstancePersistenceConfigAofConfig:
     def append_fsync(self) -> typing.Optional[builtins.str]:
         '''Optional. The fsync mode.   Possible values:  NEVER EVERY_SEC ALWAYS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#append_fsync MemorystoreInstance#append_fsync}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#append_fsync MemorystoreInstance#append_fsync}
         '''
         result = self._values.get("append_fsync")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4855,7 +4855,7 @@ class MemorystoreInstancePersistenceConfigOutputReference(
         append_fsync: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param append_fsync: Optional. The fsync mode. Possible values: NEVER EVERY_SEC ALWAYS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#append_fsync MemorystoreInstance#append_fsync}
+        :param append_fsync: Optional. The fsync mode. Possible values: NEVER EVERY_SEC ALWAYS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#append_fsync MemorystoreInstance#append_fsync}
         '''
         value = MemorystoreInstancePersistenceConfigAofConfig(
             append_fsync=append_fsync
@@ -4871,8 +4871,8 @@ class MemorystoreInstancePersistenceConfigOutputReference(
         rdb_snapshot_start_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rdb_snapshot_period: Optional. Period between RDB snapshots. Possible values: ONE_HOUR SIX_HOURS TWELVE_HOURS TWENTY_FOUR_HOURS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#rdb_snapshot_period MemorystoreInstance#rdb_snapshot_period}
-        :param rdb_snapshot_start_time: Optional. Time that the first snapshot was/will be attempted, and to which future snapshots will be aligned. If not provided, the current time will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#rdb_snapshot_start_time MemorystoreInstance#rdb_snapshot_start_time}
+        :param rdb_snapshot_period: Optional. Period between RDB snapshots. Possible values: ONE_HOUR SIX_HOURS TWELVE_HOURS TWENTY_FOUR_HOURS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#rdb_snapshot_period MemorystoreInstance#rdb_snapshot_period}
+        :param rdb_snapshot_start_time: Optional. Time that the first snapshot was/will be attempted, and to which future snapshots will be aligned. If not provided, the current time will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#rdb_snapshot_start_time MemorystoreInstance#rdb_snapshot_start_time}
         '''
         value = MemorystoreInstancePersistenceConfigRdbConfig(
             rdb_snapshot_period=rdb_snapshot_period,
@@ -4970,8 +4970,8 @@ class MemorystoreInstancePersistenceConfigRdbConfig:
         rdb_snapshot_start_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rdb_snapshot_period: Optional. Period between RDB snapshots. Possible values: ONE_HOUR SIX_HOURS TWELVE_HOURS TWENTY_FOUR_HOURS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#rdb_snapshot_period MemorystoreInstance#rdb_snapshot_period}
-        :param rdb_snapshot_start_time: Optional. Time that the first snapshot was/will be attempted, and to which future snapshots will be aligned. If not provided, the current time will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#rdb_snapshot_start_time MemorystoreInstance#rdb_snapshot_start_time}
+        :param rdb_snapshot_period: Optional. Period between RDB snapshots. Possible values: ONE_HOUR SIX_HOURS TWELVE_HOURS TWENTY_FOUR_HOURS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#rdb_snapshot_period MemorystoreInstance#rdb_snapshot_period}
+        :param rdb_snapshot_start_time: Optional. Time that the first snapshot was/will be attempted, and to which future snapshots will be aligned. If not provided, the current time will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#rdb_snapshot_start_time MemorystoreInstance#rdb_snapshot_start_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d7db1332c63344ecd106396a78ef3aca1c1d1aa37a8f2a6679c26a5287e60c1b)
@@ -4987,7 +4987,7 @@ class MemorystoreInstancePersistenceConfigRdbConfig:
     def rdb_snapshot_period(self) -> typing.Optional[builtins.str]:
         '''Optional. Period between RDB snapshots.   Possible values:  ONE_HOUR SIX_HOURS TWELVE_HOURS TWENTY_FOUR_HOURS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#rdb_snapshot_period MemorystoreInstance#rdb_snapshot_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#rdb_snapshot_period MemorystoreInstance#rdb_snapshot_period}
         '''
         result = self._values.get("rdb_snapshot_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5000,7 +5000,7 @@ class MemorystoreInstancePersistenceConfigRdbConfig:
         snapshots will be aligned. If not provided, the current time will be
         used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#rdb_snapshot_start_time MemorystoreInstance#rdb_snapshot_start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#rdb_snapshot_start_time MemorystoreInstance#rdb_snapshot_start_time}
         '''
         result = self._values.get("rdb_snapshot_start_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5746,9 +5746,9 @@ class MemorystoreInstanceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#create MemorystoreInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#delete MemorystoreInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#update MemorystoreInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#create MemorystoreInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#delete MemorystoreInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#update MemorystoreInstance#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__34020f411c6a81ce19b1c60b8ddb0a35402efaae888d8996711dca20e6ed4fb4)
@@ -5765,19 +5765,19 @@ class MemorystoreInstanceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#create MemorystoreInstance#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#create MemorystoreInstance#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#delete MemorystoreInstance#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#delete MemorystoreInstance#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#update MemorystoreInstance#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#update MemorystoreInstance#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5907,8 +5907,8 @@ class MemorystoreInstanceZoneDistributionConfig:
         zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param mode: Optional. Current zone distribution mode. Defaults to MULTI_ZONE. Possible values: MULTI_ZONE SINGLE_ZONE Possible values: ["MULTI_ZONE", "SINGLE_ZONE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#mode MemorystoreInstance#mode}
-        :param zone: Optional. Defines zone where all resources will be allocated with SINGLE_ZONE mode. Ignored for MULTI_ZONE mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#zone MemorystoreInstance#zone}
+        :param mode: Optional. Current zone distribution mode. Defaults to MULTI_ZONE. Possible values: MULTI_ZONE SINGLE_ZONE Possible values: ["MULTI_ZONE", "SINGLE_ZONE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#mode MemorystoreInstance#mode}
+        :param zone: Optional. Defines zone where all resources will be allocated with SINGLE_ZONE mode. Ignored for MULTI_ZONE mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#zone MemorystoreInstance#zone}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59ab258450e70cb8e297e157f1b64a4eeeddb1817eec3fa23d4215fd7fa2c505)
@@ -5924,7 +5924,7 @@ class MemorystoreInstanceZoneDistributionConfig:
     def mode(self) -> typing.Optional[builtins.str]:
         '''Optional. Current zone distribution mode. Defaults to MULTI_ZONE.   Possible values:  MULTI_ZONE SINGLE_ZONE Possible values: ["MULTI_ZONE", "SINGLE_ZONE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#mode MemorystoreInstance#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#mode MemorystoreInstance#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5933,7 +5933,7 @@ class MemorystoreInstanceZoneDistributionConfig:
     def zone(self) -> typing.Optional[builtins.str]:
         '''Optional. Defines zone where all resources will be allocated with SINGLE_ZONE mode. Ignored for MULTI_ZONE mode.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/memorystore_instance#zone MemorystoreInstance#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/memorystore_instance#zone MemorystoreInstance#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: nacos-sdk-python
-Version: 2.0.4
+Version: 2.0.6
 Summary: Python client for Nacos.
 Home-page: https://github.com/nacos-group/nacos-sdk-python
 Author: nacos
@@ -30,7 +30,7 @@ Description:
         ## Installation
         
         ```shell
-         pip install nacos-sdk-python==2.0.3
+         pip install nacos-sdk-python
         ```
         
         ## Client Configuration
@@ -296,7 +296,7 @@ Description:
         ### Subscribe
         
         ```angular2html
-        async def cb(instance_list: list[Instance]):
+        async def cb(instance_list: List[Instance]):
           print('received subscribe callback', str(instance_list))
         
         await client.subscribe(
@@ -307,7 +307,7 @@ Description:
         ### Unsubscribe
         
         ```angular2html
-        async def cb(instance_list: list[Instance]):
+        async def cb(instance_list: List[Instance]):
           print('received subscribe callback', str(instance_list))
         
         await client.unsubscribe(

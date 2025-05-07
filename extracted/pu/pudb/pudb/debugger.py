@@ -35,7 +35,7 @@ from types import TracebackType
 
 import urwid
 
-from pudb.lowlevel import decode_lines, ui_log
+from pudb.lowlevel import ConsoleSingleKeyReader, decode_lines, ui_log
 from pudb.settings import get_save_config_path, load_config, save_config
 
 
@@ -769,9 +769,14 @@ class StoppedScreen:
 
     def __enter__(self):
         self.screen.stop()
+        return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.screen.start()
+
+    def press_key_to_return(self):
+        with ConsoleSingleKeyReader() as key_reader:
+            key_reader.get_single_key()
 
 
 class DebuggerUI(FrameVarInfoKeeper):
@@ -2024,53 +2029,37 @@ Error with jump. Note that jumping only works on the topmost stack frame.
 
         # {{{ sidebar sizing
 
-        def max_sidebar(w, size, key):
+        def _set_sidebar_weight(weight: float) -> None:
             from pudb.settings import save_config
 
-            weight = 5
             CONFIG["sidebar_width"] = weight
             save_config(CONFIG)
 
             self.columns.contents[1] = (
                     self.columns.contents[1][0],
-                    (urwid.WEIGHT, weight))
-            self.columns._invalidate()
+                    self.columns.options("weight", weight))
+
+        def max_sidebar(w, size, key):
+            _set_sidebar_weight(5)
 
         def min_sidebar(w, size, key):
-            from pudb.settings import save_config
-
-            weight = 1/5
-            CONFIG["sidebar_width"] = weight
-            save_config(CONFIG)
-
-            self.columns.contents[1] = (
-                    self.columns.contents[1][0],
-                    (urwid.WEIGHT, weight))
-            self.columns._invalidate()
+            _set_sidebar_weight(1/5)
 
         def grow_sidebar(w, size, key):
-            from pudb.settings import save_config
-
-            weight = self.columns.column_types[1][1]
+            _widget, (_weight_literal, weight, _flag) = self.columns.contents[1]
+            assert weight is not None
 
             if weight < 5:
                 weight *= 1.25
-                CONFIG["sidebar_width"] = weight
-                save_config(CONFIG)
-                self.columns.column_types[1] = urwid.WEIGHT, weight
-                self.columns._invalidate()
+                _set_sidebar_weight(weight)
 
         def shrink_sidebar(w, size, key):
-            from pudb.settings import save_config
-
-            weight = self.columns.column_types[1][1]
+            _widget, (_weight_literal, weight, _flag) = self.columns.contents[1]
+            assert weight is not None
 
             if weight > 1/5:
                 weight /= 1.25
-                CONFIG["sidebar_width"] = weight
-                save_config(CONFIG)
-                self.columns.column_types[1] = urwid.WEIGHT, weight
-                self.columns._invalidate()
+                _set_sidebar_weight(weight)
 
         self.rhs_col_sigwrap.listen("=", max_sidebar)
         self.rhs_col_sigwrap.listen("+", grow_sidebar)
@@ -2082,8 +2071,8 @@ Error with jump. Note that jumping only works on the topmost stack frame.
         # {{{ top-level listeners
 
         def show_output(w, size, key):
-            with StoppedScreen(self.screen):
-                input("Hit Enter to return:")
+            with StoppedScreen(self.screen) as s:
+                s.press_key_to_return()
 
         def reload_breakpoints_and_redisplay():
             reload_breakpoints()
@@ -2578,7 +2567,7 @@ Error with jump. Note that jumping only works on the topmost stack frame.
                 self.message("Package 'pygments' not found. "
                         "Syntax highlighting disabled.")
 
-        WELCOME_LEVEL = "e049"  # noqa
+        WELCOME_LEVEL = "e050"  # noqa
         if CONFIG["seen_welcome"] < WELCOME_LEVEL:
             CONFIG["seen_welcome"] = WELCOME_LEVEL
             from pudb import VERSION
@@ -2594,6 +2583,11 @@ Error with jump. Note that jumping only works on the topmost stack frame.
                     "If you're new here, welcome! The help screen "
                     "(invoked by hitting '?' after this message) should get you "
                     "on your way.\n"
+
+                    "\nChanges in version 2025.1:\n\n"
+                    "- Fix compatibility with Urwid 3\n"
+                    "- Allow leaving output screen with single key press "
+                    "(Gerhard Sittig)\n"
 
                     "\nChanges in version 2024.1.3:\n\n"
                     "- Switch to hatchling build system\n"

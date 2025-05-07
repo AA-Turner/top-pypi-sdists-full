@@ -1,7 +1,7 @@
 r'''
 # `google_colab_schedule`
 
-Refer to the Terraform Registry for docs: [`google_colab_schedule`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule).
+Refer to the Terraform Registry for docs: [`google_colab_schedule`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ColabSchedule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.colabSchedule.ColabSchedule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule google_colab_schedule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule google_colab_schedule}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class ColabSchedule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule google_colab_schedule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule google_colab_schedule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param create_notebook_execution_job_request: create_notebook_execution_job_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#create_notebook_execution_job_request ColabSchedule#create_notebook_execution_job_request}
-        :param cron: Cron schedule (https://en.wikipedia.org/wiki/Cron) to launch scheduled runs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#cron ColabSchedule#cron}
-        :param display_name: Required. The display name of the Schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#display_name ColabSchedule#display_name}
-        :param location: The location for the resource: https://cloud.google.com/colab/docs/locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#location ColabSchedule#location}
-        :param max_concurrent_run_count: Maximum number of runs that can be started concurrently for this Schedule. This is the limit for starting the scheduled requests and not the execution of the notebook execution jobs created by the requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#max_concurrent_run_count ColabSchedule#max_concurrent_run_count}
-        :param allow_queueing: Whether new scheduled runs can be queued when max_concurrent_runs limit is reached. If set to true, new runs will be queued instead of skipped. Default to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#allow_queueing ColabSchedule#allow_queueing}
-        :param desired_state: Desired state of the Colab Schedule. Set this field to 'ACTIVE' to start/resume the schedule, and 'PAUSED' to pause the schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#desired_state ColabSchedule#desired_state}
-        :param end_time: Timestamp after which no new runs can be scheduled. If specified, the schedule will be completed when either end_time is reached or when scheduled_run_count >= max_run_count. Must be in the RFC 3339 (https://www.ietf.org/rfc/rfc3339.txt) format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#end_time ColabSchedule#end_time}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#id ColabSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param max_run_count: Maximum run count of the schedule. If specified, The schedule will be completed when either startedRunCount >= maxRunCount or when endTime is reached. If not specified, new runs will keep getting scheduled until this Schedule is paused or deleted. Already scheduled runs will be allowed to complete. Unset if not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#max_run_count ColabSchedule#max_run_count}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#project ColabSchedule#project}.
-        :param start_time: The timestamp after which the first run can be scheduled. Defaults to the schedule creation time. Must be in the RFC 3339 (https://www.ietf.org/rfc/rfc3339.txt) format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#start_time ColabSchedule#start_time}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#timeouts ColabSchedule#timeouts}
+        :param create_notebook_execution_job_request: create_notebook_execution_job_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#create_notebook_execution_job_request ColabSchedule#create_notebook_execution_job_request}
+        :param cron: Cron schedule (https://en.wikipedia.org/wiki/Cron) to launch scheduled runs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#cron ColabSchedule#cron}
+        :param display_name: Required. The display name of the Schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#display_name ColabSchedule#display_name}
+        :param location: The location for the resource: https://cloud.google.com/colab/docs/locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#location ColabSchedule#location}
+        :param max_concurrent_run_count: Maximum number of runs that can be started concurrently for this Schedule. This is the limit for starting the scheduled requests and not the execution of the notebook execution jobs created by the requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#max_concurrent_run_count ColabSchedule#max_concurrent_run_count}
+        :param allow_queueing: Whether new scheduled runs can be queued when max_concurrent_runs limit is reached. If set to true, new runs will be queued instead of skipped. Default to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#allow_queueing ColabSchedule#allow_queueing}
+        :param desired_state: Desired state of the Colab Schedule. Set this field to 'ACTIVE' to start/resume the schedule, and 'PAUSED' to pause the schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#desired_state ColabSchedule#desired_state}
+        :param end_time: Timestamp after which no new runs can be scheduled. If specified, the schedule will be completed when either end_time is reached or when scheduled_run_count >= max_run_count. Must be in the RFC 3339 (https://www.ietf.org/rfc/rfc3339.txt) format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#end_time ColabSchedule#end_time}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#id ColabSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param max_run_count: Maximum run count of the schedule. If specified, The schedule will be completed when either startedRunCount >= maxRunCount or when endTime is reached. If not specified, new runs will keep getting scheduled until this Schedule is paused or deleted. Already scheduled runs will be allowed to complete. Unset if not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#max_run_count ColabSchedule#max_run_count}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#project ColabSchedule#project}.
+        :param start_time: The timestamp after which the first run can be scheduled. Defaults to the schedule creation time. Must be in the RFC 3339 (https://www.ietf.org/rfc/rfc3339.txt) format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#start_time ColabSchedule#start_time}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#timeouts ColabSchedule#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class ColabSchedule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ColabSchedule to import.
-        :param import_from_id: The id of the existing ColabSchedule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ColabSchedule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ColabSchedule to import is found.
         '''
         if __debug__:
@@ -157,7 +157,7 @@ class ColabSchedule(
         notebook_execution_job: typing.Union["ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJob", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param notebook_execution_job: notebook_execution_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#notebook_execution_job ColabSchedule#notebook_execution_job}
+        :param notebook_execution_job: notebook_execution_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#notebook_execution_job ColabSchedule#notebook_execution_job}
         '''
         value = ColabScheduleCreateNotebookExecutionJobRequest(
             notebook_execution_job=notebook_execution_job
@@ -174,9 +174,9 @@ class ColabSchedule(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#create ColabSchedule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#delete ColabSchedule#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#update ColabSchedule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#create ColabSchedule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#delete ColabSchedule#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#update ColabSchedule#update}.
         '''
         value = ColabScheduleTimeouts(create=create, delete=delete, update=update)
 
@@ -517,19 +517,19 @@ class ColabScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param create_notebook_execution_job_request: create_notebook_execution_job_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#create_notebook_execution_job_request ColabSchedule#create_notebook_execution_job_request}
-        :param cron: Cron schedule (https://en.wikipedia.org/wiki/Cron) to launch scheduled runs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#cron ColabSchedule#cron}
-        :param display_name: Required. The display name of the Schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#display_name ColabSchedule#display_name}
-        :param location: The location for the resource: https://cloud.google.com/colab/docs/locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#location ColabSchedule#location}
-        :param max_concurrent_run_count: Maximum number of runs that can be started concurrently for this Schedule. This is the limit for starting the scheduled requests and not the execution of the notebook execution jobs created by the requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#max_concurrent_run_count ColabSchedule#max_concurrent_run_count}
-        :param allow_queueing: Whether new scheduled runs can be queued when max_concurrent_runs limit is reached. If set to true, new runs will be queued instead of skipped. Default to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#allow_queueing ColabSchedule#allow_queueing}
-        :param desired_state: Desired state of the Colab Schedule. Set this field to 'ACTIVE' to start/resume the schedule, and 'PAUSED' to pause the schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#desired_state ColabSchedule#desired_state}
-        :param end_time: Timestamp after which no new runs can be scheduled. If specified, the schedule will be completed when either end_time is reached or when scheduled_run_count >= max_run_count. Must be in the RFC 3339 (https://www.ietf.org/rfc/rfc3339.txt) format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#end_time ColabSchedule#end_time}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#id ColabSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param max_run_count: Maximum run count of the schedule. If specified, The schedule will be completed when either startedRunCount >= maxRunCount or when endTime is reached. If not specified, new runs will keep getting scheduled until this Schedule is paused or deleted. Already scheduled runs will be allowed to complete. Unset if not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#max_run_count ColabSchedule#max_run_count}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#project ColabSchedule#project}.
-        :param start_time: The timestamp after which the first run can be scheduled. Defaults to the schedule creation time. Must be in the RFC 3339 (https://www.ietf.org/rfc/rfc3339.txt) format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#start_time ColabSchedule#start_time}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#timeouts ColabSchedule#timeouts}
+        :param create_notebook_execution_job_request: create_notebook_execution_job_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#create_notebook_execution_job_request ColabSchedule#create_notebook_execution_job_request}
+        :param cron: Cron schedule (https://en.wikipedia.org/wiki/Cron) to launch scheduled runs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#cron ColabSchedule#cron}
+        :param display_name: Required. The display name of the Schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#display_name ColabSchedule#display_name}
+        :param location: The location for the resource: https://cloud.google.com/colab/docs/locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#location ColabSchedule#location}
+        :param max_concurrent_run_count: Maximum number of runs that can be started concurrently for this Schedule. This is the limit for starting the scheduled requests and not the execution of the notebook execution jobs created by the requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#max_concurrent_run_count ColabSchedule#max_concurrent_run_count}
+        :param allow_queueing: Whether new scheduled runs can be queued when max_concurrent_runs limit is reached. If set to true, new runs will be queued instead of skipped. Default to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#allow_queueing ColabSchedule#allow_queueing}
+        :param desired_state: Desired state of the Colab Schedule. Set this field to 'ACTIVE' to start/resume the schedule, and 'PAUSED' to pause the schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#desired_state ColabSchedule#desired_state}
+        :param end_time: Timestamp after which no new runs can be scheduled. If specified, the schedule will be completed when either end_time is reached or when scheduled_run_count >= max_run_count. Must be in the RFC 3339 (https://www.ietf.org/rfc/rfc3339.txt) format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#end_time ColabSchedule#end_time}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#id ColabSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param max_run_count: Maximum run count of the schedule. If specified, The schedule will be completed when either startedRunCount >= maxRunCount or when endTime is reached. If not specified, new runs will keep getting scheduled until this Schedule is paused or deleted. Already scheduled runs will be allowed to complete. Unset if not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#max_run_count ColabSchedule#max_run_count}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#project ColabSchedule#project}.
+        :param start_time: The timestamp after which the first run can be scheduled. Defaults to the schedule creation time. Must be in the RFC 3339 (https://www.ietf.org/rfc/rfc3339.txt) format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#start_time ColabSchedule#start_time}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#timeouts ColabSchedule#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -667,7 +667,7 @@ class ColabScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> "ColabScheduleCreateNotebookExecutionJobRequest":
         '''create_notebook_execution_job_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#create_notebook_execution_job_request ColabSchedule#create_notebook_execution_job_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#create_notebook_execution_job_request ColabSchedule#create_notebook_execution_job_request}
         '''
         result = self._values.get("create_notebook_execution_job_request")
         assert result is not None, "Required property 'create_notebook_execution_job_request' is missing"
@@ -677,7 +677,7 @@ class ColabScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cron(self) -> builtins.str:
         '''Cron schedule (https://en.wikipedia.org/wiki/Cron) to launch scheduled runs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#cron ColabSchedule#cron}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#cron ColabSchedule#cron}
         '''
         result = self._values.get("cron")
         assert result is not None, "Required property 'cron' is missing"
@@ -687,7 +687,7 @@ class ColabScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''Required. The display name of the Schedule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#display_name ColabSchedule#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#display_name ColabSchedule#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -697,7 +697,7 @@ class ColabScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the resource: https://cloud.google.com/colab/docs/locations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#location ColabSchedule#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#location ColabSchedule#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -709,7 +709,7 @@ class ColabScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This is the limit for starting the scheduled requests and not the execution of the notebook execution jobs created by the requests.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#max_concurrent_run_count ColabSchedule#max_concurrent_run_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#max_concurrent_run_count ColabSchedule#max_concurrent_run_count}
         '''
         result = self._values.get("max_concurrent_run_count")
         assert result is not None, "Required property 'max_concurrent_run_count' is missing"
@@ -723,7 +723,7 @@ class ColabScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If set to true, new runs will be queued instead of skipped. Default to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#allow_queueing ColabSchedule#allow_queueing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#allow_queueing ColabSchedule#allow_queueing}
         '''
         result = self._values.get("allow_queueing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -734,7 +734,7 @@ class ColabScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Set this field to 'ACTIVE' to start/resume the schedule, and 'PAUSED' to pause the schedule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#desired_state ColabSchedule#desired_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#desired_state ColabSchedule#desired_state}
         '''
         result = self._values.get("desired_state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -745,14 +745,14 @@ class ColabScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If specified, the schedule will be completed when either end_time is reached or when scheduled_run_count >= max_run_count. Must be in the RFC 3339 (https://www.ietf.org/rfc/rfc3339.txt) format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#end_time ColabSchedule#end_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#end_time ColabSchedule#end_time}
         '''
         result = self._values.get("end_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#id ColabSchedule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#id ColabSchedule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -766,14 +766,14 @@ class ColabScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If specified, The schedule will be completed when either startedRunCount >= maxRunCount or when endTime is reached. If not specified, new runs will keep getting scheduled until this Schedule is paused or deleted. Already scheduled runs will be allowed to complete. Unset if not specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#max_run_count ColabSchedule#max_run_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#max_run_count ColabSchedule#max_run_count}
         '''
         result = self._values.get("max_run_count")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#project ColabSchedule#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#project ColabSchedule#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -783,7 +783,7 @@ class ColabScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Defaults to the schedule creation time. Must be in the RFC 3339 (https://www.ietf.org/rfc/rfc3339.txt) format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#start_time ColabSchedule#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#start_time ColabSchedule#start_time}
         '''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -792,7 +792,7 @@ class ColabScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ColabScheduleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#timeouts ColabSchedule#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#timeouts ColabSchedule#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ColabScheduleTimeouts"], result)
@@ -821,7 +821,7 @@ class ColabScheduleCreateNotebookExecutionJobRequest:
         notebook_execution_job: typing.Union["ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJob", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param notebook_execution_job: notebook_execution_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#notebook_execution_job ColabSchedule#notebook_execution_job}
+        :param notebook_execution_job: notebook_execution_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#notebook_execution_job ColabSchedule#notebook_execution_job}
         '''
         if isinstance(notebook_execution_job, dict):
             notebook_execution_job = ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJob(**notebook_execution_job)
@@ -838,7 +838,7 @@ class ColabScheduleCreateNotebookExecutionJobRequest:
     ) -> "ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJob":
         '''notebook_execution_job block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#notebook_execution_job ColabSchedule#notebook_execution_job}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#notebook_execution_job ColabSchedule#notebook_execution_job}
         '''
         result = self._values.get("notebook_execution_job")
         assert result is not None, "Required property 'notebook_execution_job' is missing"
@@ -884,14 +884,14 @@ class ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJob:
         service_account: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param display_name: Required. The display name of the Notebook Execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#display_name ColabSchedule#display_name}
-        :param gcs_output_uri: The Cloud Storage location to upload the result to. Format:'gs://bucket-name'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#gcs_output_uri ColabSchedule#gcs_output_uri}
-        :param notebook_runtime_template_resource_name: The NotebookRuntimeTemplate to source compute configuration from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#notebook_runtime_template_resource_name ColabSchedule#notebook_runtime_template_resource_name}
-        :param dataform_repository_source: dataform_repository_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#dataform_repository_source ColabSchedule#dataform_repository_source}
-        :param execution_timeout: Max running time of the execution job in seconds (default 86400s / 24 hrs). A duration in seconds with up to nine fractional digits, ending with "s". Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#execution_timeout ColabSchedule#execution_timeout}
-        :param execution_user: The user email to run the execution as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#execution_user ColabSchedule#execution_user}
-        :param gcs_notebook_source: gcs_notebook_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#gcs_notebook_source ColabSchedule#gcs_notebook_source}
-        :param service_account: The service account to run the execution as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#service_account ColabSchedule#service_account}
+        :param display_name: Required. The display name of the Notebook Execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#display_name ColabSchedule#display_name}
+        :param gcs_output_uri: The Cloud Storage location to upload the result to. Format:'gs://bucket-name'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#gcs_output_uri ColabSchedule#gcs_output_uri}
+        :param notebook_runtime_template_resource_name: The NotebookRuntimeTemplate to source compute configuration from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#notebook_runtime_template_resource_name ColabSchedule#notebook_runtime_template_resource_name}
+        :param dataform_repository_source: dataform_repository_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#dataform_repository_source ColabSchedule#dataform_repository_source}
+        :param execution_timeout: Max running time of the execution job in seconds (default 86400s / 24 hrs). A duration in seconds with up to nine fractional digits, ending with "s". Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#execution_timeout ColabSchedule#execution_timeout}
+        :param execution_user: The user email to run the execution as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#execution_user ColabSchedule#execution_user}
+        :param gcs_notebook_source: gcs_notebook_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#gcs_notebook_source ColabSchedule#gcs_notebook_source}
+        :param service_account: The service account to run the execution as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#service_account ColabSchedule#service_account}
         '''
         if isinstance(dataform_repository_source, dict):
             dataform_repository_source = ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJobDataformRepositorySource(**dataform_repository_source)
@@ -927,7 +927,7 @@ class ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJob:
     def display_name(self) -> builtins.str:
         '''Required. The display name of the Notebook Execution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#display_name ColabSchedule#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#display_name ColabSchedule#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -937,7 +937,7 @@ class ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJob:
     def gcs_output_uri(self) -> builtins.str:
         '''The Cloud Storage location to upload the result to. Format:'gs://bucket-name'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#gcs_output_uri ColabSchedule#gcs_output_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#gcs_output_uri ColabSchedule#gcs_output_uri}
         '''
         result = self._values.get("gcs_output_uri")
         assert result is not None, "Required property 'gcs_output_uri' is missing"
@@ -947,7 +947,7 @@ class ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJob:
     def notebook_runtime_template_resource_name(self) -> builtins.str:
         '''The NotebookRuntimeTemplate to source compute configuration from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#notebook_runtime_template_resource_name ColabSchedule#notebook_runtime_template_resource_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#notebook_runtime_template_resource_name ColabSchedule#notebook_runtime_template_resource_name}
         '''
         result = self._values.get("notebook_runtime_template_resource_name")
         assert result is not None, "Required property 'notebook_runtime_template_resource_name' is missing"
@@ -959,7 +959,7 @@ class ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJob:
     ) -> typing.Optional["ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJobDataformRepositorySource"]:
         '''dataform_repository_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#dataform_repository_source ColabSchedule#dataform_repository_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#dataform_repository_source ColabSchedule#dataform_repository_source}
         '''
         result = self._values.get("dataform_repository_source")
         return typing.cast(typing.Optional["ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJobDataformRepositorySource"], result)
@@ -970,7 +970,7 @@ class ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJob:
 
         A duration in seconds with up to nine fractional digits, ending with "s". Example: "3.5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#execution_timeout ColabSchedule#execution_timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#execution_timeout ColabSchedule#execution_timeout}
         '''
         result = self._values.get("execution_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -979,7 +979,7 @@ class ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJob:
     def execution_user(self) -> typing.Optional[builtins.str]:
         '''The user email to run the execution as.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#execution_user ColabSchedule#execution_user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#execution_user ColabSchedule#execution_user}
         '''
         result = self._values.get("execution_user")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -990,7 +990,7 @@ class ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJob:
     ) -> typing.Optional["ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJobGcsNotebookSource"]:
         '''gcs_notebook_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#gcs_notebook_source ColabSchedule#gcs_notebook_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#gcs_notebook_source ColabSchedule#gcs_notebook_source}
         '''
         result = self._values.get("gcs_notebook_source")
         return typing.cast(typing.Optional["ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJobGcsNotebookSource"], result)
@@ -999,7 +999,7 @@ class ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJob:
     def service_account(self) -> typing.Optional[builtins.str]:
         '''The service account to run the execution as.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#service_account ColabSchedule#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#service_account ColabSchedule#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1032,8 +1032,8 @@ class ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJobDataform
         commit_sha: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataform_repository_resource_name: The resource name of the Dataform Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#dataform_repository_resource_name ColabSchedule#dataform_repository_resource_name}
-        :param commit_sha: The commit SHA to read repository with. If unset, the file will be read at HEAD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#commit_sha ColabSchedule#commit_sha}
+        :param dataform_repository_resource_name: The resource name of the Dataform Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#dataform_repository_resource_name ColabSchedule#dataform_repository_resource_name}
+        :param commit_sha: The commit SHA to read repository with. If unset, the file will be read at HEAD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#commit_sha ColabSchedule#commit_sha}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9df6e98f559b9fa9a941cc3312f4d3f1b7d234c4436fee34a07a4d4165c08860)
@@ -1049,7 +1049,7 @@ class ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJobDataform
     def dataform_repository_resource_name(self) -> builtins.str:
         '''The resource name of the Dataform Repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#dataform_repository_resource_name ColabSchedule#dataform_repository_resource_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#dataform_repository_resource_name ColabSchedule#dataform_repository_resource_name}
         '''
         result = self._values.get("dataform_repository_resource_name")
         assert result is not None, "Required property 'dataform_repository_resource_name' is missing"
@@ -1059,7 +1059,7 @@ class ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJobDataform
     def commit_sha(self) -> typing.Optional[builtins.str]:
         '''The commit SHA to read repository with. If unset, the file will be read at HEAD.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#commit_sha ColabSchedule#commit_sha}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#commit_sha ColabSchedule#commit_sha}
         '''
         result = self._values.get("commit_sha")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1165,8 +1165,8 @@ class ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJobGcsNoteb
         generation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: The Cloud Storage uri pointing to the ipynb file. Format: gs://bucket/notebook_file.ipynb. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#uri ColabSchedule#uri}
-        :param generation: The version of the Cloud Storage object to read. If unset, the current version of the object is read. See https://cloud.google.com/storage/docs/metadata#generation-number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#generation ColabSchedule#generation}
+        :param uri: The Cloud Storage uri pointing to the ipynb file. Format: gs://bucket/notebook_file.ipynb. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#uri ColabSchedule#uri}
+        :param generation: The version of the Cloud Storage object to read. If unset, the current version of the object is read. See https://cloud.google.com/storage/docs/metadata#generation-number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#generation ColabSchedule#generation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f8ca273357a91511e7b14e5879d1fc14f34a4f758f931697cba4feeaed3a299e)
@@ -1182,7 +1182,7 @@ class ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJobGcsNoteb
     def uri(self) -> builtins.str:
         '''The Cloud Storage uri pointing to the ipynb file. Format: gs://bucket/notebook_file.ipynb.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#uri ColabSchedule#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#uri ColabSchedule#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -1194,7 +1194,7 @@ class ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJobGcsNoteb
 
         If unset, the current version of the object is read. See https://cloud.google.com/storage/docs/metadata#generation-number.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#generation ColabSchedule#generation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#generation ColabSchedule#generation}
         '''
         result = self._values.get("generation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1315,8 +1315,8 @@ class ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJobOutputRe
         commit_sha: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataform_repository_resource_name: The resource name of the Dataform Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#dataform_repository_resource_name ColabSchedule#dataform_repository_resource_name}
-        :param commit_sha: The commit SHA to read repository with. If unset, the file will be read at HEAD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#commit_sha ColabSchedule#commit_sha}
+        :param dataform_repository_resource_name: The resource name of the Dataform Repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#dataform_repository_resource_name ColabSchedule#dataform_repository_resource_name}
+        :param commit_sha: The commit SHA to read repository with. If unset, the file will be read at HEAD. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#commit_sha ColabSchedule#commit_sha}
         '''
         value = ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJobDataformRepositorySource(
             dataform_repository_resource_name=dataform_repository_resource_name,
@@ -1333,8 +1333,8 @@ class ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJobOutputRe
         generation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: The Cloud Storage uri pointing to the ipynb file. Format: gs://bucket/notebook_file.ipynb. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#uri ColabSchedule#uri}
-        :param generation: The version of the Cloud Storage object to read. If unset, the current version of the object is read. See https://cloud.google.com/storage/docs/metadata#generation-number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#generation ColabSchedule#generation}
+        :param uri: The Cloud Storage uri pointing to the ipynb file. Format: gs://bucket/notebook_file.ipynb. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#uri ColabSchedule#uri}
+        :param generation: The version of the Cloud Storage object to read. If unset, the current version of the object is read. See https://cloud.google.com/storage/docs/metadata#generation-number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#generation ColabSchedule#generation}
         '''
         value = ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJobGcsNotebookSource(
             uri=uri, generation=generation
@@ -1546,14 +1546,14 @@ class ColabScheduleCreateNotebookExecutionJobRequestOutputReference(
         service_account: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param display_name: Required. The display name of the Notebook Execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#display_name ColabSchedule#display_name}
-        :param gcs_output_uri: The Cloud Storage location to upload the result to. Format:'gs://bucket-name'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#gcs_output_uri ColabSchedule#gcs_output_uri}
-        :param notebook_runtime_template_resource_name: The NotebookRuntimeTemplate to source compute configuration from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#notebook_runtime_template_resource_name ColabSchedule#notebook_runtime_template_resource_name}
-        :param dataform_repository_source: dataform_repository_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#dataform_repository_source ColabSchedule#dataform_repository_source}
-        :param execution_timeout: Max running time of the execution job in seconds (default 86400s / 24 hrs). A duration in seconds with up to nine fractional digits, ending with "s". Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#execution_timeout ColabSchedule#execution_timeout}
-        :param execution_user: The user email to run the execution as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#execution_user ColabSchedule#execution_user}
-        :param gcs_notebook_source: gcs_notebook_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#gcs_notebook_source ColabSchedule#gcs_notebook_source}
-        :param service_account: The service account to run the execution as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#service_account ColabSchedule#service_account}
+        :param display_name: Required. The display name of the Notebook Execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#display_name ColabSchedule#display_name}
+        :param gcs_output_uri: The Cloud Storage location to upload the result to. Format:'gs://bucket-name'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#gcs_output_uri ColabSchedule#gcs_output_uri}
+        :param notebook_runtime_template_resource_name: The NotebookRuntimeTemplate to source compute configuration from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#notebook_runtime_template_resource_name ColabSchedule#notebook_runtime_template_resource_name}
+        :param dataform_repository_source: dataform_repository_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#dataform_repository_source ColabSchedule#dataform_repository_source}
+        :param execution_timeout: Max running time of the execution job in seconds (default 86400s / 24 hrs). A duration in seconds with up to nine fractional digits, ending with "s". Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#execution_timeout ColabSchedule#execution_timeout}
+        :param execution_user: The user email to run the execution as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#execution_user ColabSchedule#execution_user}
+        :param gcs_notebook_source: gcs_notebook_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#gcs_notebook_source ColabSchedule#gcs_notebook_source}
+        :param service_account: The service account to run the execution as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#service_account ColabSchedule#service_account}
         '''
         value = ColabScheduleCreateNotebookExecutionJobRequestNotebookExecutionJob(
             display_name=display_name,
@@ -1614,9 +1614,9 @@ class ColabScheduleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#create ColabSchedule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#delete ColabSchedule#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#update ColabSchedule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#create ColabSchedule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#delete ColabSchedule#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#update ColabSchedule#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7d556ed4e4bea763eaf1a0e851058faeb527522987197555d08ae60ab8c8a645)
@@ -1633,19 +1633,19 @@ class ColabScheduleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#create ColabSchedule#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#create ColabSchedule#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#delete ColabSchedule#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#delete ColabSchedule#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_schedule#update ColabSchedule#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_schedule#update ColabSchedule#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

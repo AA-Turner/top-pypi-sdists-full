@@ -1,7 +1,6 @@
 import logging
 from collections import namedtuple
 from typing import Optional
-from warnings import warn
 
 from asynch.errors import InterfaceError, ProgrammingError
 from asynch.proto.models.enums import CursorStatus
@@ -11,25 +10,13 @@ Column = namedtuple("Column", "name type_code display_size internal_size precisi
 logger = logging.getLogger(__name__)
 
 
-class States:
-    warn(
-        (
-            "Should not be used in the version 0.2.6 or later."
-            "Should be replaced with the reconsidered `CursorStatus` enum "
-            "from the `asynch.proto.models.enums` module."
-        ),
-        DeprecationWarning,
-    )
-    (NONE, RUNNING, FINISHED, CURSOR_CLOSED) = range(4)
-
-
 class Cursor:
     _columns_with_types = None
 
     def __init__(self, connection=None, echo: bool = False):
         self._connection = connection
         self._reset_state()
-        self._rows = []
+        self._rows = []  # type: ignore
         self._echo = echo
         self._arraysize = 1
 
@@ -158,7 +145,7 @@ class Cursor:
 
         if self._stream_results:
             rv = []
-            async for i in self._rows:
+            async for i in self._rows:  # type: ignore
                 rv.append(i)
                 if size > 0 and len(rv) >= size:
                     break
@@ -386,8 +373,10 @@ class DictCursor(Cursor):
             return dict(zip(self._columns, row)) if row else {}
         raise AttributeError("Invalid columns.")
 
-    async def fetchmany(self, size: int) -> list[dict]:
+    async def fetchmany(self, size: Optional[int]) -> list[dict]:
         """Fetch no more than `size` rows from the last executed query.
+
+        :param size Optional[int]: fetch upt to the `size` entries or self._arraysize if None
 
         :raises AttributeError: columns mismatch
 

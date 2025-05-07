@@ -1,7 +1,7 @@
 r'''
 # `google_storage_bucket`
 
-Refer to the Terraform Registry for docs: [`google_storage_bucket`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket).
+Refer to the Terraform Registry for docs: [`google_storage_bucket`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class StorageBucket(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.storageBucket.StorageBucket",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket google_storage_bucket}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket google_storage_bucket}.'''
 
     def __init__(
         self,
@@ -84,35 +84,35 @@ class StorageBucket(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket google_storage_bucket} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket google_storage_bucket} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The Google Cloud Storage location or region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#location StorageBucket#location}
-        :param name: The name of the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#name StorageBucket#name}
-        :param autoclass: autoclass block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#autoclass StorageBucket#autoclass}
-        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#cors StorageBucket#cors}
-        :param custom_placement_config: custom_placement_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#custom_placement_config StorageBucket#custom_placement_config}
-        :param default_event_based_hold: Whether or not to automatically apply an eventBasedHold to new objects added to the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#default_event_based_hold StorageBucket#default_event_based_hold}
-        :param enable_object_retention: Enables each object in the bucket to have its own retention policy, which prevents deletion until stored for a specific length of time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#enable_object_retention StorageBucket#enable_object_retention}
-        :param encryption: encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#encryption StorageBucket#encryption}
-        :param force_destroy: When deleting a bucket, this boolean option will delete all contained objects, or anywhereCaches (if any). If you try to delete a bucket that contains objects or anywhereCaches, Terraform will fail that run, deleting anywhereCaches may take 80 minutes to complete. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#force_destroy StorageBucket#force_destroy}
-        :param hierarchical_namespace: hierarchical_namespace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#hierarchical_namespace StorageBucket#hierarchical_namespace}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#id StorageBucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: A set of key/value label pairs to assign to the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#labels StorageBucket#labels}
-        :param lifecycle_rule: lifecycle_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#lifecycle_rule StorageBucket#lifecycle_rule}
-        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#logging StorageBucket#logging}
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#project StorageBucket#project}
-        :param public_access_prevention: Prevents public access to a bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#public_access_prevention StorageBucket#public_access_prevention}
-        :param requester_pays: Enables Requester Pays on a storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#requester_pays StorageBucket#requester_pays}
-        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#retention_policy StorageBucket#retention_policy}
-        :param rpo: Specifies the RPO setting of bucket. If set 'ASYNC_TURBO', The Turbo Replication will be enabled for the dual-region bucket. Value 'DEFAULT' will set RPO setting to default. Turbo Replication is only for buckets in dual-regions.See the docs for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#rpo StorageBucket#rpo}
-        :param soft_delete_policy: soft_delete_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#soft_delete_policy StorageBucket#soft_delete_policy}
-        :param storage_class: The Storage Class of the new bucket. Supported values include: STANDARD, MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#storage_class StorageBucket#storage_class}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#timeouts StorageBucket#timeouts}
-        :param uniform_bucket_level_access: Enables uniform bucket-level access on a bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#uniform_bucket_level_access StorageBucket#uniform_bucket_level_access}
-        :param versioning: versioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#versioning StorageBucket#versioning}
-        :param website: website block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#website StorageBucket#website}
+        :param location: The Google Cloud Storage location or region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#location StorageBucket#location}
+        :param name: The name of the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#name StorageBucket#name}
+        :param autoclass: autoclass block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#autoclass StorageBucket#autoclass}
+        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#cors StorageBucket#cors}
+        :param custom_placement_config: custom_placement_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#custom_placement_config StorageBucket#custom_placement_config}
+        :param default_event_based_hold: Whether or not to automatically apply an eventBasedHold to new objects added to the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#default_event_based_hold StorageBucket#default_event_based_hold}
+        :param enable_object_retention: Enables each object in the bucket to have its own retention policy, which prevents deletion until stored for a specific length of time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#enable_object_retention StorageBucket#enable_object_retention}
+        :param encryption: encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#encryption StorageBucket#encryption}
+        :param force_destroy: When deleting a bucket, this boolean option will delete all contained objects, or anywhereCaches (if any). If you try to delete a bucket that contains objects or anywhereCaches, Terraform will fail that run, deleting anywhereCaches may take 80 minutes to complete. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#force_destroy StorageBucket#force_destroy}
+        :param hierarchical_namespace: hierarchical_namespace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#hierarchical_namespace StorageBucket#hierarchical_namespace}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#id StorageBucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: A set of key/value label pairs to assign to the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#labels StorageBucket#labels}
+        :param lifecycle_rule: lifecycle_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#lifecycle_rule StorageBucket#lifecycle_rule}
+        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#logging StorageBucket#logging}
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#project StorageBucket#project}
+        :param public_access_prevention: Prevents public access to a bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#public_access_prevention StorageBucket#public_access_prevention}
+        :param requester_pays: Enables Requester Pays on a storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#requester_pays StorageBucket#requester_pays}
+        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#retention_policy StorageBucket#retention_policy}
+        :param rpo: Specifies the RPO setting of bucket. If set 'ASYNC_TURBO', The Turbo Replication will be enabled for the dual-region bucket. Value 'DEFAULT' will set RPO setting to default. Turbo Replication is only for buckets in dual-regions.See the docs for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#rpo StorageBucket#rpo}
+        :param soft_delete_policy: soft_delete_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#soft_delete_policy StorageBucket#soft_delete_policy}
+        :param storage_class: The Storage Class of the new bucket. Supported values include: STANDARD, MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#storage_class StorageBucket#storage_class}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#timeouts StorageBucket#timeouts}
+        :param uniform_bucket_level_access: Enables uniform bucket-level access on a bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#uniform_bucket_level_access StorageBucket#uniform_bucket_level_access}
+        :param versioning: versioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#versioning StorageBucket#versioning}
+        :param website: website block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#website StorageBucket#website}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -175,7 +175,7 @@ class StorageBucket(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the StorageBucket to import.
-        :param import_from_id: The id of the existing StorageBucket that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing StorageBucket that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the StorageBucket to import is found.
         '''
         if __debug__:
@@ -194,8 +194,8 @@ class StorageBucket(
         terminal_storage_class: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: While set to true, autoclass automatically transitions objects in your bucket to appropriate storage classes based on each object's access pattern. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#enabled StorageBucket#enabled}
-        :param terminal_storage_class: The storage class that objects in the bucket eventually transition to if they are not read for a certain length of time. Supported values include: NEARLINE, ARCHIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#terminal_storage_class StorageBucket#terminal_storage_class}
+        :param enabled: While set to true, autoclass automatically transitions objects in your bucket to appropriate storage classes based on each object's access pattern. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#enabled StorageBucket#enabled}
+        :param terminal_storage_class: The storage class that objects in the bucket eventually transition to if they are not read for a certain length of time. Supported values include: NEARLINE, ARCHIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#terminal_storage_class StorageBucket#terminal_storage_class}
         '''
         value = StorageBucketAutoclass(
             enabled=enabled, terminal_storage_class=terminal_storage_class
@@ -223,7 +223,7 @@ class StorageBucket(
         data_locations: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param data_locations: The list of individual regions that comprise a dual-region bucket. See the docs for a list of acceptable regions. Note: If any of the data_locations changes, it will recreate the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#data_locations StorageBucket#data_locations}
+        :param data_locations: The list of individual regions that comprise a dual-region bucket. See the docs for a list of acceptable regions. Note: If any of the data_locations changes, it will recreate the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#data_locations StorageBucket#data_locations}
         '''
         value = StorageBucketCustomPlacementConfig(data_locations=data_locations)
 
@@ -232,7 +232,7 @@ class StorageBucket(
     @jsii.member(jsii_name="putEncryption")
     def put_encryption(self, *, default_kms_key_name: builtins.str) -> None:
         '''
-        :param default_kms_key_name: A Cloud KMS key that will be used to encrypt objects inserted into this bucket, if no encryption method is specified. You must pay attention to whether the crypto key is available in the location that this bucket is created in. See the docs for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#default_kms_key_name StorageBucket#default_kms_key_name}
+        :param default_kms_key_name: A Cloud KMS key that will be used to encrypt objects inserted into this bucket, if no encryption method is specified. You must pay attention to whether the crypto key is available in the location that this bucket is created in. See the docs for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#default_kms_key_name StorageBucket#default_kms_key_name}
         '''
         value = StorageBucketEncryption(default_kms_key_name=default_kms_key_name)
 
@@ -245,7 +245,7 @@ class StorageBucket(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Set this field true to organize bucket with logical file system structure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#enabled StorageBucket#enabled}
+        :param enabled: Set this field true to organize bucket with logical file system structure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#enabled StorageBucket#enabled}
         '''
         value = StorageBucketHierarchicalNamespace(enabled=enabled)
 
@@ -272,8 +272,8 @@ class StorageBucket(
         log_object_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param log_bucket: The bucket that will receive log objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#log_bucket StorageBucket#log_bucket}
-        :param log_object_prefix: The object prefix for log objects. If it's not provided, by default Google Cloud Storage sets this to this bucket's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#log_object_prefix StorageBucket#log_object_prefix}
+        :param log_bucket: The bucket that will receive log objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#log_bucket StorageBucket#log_bucket}
+        :param log_object_prefix: The object prefix for log objects. If it's not provided, by default Google Cloud Storage sets this to this bucket's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#log_object_prefix StorageBucket#log_object_prefix}
         '''
         value = StorageBucketLogging(
             log_bucket=log_bucket, log_object_prefix=log_object_prefix
@@ -289,8 +289,8 @@ class StorageBucket(
         is_locked: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param retention_period: The period of time, in seconds, that objects in the bucket must be retained and cannot be deleted, overwritten, or archived. The value must be less than 3,155,760,000 seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#retention_period StorageBucket#retention_period}
-        :param is_locked: If set to true, the bucket will be locked and permanently restrict edits to the bucket's retention policy. Caution: Locking a bucket is an irreversible action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#is_locked StorageBucket#is_locked}
+        :param retention_period: The period of time, in seconds, that objects in the bucket must be retained and cannot be deleted, overwritten, or archived. The value must be less than 3,155,760,000 seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#retention_period StorageBucket#retention_period}
+        :param is_locked: If set to true, the bucket will be locked and permanently restrict edits to the bucket's retention policy. Caution: Locking a bucket is an irreversible action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#is_locked StorageBucket#is_locked}
         '''
         value = StorageBucketRetentionPolicy(
             retention_period=retention_period, is_locked=is_locked
@@ -305,7 +305,7 @@ class StorageBucket(
         retention_duration_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param retention_duration_seconds: The duration in seconds that soft-deleted objects in the bucket will be retained and cannot be permanently deleted. Default value is 604800. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#retention_duration_seconds StorageBucket#retention_duration_seconds}
+        :param retention_duration_seconds: The duration in seconds that soft-deleted objects in the bucket will be retained and cannot be permanently deleted. Default value is 604800. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#retention_duration_seconds StorageBucket#retention_duration_seconds}
         '''
         value = StorageBucketSoftDeletePolicy(
             retention_duration_seconds=retention_duration_seconds
@@ -322,9 +322,9 @@ class StorageBucket(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#create StorageBucket#create}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#read StorageBucket#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#update StorageBucket#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#create StorageBucket#create}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#read StorageBucket#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#update StorageBucket#update}.
         '''
         value = StorageBucketTimeouts(create=create, read=read, update=update)
 
@@ -337,7 +337,7 @@ class StorageBucket(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: While set to true, versioning is fully enabled for this bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#enabled StorageBucket#enabled}
+        :param enabled: While set to true, versioning is fully enabled for this bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#enabled StorageBucket#enabled}
         '''
         value = StorageBucketVersioning(enabled=enabled)
 
@@ -351,8 +351,8 @@ class StorageBucket(
         not_found_page: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param main_page_suffix: Behaves as the bucket's directory index where missing objects are treated as potential directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#main_page_suffix StorageBucket#main_page_suffix}
-        :param not_found_page: The custom object to return when a requested resource is not found. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#not_found_page StorageBucket#not_found_page}
+        :param main_page_suffix: Behaves as the bucket's directory index where missing objects are treated as potential directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#main_page_suffix StorageBucket#main_page_suffix}
+        :param not_found_page: The custom object to return when a requested resource is not found. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#not_found_page StorageBucket#not_found_page}
         '''
         value = StorageBucketWebsite(
             main_page_suffix=main_page_suffix, not_found_page=not_found_page
@@ -909,8 +909,8 @@ class StorageBucketAutoclass:
         terminal_storage_class: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: While set to true, autoclass automatically transitions objects in your bucket to appropriate storage classes based on each object's access pattern. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#enabled StorageBucket#enabled}
-        :param terminal_storage_class: The storage class that objects in the bucket eventually transition to if they are not read for a certain length of time. Supported values include: NEARLINE, ARCHIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#terminal_storage_class StorageBucket#terminal_storage_class}
+        :param enabled: While set to true, autoclass automatically transitions objects in your bucket to appropriate storage classes based on each object's access pattern. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#enabled StorageBucket#enabled}
+        :param terminal_storage_class: The storage class that objects in the bucket eventually transition to if they are not read for a certain length of time. Supported values include: NEARLINE, ARCHIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#terminal_storage_class StorageBucket#terminal_storage_class}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e8cff21a910b9b61ba752a0012d00077dae243fa135bfe26c4efbbfce20a1766)
@@ -926,7 +926,7 @@ class StorageBucketAutoclass:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''While set to true, autoclass automatically transitions objects in your bucket to appropriate storage classes based on each object's access pattern.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#enabled StorageBucket#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#enabled StorageBucket#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -938,7 +938,7 @@ class StorageBucketAutoclass:
 
         Supported values include: NEARLINE, ARCHIVE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#terminal_storage_class StorageBucket#terminal_storage_class}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#terminal_storage_class StorageBucket#terminal_storage_class}
         '''
         result = self._values.get("terminal_storage_class")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1114,31 +1114,31 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The Google Cloud Storage location or region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#location StorageBucket#location}
-        :param name: The name of the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#name StorageBucket#name}
-        :param autoclass: autoclass block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#autoclass StorageBucket#autoclass}
-        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#cors StorageBucket#cors}
-        :param custom_placement_config: custom_placement_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#custom_placement_config StorageBucket#custom_placement_config}
-        :param default_event_based_hold: Whether or not to automatically apply an eventBasedHold to new objects added to the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#default_event_based_hold StorageBucket#default_event_based_hold}
-        :param enable_object_retention: Enables each object in the bucket to have its own retention policy, which prevents deletion until stored for a specific length of time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#enable_object_retention StorageBucket#enable_object_retention}
-        :param encryption: encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#encryption StorageBucket#encryption}
-        :param force_destroy: When deleting a bucket, this boolean option will delete all contained objects, or anywhereCaches (if any). If you try to delete a bucket that contains objects or anywhereCaches, Terraform will fail that run, deleting anywhereCaches may take 80 minutes to complete. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#force_destroy StorageBucket#force_destroy}
-        :param hierarchical_namespace: hierarchical_namespace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#hierarchical_namespace StorageBucket#hierarchical_namespace}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#id StorageBucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: A set of key/value label pairs to assign to the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#labels StorageBucket#labels}
-        :param lifecycle_rule: lifecycle_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#lifecycle_rule StorageBucket#lifecycle_rule}
-        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#logging StorageBucket#logging}
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#project StorageBucket#project}
-        :param public_access_prevention: Prevents public access to a bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#public_access_prevention StorageBucket#public_access_prevention}
-        :param requester_pays: Enables Requester Pays on a storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#requester_pays StorageBucket#requester_pays}
-        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#retention_policy StorageBucket#retention_policy}
-        :param rpo: Specifies the RPO setting of bucket. If set 'ASYNC_TURBO', The Turbo Replication will be enabled for the dual-region bucket. Value 'DEFAULT' will set RPO setting to default. Turbo Replication is only for buckets in dual-regions.See the docs for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#rpo StorageBucket#rpo}
-        :param soft_delete_policy: soft_delete_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#soft_delete_policy StorageBucket#soft_delete_policy}
-        :param storage_class: The Storage Class of the new bucket. Supported values include: STANDARD, MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#storage_class StorageBucket#storage_class}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#timeouts StorageBucket#timeouts}
-        :param uniform_bucket_level_access: Enables uniform bucket-level access on a bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#uniform_bucket_level_access StorageBucket#uniform_bucket_level_access}
-        :param versioning: versioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#versioning StorageBucket#versioning}
-        :param website: website block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#website StorageBucket#website}
+        :param location: The Google Cloud Storage location or region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#location StorageBucket#location}
+        :param name: The name of the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#name StorageBucket#name}
+        :param autoclass: autoclass block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#autoclass StorageBucket#autoclass}
+        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#cors StorageBucket#cors}
+        :param custom_placement_config: custom_placement_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#custom_placement_config StorageBucket#custom_placement_config}
+        :param default_event_based_hold: Whether or not to automatically apply an eventBasedHold to new objects added to the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#default_event_based_hold StorageBucket#default_event_based_hold}
+        :param enable_object_retention: Enables each object in the bucket to have its own retention policy, which prevents deletion until stored for a specific length of time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#enable_object_retention StorageBucket#enable_object_retention}
+        :param encryption: encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#encryption StorageBucket#encryption}
+        :param force_destroy: When deleting a bucket, this boolean option will delete all contained objects, or anywhereCaches (if any). If you try to delete a bucket that contains objects or anywhereCaches, Terraform will fail that run, deleting anywhereCaches may take 80 minutes to complete. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#force_destroy StorageBucket#force_destroy}
+        :param hierarchical_namespace: hierarchical_namespace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#hierarchical_namespace StorageBucket#hierarchical_namespace}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#id StorageBucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: A set of key/value label pairs to assign to the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#labels StorageBucket#labels}
+        :param lifecycle_rule: lifecycle_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#lifecycle_rule StorageBucket#lifecycle_rule}
+        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#logging StorageBucket#logging}
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#project StorageBucket#project}
+        :param public_access_prevention: Prevents public access to a bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#public_access_prevention StorageBucket#public_access_prevention}
+        :param requester_pays: Enables Requester Pays on a storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#requester_pays StorageBucket#requester_pays}
+        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#retention_policy StorageBucket#retention_policy}
+        :param rpo: Specifies the RPO setting of bucket. If set 'ASYNC_TURBO', The Turbo Replication will be enabled for the dual-region bucket. Value 'DEFAULT' will set RPO setting to default. Turbo Replication is only for buckets in dual-regions.See the docs for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#rpo StorageBucket#rpo}
+        :param soft_delete_policy: soft_delete_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#soft_delete_policy StorageBucket#soft_delete_policy}
+        :param storage_class: The Storage Class of the new bucket. Supported values include: STANDARD, MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#storage_class StorageBucket#storage_class}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#timeouts StorageBucket#timeouts}
+        :param uniform_bucket_level_access: Enables uniform bucket-level access on a bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#uniform_bucket_level_access StorageBucket#uniform_bucket_level_access}
+        :param versioning: versioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#versioning StorageBucket#versioning}
+        :param website: website block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#website StorageBucket#website}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1329,7 +1329,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The Google Cloud Storage location or region.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#location StorageBucket#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#location StorageBucket#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1339,7 +1339,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#name StorageBucket#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#name StorageBucket#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1349,7 +1349,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def autoclass(self) -> typing.Optional[StorageBucketAutoclass]:
         '''autoclass block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#autoclass StorageBucket#autoclass}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#autoclass StorageBucket#autoclass}
         '''
         result = self._values.get("autoclass")
         return typing.cast(typing.Optional[StorageBucketAutoclass], result)
@@ -1360,7 +1360,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageBucketCors"]]]:
         '''cors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#cors StorageBucket#cors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#cors StorageBucket#cors}
         '''
         result = self._values.get("cors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageBucketCors"]]], result)
@@ -1371,7 +1371,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["StorageBucketCustomPlacementConfig"]:
         '''custom_placement_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#custom_placement_config StorageBucket#custom_placement_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#custom_placement_config StorageBucket#custom_placement_config}
         '''
         result = self._values.get("custom_placement_config")
         return typing.cast(typing.Optional["StorageBucketCustomPlacementConfig"], result)
@@ -1382,7 +1382,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not to automatically apply an eventBasedHold to new objects added to the bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#default_event_based_hold StorageBucket#default_event_based_hold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#default_event_based_hold StorageBucket#default_event_based_hold}
         '''
         result = self._values.get("default_event_based_hold")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1393,7 +1393,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enables each object in the bucket to have its own retention policy, which prevents deletion until stored for a specific length of time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#enable_object_retention StorageBucket#enable_object_retention}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#enable_object_retention StorageBucket#enable_object_retention}
         '''
         result = self._values.get("enable_object_retention")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1402,7 +1402,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encryption(self) -> typing.Optional["StorageBucketEncryption"]:
         '''encryption block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#encryption StorageBucket#encryption}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#encryption StorageBucket#encryption}
         '''
         result = self._values.get("encryption")
         return typing.cast(typing.Optional["StorageBucketEncryption"], result)
@@ -1415,7 +1415,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If you try to delete a bucket that contains objects or anywhereCaches, Terraform will fail that run, deleting anywhereCaches may take 80 minutes to complete.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#force_destroy StorageBucket#force_destroy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#force_destroy StorageBucket#force_destroy}
         '''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1426,14 +1426,14 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["StorageBucketHierarchicalNamespace"]:
         '''hierarchical_namespace block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#hierarchical_namespace StorageBucket#hierarchical_namespace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#hierarchical_namespace StorageBucket#hierarchical_namespace}
         '''
         result = self._values.get("hierarchical_namespace")
         return typing.cast(typing.Optional["StorageBucketHierarchicalNamespace"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#id StorageBucket#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#id StorageBucket#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1445,7 +1445,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def labels(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A set of key/value label pairs to assign to the bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#labels StorageBucket#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#labels StorageBucket#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1456,7 +1456,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageBucketLifecycleRule"]]]:
         '''lifecycle_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#lifecycle_rule StorageBucket#lifecycle_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#lifecycle_rule StorageBucket#lifecycle_rule}
         '''
         result = self._values.get("lifecycle_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageBucketLifecycleRule"]]], result)
@@ -1465,7 +1465,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def logging(self) -> typing.Optional["StorageBucketLogging"]:
         '''logging block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#logging StorageBucket#logging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#logging StorageBucket#logging}
         '''
         result = self._values.get("logging")
         return typing.cast(typing.Optional["StorageBucketLogging"], result)
@@ -1476,7 +1476,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#project StorageBucket#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#project StorageBucket#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1485,7 +1485,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def public_access_prevention(self) -> typing.Optional[builtins.str]:
         '''Prevents public access to a bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#public_access_prevention StorageBucket#public_access_prevention}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#public_access_prevention StorageBucket#public_access_prevention}
         '''
         result = self._values.get("public_access_prevention")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1496,7 +1496,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enables Requester Pays on a storage bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#requester_pays StorageBucket#requester_pays}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#requester_pays StorageBucket#requester_pays}
         '''
         result = self._values.get("requester_pays")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1505,7 +1505,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def retention_policy(self) -> typing.Optional["StorageBucketRetentionPolicy"]:
         '''retention_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#retention_policy StorageBucket#retention_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#retention_policy StorageBucket#retention_policy}
         '''
         result = self._values.get("retention_policy")
         return typing.cast(typing.Optional["StorageBucketRetentionPolicy"], result)
@@ -1516,7 +1516,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If set 'ASYNC_TURBO', The Turbo Replication will be enabled for the dual-region bucket. Value 'DEFAULT' will set RPO setting to default. Turbo Replication is only for buckets in dual-regions.See the docs for more details.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#rpo StorageBucket#rpo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#rpo StorageBucket#rpo}
         '''
         result = self._values.get("rpo")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1525,7 +1525,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def soft_delete_policy(self) -> typing.Optional["StorageBucketSoftDeletePolicy"]:
         '''soft_delete_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#soft_delete_policy StorageBucket#soft_delete_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#soft_delete_policy StorageBucket#soft_delete_policy}
         '''
         result = self._values.get("soft_delete_policy")
         return typing.cast(typing.Optional["StorageBucketSoftDeletePolicy"], result)
@@ -1534,7 +1534,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage_class(self) -> typing.Optional[builtins.str]:
         '''The Storage Class of the new bucket. Supported values include: STANDARD, MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#storage_class StorageBucket#storage_class}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#storage_class StorageBucket#storage_class}
         '''
         result = self._values.get("storage_class")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1543,7 +1543,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["StorageBucketTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#timeouts StorageBucket#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#timeouts StorageBucket#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["StorageBucketTimeouts"], result)
@@ -1554,7 +1554,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enables uniform bucket-level access on a bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#uniform_bucket_level_access StorageBucket#uniform_bucket_level_access}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#uniform_bucket_level_access StorageBucket#uniform_bucket_level_access}
         '''
         result = self._values.get("uniform_bucket_level_access")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1563,7 +1563,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def versioning(self) -> typing.Optional["StorageBucketVersioning"]:
         '''versioning block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#versioning StorageBucket#versioning}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#versioning StorageBucket#versioning}
         '''
         result = self._values.get("versioning")
         return typing.cast(typing.Optional["StorageBucketVersioning"], result)
@@ -1572,7 +1572,7 @@ class StorageBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def website(self) -> typing.Optional["StorageBucketWebsite"]:
         '''website block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#website StorageBucket#website}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#website StorageBucket#website}
         '''
         result = self._values.get("website")
         return typing.cast(typing.Optional["StorageBucketWebsite"], result)
@@ -1609,10 +1609,10 @@ class StorageBucketCors:
         response_header: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param max_age_seconds: The value, in seconds, to return in the Access-Control-Max-Age header used in preflight responses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#max_age_seconds StorageBucket#max_age_seconds}
-        :param method: The list of HTTP methods on which to include CORS response headers, (GET, OPTIONS, POST, etc) Note: "*" is permitted in the list of methods, and means "any method". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#method StorageBucket#method}
-        :param origin: The list of Origins eligible to receive CORS response headers. Note: "*" is permitted in the list of origins, and means "any Origin". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#origin StorageBucket#origin}
-        :param response_header: The list of HTTP headers other than the simple response headers to give permission for the user-agent to share across domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#response_header StorageBucket#response_header}
+        :param max_age_seconds: The value, in seconds, to return in the Access-Control-Max-Age header used in preflight responses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#max_age_seconds StorageBucket#max_age_seconds}
+        :param method: The list of HTTP methods on which to include CORS response headers, (GET, OPTIONS, POST, etc) Note: "*" is permitted in the list of methods, and means "any method". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#method StorageBucket#method}
+        :param origin: The list of Origins eligible to receive CORS response headers. Note: "*" is permitted in the list of origins, and means "any Origin". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#origin StorageBucket#origin}
+        :param response_header: The list of HTTP headers other than the simple response headers to give permission for the user-agent to share across domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#response_header StorageBucket#response_header}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aef412622584f98b084b338d3d4617546429e4bcc4a1890188e397260f9aba4a)
@@ -1634,7 +1634,7 @@ class StorageBucketCors:
     def max_age_seconds(self) -> typing.Optional[jsii.Number]:
         '''The value, in seconds, to return in the Access-Control-Max-Age header used in preflight responses.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#max_age_seconds StorageBucket#max_age_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#max_age_seconds StorageBucket#max_age_seconds}
         '''
         result = self._values.get("max_age_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1643,7 +1643,7 @@ class StorageBucketCors:
     def method(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of HTTP methods on which to include CORS response headers, (GET, OPTIONS, POST, etc) Note: "*" is permitted in the list of methods, and means "any method".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#method StorageBucket#method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#method StorageBucket#method}
         '''
         result = self._values.get("method")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1654,7 +1654,7 @@ class StorageBucketCors:
 
         Note: "*" is permitted in the list of origins, and means "any Origin".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#origin StorageBucket#origin}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#origin StorageBucket#origin}
         '''
         result = self._values.get("origin")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1663,7 +1663,7 @@ class StorageBucketCors:
     def response_header(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of HTTP headers other than the simple response headers to give permission for the user-agent to share across domains.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#response_header StorageBucket#response_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#response_header StorageBucket#response_header}
         '''
         result = self._values.get("response_header")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1906,7 +1906,7 @@ class StorageBucketCorsOutputReference(
 class StorageBucketCustomPlacementConfig:
     def __init__(self, *, data_locations: typing.Sequence[builtins.str]) -> None:
         '''
-        :param data_locations: The list of individual regions that comprise a dual-region bucket. See the docs for a list of acceptable regions. Note: If any of the data_locations changes, it will recreate the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#data_locations StorageBucket#data_locations}
+        :param data_locations: The list of individual regions that comprise a dual-region bucket. See the docs for a list of acceptable regions. Note: If any of the data_locations changes, it will recreate the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#data_locations StorageBucket#data_locations}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be966fd842cb3b190260f703dc8f02f24e359b7144512e40d5c3088035f70986)
@@ -1921,7 +1921,7 @@ class StorageBucketCustomPlacementConfig:
 
         See the docs for a list of acceptable regions. Note: If any of the data_locations changes, it will recreate the bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#data_locations StorageBucket#data_locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#data_locations StorageBucket#data_locations}
         '''
         result = self._values.get("data_locations")
         assert result is not None, "Required property 'data_locations' is missing"
@@ -2000,7 +2000,7 @@ class StorageBucketCustomPlacementConfigOutputReference(
 class StorageBucketEncryption:
     def __init__(self, *, default_kms_key_name: builtins.str) -> None:
         '''
-        :param default_kms_key_name: A Cloud KMS key that will be used to encrypt objects inserted into this bucket, if no encryption method is specified. You must pay attention to whether the crypto key is available in the location that this bucket is created in. See the docs for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#default_kms_key_name StorageBucket#default_kms_key_name}
+        :param default_kms_key_name: A Cloud KMS key that will be used to encrypt objects inserted into this bucket, if no encryption method is specified. You must pay attention to whether the crypto key is available in the location that this bucket is created in. See the docs for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#default_kms_key_name StorageBucket#default_kms_key_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__233e32da1f81399aa3046393c53d55c23ba834bd7e142ddaae4c88fcf80886d9)
@@ -2015,7 +2015,7 @@ class StorageBucketEncryption:
 
         You must pay attention to whether the crypto key is available in the location that this bucket is created in. See the docs for more details.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#default_kms_key_name StorageBucket#default_kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#default_kms_key_name StorageBucket#default_kms_key_name}
         '''
         result = self._values.get("default_kms_key_name")
         assert result is not None, "Required property 'default_kms_key_name' is missing"
@@ -2095,7 +2095,7 @@ class StorageBucketHierarchicalNamespace:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Set this field true to organize bucket with logical file system structure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#enabled StorageBucket#enabled}
+        :param enabled: Set this field true to organize bucket with logical file system structure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#enabled StorageBucket#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__834d242bb36366b1c04219c3bdc78f160e0d2100216e4daca2cb83178c4f28e4)
@@ -2108,7 +2108,7 @@ class StorageBucketHierarchicalNamespace:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Set this field true to organize bucket with logical file system structure.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#enabled StorageBucket#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#enabled StorageBucket#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -2197,8 +2197,8 @@ class StorageBucketLifecycleRule:
         condition: typing.Union["StorageBucketLifecycleRuleCondition", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#action StorageBucket#action}
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#condition StorageBucket#condition}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#action StorageBucket#action}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#condition StorageBucket#condition}
         '''
         if isinstance(action, dict):
             action = StorageBucketLifecycleRuleAction(**action)
@@ -2217,7 +2217,7 @@ class StorageBucketLifecycleRule:
     def action(self) -> "StorageBucketLifecycleRuleAction":
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#action StorageBucket#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#action StorageBucket#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -2227,7 +2227,7 @@ class StorageBucketLifecycleRule:
     def condition(self) -> "StorageBucketLifecycleRuleCondition":
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#condition StorageBucket#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#condition StorageBucket#condition}
         '''
         result = self._values.get("condition")
         assert result is not None, "Required property 'condition' is missing"
@@ -2258,8 +2258,8 @@ class StorageBucketLifecycleRuleAction:
         storage_class: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: The type of the action of this Lifecycle Rule. Supported values include: Delete, SetStorageClass and AbortIncompleteMultipartUpload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#type StorageBucket#type}
-        :param storage_class: The target Storage Class of objects affected by this Lifecycle Rule. Supported values include: MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#storage_class StorageBucket#storage_class}
+        :param type: The type of the action of this Lifecycle Rule. Supported values include: Delete, SetStorageClass and AbortIncompleteMultipartUpload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#type StorageBucket#type}
+        :param storage_class: The target Storage Class of objects affected by this Lifecycle Rule. Supported values include: MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#storage_class StorageBucket#storage_class}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5d9ff233c9198bbe2da4e903fe40cf1bf2aedfb779151f8b920f57a701d6a0dd)
@@ -2275,7 +2275,7 @@ class StorageBucketLifecycleRuleAction:
     def type(self) -> builtins.str:
         '''The type of the action of this Lifecycle Rule. Supported values include: Delete, SetStorageClass and AbortIncompleteMultipartUpload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#type StorageBucket#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#type StorageBucket#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -2285,7 +2285,7 @@ class StorageBucketLifecycleRuleAction:
     def storage_class(self) -> typing.Optional[builtins.str]:
         '''The target Storage Class of objects affected by this Lifecycle Rule. Supported values include: MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#storage_class StorageBucket#storage_class}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#storage_class StorageBucket#storage_class}
         '''
         result = self._values.get("storage_class")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2418,21 +2418,21 @@ class StorageBucketLifecycleRuleCondition:
         with_state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param age: Minimum age of an object in days to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#age StorageBucket#age}
-        :param created_before: Creation date of an object in RFC 3339 (e.g. 2017-06-13) to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#created_before StorageBucket#created_before}
-        :param custom_time_before: Creation date of an object in RFC 3339 (e.g. 2017-06-13) to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#custom_time_before StorageBucket#custom_time_before}
-        :param days_since_custom_time: Number of days elapsed since the user-specified timestamp set on an object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#days_since_custom_time StorageBucket#days_since_custom_time}
-        :param days_since_noncurrent_time: Number of days elapsed since the noncurrent timestamp of an object. This condition is relevant only for versioned objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#days_since_noncurrent_time StorageBucket#days_since_noncurrent_time}
-        :param matches_prefix: One or more matching name prefixes to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#matches_prefix StorageBucket#matches_prefix}
-        :param matches_storage_class: Storage Class of objects to satisfy this condition. Supported values include: MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE, STANDARD, DURABLE_REDUCED_AVAILABILITY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#matches_storage_class StorageBucket#matches_storage_class}
-        :param matches_suffix: One or more matching name suffixes to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#matches_suffix StorageBucket#matches_suffix}
-        :param noncurrent_time_before: Creation date of an object in RFC 3339 (e.g. 2017-06-13) to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#noncurrent_time_before StorageBucket#noncurrent_time_before}
-        :param num_newer_versions: Relevant only for versioned objects. The number of newer versions of an object to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#num_newer_versions StorageBucket#num_newer_versions}
-        :param send_age_if_zero: While set true, age value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the age field. It can be used alone or together with age. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#send_age_if_zero StorageBucket#send_age_if_zero}
-        :param send_days_since_custom_time_if_zero: While set true, days_since_custom_time value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the days_since_custom_time field. It can be used alone or together with days_since_custom_time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#send_days_since_custom_time_if_zero StorageBucket#send_days_since_custom_time_if_zero}
-        :param send_days_since_noncurrent_time_if_zero: While set true, days_since_noncurrent_time value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the days_since_noncurrent_time field. It can be used alone or together with days_since_noncurrent_time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#send_days_since_noncurrent_time_if_zero StorageBucket#send_days_since_noncurrent_time_if_zero}
-        :param send_num_newer_versions_if_zero: While set true, num_newer_versions value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the num_newer_versions field. It can be used alone or together with num_newer_versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#send_num_newer_versions_if_zero StorageBucket#send_num_newer_versions_if_zero}
-        :param with_state: Match to live and/or archived objects. Unversioned buckets have only live objects. Supported values include: "LIVE", "ARCHIVED", "ANY". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#with_state StorageBucket#with_state}
+        :param age: Minimum age of an object in days to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#age StorageBucket#age}
+        :param created_before: Creation date of an object in RFC 3339 (e.g. 2017-06-13) to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#created_before StorageBucket#created_before}
+        :param custom_time_before: Creation date of an object in RFC 3339 (e.g. 2017-06-13) to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#custom_time_before StorageBucket#custom_time_before}
+        :param days_since_custom_time: Number of days elapsed since the user-specified timestamp set on an object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#days_since_custom_time StorageBucket#days_since_custom_time}
+        :param days_since_noncurrent_time: Number of days elapsed since the noncurrent timestamp of an object. This condition is relevant only for versioned objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#days_since_noncurrent_time StorageBucket#days_since_noncurrent_time}
+        :param matches_prefix: One or more matching name prefixes to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#matches_prefix StorageBucket#matches_prefix}
+        :param matches_storage_class: Storage Class of objects to satisfy this condition. Supported values include: MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE, STANDARD, DURABLE_REDUCED_AVAILABILITY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#matches_storage_class StorageBucket#matches_storage_class}
+        :param matches_suffix: One or more matching name suffixes to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#matches_suffix StorageBucket#matches_suffix}
+        :param noncurrent_time_before: Creation date of an object in RFC 3339 (e.g. 2017-06-13) to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#noncurrent_time_before StorageBucket#noncurrent_time_before}
+        :param num_newer_versions: Relevant only for versioned objects. The number of newer versions of an object to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#num_newer_versions StorageBucket#num_newer_versions}
+        :param send_age_if_zero: While set true, age value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the age field. It can be used alone or together with age. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#send_age_if_zero StorageBucket#send_age_if_zero}
+        :param send_days_since_custom_time_if_zero: While set true, days_since_custom_time value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the days_since_custom_time field. It can be used alone or together with days_since_custom_time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#send_days_since_custom_time_if_zero StorageBucket#send_days_since_custom_time_if_zero}
+        :param send_days_since_noncurrent_time_if_zero: While set true, days_since_noncurrent_time value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the days_since_noncurrent_time field. It can be used alone or together with days_since_noncurrent_time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#send_days_since_noncurrent_time_if_zero StorageBucket#send_days_since_noncurrent_time_if_zero}
+        :param send_num_newer_versions_if_zero: While set true, num_newer_versions value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the num_newer_versions field. It can be used alone or together with num_newer_versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#send_num_newer_versions_if_zero StorageBucket#send_num_newer_versions_if_zero}
+        :param with_state: Match to live and/or archived objects. Unversioned buckets have only live objects. Supported values include: "LIVE", "ARCHIVED", "ANY". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#with_state StorageBucket#with_state}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c8aac0cdf7077b6114d49ee6654a4780e1eddc86fc3a941ab4cd9acaae68ba4b)
@@ -2487,7 +2487,7 @@ class StorageBucketLifecycleRuleCondition:
     def age(self) -> typing.Optional[jsii.Number]:
         '''Minimum age of an object in days to satisfy this condition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#age StorageBucket#age}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#age StorageBucket#age}
         '''
         result = self._values.get("age")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2496,7 +2496,7 @@ class StorageBucketLifecycleRuleCondition:
     def created_before(self) -> typing.Optional[builtins.str]:
         '''Creation date of an object in RFC 3339 (e.g. 2017-06-13) to satisfy this condition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#created_before StorageBucket#created_before}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#created_before StorageBucket#created_before}
         '''
         result = self._values.get("created_before")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2505,7 +2505,7 @@ class StorageBucketLifecycleRuleCondition:
     def custom_time_before(self) -> typing.Optional[builtins.str]:
         '''Creation date of an object in RFC 3339 (e.g. 2017-06-13) to satisfy this condition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#custom_time_before StorageBucket#custom_time_before}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#custom_time_before StorageBucket#custom_time_before}
         '''
         result = self._values.get("custom_time_before")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2514,7 +2514,7 @@ class StorageBucketLifecycleRuleCondition:
     def days_since_custom_time(self) -> typing.Optional[jsii.Number]:
         '''Number of days elapsed since the user-specified timestamp set on an object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#days_since_custom_time StorageBucket#days_since_custom_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#days_since_custom_time StorageBucket#days_since_custom_time}
         '''
         result = self._values.get("days_since_custom_time")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2523,7 +2523,7 @@ class StorageBucketLifecycleRuleCondition:
     def days_since_noncurrent_time(self) -> typing.Optional[jsii.Number]:
         '''Number of days elapsed since the noncurrent timestamp of an object. This 										condition is relevant only for versioned objects.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#days_since_noncurrent_time StorageBucket#days_since_noncurrent_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#days_since_noncurrent_time StorageBucket#days_since_noncurrent_time}
         '''
         result = self._values.get("days_since_noncurrent_time")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2532,7 +2532,7 @@ class StorageBucketLifecycleRuleCondition:
     def matches_prefix(self) -> typing.Optional[typing.List[builtins.str]]:
         '''One or more matching name prefixes to satisfy this condition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#matches_prefix StorageBucket#matches_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#matches_prefix StorageBucket#matches_prefix}
         '''
         result = self._values.get("matches_prefix")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2541,7 +2541,7 @@ class StorageBucketLifecycleRuleCondition:
     def matches_storage_class(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Storage Class of objects to satisfy this condition. Supported values include: MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE, STANDARD, DURABLE_REDUCED_AVAILABILITY.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#matches_storage_class StorageBucket#matches_storage_class}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#matches_storage_class StorageBucket#matches_storage_class}
         '''
         result = self._values.get("matches_storage_class")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2550,7 +2550,7 @@ class StorageBucketLifecycleRuleCondition:
     def matches_suffix(self) -> typing.Optional[typing.List[builtins.str]]:
         '''One or more matching name suffixes to satisfy this condition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#matches_suffix StorageBucket#matches_suffix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#matches_suffix StorageBucket#matches_suffix}
         '''
         result = self._values.get("matches_suffix")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2559,7 +2559,7 @@ class StorageBucketLifecycleRuleCondition:
     def noncurrent_time_before(self) -> typing.Optional[builtins.str]:
         '''Creation date of an object in RFC 3339 (e.g. 2017-06-13) to satisfy this condition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#noncurrent_time_before StorageBucket#noncurrent_time_before}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#noncurrent_time_before StorageBucket#noncurrent_time_before}
         '''
         result = self._values.get("noncurrent_time_before")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2568,7 +2568,7 @@ class StorageBucketLifecycleRuleCondition:
     def num_newer_versions(self) -> typing.Optional[jsii.Number]:
         '''Relevant only for versioned objects. The number of newer versions of an object to satisfy this condition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#num_newer_versions StorageBucket#num_newer_versions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#num_newer_versions StorageBucket#num_newer_versions}
         '''
         result = self._values.get("num_newer_versions")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2581,7 +2581,7 @@ class StorageBucketLifecycleRuleCondition:
 
         This field is only useful for setting 0 value to the age field. It can be used alone or together with age.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#send_age_if_zero StorageBucket#send_age_if_zero}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#send_age_if_zero StorageBucket#send_age_if_zero}
         '''
         result = self._values.get("send_age_if_zero")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2594,7 +2594,7 @@ class StorageBucketLifecycleRuleCondition:
 
         This field is only useful for setting 0 value to the days_since_custom_time field. It can be used alone or together with days_since_custom_time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#send_days_since_custom_time_if_zero StorageBucket#send_days_since_custom_time_if_zero}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#send_days_since_custom_time_if_zero StorageBucket#send_days_since_custom_time_if_zero}
         '''
         result = self._values.get("send_days_since_custom_time_if_zero")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2607,7 +2607,7 @@ class StorageBucketLifecycleRuleCondition:
 
         This field is only useful for setting 0 value to the days_since_noncurrent_time field. It can be used alone or together with days_since_noncurrent_time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#send_days_since_noncurrent_time_if_zero StorageBucket#send_days_since_noncurrent_time_if_zero}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#send_days_since_noncurrent_time_if_zero StorageBucket#send_days_since_noncurrent_time_if_zero}
         '''
         result = self._values.get("send_days_since_noncurrent_time_if_zero")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2620,7 +2620,7 @@ class StorageBucketLifecycleRuleCondition:
 
         This field is only useful for setting 0 value to the num_newer_versions field. It can be used alone or together with num_newer_versions.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#send_num_newer_versions_if_zero StorageBucket#send_num_newer_versions_if_zero}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#send_num_newer_versions_if_zero StorageBucket#send_num_newer_versions_if_zero}
         '''
         result = self._values.get("send_num_newer_versions_if_zero")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2629,7 +2629,7 @@ class StorageBucketLifecycleRuleCondition:
     def with_state(self) -> typing.Optional[builtins.str]:
         '''Match to live and/or archived objects. Unversioned buckets have only live objects. Supported values include: "LIVE", "ARCHIVED", "ANY".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#with_state StorageBucket#with_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#with_state StorageBucket#with_state}
         '''
         result = self._values.get("with_state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3149,8 +3149,8 @@ class StorageBucketLifecycleRuleOutputReference(
         storage_class: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: The type of the action of this Lifecycle Rule. Supported values include: Delete, SetStorageClass and AbortIncompleteMultipartUpload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#type StorageBucket#type}
-        :param storage_class: The target Storage Class of objects affected by this Lifecycle Rule. Supported values include: MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#storage_class StorageBucket#storage_class}
+        :param type: The type of the action of this Lifecycle Rule. Supported values include: Delete, SetStorageClass and AbortIncompleteMultipartUpload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#type StorageBucket#type}
+        :param storage_class: The target Storage Class of objects affected by this Lifecycle Rule. Supported values include: MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#storage_class StorageBucket#storage_class}
         '''
         value = StorageBucketLifecycleRuleAction(
             type=type, storage_class=storage_class
@@ -3179,21 +3179,21 @@ class StorageBucketLifecycleRuleOutputReference(
         with_state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param age: Minimum age of an object in days to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#age StorageBucket#age}
-        :param created_before: Creation date of an object in RFC 3339 (e.g. 2017-06-13) to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#created_before StorageBucket#created_before}
-        :param custom_time_before: Creation date of an object in RFC 3339 (e.g. 2017-06-13) to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#custom_time_before StorageBucket#custom_time_before}
-        :param days_since_custom_time: Number of days elapsed since the user-specified timestamp set on an object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#days_since_custom_time StorageBucket#days_since_custom_time}
-        :param days_since_noncurrent_time: Number of days elapsed since the noncurrent timestamp of an object. This condition is relevant only for versioned objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#days_since_noncurrent_time StorageBucket#days_since_noncurrent_time}
-        :param matches_prefix: One or more matching name prefixes to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#matches_prefix StorageBucket#matches_prefix}
-        :param matches_storage_class: Storage Class of objects to satisfy this condition. Supported values include: MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE, STANDARD, DURABLE_REDUCED_AVAILABILITY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#matches_storage_class StorageBucket#matches_storage_class}
-        :param matches_suffix: One or more matching name suffixes to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#matches_suffix StorageBucket#matches_suffix}
-        :param noncurrent_time_before: Creation date of an object in RFC 3339 (e.g. 2017-06-13) to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#noncurrent_time_before StorageBucket#noncurrent_time_before}
-        :param num_newer_versions: Relevant only for versioned objects. The number of newer versions of an object to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#num_newer_versions StorageBucket#num_newer_versions}
-        :param send_age_if_zero: While set true, age value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the age field. It can be used alone or together with age. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#send_age_if_zero StorageBucket#send_age_if_zero}
-        :param send_days_since_custom_time_if_zero: While set true, days_since_custom_time value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the days_since_custom_time field. It can be used alone or together with days_since_custom_time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#send_days_since_custom_time_if_zero StorageBucket#send_days_since_custom_time_if_zero}
-        :param send_days_since_noncurrent_time_if_zero: While set true, days_since_noncurrent_time value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the days_since_noncurrent_time field. It can be used alone or together with days_since_noncurrent_time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#send_days_since_noncurrent_time_if_zero StorageBucket#send_days_since_noncurrent_time_if_zero}
-        :param send_num_newer_versions_if_zero: While set true, num_newer_versions value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the num_newer_versions field. It can be used alone or together with num_newer_versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#send_num_newer_versions_if_zero StorageBucket#send_num_newer_versions_if_zero}
-        :param with_state: Match to live and/or archived objects. Unversioned buckets have only live objects. Supported values include: "LIVE", "ARCHIVED", "ANY". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#with_state StorageBucket#with_state}
+        :param age: Minimum age of an object in days to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#age StorageBucket#age}
+        :param created_before: Creation date of an object in RFC 3339 (e.g. 2017-06-13) to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#created_before StorageBucket#created_before}
+        :param custom_time_before: Creation date of an object in RFC 3339 (e.g. 2017-06-13) to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#custom_time_before StorageBucket#custom_time_before}
+        :param days_since_custom_time: Number of days elapsed since the user-specified timestamp set on an object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#days_since_custom_time StorageBucket#days_since_custom_time}
+        :param days_since_noncurrent_time: Number of days elapsed since the noncurrent timestamp of an object. This condition is relevant only for versioned objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#days_since_noncurrent_time StorageBucket#days_since_noncurrent_time}
+        :param matches_prefix: One or more matching name prefixes to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#matches_prefix StorageBucket#matches_prefix}
+        :param matches_storage_class: Storage Class of objects to satisfy this condition. Supported values include: MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE, STANDARD, DURABLE_REDUCED_AVAILABILITY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#matches_storage_class StorageBucket#matches_storage_class}
+        :param matches_suffix: One or more matching name suffixes to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#matches_suffix StorageBucket#matches_suffix}
+        :param noncurrent_time_before: Creation date of an object in RFC 3339 (e.g. 2017-06-13) to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#noncurrent_time_before StorageBucket#noncurrent_time_before}
+        :param num_newer_versions: Relevant only for versioned objects. The number of newer versions of an object to satisfy this condition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#num_newer_versions StorageBucket#num_newer_versions}
+        :param send_age_if_zero: While set true, age value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the age field. It can be used alone or together with age. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#send_age_if_zero StorageBucket#send_age_if_zero}
+        :param send_days_since_custom_time_if_zero: While set true, days_since_custom_time value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the days_since_custom_time field. It can be used alone or together with days_since_custom_time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#send_days_since_custom_time_if_zero StorageBucket#send_days_since_custom_time_if_zero}
+        :param send_days_since_noncurrent_time_if_zero: While set true, days_since_noncurrent_time value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the days_since_noncurrent_time field. It can be used alone or together with days_since_noncurrent_time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#send_days_since_noncurrent_time_if_zero StorageBucket#send_days_since_noncurrent_time_if_zero}
+        :param send_num_newer_versions_if_zero: While set true, num_newer_versions value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the num_newer_versions field. It can be used alone or together with num_newer_versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#send_num_newer_versions_if_zero StorageBucket#send_num_newer_versions_if_zero}
+        :param with_state: Match to live and/or archived objects. Unversioned buckets have only live objects. Supported values include: "LIVE", "ARCHIVED", "ANY". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#with_state StorageBucket#with_state}
         '''
         value = StorageBucketLifecycleRuleCondition(
             age=age,
@@ -3266,8 +3266,8 @@ class StorageBucketLogging:
         log_object_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param log_bucket: The bucket that will receive log objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#log_bucket StorageBucket#log_bucket}
-        :param log_object_prefix: The object prefix for log objects. If it's not provided, by default Google Cloud Storage sets this to this bucket's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#log_object_prefix StorageBucket#log_object_prefix}
+        :param log_bucket: The bucket that will receive log objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#log_bucket StorageBucket#log_bucket}
+        :param log_object_prefix: The object prefix for log objects. If it's not provided, by default Google Cloud Storage sets this to this bucket's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#log_object_prefix StorageBucket#log_object_prefix}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5ba22b184ac470c7b3dc9902518dfd4ae98dcffaa5e776c4a86379e09db20778)
@@ -3283,7 +3283,7 @@ class StorageBucketLogging:
     def log_bucket(self) -> builtins.str:
         '''The bucket that will receive log objects.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#log_bucket StorageBucket#log_bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#log_bucket StorageBucket#log_bucket}
         '''
         result = self._values.get("log_bucket")
         assert result is not None, "Required property 'log_bucket' is missing"
@@ -3295,7 +3295,7 @@ class StorageBucketLogging:
 
         If it's not provided, by default Google Cloud Storage sets this to this bucket's name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#log_object_prefix StorageBucket#log_object_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#log_object_prefix StorageBucket#log_object_prefix}
         '''
         result = self._values.get("log_object_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3396,8 +3396,8 @@ class StorageBucketRetentionPolicy:
         is_locked: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param retention_period: The period of time, in seconds, that objects in the bucket must be retained and cannot be deleted, overwritten, or archived. The value must be less than 3,155,760,000 seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#retention_period StorageBucket#retention_period}
-        :param is_locked: If set to true, the bucket will be locked and permanently restrict edits to the bucket's retention policy. Caution: Locking a bucket is an irreversible action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#is_locked StorageBucket#is_locked}
+        :param retention_period: The period of time, in seconds, that objects in the bucket must be retained and cannot be deleted, overwritten, or archived. The value must be less than 3,155,760,000 seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#retention_period StorageBucket#retention_period}
+        :param is_locked: If set to true, the bucket will be locked and permanently restrict edits to the bucket's retention policy. Caution: Locking a bucket is an irreversible action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#is_locked StorageBucket#is_locked}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e7c96689e4895a3a517516714152ca926700718825c72f351b80de2314d60951)
@@ -3415,7 +3415,7 @@ class StorageBucketRetentionPolicy:
 
         The value must be less than 3,155,760,000 seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#retention_period StorageBucket#retention_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#retention_period StorageBucket#retention_period}
         '''
         result = self._values.get("retention_period")
         assert result is not None, "Required property 'retention_period' is missing"
@@ -3429,7 +3429,7 @@ class StorageBucketRetentionPolicy:
 
         Caution: Locking a bucket is an irreversible action.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#is_locked StorageBucket#is_locked}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#is_locked StorageBucket#is_locked}
         '''
         result = self._values.get("is_locked")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3537,7 +3537,7 @@ class StorageBucketSoftDeletePolicy:
         retention_duration_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param retention_duration_seconds: The duration in seconds that soft-deleted objects in the bucket will be retained and cannot be permanently deleted. Default value is 604800. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#retention_duration_seconds StorageBucket#retention_duration_seconds}
+        :param retention_duration_seconds: The duration in seconds that soft-deleted objects in the bucket will be retained and cannot be permanently deleted. Default value is 604800. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#retention_duration_seconds StorageBucket#retention_duration_seconds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__45541c81af668fed40aa7c085b84b990a411287bec5c7bbc3570e60e1646bf17)
@@ -3552,7 +3552,7 @@ class StorageBucketSoftDeletePolicy:
 
         Default value is 604800.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#retention_duration_seconds StorageBucket#retention_duration_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#retention_duration_seconds StorageBucket#retention_duration_seconds}
         '''
         result = self._values.get("retention_duration_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3645,9 +3645,9 @@ class StorageBucketTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#create StorageBucket#create}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#read StorageBucket#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#update StorageBucket#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#create StorageBucket#create}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#read StorageBucket#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#update StorageBucket#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__002247ec5b1236f3d4fd5f05c35979d694a5e06603405d2b95832ef6235470ec)
@@ -3664,19 +3664,19 @@ class StorageBucketTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#create StorageBucket#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#create StorageBucket#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#read StorageBucket#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#read StorageBucket#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#update StorageBucket#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#update StorageBucket#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3805,7 +3805,7 @@ class StorageBucketVersioning:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: While set to true, versioning is fully enabled for this bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#enabled StorageBucket#enabled}
+        :param enabled: While set to true, versioning is fully enabled for this bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#enabled StorageBucket#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ea726803f2be5b028bf24561e638002d0c8a277304cce18c69fd244c7f2e97f0)
@@ -3818,7 +3818,7 @@ class StorageBucketVersioning:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''While set to true, versioning is fully enabled for this bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#enabled StorageBucket#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#enabled StorageBucket#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -3907,8 +3907,8 @@ class StorageBucketWebsite:
         not_found_page: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param main_page_suffix: Behaves as the bucket's directory index where missing objects are treated as potential directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#main_page_suffix StorageBucket#main_page_suffix}
-        :param not_found_page: The custom object to return when a requested resource is not found. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#not_found_page StorageBucket#not_found_page}
+        :param main_page_suffix: Behaves as the bucket's directory index where missing objects are treated as potential directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#main_page_suffix StorageBucket#main_page_suffix}
+        :param not_found_page: The custom object to return when a requested resource is not found. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#not_found_page StorageBucket#not_found_page}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e36cc2465be0a4a81f17a8a38e13620c01c5df70a7a3b23cb8557a7d3ce5c784)
@@ -3924,7 +3924,7 @@ class StorageBucketWebsite:
     def main_page_suffix(self) -> typing.Optional[builtins.str]:
         '''Behaves as the bucket's directory index where missing objects are treated as potential directories.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#main_page_suffix StorageBucket#main_page_suffix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#main_page_suffix StorageBucket#main_page_suffix}
         '''
         result = self._values.get("main_page_suffix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3933,7 +3933,7 @@ class StorageBucketWebsite:
     def not_found_page(self) -> typing.Optional[builtins.str]:
         '''The custom object to return when a requested resource is not found.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_bucket#not_found_page StorageBucket#not_found_page}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_bucket#not_found_page StorageBucket#not_found_page}
         '''
         result = self._values.get("not_found_page")
         return typing.cast(typing.Optional[builtins.str], result)

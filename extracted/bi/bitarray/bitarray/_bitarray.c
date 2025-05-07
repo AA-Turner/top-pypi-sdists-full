@@ -841,14 +841,8 @@ extend_dispatch(bitarrayobject *self, PyObject *obj)
     if (bitarray_Check(obj))                              /* bitarray */
         return extend_bitarray(self, (bitarrayobject *) obj);
 
-    if (PyUnicode_Check(obj))                     /* unicode (string) */
+    if (PyUnicode_Check(obj))                       /* Unicode string */
         return extend_unicode01(self, obj);
-
-    if (PyBytes_Check(obj)) {                                /* bytes */
-        PyErr_SetString(PyExc_TypeError, "cannot extend bitarray with "
-                        "'bytes', use .pack() or .frombytes() instead");
-        return -1;
-    }
 
     if (PySequence_Check(obj))                            /* sequence */
         return extend_sequence(self, obj);
@@ -1006,7 +1000,7 @@ Return a tuple containing:\n\
 \n\
 0. memory address of buffer\n\
 1. buffer size (in bytes)\n\
-2. bit-endianness as a string\n\
+2. bit-endianness as a Unicode string\n\
 3. number of pad bits\n\
 4. allocated memory for the buffer (in bytes)\n\
 5. memory is read-only\n\
@@ -1098,7 +1092,7 @@ bitarray_count(bitarrayobject *self, PyObject *args)
     if (step > 0 && start > self->nbits)
         return PyLong_FromSsize_t(0);
 
-    slicelength = adjust_indices(self->nbits, &start, &stop, step);
+    slicelength = PySlice_AdjustIndices(self->nbits, &start, &stop, step);
 
     if (vi < 2) {                            /* value count */
         adjust_step_positive(slicelength, &start, &stop, &step);
@@ -1128,18 +1122,6 @@ occurrences are counted within `[start:stop]` (`step` must be 1).");
 
 
 static PyObject *
-bitarray_endian(bitarrayobject *self)
-{
-    return PyUnicode_FromString(ENDIAN_STR(self->endian));
-}
-
-PyDoc_STRVAR(endian_doc,
-"endian() -> str\n\
-\n\
-Return the bit-endianness of the bitarray as a string (`little` or `big`).");
-
-
-static PyObject *
 bitarray_extend(bitarrayobject *self, PyObject *obj)
 {
     RAISE_IF_READONLY(self, NULL);
@@ -1151,8 +1133,8 @@ bitarray_extend(bitarrayobject *self, PyObject *obj)
 PyDoc_STRVAR(extend_doc,
 "extend(iterable, /)\n\
 \n\
-Append all items from `iterable` to the end of the bitarray.\n\
-If the iterable is a string, each `0` and `1` are appended as\n\
+Append items from to the end of the bitarray.\n\
+If `iterable` is a Unicode string, each `0` and `1` are appended as\n\
 bits (ignoring whitespace and underscore).");
 
 
@@ -1193,7 +1175,7 @@ bitarray_find(bitarrayobject *self, PyObject *args, PyObject *kwds)
         /* cannot find anything (including empty sub-bitarray) */
         return PyLong_FromSsize_t(-1);
 
-    adjust_indices(self->nbits, &start, &stop, 1);
+    PySlice_AdjustIndices(self->nbits, &start, &stop, 1);
 
     pos = find_obj(self, sub, start, stop, right);
     if (pos == -2)
@@ -1377,10 +1359,8 @@ bitarray_repr(bitarrayobject *self)
 static PyObject *
 bitarray_reverse(bitarrayobject *self)
 {
-    const Py_ssize_t nbytes = Py_SIZE(self);
     const Py_ssize_t p = PADBITS(self);  /* number of pad bits */
     char *buff = self->ob_item;
-    Py_ssize_t i, j;
 
     RAISE_IF_READONLY(self, NULL);
 
@@ -1390,17 +1370,18 @@ bitarray_reverse(bitarrayobject *self)
     self->nbits += p;
 
     /* reverse order of bytes */
-    for (i = 0, j = nbytes - 1; i < j; i++, j--) {
-        char t = buff[i];
-        buff[i] = buff[j];
-        buff[j] = t;
-    }
-    /* reverse order of bits within each byte */
-    bytereverse(self->ob_item, nbytes);
+    swap_bytes(buff, Py_SIZE(self));
 
-    /* remove the p pad bits at the end of the original bitarray that
-       are now the leading p bits */
-    delete_n(self, 0, p);
+    /* reverse order of bits within each byte */
+    bytereverse(self->ob_item, Py_SIZE(self));
+
+    /* Remove the p pad bits at the end of the original bitarray that
+       are now the leading p bits.
+       The reason why we don't just call delete_n(self, 0, p) here is that
+       it calls resize(), and we want to allow reversing an imported
+       writable buffer. */
+    copy_n(self, 0, self, p, self->nbits - p);
+    self->nbits -= p;
 
     Py_RETURN_NONE;
 }
@@ -1487,8 +1468,8 @@ bitarray_tolist(bitarrayobject *self)
 PyDoc_STRVAR(tolist_doc,
 "tolist() -> list\n\
 \n\
-Return bitarray as list of integer items.\n\
-`a.tolist()` is equal to `list(a)`.");
+Return bitarray as list of integers.\n\
+`a.tolist()` equals `list(a)`.");
 
 
 static PyObject *
@@ -1506,6 +1487,7 @@ bitarray_frombytes(bitarrayobject *self, PyObject *buffer)
     if (resize(self, 8 * (n + view.len)) < 0)
         goto error;
 
+    assert(Py_SIZE(self) == n + view.len);
     memcpy(self->ob_item + n, (char *) view.buf, (size_t) view.len);
 
     /* remove pad bits staring at previous bit length (8 * n - p) */
@@ -1514,7 +1496,6 @@ bitarray_frombytes(bitarrayobject *self, PyObject *buffer)
 
     PyBuffer_Release(&view);
     Py_RETURN_NONE;
-
  error:
     PyBuffer_Release(&view);
     return NULL;
@@ -1648,7 +1629,7 @@ bitarray_to01(bitarrayobject *self, PyObject *args, PyObject *kwds)
 
     if (strsize > PY_SSIZE_T_MAX) {
         PyErr_SetString(PyExc_OverflowError,
-                        "bitarray too large to convert to string");
+                        "bitarray too large to convert to 'str'");
         return NULL;
     }
 
@@ -1672,7 +1653,7 @@ bitarray_to01(bitarrayobject *self, PyObject *args, PyObject *kwds)
 PyDoc_STRVAR(to01_doc,
 "to01(group=0, sep=' ') -> str\n\
 \n\
-Return bitarray as string of '0's and '1's.\n\
+Return bitarray as Unicode string of '0's and '1's.\n\
 The bits are grouped into `group` bits (default is no grouping).\n\
 When grouped, the string `sep` is inserted between groups\n\
 of `group` characters, default is a space.");
@@ -1877,6 +1858,12 @@ bitarray_overlap(bitarrayobject *self, PyObject *other)
 /* ---------------------- bitarray getset members ---------------------- */
 
 static PyObject *
+bitarray_get_endian(bitarrayobject *self, void *Py_UNUSED(ignored))
+{
+    return PyUnicode_FromString(ENDIAN_STR(self->endian));
+}
+
+static PyObject *
 bitarray_get_nbytes(bitarrayobject *self, void *Py_UNUSED(ignored))
 {
     return PyLong_FromSsize_t(Py_SIZE(self));
@@ -1895,6 +1882,8 @@ bitarray_get_readonly(bitarrayobject *self, void *Py_UNUSED(ignored))
 }
 
 static PyGetSetDef bitarray_getsets [] = {
+    {"endian", (getter) bitarray_get_endian, NULL,
+     PyDoc_STR("bit-endianness as Unicode string")},
     {"nbytes", (getter) bitarray_get_nbytes, NULL,
      PyDoc_STR("buffer size in bytes")},
     {"padbits", (getter) bitarray_get_padbits, NULL,
@@ -2446,14 +2435,13 @@ delsequence(bitarrayobject *self, PyObject *seq)
     int res = -1;
 
     nseq = PySequence_Size(seq);
-    if (nseq == 0)   /* shortcut - sequence is empty - nothing to delete */
-        return 0;
 
     /* create mask bitarray - note that it's bit-endianness is irrelevant */
     mask = newbitarrayobject(&Bitarray_Type, self->nbits, ENDIAN_LITTLE);
     if (mask == NULL)
         return -1;
-    memset(mask->ob_item, 0x00, (size_t) Py_SIZE(mask));
+    if (self->ob_item)
+        memset(mask->ob_item, 0x00, (size_t) Py_SIZE(mask));
 
     /* set indices from sequence in mask */
     for (j = 0; j < nseq; j++) {
@@ -3343,7 +3331,7 @@ bitarray_search(bitarrayobject *self, PyObject *args, PyObject *kwds)
     if (value_sub(sub) < 0)
         return NULL;
 
-    adjust_indices(self->nbits, &start, &stop, 1);
+    PySlice_AdjustIndices(self->nbits, &start, &stop, 1);
 
     it = PyObject_GC_New(searchiterobject, &SearchIter_Type);
     if (it == NULL)
@@ -3466,8 +3454,6 @@ static PyMethodDef bitarray_methods[] = {
      decode_doc},
     {"encode",       (PyCFunction) bitarray_encode,      METH_VARARGS,
      encode_doc},
-    {"endian",       (PyCFunction) bitarray_endian,      METH_NOARGS,
-     endian_doc},
     {"extend",       (PyCFunction) bitarray_extend,      METH_O,
      extend_doc},
     {"fill",         (PyCFunction) bitarray_fill,        METH_NOARGS,
@@ -3623,6 +3609,28 @@ newbitarray_from_index(PyTypeObject *type, PyObject *index,
     return (PyObject *) res;
 }
 
+/* return new bitarray from bytes-like object */
+static PyObject *
+newbitarray_from_bytes(PyTypeObject *type, PyObject *buffer, int endian)
+{
+    bitarrayobject *res;
+    Py_buffer view;
+
+    if (PyObject_GetBuffer(buffer, &view, PyBUF_SIMPLE) < 0)
+        return NULL;
+
+    res = newbitarrayobject(type, 8 * view.len, endian);
+    if (res == NULL) {
+        PyBuffer_Release(&view);
+        return NULL;
+    }
+    assert(Py_SIZE(res) == view.len);
+    memcpy(res->ob_item, (char *) view.buf, (size_t) view.len);
+
+    PyBuffer_Release(&view);
+    return (PyObject *) res;
+}
+
 /* As of bitarray version 2.9.0, "bitarray(nbits)" will initialize all items
    to 0 (previously, the buffer was be uninitialized).
    However, for speed, one might want to create an uninitialized bitarray.
@@ -3632,14 +3640,14 @@ newbitarray_from_index(PyTypeObject *type, PyObject *index,
 static PyObject *
 bitarray_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    PyObject *initial = Py_None, *buffer = Py_None;
+    static char *kwlist[] = {"", "endian", "buffer", NULL};
+    PyObject *initializer = Py_None, *buffer = Py_None;
     bitarrayobject *res;
     char *endian_str = NULL;
     int endian;
-    static char *kwlist[] = {"", "endian", "buffer", NULL};
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OzO:bitarray", kwlist,
-                                     &initial, &endian_str, &buffer))
+                                     &initializer, &endian_str, &buffer))
         return NULL;
 
     if ((endian = endian_from_string(endian_str)) < 0)
@@ -3647,37 +3655,42 @@ bitarray_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
     /* import buffer */
     if (buffer != Py_None && buffer != Py_Ellipsis) {
-        if (initial != Py_None) {
+        if (initializer != Py_None) {
             PyErr_SetString(PyExc_TypeError,
-                            "buffer requires no initial argument");
+                            "buffer requires no initializer argument");
             return NULL;
         }
         return newbitarray_from_buffer(type, buffer, endian);
     }
 
     /* no arg / None */
-    if (initial == Py_None)
+    if (initializer == Py_None)
         return (PyObject *) newbitarrayobject(type, 0, endian);
 
     /* bool */
-    if (PyBool_Check(initial)) {
-        PyErr_SetString(PyExc_TypeError, "cannot create bitarray from bool");
+    if (PyBool_Check(initializer)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "cannot create bitarray from 'bool' object");
         return NULL;
     }
 
     /* index (a number) */
-    if (PyIndex_Check(initial))
-        return newbitarray_from_index(type, initial, endian,
+    if (PyIndex_Check(initializer))
+        return newbitarray_from_index(type, initializer, endian,
                                       buffer == Py_None);
 
-    /* bitarray: use its bit-endianness when endian argument is missing */
-    if (bitarray_Check(initial) && endian_str == NULL)
-        endian = ((bitarrayobject *) initial)->endian;
+    /* bytes or bytearray */
+    if (PyBytes_Check(initializer) || PyByteArray_Check(initializer))
+        return newbitarray_from_bytes(type, initializer, endian);
+
+    /* bitarray: use its bit-endianness when endian argument is None */
+    if (bitarray_Check(initializer) && endian_str == NULL)
+        endian = ((bitarrayobject *) initializer)->endian;
 
     /* leave remaining type dispatch to extend method */
     if ((res = newbitarrayobject(type, 0, endian)) == NULL)
         return NULL;
-    if (extend_dispatch(res, initial) < 0) {
+    if (extend_dispatch(res, initializer) < 0) {
         Py_DECREF(res);
         return NULL;
     }
@@ -3888,15 +3901,12 @@ PyDoc_STRVAR(bitarraytype_doc,
 "bitarray(initializer=0, /, endian='big', buffer=None) -> bitarray\n\
 \n\
 Return a new bitarray object whose items are bits initialized from\n\
-the optional initial object, and bit-endianness.\n\
-The initializer may be of the following types:\n\
-\n\
-`int`: Create a bitarray of given integer length.  The initial values are\n\
-all `0`.\n\
-\n\
-`str`: Create bitarray from a string of `0` and `1`.\n\
-\n\
-`iterable`: Create bitarray from iterable or sequence of integers 0 or 1.\n\
+the optional initializer, and bit-endianness.\n\
+The initializer may be one of the following types:\n\
+a.) `int` bitarray, initialized to zeros, of given length\n\
+b.) `bytes` or `bytearray` to initialize buffer directly\n\
+c.) `str` of 0s and 1s, ignoring whitespace and \"_\"\n\
+d.) iterable of integers 0 or 1.\n\
 \n\
 Optional keyword arguments:\n\
 \n\
@@ -3991,6 +4001,7 @@ reconstructor(PyObject *module, PyObject *args)
     res = newbitarrayobject(type, 8 * nbytes - padbits, endian);
     if (res == NULL)
         return NULL;
+    assert(Py_SIZE(res) == nbytes);
     memcpy(res->ob_item, PyBytes_AS_STRING(bytes), (size_t) nbytes);
     if (readonly) {
         set_padbits(res);

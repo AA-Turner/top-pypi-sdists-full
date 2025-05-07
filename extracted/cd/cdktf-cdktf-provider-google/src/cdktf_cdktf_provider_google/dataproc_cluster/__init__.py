@@ -1,7 +1,7 @@
 r'''
 # `google_dataproc_cluster`
 
-Refer to the Terraform Registry for docs: [`google_dataproc_cluster`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster).
+Refer to the Terraform Registry for docs: [`google_dataproc_cluster`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataprocCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataprocCluster.DataprocCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster google_dataproc_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster google_dataproc_cluster}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class DataprocCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster google_dataproc_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster google_dataproc_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the cluster, unique within the project and zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#name DataprocCluster#name}
-        :param cluster_config: cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#cluster_config DataprocCluster#cluster_config}
-        :param graceful_decommission_timeout: The timeout duration which allows graceful decomissioning when you change the number of worker nodes directly through a terraform apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#graceful_decommission_timeout DataprocCluster#graceful_decommission_timeout}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#id DataprocCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: The list of the labels (key/value pairs) configured on the resource and to be applied to instances in the cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#labels DataprocCluster#labels}
-        :param project: The ID of the project in which the cluster will exist. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#project DataprocCluster#project}
-        :param region: The region in which the cluster and associated nodes will be created in. Defaults to global. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#region DataprocCluster#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#timeouts DataprocCluster#timeouts}
-        :param virtual_cluster_config: virtual_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#virtual_cluster_config DataprocCluster#virtual_cluster_config}
+        :param name: The name of the cluster, unique within the project and zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#name DataprocCluster#name}
+        :param cluster_config: cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#cluster_config DataprocCluster#cluster_config}
+        :param graceful_decommission_timeout: The timeout duration which allows graceful decomissioning when you change the number of worker nodes directly through a terraform apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#graceful_decommission_timeout DataprocCluster#graceful_decommission_timeout}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#id DataprocCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: The list of the labels (key/value pairs) configured on the resource and to be applied to instances in the cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#labels DataprocCluster#labels}
+        :param project: The ID of the project in which the cluster will exist. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#project DataprocCluster#project}
+        :param region: The region in which the cluster and associated nodes will be created in. Defaults to global. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#region DataprocCluster#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#timeouts DataprocCluster#timeouts}
+        :param virtual_cluster_config: virtual_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#virtual_cluster_config DataprocCluster#virtual_cluster_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class DataprocCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataprocCluster to import.
-        :param import_from_id: The id of the existing DataprocCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataprocCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataprocCluster to import is found.
         '''
         if __debug__:
@@ -160,22 +160,22 @@ class DataprocCluster(
         worker_config: typing.Optional[typing.Union["DataprocClusterClusterConfigWorkerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param autoscaling_config: autoscaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#autoscaling_config DataprocCluster#autoscaling_config}
-        :param auxiliary_node_groups: auxiliary_node_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#auxiliary_node_groups DataprocCluster#auxiliary_node_groups}
-        :param dataproc_metric_config: dataproc_metric_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#dataproc_metric_config DataprocCluster#dataproc_metric_config}
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#encryption_config DataprocCluster#encryption_config}
-        :param endpoint_config: endpoint_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#endpoint_config DataprocCluster#endpoint_config}
-        :param gce_cluster_config: gce_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#gce_cluster_config DataprocCluster#gce_cluster_config}
-        :param initialization_action: initialization_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#initialization_action DataprocCluster#initialization_action}
-        :param lifecycle_config: lifecycle_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#lifecycle_config DataprocCluster#lifecycle_config}
-        :param master_config: master_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#master_config DataprocCluster#master_config}
-        :param metastore_config: metastore_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#metastore_config DataprocCluster#metastore_config}
-        :param preemptible_worker_config: preemptible_worker_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#preemptible_worker_config DataprocCluster#preemptible_worker_config}
-        :param security_config: security_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#security_config DataprocCluster#security_config}
-        :param software_config: software_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#software_config DataprocCluster#software_config}
-        :param staging_bucket: The Cloud Storage staging bucket used to stage files, such as Hadoop jars, between client machines and the cluster. Note: If you don't explicitly specify a staging_bucket then GCP will auto create / assign one for you. However, you are not guaranteed an auto generated bucket which is solely dedicated to your cluster; it may be shared with other clusters in the same region/zone also choosing to use the auto generation option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#staging_bucket DataprocCluster#staging_bucket}
-        :param temp_bucket: The Cloud Storage temp bucket used to store ephemeral cluster and jobs data, such as Spark and MapReduce history files. Note: If you don't explicitly specify a temp_bucket then GCP will auto create / assign one for you. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#temp_bucket DataprocCluster#temp_bucket}
-        :param worker_config: worker_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#worker_config DataprocCluster#worker_config}
+        :param autoscaling_config: autoscaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#autoscaling_config DataprocCluster#autoscaling_config}
+        :param auxiliary_node_groups: auxiliary_node_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#auxiliary_node_groups DataprocCluster#auxiliary_node_groups}
+        :param dataproc_metric_config: dataproc_metric_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#dataproc_metric_config DataprocCluster#dataproc_metric_config}
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#encryption_config DataprocCluster#encryption_config}
+        :param endpoint_config: endpoint_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#endpoint_config DataprocCluster#endpoint_config}
+        :param gce_cluster_config: gce_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#gce_cluster_config DataprocCluster#gce_cluster_config}
+        :param initialization_action: initialization_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#initialization_action DataprocCluster#initialization_action}
+        :param lifecycle_config: lifecycle_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#lifecycle_config DataprocCluster#lifecycle_config}
+        :param master_config: master_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#master_config DataprocCluster#master_config}
+        :param metastore_config: metastore_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#metastore_config DataprocCluster#metastore_config}
+        :param preemptible_worker_config: preemptible_worker_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#preemptible_worker_config DataprocCluster#preemptible_worker_config}
+        :param security_config: security_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#security_config DataprocCluster#security_config}
+        :param software_config: software_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#software_config DataprocCluster#software_config}
+        :param staging_bucket: The Cloud Storage staging bucket used to stage files, such as Hadoop jars, between client machines and the cluster. Note: If you don't explicitly specify a staging_bucket then GCP will auto create / assign one for you. However, you are not guaranteed an auto generated bucket which is solely dedicated to your cluster; it may be shared with other clusters in the same region/zone also choosing to use the auto generation option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#staging_bucket DataprocCluster#staging_bucket}
+        :param temp_bucket: The Cloud Storage temp bucket used to store ephemeral cluster and jobs data, such as Spark and MapReduce history files. Note: If you don't explicitly specify a temp_bucket then GCP will auto create / assign one for you. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#temp_bucket DataprocCluster#temp_bucket}
+        :param worker_config: worker_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#worker_config DataprocCluster#worker_config}
         '''
         value = DataprocClusterClusterConfig(
             autoscaling_config=autoscaling_config,
@@ -207,9 +207,9 @@ class DataprocCluster(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#create DataprocCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#delete DataprocCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#update DataprocCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#create DataprocCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#delete DataprocCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#update DataprocCluster#update}.
         '''
         value = DataprocClusterTimeouts(create=create, delete=delete, update=update)
 
@@ -224,9 +224,9 @@ class DataprocCluster(
         staging_bucket: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auxiliary_services_config: auxiliary_services_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#auxiliary_services_config DataprocCluster#auxiliary_services_config}
-        :param kubernetes_cluster_config: kubernetes_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kubernetes_cluster_config DataprocCluster#kubernetes_cluster_config}
-        :param staging_bucket: A Cloud Storage bucket used to stage job dependencies, config files, and job driver console output. If you do not specify a staging bucket, Cloud Dataproc will determine a Cloud Storage location (US, ASIA, or EU) for your cluster's staging bucket according to the Compute Engine zone where your cluster is deployed, and then create and manage this project-level, per-location bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#staging_bucket DataprocCluster#staging_bucket}
+        :param auxiliary_services_config: auxiliary_services_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#auxiliary_services_config DataprocCluster#auxiliary_services_config}
+        :param kubernetes_cluster_config: kubernetes_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kubernetes_cluster_config DataprocCluster#kubernetes_cluster_config}
+        :param staging_bucket: A Cloud Storage bucket used to stage job dependencies, config files, and job driver console output. If you do not specify a staging bucket, Cloud Dataproc will determine a Cloud Storage location (US, ASIA, or EU) for your cluster's staging bucket according to the Compute Engine zone where your cluster is deployed, and then create and manage this project-level, per-location bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#staging_bucket DataprocCluster#staging_bucket}
         '''
         value = DataprocClusterVirtualClusterConfig(
             auxiliary_services_config=auxiliary_services_config,
@@ -476,22 +476,22 @@ class DataprocClusterClusterConfig:
         worker_config: typing.Optional[typing.Union["DataprocClusterClusterConfigWorkerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param autoscaling_config: autoscaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#autoscaling_config DataprocCluster#autoscaling_config}
-        :param auxiliary_node_groups: auxiliary_node_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#auxiliary_node_groups DataprocCluster#auxiliary_node_groups}
-        :param dataproc_metric_config: dataproc_metric_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#dataproc_metric_config DataprocCluster#dataproc_metric_config}
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#encryption_config DataprocCluster#encryption_config}
-        :param endpoint_config: endpoint_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#endpoint_config DataprocCluster#endpoint_config}
-        :param gce_cluster_config: gce_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#gce_cluster_config DataprocCluster#gce_cluster_config}
-        :param initialization_action: initialization_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#initialization_action DataprocCluster#initialization_action}
-        :param lifecycle_config: lifecycle_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#lifecycle_config DataprocCluster#lifecycle_config}
-        :param master_config: master_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#master_config DataprocCluster#master_config}
-        :param metastore_config: metastore_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#metastore_config DataprocCluster#metastore_config}
-        :param preemptible_worker_config: preemptible_worker_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#preemptible_worker_config DataprocCluster#preemptible_worker_config}
-        :param security_config: security_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#security_config DataprocCluster#security_config}
-        :param software_config: software_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#software_config DataprocCluster#software_config}
-        :param staging_bucket: The Cloud Storage staging bucket used to stage files, such as Hadoop jars, between client machines and the cluster. Note: If you don't explicitly specify a staging_bucket then GCP will auto create / assign one for you. However, you are not guaranteed an auto generated bucket which is solely dedicated to your cluster; it may be shared with other clusters in the same region/zone also choosing to use the auto generation option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#staging_bucket DataprocCluster#staging_bucket}
-        :param temp_bucket: The Cloud Storage temp bucket used to store ephemeral cluster and jobs data, such as Spark and MapReduce history files. Note: If you don't explicitly specify a temp_bucket then GCP will auto create / assign one for you. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#temp_bucket DataprocCluster#temp_bucket}
-        :param worker_config: worker_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#worker_config DataprocCluster#worker_config}
+        :param autoscaling_config: autoscaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#autoscaling_config DataprocCluster#autoscaling_config}
+        :param auxiliary_node_groups: auxiliary_node_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#auxiliary_node_groups DataprocCluster#auxiliary_node_groups}
+        :param dataproc_metric_config: dataproc_metric_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#dataproc_metric_config DataprocCluster#dataproc_metric_config}
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#encryption_config DataprocCluster#encryption_config}
+        :param endpoint_config: endpoint_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#endpoint_config DataprocCluster#endpoint_config}
+        :param gce_cluster_config: gce_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#gce_cluster_config DataprocCluster#gce_cluster_config}
+        :param initialization_action: initialization_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#initialization_action DataprocCluster#initialization_action}
+        :param lifecycle_config: lifecycle_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#lifecycle_config DataprocCluster#lifecycle_config}
+        :param master_config: master_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#master_config DataprocCluster#master_config}
+        :param metastore_config: metastore_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#metastore_config DataprocCluster#metastore_config}
+        :param preemptible_worker_config: preemptible_worker_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#preemptible_worker_config DataprocCluster#preemptible_worker_config}
+        :param security_config: security_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#security_config DataprocCluster#security_config}
+        :param software_config: software_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#software_config DataprocCluster#software_config}
+        :param staging_bucket: The Cloud Storage staging bucket used to stage files, such as Hadoop jars, between client machines and the cluster. Note: If you don't explicitly specify a staging_bucket then GCP will auto create / assign one for you. However, you are not guaranteed an auto generated bucket which is solely dedicated to your cluster; it may be shared with other clusters in the same region/zone also choosing to use the auto generation option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#staging_bucket DataprocCluster#staging_bucket}
+        :param temp_bucket: The Cloud Storage temp bucket used to store ephemeral cluster and jobs data, such as Spark and MapReduce history files. Note: If you don't explicitly specify a temp_bucket then GCP will auto create / assign one for you. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#temp_bucket DataprocCluster#temp_bucket}
+        :param worker_config: worker_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#worker_config DataprocCluster#worker_config}
         '''
         if isinstance(autoscaling_config, dict):
             autoscaling_config = DataprocClusterClusterConfigAutoscalingConfig(**autoscaling_config)
@@ -575,7 +575,7 @@ class DataprocClusterClusterConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigAutoscalingConfig"]:
         '''autoscaling_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#autoscaling_config DataprocCluster#autoscaling_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#autoscaling_config DataprocCluster#autoscaling_config}
         '''
         result = self._values.get("autoscaling_config")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigAutoscalingConfig"], result)
@@ -586,7 +586,7 @@ class DataprocClusterClusterConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataprocClusterClusterConfigAuxiliaryNodeGroups"]]]:
         '''auxiliary_node_groups block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#auxiliary_node_groups DataprocCluster#auxiliary_node_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#auxiliary_node_groups DataprocCluster#auxiliary_node_groups}
         '''
         result = self._values.get("auxiliary_node_groups")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataprocClusterClusterConfigAuxiliaryNodeGroups"]]], result)
@@ -597,7 +597,7 @@ class DataprocClusterClusterConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigDataprocMetricConfig"]:
         '''dataproc_metric_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#dataproc_metric_config DataprocCluster#dataproc_metric_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#dataproc_metric_config DataprocCluster#dataproc_metric_config}
         '''
         result = self._values.get("dataproc_metric_config")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigDataprocMetricConfig"], result)
@@ -608,7 +608,7 @@ class DataprocClusterClusterConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigEncryptionConfig"]:
         '''encryption_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#encryption_config DataprocCluster#encryption_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#encryption_config DataprocCluster#encryption_config}
         '''
         result = self._values.get("encryption_config")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigEncryptionConfig"], result)
@@ -619,7 +619,7 @@ class DataprocClusterClusterConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigEndpointConfig"]:
         '''endpoint_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#endpoint_config DataprocCluster#endpoint_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#endpoint_config DataprocCluster#endpoint_config}
         '''
         result = self._values.get("endpoint_config")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigEndpointConfig"], result)
@@ -630,7 +630,7 @@ class DataprocClusterClusterConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigGceClusterConfig"]:
         '''gce_cluster_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#gce_cluster_config DataprocCluster#gce_cluster_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#gce_cluster_config DataprocCluster#gce_cluster_config}
         '''
         result = self._values.get("gce_cluster_config")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigGceClusterConfig"], result)
@@ -641,7 +641,7 @@ class DataprocClusterClusterConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataprocClusterClusterConfigInitializationAction"]]]:
         '''initialization_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#initialization_action DataprocCluster#initialization_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#initialization_action DataprocCluster#initialization_action}
         '''
         result = self._values.get("initialization_action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataprocClusterClusterConfigInitializationAction"]]], result)
@@ -652,7 +652,7 @@ class DataprocClusterClusterConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigLifecycleConfig"]:
         '''lifecycle_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#lifecycle_config DataprocCluster#lifecycle_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#lifecycle_config DataprocCluster#lifecycle_config}
         '''
         result = self._values.get("lifecycle_config")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigLifecycleConfig"], result)
@@ -663,7 +663,7 @@ class DataprocClusterClusterConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigMasterConfig"]:
         '''master_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#master_config DataprocCluster#master_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#master_config DataprocCluster#master_config}
         '''
         result = self._values.get("master_config")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigMasterConfig"], result)
@@ -674,7 +674,7 @@ class DataprocClusterClusterConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigMetastoreConfig"]:
         '''metastore_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#metastore_config DataprocCluster#metastore_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#metastore_config DataprocCluster#metastore_config}
         '''
         result = self._values.get("metastore_config")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigMetastoreConfig"], result)
@@ -685,7 +685,7 @@ class DataprocClusterClusterConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigPreemptibleWorkerConfig"]:
         '''preemptible_worker_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#preemptible_worker_config DataprocCluster#preemptible_worker_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#preemptible_worker_config DataprocCluster#preemptible_worker_config}
         '''
         result = self._values.get("preemptible_worker_config")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigPreemptibleWorkerConfig"], result)
@@ -696,7 +696,7 @@ class DataprocClusterClusterConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigSecurityConfig"]:
         '''security_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#security_config DataprocCluster#security_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#security_config DataprocCluster#security_config}
         '''
         result = self._values.get("security_config")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigSecurityConfig"], result)
@@ -707,7 +707,7 @@ class DataprocClusterClusterConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigSoftwareConfig"]:
         '''software_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#software_config DataprocCluster#software_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#software_config DataprocCluster#software_config}
         '''
         result = self._values.get("software_config")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigSoftwareConfig"], result)
@@ -718,7 +718,7 @@ class DataprocClusterClusterConfig:
 
         Note: If you don't explicitly specify a staging_bucket then GCP will auto create / assign one for you. However, you are not guaranteed an auto generated bucket which is solely dedicated to your cluster; it may be shared with other clusters in the same region/zone also choosing to use the auto generation option.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#staging_bucket DataprocCluster#staging_bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#staging_bucket DataprocCluster#staging_bucket}
         '''
         result = self._values.get("staging_bucket")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -729,7 +729,7 @@ class DataprocClusterClusterConfig:
 
         Note: If you don't explicitly specify a temp_bucket then GCP will auto create / assign one for you.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#temp_bucket DataprocCluster#temp_bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#temp_bucket DataprocCluster#temp_bucket}
         '''
         result = self._values.get("temp_bucket")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -740,7 +740,7 @@ class DataprocClusterClusterConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigWorkerConfig"]:
         '''worker_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#worker_config DataprocCluster#worker_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#worker_config DataprocCluster#worker_config}
         '''
         result = self._values.get("worker_config")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigWorkerConfig"], result)
@@ -765,7 +765,7 @@ class DataprocClusterClusterConfig:
 class DataprocClusterClusterConfigAutoscalingConfig:
     def __init__(self, *, policy_uri: builtins.str) -> None:
         '''
-        :param policy_uri: The autoscaling policy used by the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#policy_uri DataprocCluster#policy_uri}
+        :param policy_uri: The autoscaling policy used by the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#policy_uri DataprocCluster#policy_uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a2b0e0bb924cd4fa2603b98d6f0c96f70afb7418caf8d7b567c88aba62caeb6)
@@ -778,7 +778,7 @@ class DataprocClusterClusterConfigAutoscalingConfig:
     def policy_uri(self) -> builtins.str:
         '''The autoscaling policy used by the cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#policy_uri DataprocCluster#policy_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#policy_uri DataprocCluster#policy_uri}
         '''
         result = self._values.get("policy_uri")
         assert result is not None, "Required property 'policy_uri' is missing"
@@ -864,8 +864,8 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroups:
         node_group_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param node_group: node_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#node_group DataprocCluster#node_group}
-        :param node_group_id: A node group ID. Generated if not specified. The ID must contain only letters (a-z, A-Z), numbers (0-9), underscores (_), and hyphens (-). Cannot begin or end with underscore or hyphen. Must consist of from 3 to 33 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#node_group_id DataprocCluster#node_group_id}
+        :param node_group: node_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#node_group DataprocCluster#node_group}
+        :param node_group_id: A node group ID. Generated if not specified. The ID must contain only letters (a-z, A-Z), numbers (0-9), underscores (_), and hyphens (-). Cannot begin or end with underscore or hyphen. Must consist of from 3 to 33 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#node_group_id DataprocCluster#node_group_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b85ab3e5c8fff84678622adc27ff7186e23eb5a3b1b65cd4c2cbd1daaf4c1545)
@@ -883,7 +883,7 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroups:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroup"]]:
         '''node_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#node_group DataprocCluster#node_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#node_group DataprocCluster#node_group}
         '''
         result = self._values.get("node_group")
         assert result is not None, "Required property 'node_group' is missing"
@@ -895,7 +895,7 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroups:
 
         Generated if not specified. The ID must contain only letters (a-z, A-Z), numbers (0-9), underscores (_), and hyphens (-). Cannot begin or end with underscore or hyphen. Must consist of from 3 to 33 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#node_group_id DataprocCluster#node_group_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#node_group_id DataprocCluster#node_group_id}
         '''
         result = self._values.get("node_group_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1018,8 +1018,8 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroup:
         node_group_config: typing.Optional[typing.Union["DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param roles: Node group roles. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#roles DataprocCluster#roles}
-        :param node_group_config: node_group_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#node_group_config DataprocCluster#node_group_config}
+        :param roles: Node group roles. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#roles DataprocCluster#roles}
+        :param node_group_config: node_group_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#node_group_config DataprocCluster#node_group_config}
         '''
         if isinstance(node_group_config, dict):
             node_group_config = DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfig(**node_group_config)
@@ -1037,7 +1037,7 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroup:
     def roles(self) -> typing.List[builtins.str]:
         '''Node group roles.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#roles DataprocCluster#roles}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#roles DataprocCluster#roles}
         '''
         result = self._values.get("roles")
         assert result is not None, "Required property 'roles' is missing"
@@ -1049,7 +1049,7 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroup:
     ) -> typing.Optional["DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfig"]:
         '''node_group_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#node_group_config DataprocCluster#node_group_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#node_group_config DataprocCluster#node_group_config}
         '''
         result = self._values.get("node_group_config")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfig"], result)
@@ -1181,11 +1181,11 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfig:
         num_instances: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param accelerators: accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerators DataprocCluster#accelerators}
-        :param disk_config: disk_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
-        :param machine_type: The name of a Google Compute Engine machine type to create for the master. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
-        :param min_cpu_platform: The name of a minimum generation of CPU family for the auxiliary node group. If not specified, GCP will default to a predetermined computed value for each zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
-        :param num_instances: Specifies the number of auxiliary nodes to create. If not specified, GCP will default to a predetermined computed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
+        :param accelerators: accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerators DataprocCluster#accelerators}
+        :param disk_config: disk_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
+        :param machine_type: The name of a Google Compute Engine machine type to create for the master. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
+        :param min_cpu_platform: The name of a minimum generation of CPU family for the auxiliary node group. If not specified, GCP will default to a predetermined computed value for each zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
+        :param num_instances: Specifies the number of auxiliary nodes to create. If not specified, GCP will default to a predetermined computed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
         '''
         if isinstance(disk_config, dict):
             disk_config = DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfigDiskConfig(**disk_config)
@@ -1214,7 +1214,7 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfigAccelerators"]]]:
         '''accelerators block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerators DataprocCluster#accelerators}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerators DataprocCluster#accelerators}
         '''
         result = self._values.get("accelerators")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfigAccelerators"]]], result)
@@ -1225,7 +1225,7 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfigDiskConfig"]:
         '''disk_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
         '''
         result = self._values.get("disk_config")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfigDiskConfig"], result)
@@ -1234,7 +1234,7 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfig:
     def machine_type(self) -> typing.Optional[builtins.str]:
         '''The name of a Google Compute Engine machine type to create for the master.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
         '''
         result = self._values.get("machine_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1245,7 +1245,7 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfig:
 
         If not specified, GCP will default to a predetermined computed value for each zone.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
         '''
         result = self._values.get("min_cpu_platform")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1254,7 +1254,7 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfig:
     def num_instances(self) -> typing.Optional[jsii.Number]:
         '''Specifies the number of auxiliary nodes to create. If not specified, GCP will default to a predetermined computed value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
         '''
         result = self._values.get("num_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1287,8 +1287,8 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfigAcc
         accelerator_type: builtins.str,
     ) -> None:
         '''
-        :param accelerator_count: The number of the accelerator cards of this type exposed to this instance. Often restricted to one of 1, 2, 4, or 8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerator_count DataprocCluster#accelerator_count}
-        :param accelerator_type: The short name of the accelerator type to expose to this instance. For example, nvidia-tesla-k80. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerator_type DataprocCluster#accelerator_type}
+        :param accelerator_count: The number of the accelerator cards of this type exposed to this instance. Often restricted to one of 1, 2, 4, or 8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerator_count DataprocCluster#accelerator_count}
+        :param accelerator_type: The short name of the accelerator type to expose to this instance. For example, nvidia-tesla-k80. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerator_type DataprocCluster#accelerator_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__230c1214a4f089fe9916aff2bf32750535ec269032f1c6662709d46212c6dead)
@@ -1305,7 +1305,7 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfigAcc
 
         Often restricted to one of 1, 2, 4, or 8.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerator_count DataprocCluster#accelerator_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerator_count DataprocCluster#accelerator_count}
         '''
         result = self._values.get("accelerator_count")
         assert result is not None, "Required property 'accelerator_count' is missing"
@@ -1315,7 +1315,7 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfigAcc
     def accelerator_type(self) -> builtins.str:
         '''The short name of the accelerator type to expose to this instance. For example, nvidia-tesla-k80.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerator_type DataprocCluster#accelerator_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerator_type DataprocCluster#accelerator_type}
         '''
         result = self._values.get("accelerator_type")
         assert result is not None, "Required property 'accelerator_type' is missing"
@@ -1524,10 +1524,10 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfigDis
         num_local_ssds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param boot_disk_size_gb: Size of the primary disk attached to each node, specified in GB. The primary disk contains the boot volume and system libraries, and the smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
-        :param boot_disk_type: The disk type of the primary disk attached to each node. Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
-        :param local_ssd_interface: Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
-        :param num_local_ssds: The amount of local SSD disks that will be attached to each master cluster node. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
+        :param boot_disk_size_gb: Size of the primary disk attached to each node, specified in GB. The primary disk contains the boot volume and system libraries, and the smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
+        :param boot_disk_type: The disk type of the primary disk attached to each node. Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
+        :param local_ssd_interface: Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
+        :param num_local_ssds: The amount of local SSD disks that will be attached to each master cluster node. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1c6442c99e4fec5373fb31b979ad7deba156ebfecd71f830cc4264cb8138f1a1)
@@ -1551,7 +1551,7 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfigDis
 
         The primary disk contains the boot volume and system libraries, and the smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
         '''
         result = self._values.get("boot_disk_size_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1560,7 +1560,7 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfigDis
     def boot_disk_type(self) -> typing.Optional[builtins.str]:
         '''The disk type of the primary disk attached to each node. Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
         '''
         result = self._values.get("boot_disk_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1569,7 +1569,7 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfigDis
     def local_ssd_interface(self) -> typing.Optional[builtins.str]:
         '''Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
         '''
         result = self._values.get("local_ssd_interface")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1578,7 +1578,7 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfigDis
     def num_local_ssds(self) -> typing.Optional[jsii.Number]:
         '''The amount of local SSD disks that will be attached to each master cluster node. Defaults to 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
         '''
         result = self._values.get("num_local_ssds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1760,10 +1760,10 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfigOut
         num_local_ssds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param boot_disk_size_gb: Size of the primary disk attached to each node, specified in GB. The primary disk contains the boot volume and system libraries, and the smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
-        :param boot_disk_type: The disk type of the primary disk attached to each node. Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
-        :param local_ssd_interface: Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
-        :param num_local_ssds: The amount of local SSD disks that will be attached to each master cluster node. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
+        :param boot_disk_size_gb: Size of the primary disk attached to each node, specified in GB. The primary disk contains the boot volume and system libraries, and the smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
+        :param boot_disk_type: The disk type of the primary disk attached to each node. Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
+        :param local_ssd_interface: Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
+        :param num_local_ssds: The amount of local SSD disks that will be attached to each master cluster node. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
         '''
         value = DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfigDiskConfig(
             boot_disk_size_gb=boot_disk_size_gb,
@@ -1933,11 +1933,11 @@ class DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupOutputReference(
         num_instances: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param accelerators: accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerators DataprocCluster#accelerators}
-        :param disk_config: disk_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
-        :param machine_type: The name of a Google Compute Engine machine type to create for the master. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
-        :param min_cpu_platform: The name of a minimum generation of CPU family for the auxiliary node group. If not specified, GCP will default to a predetermined computed value for each zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
-        :param num_instances: Specifies the number of auxiliary nodes to create. If not specified, GCP will default to a predetermined computed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
+        :param accelerators: accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerators DataprocCluster#accelerators}
+        :param disk_config: disk_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
+        :param machine_type: The name of a Google Compute Engine machine type to create for the master. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
+        :param min_cpu_platform: The name of a minimum generation of CPU family for the auxiliary node group. If not specified, GCP will default to a predetermined computed value for each zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
+        :param num_instances: Specifies the number of auxiliary nodes to create. If not specified, GCP will default to a predetermined computed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
         '''
         value = DataprocClusterClusterConfigAuxiliaryNodeGroupsNodeGroupNodeGroupConfig(
             accelerators=accelerators,
@@ -2111,7 +2111,7 @@ class DataprocClusterClusterConfigDataprocMetricConfig:
         metrics: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataprocClusterClusterConfigDataprocMetricConfigMetrics", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param metrics: metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#metrics DataprocCluster#metrics}
+        :param metrics: metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#metrics DataprocCluster#metrics}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d7fa541c90d834c880c3c749631d631587e691853d10302b381a277c8285af36)
@@ -2126,7 +2126,7 @@ class DataprocClusterClusterConfigDataprocMetricConfig:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataprocClusterClusterConfigDataprocMetricConfigMetrics"]]:
         '''metrics block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#metrics DataprocCluster#metrics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#metrics DataprocCluster#metrics}
         '''
         result = self._values.get("metrics")
         assert result is not None, "Required property 'metrics' is missing"
@@ -2160,8 +2160,8 @@ class DataprocClusterClusterConfigDataprocMetricConfigMetrics:
         metric_overrides: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metric_source: A source for the collection of Dataproc OSS metrics (see [available OSS metrics] (https://cloud.google.com//dataproc/docs/guides/monitoring#available_oss_metrics)). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#metric_source DataprocCluster#metric_source}
-        :param metric_overrides: Specify one or more [available OSS metrics] (https://cloud.google.com/dataproc/docs/guides/monitoring#available_oss_metrics) to collect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#metric_overrides DataprocCluster#metric_overrides}
+        :param metric_source: A source for the collection of Dataproc OSS metrics (see [available OSS metrics] (https://cloud.google.com//dataproc/docs/guides/monitoring#available_oss_metrics)). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#metric_source DataprocCluster#metric_source}
+        :param metric_overrides: Specify one or more [available OSS metrics] (https://cloud.google.com/dataproc/docs/guides/monitoring#available_oss_metrics) to collect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#metric_overrides DataprocCluster#metric_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ab3d6b1ff43e2ce88e067b5c4a9fc3623d452d754f6a3ad413554642d99775a)
@@ -2177,7 +2177,7 @@ class DataprocClusterClusterConfigDataprocMetricConfigMetrics:
     def metric_source(self) -> builtins.str:
         '''A source for the collection of Dataproc OSS metrics (see [available OSS metrics] (https://cloud.google.com//dataproc/docs/guides/monitoring#available_oss_metrics)).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#metric_source DataprocCluster#metric_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#metric_source DataprocCluster#metric_source}
         '''
         result = self._values.get("metric_source")
         assert result is not None, "Required property 'metric_source' is missing"
@@ -2187,7 +2187,7 @@ class DataprocClusterClusterConfigDataprocMetricConfigMetrics:
     def metric_overrides(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify one or more [available OSS metrics] (https://cloud.google.com/dataproc/docs/guides/monitoring#available_oss_metrics) to collect.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#metric_overrides DataprocCluster#metric_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#metric_overrides DataprocCluster#metric_overrides}
         '''
         result = self._values.get("metric_overrides")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2450,7 +2450,7 @@ class DataprocClusterClusterConfigDataprocMetricConfigOutputReference(
 class DataprocClusterClusterConfigEncryptionConfig:
     def __init__(self, *, kms_key_name: builtins.str) -> None:
         '''
-        :param kms_key_name: The Cloud KMS key name to use for PD disk encryption for all instances in the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kms_key_name DataprocCluster#kms_key_name}
+        :param kms_key_name: The Cloud KMS key name to use for PD disk encryption for all instances in the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kms_key_name DataprocCluster#kms_key_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c1f323d9285643fc922bf8cb378c44546565832cb5fc9f82a1309cb8cf668652)
@@ -2463,7 +2463,7 @@ class DataprocClusterClusterConfigEncryptionConfig:
     def kms_key_name(self) -> builtins.str:
         '''The Cloud KMS key name to use for PD disk encryption for all instances in the cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kms_key_name DataprocCluster#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kms_key_name DataprocCluster#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         assert result is not None, "Required property 'kms_key_name' is missing"
@@ -2548,7 +2548,7 @@ class DataprocClusterClusterConfigEndpointConfig:
         enable_http_port_access: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enable_http_port_access: The flag to enable http access to specific ports on the cluster from external sources (aka Component Gateway). Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#enable_http_port_access DataprocCluster#enable_http_port_access}
+        :param enable_http_port_access: The flag to enable http access to specific ports on the cluster from external sources (aka Component Gateway). Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#enable_http_port_access DataprocCluster#enable_http_port_access}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__abed7dd0e9404699d2efde3c9cc15ca624114579ad97c088a16df6c79a5f398a)
@@ -2565,7 +2565,7 @@ class DataprocClusterClusterConfigEndpointConfig:
 
         Defaults to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#enable_http_port_access DataprocCluster#enable_http_port_access}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#enable_http_port_access DataprocCluster#enable_http_port_access}
         '''
         result = self._values.get("enable_http_port_access")
         assert result is not None, "Required property 'enable_http_port_access' is missing"
@@ -2686,18 +2686,18 @@ class DataprocClusterClusterConfigGceClusterConfig:
         zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param confidential_instance_config: confidential_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#confidential_instance_config DataprocCluster#confidential_instance_config}
-        :param internal_ip_only: By default, clusters are not restricted to internal IP addresses, and will have ephemeral external IP addresses assigned to each instance. If set to true, all instances in the cluster will only have internal IP addresses. Note: Private Google Access (also known as privateIpGoogleAccess) must be enabled on the subnetwork that the cluster will be launched in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#internal_ip_only DataprocCluster#internal_ip_only}
-        :param metadata: A map of the Compute Engine metadata entries to add to all instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#metadata DataprocCluster#metadata}
-        :param network: The name or self_link of the Google Compute Engine network to the cluster will be part of. Conflicts with subnetwork. If neither is specified, this defaults to the "default" network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#network DataprocCluster#network}
-        :param node_group_affinity: node_group_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#node_group_affinity DataprocCluster#node_group_affinity}
-        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#reservation_affinity DataprocCluster#reservation_affinity}
-        :param service_account: The service account to be used by the Node VMs. If not specified, the "default" service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#service_account DataprocCluster#service_account}
-        :param service_account_scopes: The set of Google API scopes to be made available on all of the node VMs under the service_account specified. These can be either FQDNs, or scope aliases. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#service_account_scopes DataprocCluster#service_account_scopes}
-        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#shielded_instance_config DataprocCluster#shielded_instance_config}
-        :param subnetwork: The name or self_link of the Google Compute Engine subnetwork the cluster will be part of. Conflicts with network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#subnetwork DataprocCluster#subnetwork}
-        :param tags: The list of instance tags applied to instances in the cluster. Tags are used to identify valid sources or targets for network firewalls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#tags DataprocCluster#tags}
-        :param zone: The GCP zone where your data is stored and used (i.e. where the master and the worker nodes will be created in). If region is set to 'global' (default) then zone is mandatory, otherwise GCP is able to make use of Auto Zone Placement to determine this automatically for you. Note: This setting additionally determines and restricts which computing resources are available for use with other configs such as cluster_config.master_config.machine_type and cluster_config.worker_config.machine_type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#zone DataprocCluster#zone}
+        :param confidential_instance_config: confidential_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#confidential_instance_config DataprocCluster#confidential_instance_config}
+        :param internal_ip_only: By default, clusters are not restricted to internal IP addresses, and will have ephemeral external IP addresses assigned to each instance. If set to true, all instances in the cluster will only have internal IP addresses. Note: Private Google Access (also known as privateIpGoogleAccess) must be enabled on the subnetwork that the cluster will be launched in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#internal_ip_only DataprocCluster#internal_ip_only}
+        :param metadata: A map of the Compute Engine metadata entries to add to all instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#metadata DataprocCluster#metadata}
+        :param network: The name or self_link of the Google Compute Engine network to the cluster will be part of. Conflicts with subnetwork. If neither is specified, this defaults to the "default" network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#network DataprocCluster#network}
+        :param node_group_affinity: node_group_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#node_group_affinity DataprocCluster#node_group_affinity}
+        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#reservation_affinity DataprocCluster#reservation_affinity}
+        :param service_account: The service account to be used by the Node VMs. If not specified, the "default" service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#service_account DataprocCluster#service_account}
+        :param service_account_scopes: The set of Google API scopes to be made available on all of the node VMs under the service_account specified. These can be either FQDNs, or scope aliases. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#service_account_scopes DataprocCluster#service_account_scopes}
+        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#shielded_instance_config DataprocCluster#shielded_instance_config}
+        :param subnetwork: The name or self_link of the Google Compute Engine subnetwork the cluster will be part of. Conflicts with network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#subnetwork DataprocCluster#subnetwork}
+        :param tags: The list of instance tags applied to instances in the cluster. Tags are used to identify valid sources or targets for network firewalls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#tags DataprocCluster#tags}
+        :param zone: The GCP zone where your data is stored and used (i.e. where the master and the worker nodes will be created in). If region is set to 'global' (default) then zone is mandatory, otherwise GCP is able to make use of Auto Zone Placement to determine this automatically for you. Note: This setting additionally determines and restricts which computing resources are available for use with other configs such as cluster_config.master_config.machine_type and cluster_config.worker_config.machine_type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#zone DataprocCluster#zone}
         '''
         if isinstance(confidential_instance_config, dict):
             confidential_instance_config = DataprocClusterClusterConfigGceClusterConfigConfidentialInstanceConfig(**confidential_instance_config)
@@ -2753,7 +2753,7 @@ class DataprocClusterClusterConfigGceClusterConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigGceClusterConfigConfidentialInstanceConfig"]:
         '''confidential_instance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#confidential_instance_config DataprocCluster#confidential_instance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#confidential_instance_config DataprocCluster#confidential_instance_config}
         '''
         result = self._values.get("confidential_instance_config")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigGceClusterConfigConfidentialInstanceConfig"], result)
@@ -2766,7 +2766,7 @@ class DataprocClusterClusterConfigGceClusterConfig:
 
         If set to true, all instances in the cluster will only have internal IP addresses. Note: Private Google Access (also known as privateIpGoogleAccess) must be enabled on the subnetwork that the cluster will be launched in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#internal_ip_only DataprocCluster#internal_ip_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#internal_ip_only DataprocCluster#internal_ip_only}
         '''
         result = self._values.get("internal_ip_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2775,7 +2775,7 @@ class DataprocClusterClusterConfigGceClusterConfig:
     def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A map of the Compute Engine metadata entries to add to all instances.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#metadata DataprocCluster#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#metadata DataprocCluster#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2786,7 +2786,7 @@ class DataprocClusterClusterConfigGceClusterConfig:
 
         Conflicts with subnetwork. If neither is specified, this defaults to the "default" network.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#network DataprocCluster#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#network DataprocCluster#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2797,7 +2797,7 @@ class DataprocClusterClusterConfigGceClusterConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigGceClusterConfigNodeGroupAffinity"]:
         '''node_group_affinity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#node_group_affinity DataprocCluster#node_group_affinity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#node_group_affinity DataprocCluster#node_group_affinity}
         '''
         result = self._values.get("node_group_affinity")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigGceClusterConfigNodeGroupAffinity"], result)
@@ -2808,7 +2808,7 @@ class DataprocClusterClusterConfigGceClusterConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigGceClusterConfigReservationAffinity"]:
         '''reservation_affinity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#reservation_affinity DataprocCluster#reservation_affinity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#reservation_affinity DataprocCluster#reservation_affinity}
         '''
         result = self._values.get("reservation_affinity")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigGceClusterConfigReservationAffinity"], result)
@@ -2817,7 +2817,7 @@ class DataprocClusterClusterConfigGceClusterConfig:
     def service_account(self) -> typing.Optional[builtins.str]:
         '''The service account to be used by the Node VMs. If not specified, the "default" service account is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#service_account DataprocCluster#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#service_account DataprocCluster#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2828,7 +2828,7 @@ class DataprocClusterClusterConfigGceClusterConfig:
 
         These can be either FQDNs, or scope aliases.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#service_account_scopes DataprocCluster#service_account_scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#service_account_scopes DataprocCluster#service_account_scopes}
         '''
         result = self._values.get("service_account_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2839,7 +2839,7 @@ class DataprocClusterClusterConfigGceClusterConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigGceClusterConfigShieldedInstanceConfig"]:
         '''shielded_instance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#shielded_instance_config DataprocCluster#shielded_instance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#shielded_instance_config DataprocCluster#shielded_instance_config}
         '''
         result = self._values.get("shielded_instance_config")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigGceClusterConfigShieldedInstanceConfig"], result)
@@ -2848,7 +2848,7 @@ class DataprocClusterClusterConfigGceClusterConfig:
     def subnetwork(self) -> typing.Optional[builtins.str]:
         '''The name or self_link of the Google Compute Engine subnetwork the cluster will be part of. Conflicts with network.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#subnetwork DataprocCluster#subnetwork}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#subnetwork DataprocCluster#subnetwork}
         '''
         result = self._values.get("subnetwork")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2859,7 +2859,7 @@ class DataprocClusterClusterConfigGceClusterConfig:
 
         Tags are used to identify valid sources or targets for network firewalls.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#tags DataprocCluster#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#tags DataprocCluster#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2868,7 +2868,7 @@ class DataprocClusterClusterConfigGceClusterConfig:
     def zone(self) -> typing.Optional[builtins.str]:
         '''The GCP zone where your data is stored and used (i.e. where the master and the worker nodes will be created in). If region is set to 'global' (default) then zone is mandatory, otherwise GCP is able to make use of Auto Zone Placement to determine this automatically for you. Note: This setting additionally determines and restricts which computing resources are available for use with other configs such as cluster_config.master_config.machine_type and cluster_config.worker_config.machine_type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#zone DataprocCluster#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#zone DataprocCluster#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2897,7 +2897,7 @@ class DataprocClusterClusterConfigGceClusterConfigConfidentialInstanceConfig:
         enable_confidential_compute: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_confidential_compute: Defines whether the instance should have confidential compute enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#enable_confidential_compute DataprocCluster#enable_confidential_compute}
+        :param enable_confidential_compute: Defines whether the instance should have confidential compute enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#enable_confidential_compute DataprocCluster#enable_confidential_compute}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dade40d0d5c48e0f1422fb584cdebbafdaca7c3b920a4355946e67cfd93b28bb)
@@ -2912,7 +2912,7 @@ class DataprocClusterClusterConfigGceClusterConfigConfidentialInstanceConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Defines whether the instance should have confidential compute enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#enable_confidential_compute DataprocCluster#enable_confidential_compute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#enable_confidential_compute DataprocCluster#enable_confidential_compute}
         '''
         result = self._values.get("enable_confidential_compute")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3003,7 +3003,7 @@ class DataprocClusterClusterConfigGceClusterConfigConfidentialInstanceConfigOutp
 class DataprocClusterClusterConfigGceClusterConfigNodeGroupAffinity:
     def __init__(self, *, node_group_uri: builtins.str) -> None:
         '''
-        :param node_group_uri: The URI of a sole-tenant that the cluster will be created on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#node_group_uri DataprocCluster#node_group_uri}
+        :param node_group_uri: The URI of a sole-tenant that the cluster will be created on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#node_group_uri DataprocCluster#node_group_uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a2acd7b27577c72117d7c0a57c3bc34ee17b6f81a899b069e635a6d2d5e008b6)
@@ -3016,7 +3016,7 @@ class DataprocClusterClusterConfigGceClusterConfigNodeGroupAffinity:
     def node_group_uri(self) -> builtins.str:
         '''The URI of a sole-tenant that the cluster will be created on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#node_group_uri DataprocCluster#node_group_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#node_group_uri DataprocCluster#node_group_uri}
         '''
         result = self._values.get("node_group_uri")
         assert result is not None, "Required property 'node_group_uri' is missing"
@@ -3116,7 +3116,7 @@ class DataprocClusterClusterConfigGceClusterConfigOutputReference(
         enable_confidential_compute: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_confidential_compute: Defines whether the instance should have confidential compute enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#enable_confidential_compute DataprocCluster#enable_confidential_compute}
+        :param enable_confidential_compute: Defines whether the instance should have confidential compute enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#enable_confidential_compute DataprocCluster#enable_confidential_compute}
         '''
         value = DataprocClusterClusterConfigGceClusterConfigConfidentialInstanceConfig(
             enable_confidential_compute=enable_confidential_compute
@@ -3127,7 +3127,7 @@ class DataprocClusterClusterConfigGceClusterConfigOutputReference(
     @jsii.member(jsii_name="putNodeGroupAffinity")
     def put_node_group_affinity(self, *, node_group_uri: builtins.str) -> None:
         '''
-        :param node_group_uri: The URI of a sole-tenant that the cluster will be created on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#node_group_uri DataprocCluster#node_group_uri}
+        :param node_group_uri: The URI of a sole-tenant that the cluster will be created on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#node_group_uri DataprocCluster#node_group_uri}
         '''
         value = DataprocClusterClusterConfigGceClusterConfigNodeGroupAffinity(
             node_group_uri=node_group_uri
@@ -3144,9 +3144,9 @@ class DataprocClusterClusterConfigGceClusterConfigOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param consume_reservation_type: Type of reservation to consume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#consume_reservation_type DataprocCluster#consume_reservation_type}
-        :param key: Corresponds to the label key of reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#key DataprocCluster#key}
-        :param values: Corresponds to the label values of reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#values DataprocCluster#values}
+        :param consume_reservation_type: Type of reservation to consume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#consume_reservation_type DataprocCluster#consume_reservation_type}
+        :param key: Corresponds to the label key of reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#key DataprocCluster#key}
+        :param values: Corresponds to the label values of reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#values DataprocCluster#values}
         '''
         value = DataprocClusterClusterConfigGceClusterConfigReservationAffinity(
             consume_reservation_type=consume_reservation_type, key=key, values=values
@@ -3163,9 +3163,9 @@ class DataprocClusterClusterConfigGceClusterConfigOutputReference(
         enable_vtpm: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_integrity_monitoring: Defines whether instances have integrity monitoring enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#enable_integrity_monitoring DataprocCluster#enable_integrity_monitoring}
-        :param enable_secure_boot: Defines whether instances have Secure Boot enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#enable_secure_boot DataprocCluster#enable_secure_boot}
-        :param enable_vtpm: Defines whether instances have the vTPM enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#enable_vtpm DataprocCluster#enable_vtpm}
+        :param enable_integrity_monitoring: Defines whether instances have integrity monitoring enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#enable_integrity_monitoring DataprocCluster#enable_integrity_monitoring}
+        :param enable_secure_boot: Defines whether instances have Secure Boot enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#enable_secure_boot DataprocCluster#enable_secure_boot}
+        :param enable_vtpm: Defines whether instances have the vTPM enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#enable_vtpm DataprocCluster#enable_vtpm}
         '''
         value = DataprocClusterClusterConfigGceClusterConfigShieldedInstanceConfig(
             enable_integrity_monitoring=enable_integrity_monitoring,
@@ -3462,9 +3462,9 @@ class DataprocClusterClusterConfigGceClusterConfigReservationAffinity:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param consume_reservation_type: Type of reservation to consume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#consume_reservation_type DataprocCluster#consume_reservation_type}
-        :param key: Corresponds to the label key of reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#key DataprocCluster#key}
-        :param values: Corresponds to the label values of reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#values DataprocCluster#values}
+        :param consume_reservation_type: Type of reservation to consume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#consume_reservation_type DataprocCluster#consume_reservation_type}
+        :param key: Corresponds to the label key of reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#key DataprocCluster#key}
+        :param values: Corresponds to the label values of reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#values DataprocCluster#values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bc7bcb675ee155783c2261cbb147cfaec0170c35bd4df5c4660968e401e9a999)
@@ -3483,7 +3483,7 @@ class DataprocClusterClusterConfigGceClusterConfigReservationAffinity:
     def consume_reservation_type(self) -> typing.Optional[builtins.str]:
         '''Type of reservation to consume.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#consume_reservation_type DataprocCluster#consume_reservation_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#consume_reservation_type DataprocCluster#consume_reservation_type}
         '''
         result = self._values.get("consume_reservation_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3492,7 +3492,7 @@ class DataprocClusterClusterConfigGceClusterConfigReservationAffinity:
     def key(self) -> typing.Optional[builtins.str]:
         '''Corresponds to the label key of reservation resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#key DataprocCluster#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#key DataprocCluster#key}
         '''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3501,7 +3501,7 @@ class DataprocClusterClusterConfigGceClusterConfigReservationAffinity:
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Corresponds to the label values of reservation resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#values DataprocCluster#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#values DataprocCluster#values}
         '''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3637,9 +3637,9 @@ class DataprocClusterClusterConfigGceClusterConfigShieldedInstanceConfig:
         enable_vtpm: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_integrity_monitoring: Defines whether instances have integrity monitoring enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#enable_integrity_monitoring DataprocCluster#enable_integrity_monitoring}
-        :param enable_secure_boot: Defines whether instances have Secure Boot enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#enable_secure_boot DataprocCluster#enable_secure_boot}
-        :param enable_vtpm: Defines whether instances have the vTPM enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#enable_vtpm DataprocCluster#enable_vtpm}
+        :param enable_integrity_monitoring: Defines whether instances have integrity monitoring enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#enable_integrity_monitoring DataprocCluster#enable_integrity_monitoring}
+        :param enable_secure_boot: Defines whether instances have Secure Boot enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#enable_secure_boot DataprocCluster#enable_secure_boot}
+        :param enable_vtpm: Defines whether instances have the vTPM enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#enable_vtpm DataprocCluster#enable_vtpm}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__90fa2722da5048a09b9da96543437b900ab95e0d826e784041d26ed59c6a5694)
@@ -3660,7 +3660,7 @@ class DataprocClusterClusterConfigGceClusterConfigShieldedInstanceConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Defines whether instances have integrity monitoring enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#enable_integrity_monitoring DataprocCluster#enable_integrity_monitoring}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#enable_integrity_monitoring DataprocCluster#enable_integrity_monitoring}
         '''
         result = self._values.get("enable_integrity_monitoring")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3671,7 +3671,7 @@ class DataprocClusterClusterConfigGceClusterConfigShieldedInstanceConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Defines whether instances have Secure Boot enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#enable_secure_boot DataprocCluster#enable_secure_boot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#enable_secure_boot DataprocCluster#enable_secure_boot}
         '''
         result = self._values.get("enable_secure_boot")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3682,7 +3682,7 @@ class DataprocClusterClusterConfigGceClusterConfigShieldedInstanceConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Defines whether instances have the vTPM enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#enable_vtpm DataprocCluster#enable_vtpm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#enable_vtpm DataprocCluster#enable_vtpm}
         '''
         result = self._values.get("enable_vtpm")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3832,8 +3832,8 @@ class DataprocClusterClusterConfigInitializationAction:
         timeout_sec: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param script: The script to be executed during initialization of the cluster. The script must be a GCS file with a gs:// prefix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#script DataprocCluster#script}
-        :param timeout_sec: The maximum duration (in seconds) which script is allowed to take to execute its action. GCP will default to a predetermined computed value if not set (currently 300). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#timeout_sec DataprocCluster#timeout_sec}
+        :param script: The script to be executed during initialization of the cluster. The script must be a GCS file with a gs:// prefix. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#script DataprocCluster#script}
+        :param timeout_sec: The maximum duration (in seconds) which script is allowed to take to execute its action. GCP will default to a predetermined computed value if not set (currently 300). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#timeout_sec DataprocCluster#timeout_sec}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1cc72500ea70f15d82e3d65c6b55037e0dfffef4e4d6d02c100c77323098b962)
@@ -3851,7 +3851,7 @@ class DataprocClusterClusterConfigInitializationAction:
 
         The script must be a GCS file with a gs:// prefix.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#script DataprocCluster#script}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#script DataprocCluster#script}
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
@@ -3863,7 +3863,7 @@ class DataprocClusterClusterConfigInitializationAction:
 
         GCP will default to a predetermined computed value if not set (currently 300).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#timeout_sec DataprocCluster#timeout_sec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#timeout_sec DataprocCluster#timeout_sec}
         '''
         result = self._values.get("timeout_sec")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4071,8 +4071,8 @@ class DataprocClusterClusterConfigLifecycleConfig:
         idle_delete_ttl: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auto_delete_time: The time when cluster will be auto-deleted. A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#auto_delete_time DataprocCluster#auto_delete_time}
-        :param idle_delete_ttl: The duration to keep the cluster alive while idling (no jobs running). After this TTL, the cluster will be deleted. Valid range: [10m, 14d]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#idle_delete_ttl DataprocCluster#idle_delete_ttl}
+        :param auto_delete_time: The time when cluster will be auto-deleted. A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#auto_delete_time DataprocCluster#auto_delete_time}
+        :param idle_delete_ttl: The duration to keep the cluster alive while idling (no jobs running). After this TTL, the cluster will be deleted. Valid range: [10m, 14d]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#idle_delete_ttl DataprocCluster#idle_delete_ttl}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c2f8e00bbd6f14c5a419f1acf6ec406dbca1194438c02d56e29750513ccd8bd0)
@@ -4088,7 +4088,7 @@ class DataprocClusterClusterConfigLifecycleConfig:
     def auto_delete_time(self) -> typing.Optional[builtins.str]:
         '''The time when cluster will be auto-deleted. A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#auto_delete_time DataprocCluster#auto_delete_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#auto_delete_time DataprocCluster#auto_delete_time}
         '''
         result = self._values.get("auto_delete_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4099,7 +4099,7 @@ class DataprocClusterClusterConfigLifecycleConfig:
 
         After this TTL, the cluster will be deleted. Valid range: [10m, 14d].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#idle_delete_ttl DataprocCluster#idle_delete_ttl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#idle_delete_ttl DataprocCluster#idle_delete_ttl}
         '''
         result = self._values.get("idle_delete_ttl")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4225,12 +4225,12 @@ class DataprocClusterClusterConfigMasterConfig:
         num_instances: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param accelerators: accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerators DataprocCluster#accelerators}
-        :param disk_config: disk_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
-        :param image_uri: The URI for the image to use for this master. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#image_uri DataprocCluster#image_uri}
-        :param machine_type: The name of a Google Compute Engine machine type to create for the master. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
-        :param min_cpu_platform: The name of a minimum generation of CPU family for the master. If not specified, GCP will default to a predetermined computed value for each zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
-        :param num_instances: Specifies the number of master nodes to create. If not specified, GCP will default to a predetermined computed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
+        :param accelerators: accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerators DataprocCluster#accelerators}
+        :param disk_config: disk_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
+        :param image_uri: The URI for the image to use for this master. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#image_uri DataprocCluster#image_uri}
+        :param machine_type: The name of a Google Compute Engine machine type to create for the master. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
+        :param min_cpu_platform: The name of a minimum generation of CPU family for the master. If not specified, GCP will default to a predetermined computed value for each zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
+        :param num_instances: Specifies the number of master nodes to create. If not specified, GCP will default to a predetermined computed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
         '''
         if isinstance(disk_config, dict):
             disk_config = DataprocClusterClusterConfigMasterConfigDiskConfig(**disk_config)
@@ -4262,7 +4262,7 @@ class DataprocClusterClusterConfigMasterConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataprocClusterClusterConfigMasterConfigAccelerators"]]]:
         '''accelerators block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerators DataprocCluster#accelerators}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerators DataprocCluster#accelerators}
         '''
         result = self._values.get("accelerators")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataprocClusterClusterConfigMasterConfigAccelerators"]]], result)
@@ -4273,7 +4273,7 @@ class DataprocClusterClusterConfigMasterConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigMasterConfigDiskConfig"]:
         '''disk_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
         '''
         result = self._values.get("disk_config")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigMasterConfigDiskConfig"], result)
@@ -4282,7 +4282,7 @@ class DataprocClusterClusterConfigMasterConfig:
     def image_uri(self) -> typing.Optional[builtins.str]:
         '''The URI for the image to use for this master.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#image_uri DataprocCluster#image_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#image_uri DataprocCluster#image_uri}
         '''
         result = self._values.get("image_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4291,7 +4291,7 @@ class DataprocClusterClusterConfigMasterConfig:
     def machine_type(self) -> typing.Optional[builtins.str]:
         '''The name of a Google Compute Engine machine type to create for the master.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
         '''
         result = self._values.get("machine_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4302,7 +4302,7 @@ class DataprocClusterClusterConfigMasterConfig:
 
         If not specified, GCP will default to a predetermined computed value for each zone.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
         '''
         result = self._values.get("min_cpu_platform")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4311,7 +4311,7 @@ class DataprocClusterClusterConfigMasterConfig:
     def num_instances(self) -> typing.Optional[jsii.Number]:
         '''Specifies the number of master nodes to create. If not specified, GCP will default to a predetermined computed value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
         '''
         result = self._values.get("num_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4344,8 +4344,8 @@ class DataprocClusterClusterConfigMasterConfigAccelerators:
         accelerator_type: builtins.str,
     ) -> None:
         '''
-        :param accelerator_count: The number of the accelerator cards of this type exposed to this instance. Often restricted to one of 1, 2, 4, or 8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerator_count DataprocCluster#accelerator_count}
-        :param accelerator_type: The short name of the accelerator type to expose to this instance. For example, nvidia-tesla-k80. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerator_type DataprocCluster#accelerator_type}
+        :param accelerator_count: The number of the accelerator cards of this type exposed to this instance. Often restricted to one of 1, 2, 4, or 8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerator_count DataprocCluster#accelerator_count}
+        :param accelerator_type: The short name of the accelerator type to expose to this instance. For example, nvidia-tesla-k80. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerator_type DataprocCluster#accelerator_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0d24ab99db5c0b11130c2347390148fc4f94c8218263d89a9ddc0ac1fb2d7e53)
@@ -4362,7 +4362,7 @@ class DataprocClusterClusterConfigMasterConfigAccelerators:
 
         Often restricted to one of 1, 2, 4, or 8.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerator_count DataprocCluster#accelerator_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerator_count DataprocCluster#accelerator_count}
         '''
         result = self._values.get("accelerator_count")
         assert result is not None, "Required property 'accelerator_count' is missing"
@@ -4372,7 +4372,7 @@ class DataprocClusterClusterConfigMasterConfigAccelerators:
     def accelerator_type(self) -> builtins.str:
         '''The short name of the accelerator type to expose to this instance. For example, nvidia-tesla-k80.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerator_type DataprocCluster#accelerator_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerator_type DataprocCluster#accelerator_type}
         '''
         result = self._values.get("accelerator_type")
         assert result is not None, "Required property 'accelerator_type' is missing"
@@ -4581,10 +4581,10 @@ class DataprocClusterClusterConfigMasterConfigDiskConfig:
         num_local_ssds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param boot_disk_size_gb: Size of the primary disk attached to each node, specified in GB. The primary disk contains the boot volume and system libraries, and the smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
-        :param boot_disk_type: The disk type of the primary disk attached to each node. Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
-        :param local_ssd_interface: Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
-        :param num_local_ssds: The amount of local SSD disks that will be attached to each master cluster node. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
+        :param boot_disk_size_gb: Size of the primary disk attached to each node, specified in GB. The primary disk contains the boot volume and system libraries, and the smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
+        :param boot_disk_type: The disk type of the primary disk attached to each node. Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
+        :param local_ssd_interface: Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
+        :param num_local_ssds: The amount of local SSD disks that will be attached to each master cluster node. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__27b8b0871bd095581c9baef18e9ed02aedea04b46ac26b41be557d8dd6a24ded)
@@ -4608,7 +4608,7 @@ class DataprocClusterClusterConfigMasterConfigDiskConfig:
 
         The primary disk contains the boot volume and system libraries, and the smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
         '''
         result = self._values.get("boot_disk_size_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4617,7 +4617,7 @@ class DataprocClusterClusterConfigMasterConfigDiskConfig:
     def boot_disk_type(self) -> typing.Optional[builtins.str]:
         '''The disk type of the primary disk attached to each node. Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
         '''
         result = self._values.get("boot_disk_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4626,7 +4626,7 @@ class DataprocClusterClusterConfigMasterConfigDiskConfig:
     def local_ssd_interface(self) -> typing.Optional[builtins.str]:
         '''Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
         '''
         result = self._values.get("local_ssd_interface")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4635,7 +4635,7 @@ class DataprocClusterClusterConfigMasterConfigDiskConfig:
     def num_local_ssds(self) -> typing.Optional[jsii.Number]:
         '''The amount of local SSD disks that will be attached to each master cluster node. Defaults to 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
         '''
         result = self._values.get("num_local_ssds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4817,10 +4817,10 @@ class DataprocClusterClusterConfigMasterConfigOutputReference(
         num_local_ssds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param boot_disk_size_gb: Size of the primary disk attached to each node, specified in GB. The primary disk contains the boot volume and system libraries, and the smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
-        :param boot_disk_type: The disk type of the primary disk attached to each node. Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
-        :param local_ssd_interface: Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
-        :param num_local_ssds: The amount of local SSD disks that will be attached to each master cluster node. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
+        :param boot_disk_size_gb: Size of the primary disk attached to each node, specified in GB. The primary disk contains the boot volume and system libraries, and the smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
+        :param boot_disk_type: The disk type of the primary disk attached to each node. Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
+        :param local_ssd_interface: Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
+        :param num_local_ssds: The amount of local SSD disks that will be attached to each master cluster node. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
         '''
         value = DataprocClusterClusterConfigMasterConfigDiskConfig(
             boot_disk_size_gb=boot_disk_size_gb,
@@ -4980,7 +4980,7 @@ class DataprocClusterClusterConfigMasterConfigOutputReference(
 class DataprocClusterClusterConfigMetastoreConfig:
     def __init__(self, *, dataproc_metastore_service: builtins.str) -> None:
         '''
-        :param dataproc_metastore_service: Resource name of an existing Dataproc Metastore service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#dataproc_metastore_service DataprocCluster#dataproc_metastore_service}
+        :param dataproc_metastore_service: Resource name of an existing Dataproc Metastore service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#dataproc_metastore_service DataprocCluster#dataproc_metastore_service}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__50d078ca40cdff638ab61c7c480d496ab7765500ff85fe007c73fedc875e16b0)
@@ -4993,7 +4993,7 @@ class DataprocClusterClusterConfigMetastoreConfig:
     def dataproc_metastore_service(self) -> builtins.str:
         '''Resource name of an existing Dataproc Metastore service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#dataproc_metastore_service DataprocCluster#dataproc_metastore_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#dataproc_metastore_service DataprocCluster#dataproc_metastore_service}
         '''
         result = self._values.get("dataproc_metastore_service")
         assert result is not None, "Required property 'dataproc_metastore_service' is missing"
@@ -5089,7 +5089,7 @@ class DataprocClusterClusterConfigOutputReference(
     @jsii.member(jsii_name="putAutoscalingConfig")
     def put_autoscaling_config(self, *, policy_uri: builtins.str) -> None:
         '''
-        :param policy_uri: The autoscaling policy used by the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#policy_uri DataprocCluster#policy_uri}
+        :param policy_uri: The autoscaling policy used by the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#policy_uri DataprocCluster#policy_uri}
         '''
         value = DataprocClusterClusterConfigAutoscalingConfig(policy_uri=policy_uri)
 
@@ -5115,7 +5115,7 @@ class DataprocClusterClusterConfigOutputReference(
         metrics: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataprocClusterClusterConfigDataprocMetricConfigMetrics, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param metrics: metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#metrics DataprocCluster#metrics}
+        :param metrics: metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#metrics DataprocCluster#metrics}
         '''
         value = DataprocClusterClusterConfigDataprocMetricConfig(metrics=metrics)
 
@@ -5124,7 +5124,7 @@ class DataprocClusterClusterConfigOutputReference(
     @jsii.member(jsii_name="putEncryptionConfig")
     def put_encryption_config(self, *, kms_key_name: builtins.str) -> None:
         '''
-        :param kms_key_name: The Cloud KMS key name to use for PD disk encryption for all instances in the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kms_key_name DataprocCluster#kms_key_name}
+        :param kms_key_name: The Cloud KMS key name to use for PD disk encryption for all instances in the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kms_key_name DataprocCluster#kms_key_name}
         '''
         value = DataprocClusterClusterConfigEncryptionConfig(kms_key_name=kms_key_name)
 
@@ -5137,7 +5137,7 @@ class DataprocClusterClusterConfigOutputReference(
         enable_http_port_access: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enable_http_port_access: The flag to enable http access to specific ports on the cluster from external sources (aka Component Gateway). Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#enable_http_port_access DataprocCluster#enable_http_port_access}
+        :param enable_http_port_access: The flag to enable http access to specific ports on the cluster from external sources (aka Component Gateway). Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#enable_http_port_access DataprocCluster#enable_http_port_access}
         '''
         value = DataprocClusterClusterConfigEndpointConfig(
             enable_http_port_access=enable_http_port_access
@@ -5163,18 +5163,18 @@ class DataprocClusterClusterConfigOutputReference(
         zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param confidential_instance_config: confidential_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#confidential_instance_config DataprocCluster#confidential_instance_config}
-        :param internal_ip_only: By default, clusters are not restricted to internal IP addresses, and will have ephemeral external IP addresses assigned to each instance. If set to true, all instances in the cluster will only have internal IP addresses. Note: Private Google Access (also known as privateIpGoogleAccess) must be enabled on the subnetwork that the cluster will be launched in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#internal_ip_only DataprocCluster#internal_ip_only}
-        :param metadata: A map of the Compute Engine metadata entries to add to all instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#metadata DataprocCluster#metadata}
-        :param network: The name or self_link of the Google Compute Engine network to the cluster will be part of. Conflicts with subnetwork. If neither is specified, this defaults to the "default" network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#network DataprocCluster#network}
-        :param node_group_affinity: node_group_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#node_group_affinity DataprocCluster#node_group_affinity}
-        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#reservation_affinity DataprocCluster#reservation_affinity}
-        :param service_account: The service account to be used by the Node VMs. If not specified, the "default" service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#service_account DataprocCluster#service_account}
-        :param service_account_scopes: The set of Google API scopes to be made available on all of the node VMs under the service_account specified. These can be either FQDNs, or scope aliases. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#service_account_scopes DataprocCluster#service_account_scopes}
-        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#shielded_instance_config DataprocCluster#shielded_instance_config}
-        :param subnetwork: The name or self_link of the Google Compute Engine subnetwork the cluster will be part of. Conflicts with network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#subnetwork DataprocCluster#subnetwork}
-        :param tags: The list of instance tags applied to instances in the cluster. Tags are used to identify valid sources or targets for network firewalls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#tags DataprocCluster#tags}
-        :param zone: The GCP zone where your data is stored and used (i.e. where the master and the worker nodes will be created in). If region is set to 'global' (default) then zone is mandatory, otherwise GCP is able to make use of Auto Zone Placement to determine this automatically for you. Note: This setting additionally determines and restricts which computing resources are available for use with other configs such as cluster_config.master_config.machine_type and cluster_config.worker_config.machine_type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#zone DataprocCluster#zone}
+        :param confidential_instance_config: confidential_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#confidential_instance_config DataprocCluster#confidential_instance_config}
+        :param internal_ip_only: By default, clusters are not restricted to internal IP addresses, and will have ephemeral external IP addresses assigned to each instance. If set to true, all instances in the cluster will only have internal IP addresses. Note: Private Google Access (also known as privateIpGoogleAccess) must be enabled on the subnetwork that the cluster will be launched in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#internal_ip_only DataprocCluster#internal_ip_only}
+        :param metadata: A map of the Compute Engine metadata entries to add to all instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#metadata DataprocCluster#metadata}
+        :param network: The name or self_link of the Google Compute Engine network to the cluster will be part of. Conflicts with subnetwork. If neither is specified, this defaults to the "default" network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#network DataprocCluster#network}
+        :param node_group_affinity: node_group_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#node_group_affinity DataprocCluster#node_group_affinity}
+        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#reservation_affinity DataprocCluster#reservation_affinity}
+        :param service_account: The service account to be used by the Node VMs. If not specified, the "default" service account is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#service_account DataprocCluster#service_account}
+        :param service_account_scopes: The set of Google API scopes to be made available on all of the node VMs under the service_account specified. These can be either FQDNs, or scope aliases. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#service_account_scopes DataprocCluster#service_account_scopes}
+        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#shielded_instance_config DataprocCluster#shielded_instance_config}
+        :param subnetwork: The name or self_link of the Google Compute Engine subnetwork the cluster will be part of. Conflicts with network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#subnetwork DataprocCluster#subnetwork}
+        :param tags: The list of instance tags applied to instances in the cluster. Tags are used to identify valid sources or targets for network firewalls. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#tags DataprocCluster#tags}
+        :param zone: The GCP zone where your data is stored and used (i.e. where the master and the worker nodes will be created in). If region is set to 'global' (default) then zone is mandatory, otherwise GCP is able to make use of Auto Zone Placement to determine this automatically for you. Note: This setting additionally determines and restricts which computing resources are available for use with other configs such as cluster_config.master_config.machine_type and cluster_config.worker_config.machine_type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#zone DataprocCluster#zone}
         '''
         value = DataprocClusterClusterConfigGceClusterConfig(
             confidential_instance_config=confidential_instance_config,
@@ -5214,8 +5214,8 @@ class DataprocClusterClusterConfigOutputReference(
         idle_delete_ttl: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auto_delete_time: The time when cluster will be auto-deleted. A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#auto_delete_time DataprocCluster#auto_delete_time}
-        :param idle_delete_ttl: The duration to keep the cluster alive while idling (no jobs running). After this TTL, the cluster will be deleted. Valid range: [10m, 14d]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#idle_delete_ttl DataprocCluster#idle_delete_ttl}
+        :param auto_delete_time: The time when cluster will be auto-deleted. A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#auto_delete_time DataprocCluster#auto_delete_time}
+        :param idle_delete_ttl: The duration to keep the cluster alive while idling (no jobs running). After this TTL, the cluster will be deleted. Valid range: [10m, 14d]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#idle_delete_ttl DataprocCluster#idle_delete_ttl}
         '''
         value = DataprocClusterClusterConfigLifecycleConfig(
             auto_delete_time=auto_delete_time, idle_delete_ttl=idle_delete_ttl
@@ -5235,12 +5235,12 @@ class DataprocClusterClusterConfigOutputReference(
         num_instances: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param accelerators: accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerators DataprocCluster#accelerators}
-        :param disk_config: disk_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
-        :param image_uri: The URI for the image to use for this master. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#image_uri DataprocCluster#image_uri}
-        :param machine_type: The name of a Google Compute Engine machine type to create for the master. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
-        :param min_cpu_platform: The name of a minimum generation of CPU family for the master. If not specified, GCP will default to a predetermined computed value for each zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
-        :param num_instances: Specifies the number of master nodes to create. If not specified, GCP will default to a predetermined computed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
+        :param accelerators: accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerators DataprocCluster#accelerators}
+        :param disk_config: disk_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
+        :param image_uri: The URI for the image to use for this master. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#image_uri DataprocCluster#image_uri}
+        :param machine_type: The name of a Google Compute Engine machine type to create for the master. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
+        :param min_cpu_platform: The name of a minimum generation of CPU family for the master. If not specified, GCP will default to a predetermined computed value for each zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
+        :param num_instances: Specifies the number of master nodes to create. If not specified, GCP will default to a predetermined computed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
         '''
         value = DataprocClusterClusterConfigMasterConfig(
             accelerators=accelerators,
@@ -5256,7 +5256,7 @@ class DataprocClusterClusterConfigOutputReference(
     @jsii.member(jsii_name="putMetastoreConfig")
     def put_metastore_config(self, *, dataproc_metastore_service: builtins.str) -> None:
         '''
-        :param dataproc_metastore_service: Resource name of an existing Dataproc Metastore service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#dataproc_metastore_service DataprocCluster#dataproc_metastore_service}
+        :param dataproc_metastore_service: Resource name of an existing Dataproc Metastore service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#dataproc_metastore_service DataprocCluster#dataproc_metastore_service}
         '''
         value = DataprocClusterClusterConfigMetastoreConfig(
             dataproc_metastore_service=dataproc_metastore_service
@@ -5274,10 +5274,10 @@ class DataprocClusterClusterConfigOutputReference(
         preemptibility: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disk_config: disk_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
-        :param instance_flexibility_policy: instance_flexibility_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#instance_flexibility_policy DataprocCluster#instance_flexibility_policy}
-        :param num_instances: Specifies the number of preemptible nodes to create. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
-        :param preemptibility: Specifies the preemptibility of the secondary nodes. Defaults to PREEMPTIBLE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#preemptibility DataprocCluster#preemptibility}
+        :param disk_config: disk_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
+        :param instance_flexibility_policy: instance_flexibility_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#instance_flexibility_policy DataprocCluster#instance_flexibility_policy}
+        :param num_instances: Specifies the number of preemptible nodes to create. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
+        :param preemptibility: Specifies the preemptibility of the secondary nodes. Defaults to PREEMPTIBLE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#preemptibility DataprocCluster#preemptibility}
         '''
         value = DataprocClusterClusterConfigPreemptibleWorkerConfig(
             disk_config=disk_config,
@@ -5295,7 +5295,7 @@ class DataprocClusterClusterConfigOutputReference(
         kerberos_config: typing.Union["DataprocClusterClusterConfigSecurityConfigKerberosConfig", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param kerberos_config: kerberos_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kerberos_config DataprocCluster#kerberos_config}
+        :param kerberos_config: kerberos_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kerberos_config DataprocCluster#kerberos_config}
         '''
         value = DataprocClusterClusterConfigSecurityConfig(
             kerberos_config=kerberos_config
@@ -5312,9 +5312,9 @@ class DataprocClusterClusterConfigOutputReference(
         override_properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param image_version: The Cloud Dataproc image version to use for the cluster - this controls the sets of software versions installed onto the nodes when you create clusters. If not specified, defaults to the latest version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#image_version DataprocCluster#image_version}
-        :param optional_components: The set of optional components to activate on the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#optional_components DataprocCluster#optional_components}
-        :param override_properties: A list of override and additional properties (key/value pairs) used to modify various aspects of the common configuration files used when creating a cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#override_properties DataprocCluster#override_properties}
+        :param image_version: The Cloud Dataproc image version to use for the cluster - this controls the sets of software versions installed onto the nodes when you create clusters. If not specified, defaults to the latest version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#image_version DataprocCluster#image_version}
+        :param optional_components: The set of optional components to activate on the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#optional_components DataprocCluster#optional_components}
+        :param override_properties: A list of override and additional properties (key/value pairs) used to modify various aspects of the common configuration files used when creating a cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#override_properties DataprocCluster#override_properties}
         '''
         value = DataprocClusterClusterConfigSoftwareConfig(
             image_version=image_version,
@@ -5337,13 +5337,13 @@ class DataprocClusterClusterConfigOutputReference(
         num_instances: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param accelerators: accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerators DataprocCluster#accelerators}
-        :param disk_config: disk_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
-        :param image_uri: The URI for the image to use for this master/worker. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#image_uri DataprocCluster#image_uri}
-        :param machine_type: The name of a Google Compute Engine machine type to create for the master/worker. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
-        :param min_cpu_platform: The name of a minimum generation of CPU family for the master/worker. If not specified, GCP will default to a predetermined computed value for each zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
-        :param min_num_instances: The minimum number of primary worker instances to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#min_num_instances DataprocCluster#min_num_instances}
-        :param num_instances: Specifies the number of worker nodes to create. If not specified, GCP will default to a predetermined computed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
+        :param accelerators: accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerators DataprocCluster#accelerators}
+        :param disk_config: disk_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
+        :param image_uri: The URI for the image to use for this master/worker. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#image_uri DataprocCluster#image_uri}
+        :param machine_type: The name of a Google Compute Engine machine type to create for the master/worker. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
+        :param min_cpu_platform: The name of a minimum generation of CPU family for the master/worker. If not specified, GCP will default to a predetermined computed value for each zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
+        :param min_num_instances: The minimum number of primary worker instances to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#min_num_instances DataprocCluster#min_num_instances}
+        :param num_instances: Specifies the number of worker nodes to create. If not specified, GCP will default to a predetermined computed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
         '''
         value = DataprocClusterClusterConfigWorkerConfig(
             accelerators=accelerators,
@@ -5690,10 +5690,10 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfig:
         preemptibility: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disk_config: disk_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
-        :param instance_flexibility_policy: instance_flexibility_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#instance_flexibility_policy DataprocCluster#instance_flexibility_policy}
-        :param num_instances: Specifies the number of preemptible nodes to create. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
-        :param preemptibility: Specifies the preemptibility of the secondary nodes. Defaults to PREEMPTIBLE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#preemptibility DataprocCluster#preemptibility}
+        :param disk_config: disk_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
+        :param instance_flexibility_policy: instance_flexibility_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#instance_flexibility_policy DataprocCluster#instance_flexibility_policy}
+        :param num_instances: Specifies the number of preemptible nodes to create. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
+        :param preemptibility: Specifies the preemptibility of the secondary nodes. Defaults to PREEMPTIBLE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#preemptibility DataprocCluster#preemptibility}
         '''
         if isinstance(disk_config, dict):
             disk_config = DataprocClusterClusterConfigPreemptibleWorkerConfigDiskConfig(**disk_config)
@@ -5721,7 +5721,7 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigPreemptibleWorkerConfigDiskConfig"]:
         '''disk_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
         '''
         result = self._values.get("disk_config")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigPreemptibleWorkerConfigDiskConfig"], result)
@@ -5732,7 +5732,7 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPolicy"]:
         '''instance_flexibility_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#instance_flexibility_policy DataprocCluster#instance_flexibility_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#instance_flexibility_policy DataprocCluster#instance_flexibility_policy}
         '''
         result = self._values.get("instance_flexibility_policy")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPolicy"], result)
@@ -5741,7 +5741,7 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfig:
     def num_instances(self) -> typing.Optional[jsii.Number]:
         '''Specifies the number of preemptible nodes to create. Defaults to 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
         '''
         result = self._values.get("num_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5750,7 +5750,7 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfig:
     def preemptibility(self) -> typing.Optional[builtins.str]:
         '''Specifies the preemptibility of the secondary nodes. Defaults to PREEMPTIBLE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#preemptibility DataprocCluster#preemptibility}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#preemptibility DataprocCluster#preemptibility}
         '''
         result = self._values.get("preemptibility")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5787,10 +5787,10 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfigDiskConfig:
         num_local_ssds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param boot_disk_size_gb: Size of the primary disk attached to each preemptible worker node, specified in GB. The smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
-        :param boot_disk_type: The disk type of the primary disk attached to each preemptible worker node. Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
-        :param local_ssd_interface: Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
-        :param num_local_ssds: The amount of local SSD disks that will be attached to each preemptible worker node. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
+        :param boot_disk_size_gb: Size of the primary disk attached to each preemptible worker node, specified in GB. The smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
+        :param boot_disk_type: The disk type of the primary disk attached to each preemptible worker node. Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
+        :param local_ssd_interface: Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
+        :param num_local_ssds: The amount of local SSD disks that will be attached to each preemptible worker node. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6285385062cd45cee0d2d61128dc4b4d340e186e4b621012f4f52abad1000067)
@@ -5814,7 +5814,7 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfigDiskConfig:
 
         The smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
         '''
         result = self._values.get("boot_disk_size_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5825,7 +5825,7 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfigDiskConfig:
 
         Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
         '''
         result = self._values.get("boot_disk_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5834,7 +5834,7 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfigDiskConfig:
     def local_ssd_interface(self) -> typing.Optional[builtins.str]:
         '''Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
         '''
         result = self._values.get("local_ssd_interface")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5843,7 +5843,7 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfigDiskConfig:
     def num_local_ssds(self) -> typing.Optional[jsii.Number]:
         '''The amount of local SSD disks that will be attached to each preemptible worker node. Defaults to 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
         '''
         result = self._values.get("num_local_ssds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5998,8 +5998,8 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPoli
         provisioning_model_mix: typing.Optional[typing.Union["DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPolicyProvisioningModelMix", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param instance_selection_list: instance_selection_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#instance_selection_list DataprocCluster#instance_selection_list}
-        :param provisioning_model_mix: provisioning_model_mix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#provisioning_model_mix DataprocCluster#provisioning_model_mix}
+        :param instance_selection_list: instance_selection_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#instance_selection_list DataprocCluster#instance_selection_list}
+        :param provisioning_model_mix: provisioning_model_mix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#provisioning_model_mix DataprocCluster#provisioning_model_mix}
         '''
         if isinstance(provisioning_model_mix, dict):
             provisioning_model_mix = DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPolicyProvisioningModelMix(**provisioning_model_mix)
@@ -6019,7 +6019,7 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPoli
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPolicyInstanceSelectionListStruct"]]]:
         '''instance_selection_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#instance_selection_list DataprocCluster#instance_selection_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#instance_selection_list DataprocCluster#instance_selection_list}
         '''
         result = self._values.get("instance_selection_list")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPolicyInstanceSelectionListStruct"]]], result)
@@ -6030,7 +6030,7 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPoli
     ) -> typing.Optional["DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPolicyProvisioningModelMix"]:
         '''provisioning_model_mix block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#provisioning_model_mix DataprocCluster#provisioning_model_mix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#provisioning_model_mix DataprocCluster#provisioning_model_mix}
         '''
         result = self._values.get("provisioning_model_mix")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPolicyProvisioningModelMix"], result)
@@ -6060,8 +6060,8 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPoli
         rank: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param machine_types: Full machine-type names, e.g. "n1-standard-16". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#machine_types DataprocCluster#machine_types}
-        :param rank: Preference of this instance selection. Lower number means higher preference. Dataproc will first try to create a VM based on the machine-type with priority rank and fallback to next rank based on availability. Machine types and instance selections with the same priority have the same preference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#rank DataprocCluster#rank}
+        :param machine_types: Full machine-type names, e.g. "n1-standard-16". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#machine_types DataprocCluster#machine_types}
+        :param rank: Preference of this instance selection. Lower number means higher preference. Dataproc will first try to create a VM based on the machine-type with priority rank and fallback to next rank based on availability. Machine types and instance selections with the same priority have the same preference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#rank DataprocCluster#rank}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3f6cdb7acb881b48f5da681b994276960c6544a4456d1eacf0bc7ed5fad9a6ee)
@@ -6077,7 +6077,7 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPoli
     def machine_types(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Full machine-type names, e.g. "n1-standard-16".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#machine_types DataprocCluster#machine_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#machine_types DataprocCluster#machine_types}
         '''
         result = self._values.get("machine_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6088,7 +6088,7 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPoli
 
         Lower number means higher preference. Dataproc will first try to create a VM based on the machine-type with priority rank and fallback to next rank based on availability. Machine types and instance selections with the same priority have the same preference.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#rank DataprocCluster#rank}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#rank DataprocCluster#rank}
         '''
         result = self._values.get("rank")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6476,8 +6476,8 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPoli
         standard_capacity_percent_above_base: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param standard_capacity_base: The base capacity that will always use Standard VMs to avoid risk of more preemption than the minimum capacity you need. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#standard_capacity_base DataprocCluster#standard_capacity_base}
-        :param standard_capacity_percent_above_base: The percentage of target capacity that should use Standard VM. The remaining percentage will use Spot VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#standard_capacity_percent_above_base DataprocCluster#standard_capacity_percent_above_base}
+        :param standard_capacity_base: The base capacity that will always use Standard VMs to avoid risk of more preemption than the minimum capacity you need. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#standard_capacity_base DataprocCluster#standard_capacity_base}
+        :param standard_capacity_percent_above_base: The percentage of target capacity that should use Standard VM. The remaining percentage will use Spot VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#standard_capacity_percent_above_base DataprocCluster#standard_capacity_percent_above_base}
         '''
         value = DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPolicyProvisioningModelMix(
             standard_capacity_base=standard_capacity_base,
@@ -6563,8 +6563,8 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPoli
         standard_capacity_percent_above_base: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param standard_capacity_base: The base capacity that will always use Standard VMs to avoid risk of more preemption than the minimum capacity you need. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#standard_capacity_base DataprocCluster#standard_capacity_base}
-        :param standard_capacity_percent_above_base: The percentage of target capacity that should use Standard VM. The remaining percentage will use Spot VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#standard_capacity_percent_above_base DataprocCluster#standard_capacity_percent_above_base}
+        :param standard_capacity_base: The base capacity that will always use Standard VMs to avoid risk of more preemption than the minimum capacity you need. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#standard_capacity_base DataprocCluster#standard_capacity_base}
+        :param standard_capacity_percent_above_base: The percentage of target capacity that should use Standard VM. The remaining percentage will use Spot VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#standard_capacity_percent_above_base DataprocCluster#standard_capacity_percent_above_base}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4ffbf62d31e526aadebd64b596baf5d80b5e6dfb2e41569548f091fa1f9678cf)
@@ -6580,7 +6580,7 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPoli
     def standard_capacity_base(self) -> typing.Optional[jsii.Number]:
         '''The base capacity that will always use Standard VMs to avoid risk of more preemption than the minimum capacity you need.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#standard_capacity_base DataprocCluster#standard_capacity_base}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#standard_capacity_base DataprocCluster#standard_capacity_base}
         '''
         result = self._values.get("standard_capacity_base")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6589,7 +6589,7 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPoli
     def standard_capacity_percent_above_base(self) -> typing.Optional[jsii.Number]:
         '''The percentage of target capacity that should use Standard VM. The remaining percentage will use Spot VMs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#standard_capacity_percent_above_base DataprocCluster#standard_capacity_percent_above_base}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#standard_capacity_percent_above_base DataprocCluster#standard_capacity_percent_above_base}
         '''
         result = self._values.get("standard_capacity_percent_above_base")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6718,10 +6718,10 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfigOutputReference(
         num_local_ssds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param boot_disk_size_gb: Size of the primary disk attached to each preemptible worker node, specified in GB. The smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
-        :param boot_disk_type: The disk type of the primary disk attached to each preemptible worker node. Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
-        :param local_ssd_interface: Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
-        :param num_local_ssds: The amount of local SSD disks that will be attached to each preemptible worker node. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
+        :param boot_disk_size_gb: Size of the primary disk attached to each preemptible worker node, specified in GB. The smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
+        :param boot_disk_type: The disk type of the primary disk attached to each preemptible worker node. Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
+        :param local_ssd_interface: Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
+        :param num_local_ssds: The amount of local SSD disks that will be attached to each preemptible worker node. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
         '''
         value = DataprocClusterClusterConfigPreemptibleWorkerConfigDiskConfig(
             boot_disk_size_gb=boot_disk_size_gb,
@@ -6740,8 +6740,8 @@ class DataprocClusterClusterConfigPreemptibleWorkerConfigOutputReference(
         provisioning_model_mix: typing.Optional[typing.Union[DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPolicyProvisioningModelMix, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param instance_selection_list: instance_selection_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#instance_selection_list DataprocCluster#instance_selection_list}
-        :param provisioning_model_mix: provisioning_model_mix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#provisioning_model_mix DataprocCluster#provisioning_model_mix}
+        :param instance_selection_list: instance_selection_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#instance_selection_list DataprocCluster#instance_selection_list}
+        :param provisioning_model_mix: provisioning_model_mix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#provisioning_model_mix DataprocCluster#provisioning_model_mix}
         '''
         value = DataprocClusterClusterConfigPreemptibleWorkerConfigInstanceFlexibilityPolicy(
             instance_selection_list=instance_selection_list,
@@ -6863,7 +6863,7 @@ class DataprocClusterClusterConfigSecurityConfig:
         kerberos_config: typing.Union["DataprocClusterClusterConfigSecurityConfigKerberosConfig", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param kerberos_config: kerberos_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kerberos_config DataprocCluster#kerberos_config}
+        :param kerberos_config: kerberos_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kerberos_config DataprocCluster#kerberos_config}
         '''
         if isinstance(kerberos_config, dict):
             kerberos_config = DataprocClusterClusterConfigSecurityConfigKerberosConfig(**kerberos_config)
@@ -6880,7 +6880,7 @@ class DataprocClusterClusterConfigSecurityConfig:
     ) -> "DataprocClusterClusterConfigSecurityConfigKerberosConfig":
         '''kerberos_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kerberos_config DataprocCluster#kerberos_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kerberos_config DataprocCluster#kerberos_config}
         '''
         result = self._values.get("kerberos_config")
         assert result is not None, "Required property 'kerberos_config' is missing"
@@ -6940,21 +6940,21 @@ class DataprocClusterClusterConfigSecurityConfigKerberosConfig:
         truststore_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_uri: The uri of the KMS key used to encrypt various sensitive files. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kms_key_uri DataprocCluster#kms_key_uri}
-        :param root_principal_password_uri: The cloud Storage URI of a KMS encrypted file containing the root principal password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#root_principal_password_uri DataprocCluster#root_principal_password_uri}
-        :param cross_realm_trust_admin_server: The admin server (IP or hostname) for the remote trusted realm in a cross realm trust relationship. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#cross_realm_trust_admin_server DataprocCluster#cross_realm_trust_admin_server}
-        :param cross_realm_trust_kdc: The KDC (IP or hostname) for the remote trusted realm in a cross realm trust relationship. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#cross_realm_trust_kdc DataprocCluster#cross_realm_trust_kdc}
-        :param cross_realm_trust_realm: The remote realm the Dataproc on-cluster KDC will trust, should the user enable cross realm trust. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#cross_realm_trust_realm DataprocCluster#cross_realm_trust_realm}
-        :param cross_realm_trust_shared_password_uri: The Cloud Storage URI of a KMS encrypted file containing the shared password between the on-cluster Kerberos realm and the remote trusted realm, in a cross realm trust relationship. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#cross_realm_trust_shared_password_uri DataprocCluster#cross_realm_trust_shared_password_uri}
-        :param enable_kerberos: Flag to indicate whether to Kerberize the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#enable_kerberos DataprocCluster#enable_kerberos}
-        :param kdc_db_key_uri: The Cloud Storage URI of a KMS encrypted file containing the master key of the KDC database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kdc_db_key_uri DataprocCluster#kdc_db_key_uri}
-        :param key_password_uri: The Cloud Storage URI of a KMS encrypted file containing the password to the user provided key. For the self-signed certificate, this password is generated by Dataproc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#key_password_uri DataprocCluster#key_password_uri}
-        :param keystore_password_uri: The Cloud Storage URI of a KMS encrypted file containing the password to the user provided keystore. For the self-signed certificate, this password is generated by Dataproc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#keystore_password_uri DataprocCluster#keystore_password_uri}
-        :param keystore_uri: The Cloud Storage URI of the keystore file used for SSL encryption. If not provided, Dataproc will provide a self-signed certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#keystore_uri DataprocCluster#keystore_uri}
-        :param realm: The name of the on-cluster Kerberos realm. If not specified, the uppercased domain of hostnames will be the realm. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#realm DataprocCluster#realm}
-        :param tgt_lifetime_hours: The lifetime of the ticket granting ticket, in hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#tgt_lifetime_hours DataprocCluster#tgt_lifetime_hours}
-        :param truststore_password_uri: The Cloud Storage URI of a KMS encrypted file containing the password to the user provided truststore. For the self-signed certificate, this password is generated by Dataproc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#truststore_password_uri DataprocCluster#truststore_password_uri}
-        :param truststore_uri: The Cloud Storage URI of the truststore file used for SSL encryption. If not provided, Dataproc will provide a self-signed certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#truststore_uri DataprocCluster#truststore_uri}
+        :param kms_key_uri: The uri of the KMS key used to encrypt various sensitive files. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kms_key_uri DataprocCluster#kms_key_uri}
+        :param root_principal_password_uri: The cloud Storage URI of a KMS encrypted file containing the root principal password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#root_principal_password_uri DataprocCluster#root_principal_password_uri}
+        :param cross_realm_trust_admin_server: The admin server (IP or hostname) for the remote trusted realm in a cross realm trust relationship. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#cross_realm_trust_admin_server DataprocCluster#cross_realm_trust_admin_server}
+        :param cross_realm_trust_kdc: The KDC (IP or hostname) for the remote trusted realm in a cross realm trust relationship. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#cross_realm_trust_kdc DataprocCluster#cross_realm_trust_kdc}
+        :param cross_realm_trust_realm: The remote realm the Dataproc on-cluster KDC will trust, should the user enable cross realm trust. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#cross_realm_trust_realm DataprocCluster#cross_realm_trust_realm}
+        :param cross_realm_trust_shared_password_uri: The Cloud Storage URI of a KMS encrypted file containing the shared password between the on-cluster Kerberos realm and the remote trusted realm, in a cross realm trust relationship. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#cross_realm_trust_shared_password_uri DataprocCluster#cross_realm_trust_shared_password_uri}
+        :param enable_kerberos: Flag to indicate whether to Kerberize the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#enable_kerberos DataprocCluster#enable_kerberos}
+        :param kdc_db_key_uri: The Cloud Storage URI of a KMS encrypted file containing the master key of the KDC database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kdc_db_key_uri DataprocCluster#kdc_db_key_uri}
+        :param key_password_uri: The Cloud Storage URI of a KMS encrypted file containing the password to the user provided key. For the self-signed certificate, this password is generated by Dataproc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#key_password_uri DataprocCluster#key_password_uri}
+        :param keystore_password_uri: The Cloud Storage URI of a KMS encrypted file containing the password to the user provided keystore. For the self-signed certificate, this password is generated by Dataproc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#keystore_password_uri DataprocCluster#keystore_password_uri}
+        :param keystore_uri: The Cloud Storage URI of the keystore file used for SSL encryption. If not provided, Dataproc will provide a self-signed certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#keystore_uri DataprocCluster#keystore_uri}
+        :param realm: The name of the on-cluster Kerberos realm. If not specified, the uppercased domain of hostnames will be the realm. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#realm DataprocCluster#realm}
+        :param tgt_lifetime_hours: The lifetime of the ticket granting ticket, in hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#tgt_lifetime_hours DataprocCluster#tgt_lifetime_hours}
+        :param truststore_password_uri: The Cloud Storage URI of a KMS encrypted file containing the password to the user provided truststore. For the self-signed certificate, this password is generated by Dataproc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#truststore_password_uri DataprocCluster#truststore_password_uri}
+        :param truststore_uri: The Cloud Storage URI of the truststore file used for SSL encryption. If not provided, Dataproc will provide a self-signed certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#truststore_uri DataprocCluster#truststore_uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__503f77456cabd2cfc22147b6e67e4dc96357f993b34d929ac452aee3125d2e0c)
@@ -7008,7 +7008,7 @@ class DataprocClusterClusterConfigSecurityConfigKerberosConfig:
     def kms_key_uri(self) -> builtins.str:
         '''The uri of the KMS key used to encrypt various sensitive files.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kms_key_uri DataprocCluster#kms_key_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kms_key_uri DataprocCluster#kms_key_uri}
         '''
         result = self._values.get("kms_key_uri")
         assert result is not None, "Required property 'kms_key_uri' is missing"
@@ -7018,7 +7018,7 @@ class DataprocClusterClusterConfigSecurityConfigKerberosConfig:
     def root_principal_password_uri(self) -> builtins.str:
         '''The cloud Storage URI of a KMS encrypted file containing the root principal password.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#root_principal_password_uri DataprocCluster#root_principal_password_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#root_principal_password_uri DataprocCluster#root_principal_password_uri}
         '''
         result = self._values.get("root_principal_password_uri")
         assert result is not None, "Required property 'root_principal_password_uri' is missing"
@@ -7028,7 +7028,7 @@ class DataprocClusterClusterConfigSecurityConfigKerberosConfig:
     def cross_realm_trust_admin_server(self) -> typing.Optional[builtins.str]:
         '''The admin server (IP or hostname) for the remote trusted realm in a cross realm trust relationship.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#cross_realm_trust_admin_server DataprocCluster#cross_realm_trust_admin_server}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#cross_realm_trust_admin_server DataprocCluster#cross_realm_trust_admin_server}
         '''
         result = self._values.get("cross_realm_trust_admin_server")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7037,7 +7037,7 @@ class DataprocClusterClusterConfigSecurityConfigKerberosConfig:
     def cross_realm_trust_kdc(self) -> typing.Optional[builtins.str]:
         '''The KDC (IP or hostname) for the remote trusted realm in a cross realm trust relationship.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#cross_realm_trust_kdc DataprocCluster#cross_realm_trust_kdc}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#cross_realm_trust_kdc DataprocCluster#cross_realm_trust_kdc}
         '''
         result = self._values.get("cross_realm_trust_kdc")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7046,7 +7046,7 @@ class DataprocClusterClusterConfigSecurityConfigKerberosConfig:
     def cross_realm_trust_realm(self) -> typing.Optional[builtins.str]:
         '''The remote realm the Dataproc on-cluster KDC will trust, should the user enable cross realm trust.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#cross_realm_trust_realm DataprocCluster#cross_realm_trust_realm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#cross_realm_trust_realm DataprocCluster#cross_realm_trust_realm}
         '''
         result = self._values.get("cross_realm_trust_realm")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7055,7 +7055,7 @@ class DataprocClusterClusterConfigSecurityConfigKerberosConfig:
     def cross_realm_trust_shared_password_uri(self) -> typing.Optional[builtins.str]:
         '''The Cloud Storage URI of a KMS encrypted file containing the shared password between the on-cluster Kerberos realm and the remote trusted realm, in a cross realm trust relationship.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#cross_realm_trust_shared_password_uri DataprocCluster#cross_realm_trust_shared_password_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#cross_realm_trust_shared_password_uri DataprocCluster#cross_realm_trust_shared_password_uri}
         '''
         result = self._values.get("cross_realm_trust_shared_password_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7066,7 +7066,7 @@ class DataprocClusterClusterConfigSecurityConfigKerberosConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Flag to indicate whether to Kerberize the cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#enable_kerberos DataprocCluster#enable_kerberos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#enable_kerberos DataprocCluster#enable_kerberos}
         '''
         result = self._values.get("enable_kerberos")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7075,7 +7075,7 @@ class DataprocClusterClusterConfigSecurityConfigKerberosConfig:
     def kdc_db_key_uri(self) -> typing.Optional[builtins.str]:
         '''The Cloud Storage URI of a KMS encrypted file containing the master key of the KDC database.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kdc_db_key_uri DataprocCluster#kdc_db_key_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kdc_db_key_uri DataprocCluster#kdc_db_key_uri}
         '''
         result = self._values.get("kdc_db_key_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7086,7 +7086,7 @@ class DataprocClusterClusterConfigSecurityConfigKerberosConfig:
 
         For the self-signed certificate, this password is generated by Dataproc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#key_password_uri DataprocCluster#key_password_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#key_password_uri DataprocCluster#key_password_uri}
         '''
         result = self._values.get("key_password_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7098,7 +7098,7 @@ class DataprocClusterClusterConfigSecurityConfigKerberosConfig:
         For the self-signed certificate, this password is generated
         by Dataproc
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#keystore_password_uri DataprocCluster#keystore_password_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#keystore_password_uri DataprocCluster#keystore_password_uri}
         '''
         result = self._values.get("keystore_password_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7109,7 +7109,7 @@ class DataprocClusterClusterConfigSecurityConfigKerberosConfig:
 
         If not provided, Dataproc will provide a self-signed certificate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#keystore_uri DataprocCluster#keystore_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#keystore_uri DataprocCluster#keystore_uri}
         '''
         result = self._values.get("keystore_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7118,7 +7118,7 @@ class DataprocClusterClusterConfigSecurityConfigKerberosConfig:
     def realm(self) -> typing.Optional[builtins.str]:
         '''The name of the on-cluster Kerberos realm. If not specified, the uppercased domain of hostnames will be the realm.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#realm DataprocCluster#realm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#realm DataprocCluster#realm}
         '''
         result = self._values.get("realm")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7127,7 +7127,7 @@ class DataprocClusterClusterConfigSecurityConfigKerberosConfig:
     def tgt_lifetime_hours(self) -> typing.Optional[jsii.Number]:
         '''The lifetime of the ticket granting ticket, in hours.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#tgt_lifetime_hours DataprocCluster#tgt_lifetime_hours}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#tgt_lifetime_hours DataprocCluster#tgt_lifetime_hours}
         '''
         result = self._values.get("tgt_lifetime_hours")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7138,7 +7138,7 @@ class DataprocClusterClusterConfigSecurityConfigKerberosConfig:
 
         For the self-signed certificate, this password is generated by Dataproc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#truststore_password_uri DataprocCluster#truststore_password_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#truststore_password_uri DataprocCluster#truststore_password_uri}
         '''
         result = self._values.get("truststore_password_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7149,7 +7149,7 @@ class DataprocClusterClusterConfigSecurityConfigKerberosConfig:
 
         If not provided, Dataproc will provide a self-signed certificate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#truststore_uri DataprocCluster#truststore_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#truststore_uri DataprocCluster#truststore_uri}
         '''
         result = self._values.get("truststore_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7561,21 +7561,21 @@ class DataprocClusterClusterConfigSecurityConfigOutputReference(
         truststore_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_uri: The uri of the KMS key used to encrypt various sensitive files. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kms_key_uri DataprocCluster#kms_key_uri}
-        :param root_principal_password_uri: The cloud Storage URI of a KMS encrypted file containing the root principal password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#root_principal_password_uri DataprocCluster#root_principal_password_uri}
-        :param cross_realm_trust_admin_server: The admin server (IP or hostname) for the remote trusted realm in a cross realm trust relationship. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#cross_realm_trust_admin_server DataprocCluster#cross_realm_trust_admin_server}
-        :param cross_realm_trust_kdc: The KDC (IP or hostname) for the remote trusted realm in a cross realm trust relationship. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#cross_realm_trust_kdc DataprocCluster#cross_realm_trust_kdc}
-        :param cross_realm_trust_realm: The remote realm the Dataproc on-cluster KDC will trust, should the user enable cross realm trust. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#cross_realm_trust_realm DataprocCluster#cross_realm_trust_realm}
-        :param cross_realm_trust_shared_password_uri: The Cloud Storage URI of a KMS encrypted file containing the shared password between the on-cluster Kerberos realm and the remote trusted realm, in a cross realm trust relationship. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#cross_realm_trust_shared_password_uri DataprocCluster#cross_realm_trust_shared_password_uri}
-        :param enable_kerberos: Flag to indicate whether to Kerberize the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#enable_kerberos DataprocCluster#enable_kerberos}
-        :param kdc_db_key_uri: The Cloud Storage URI of a KMS encrypted file containing the master key of the KDC database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kdc_db_key_uri DataprocCluster#kdc_db_key_uri}
-        :param key_password_uri: The Cloud Storage URI of a KMS encrypted file containing the password to the user provided key. For the self-signed certificate, this password is generated by Dataproc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#key_password_uri DataprocCluster#key_password_uri}
-        :param keystore_password_uri: The Cloud Storage URI of a KMS encrypted file containing the password to the user provided keystore. For the self-signed certificate, this password is generated by Dataproc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#keystore_password_uri DataprocCluster#keystore_password_uri}
-        :param keystore_uri: The Cloud Storage URI of the keystore file used for SSL encryption. If not provided, Dataproc will provide a self-signed certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#keystore_uri DataprocCluster#keystore_uri}
-        :param realm: The name of the on-cluster Kerberos realm. If not specified, the uppercased domain of hostnames will be the realm. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#realm DataprocCluster#realm}
-        :param tgt_lifetime_hours: The lifetime of the ticket granting ticket, in hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#tgt_lifetime_hours DataprocCluster#tgt_lifetime_hours}
-        :param truststore_password_uri: The Cloud Storage URI of a KMS encrypted file containing the password to the user provided truststore. For the self-signed certificate, this password is generated by Dataproc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#truststore_password_uri DataprocCluster#truststore_password_uri}
-        :param truststore_uri: The Cloud Storage URI of the truststore file used for SSL encryption. If not provided, Dataproc will provide a self-signed certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#truststore_uri DataprocCluster#truststore_uri}
+        :param kms_key_uri: The uri of the KMS key used to encrypt various sensitive files. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kms_key_uri DataprocCluster#kms_key_uri}
+        :param root_principal_password_uri: The cloud Storage URI of a KMS encrypted file containing the root principal password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#root_principal_password_uri DataprocCluster#root_principal_password_uri}
+        :param cross_realm_trust_admin_server: The admin server (IP or hostname) for the remote trusted realm in a cross realm trust relationship. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#cross_realm_trust_admin_server DataprocCluster#cross_realm_trust_admin_server}
+        :param cross_realm_trust_kdc: The KDC (IP or hostname) for the remote trusted realm in a cross realm trust relationship. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#cross_realm_trust_kdc DataprocCluster#cross_realm_trust_kdc}
+        :param cross_realm_trust_realm: The remote realm the Dataproc on-cluster KDC will trust, should the user enable cross realm trust. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#cross_realm_trust_realm DataprocCluster#cross_realm_trust_realm}
+        :param cross_realm_trust_shared_password_uri: The Cloud Storage URI of a KMS encrypted file containing the shared password between the on-cluster Kerberos realm and the remote trusted realm, in a cross realm trust relationship. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#cross_realm_trust_shared_password_uri DataprocCluster#cross_realm_trust_shared_password_uri}
+        :param enable_kerberos: Flag to indicate whether to Kerberize the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#enable_kerberos DataprocCluster#enable_kerberos}
+        :param kdc_db_key_uri: The Cloud Storage URI of a KMS encrypted file containing the master key of the KDC database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kdc_db_key_uri DataprocCluster#kdc_db_key_uri}
+        :param key_password_uri: The Cloud Storage URI of a KMS encrypted file containing the password to the user provided key. For the self-signed certificate, this password is generated by Dataproc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#key_password_uri DataprocCluster#key_password_uri}
+        :param keystore_password_uri: The Cloud Storage URI of a KMS encrypted file containing the password to the user provided keystore. For the self-signed certificate, this password is generated by Dataproc Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#keystore_password_uri DataprocCluster#keystore_password_uri}
+        :param keystore_uri: The Cloud Storage URI of the keystore file used for SSL encryption. If not provided, Dataproc will provide a self-signed certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#keystore_uri DataprocCluster#keystore_uri}
+        :param realm: The name of the on-cluster Kerberos realm. If not specified, the uppercased domain of hostnames will be the realm. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#realm DataprocCluster#realm}
+        :param tgt_lifetime_hours: The lifetime of the ticket granting ticket, in hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#tgt_lifetime_hours DataprocCluster#tgt_lifetime_hours}
+        :param truststore_password_uri: The Cloud Storage URI of a KMS encrypted file containing the password to the user provided truststore. For the self-signed certificate, this password is generated by Dataproc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#truststore_password_uri DataprocCluster#truststore_password_uri}
+        :param truststore_uri: The Cloud Storage URI of the truststore file used for SSL encryption. If not provided, Dataproc will provide a self-signed certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#truststore_uri DataprocCluster#truststore_uri}
         '''
         value = DataprocClusterClusterConfigSecurityConfigKerberosConfig(
             kms_key_uri=kms_key_uri,
@@ -7647,9 +7647,9 @@ class DataprocClusterClusterConfigSoftwareConfig:
         override_properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param image_version: The Cloud Dataproc image version to use for the cluster - this controls the sets of software versions installed onto the nodes when you create clusters. If not specified, defaults to the latest version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#image_version DataprocCluster#image_version}
-        :param optional_components: The set of optional components to activate on the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#optional_components DataprocCluster#optional_components}
-        :param override_properties: A list of override and additional properties (key/value pairs) used to modify various aspects of the common configuration files used when creating a cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#override_properties DataprocCluster#override_properties}
+        :param image_version: The Cloud Dataproc image version to use for the cluster - this controls the sets of software versions installed onto the nodes when you create clusters. If not specified, defaults to the latest version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#image_version DataprocCluster#image_version}
+        :param optional_components: The set of optional components to activate on the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#optional_components DataprocCluster#optional_components}
+        :param override_properties: A list of override and additional properties (key/value pairs) used to modify various aspects of the common configuration files used when creating a cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#override_properties DataprocCluster#override_properties}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__822dc890087f54c3079a5cd83118c8967c5cf55741543ad25a9fbaf94a6a4d2b)
@@ -7670,7 +7670,7 @@ class DataprocClusterClusterConfigSoftwareConfig:
 
         If not specified, defaults to the latest version.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#image_version DataprocCluster#image_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#image_version DataprocCluster#image_version}
         '''
         result = self._values.get("image_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7679,7 +7679,7 @@ class DataprocClusterClusterConfigSoftwareConfig:
     def optional_components(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The set of optional components to activate on the cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#optional_components DataprocCluster#optional_components}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#optional_components DataprocCluster#optional_components}
         '''
         result = self._values.get("optional_components")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -7690,7 +7690,7 @@ class DataprocClusterClusterConfigSoftwareConfig:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A list of override and additional properties (key/value pairs) used to modify various aspects of the common configuration files used when creating a cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#override_properties DataprocCluster#override_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#override_properties DataprocCluster#override_properties}
         '''
         result = self._values.get("override_properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -7844,13 +7844,13 @@ class DataprocClusterClusterConfigWorkerConfig:
         num_instances: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param accelerators: accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerators DataprocCluster#accelerators}
-        :param disk_config: disk_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
-        :param image_uri: The URI for the image to use for this master/worker. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#image_uri DataprocCluster#image_uri}
-        :param machine_type: The name of a Google Compute Engine machine type to create for the master/worker. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
-        :param min_cpu_platform: The name of a minimum generation of CPU family for the master/worker. If not specified, GCP will default to a predetermined computed value for each zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
-        :param min_num_instances: The minimum number of primary worker instances to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#min_num_instances DataprocCluster#min_num_instances}
-        :param num_instances: Specifies the number of worker nodes to create. If not specified, GCP will default to a predetermined computed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
+        :param accelerators: accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerators DataprocCluster#accelerators}
+        :param disk_config: disk_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
+        :param image_uri: The URI for the image to use for this master/worker. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#image_uri DataprocCluster#image_uri}
+        :param machine_type: The name of a Google Compute Engine machine type to create for the master/worker. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
+        :param min_cpu_platform: The name of a minimum generation of CPU family for the master/worker. If not specified, GCP will default to a predetermined computed value for each zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
+        :param min_num_instances: The minimum number of primary worker instances to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#min_num_instances DataprocCluster#min_num_instances}
+        :param num_instances: Specifies the number of worker nodes to create. If not specified, GCP will default to a predetermined computed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
         '''
         if isinstance(disk_config, dict):
             disk_config = DataprocClusterClusterConfigWorkerConfigDiskConfig(**disk_config)
@@ -7885,7 +7885,7 @@ class DataprocClusterClusterConfigWorkerConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataprocClusterClusterConfigWorkerConfigAccelerators"]]]:
         '''accelerators block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerators DataprocCluster#accelerators}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerators DataprocCluster#accelerators}
         '''
         result = self._values.get("accelerators")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataprocClusterClusterConfigWorkerConfigAccelerators"]]], result)
@@ -7896,7 +7896,7 @@ class DataprocClusterClusterConfigWorkerConfig:
     ) -> typing.Optional["DataprocClusterClusterConfigWorkerConfigDiskConfig"]:
         '''disk_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#disk_config DataprocCluster#disk_config}
         '''
         result = self._values.get("disk_config")
         return typing.cast(typing.Optional["DataprocClusterClusterConfigWorkerConfigDiskConfig"], result)
@@ -7905,7 +7905,7 @@ class DataprocClusterClusterConfigWorkerConfig:
     def image_uri(self) -> typing.Optional[builtins.str]:
         '''The URI for the image to use for this master/worker.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#image_uri DataprocCluster#image_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#image_uri DataprocCluster#image_uri}
         '''
         result = self._values.get("image_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7914,7 +7914,7 @@ class DataprocClusterClusterConfigWorkerConfig:
     def machine_type(self) -> typing.Optional[builtins.str]:
         '''The name of a Google Compute Engine machine type to create for the master/worker.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
         '''
         result = self._values.get("machine_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7925,7 +7925,7 @@ class DataprocClusterClusterConfigWorkerConfig:
 
         If not specified, GCP will default to a predetermined computed value for each zone.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
         '''
         result = self._values.get("min_cpu_platform")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7934,7 +7934,7 @@ class DataprocClusterClusterConfigWorkerConfig:
     def min_num_instances(self) -> typing.Optional[jsii.Number]:
         '''The minimum number of primary worker instances to create.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#min_num_instances DataprocCluster#min_num_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#min_num_instances DataprocCluster#min_num_instances}
         '''
         result = self._values.get("min_num_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7943,7 +7943,7 @@ class DataprocClusterClusterConfigWorkerConfig:
     def num_instances(self) -> typing.Optional[jsii.Number]:
         '''Specifies the number of worker nodes to create. If not specified, GCP will default to a predetermined computed value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_instances DataprocCluster#num_instances}
         '''
         result = self._values.get("num_instances")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7976,8 +7976,8 @@ class DataprocClusterClusterConfigWorkerConfigAccelerators:
         accelerator_type: builtins.str,
     ) -> None:
         '''
-        :param accelerator_count: The number of the accelerator cards of this type exposed to this instance. Often restricted to one of 1, 2, 4, or 8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerator_count DataprocCluster#accelerator_count}
-        :param accelerator_type: The short name of the accelerator type to expose to this instance. For example, nvidia-tesla-k80. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerator_type DataprocCluster#accelerator_type}
+        :param accelerator_count: The number of the accelerator cards of this type exposed to this instance. Often restricted to one of 1, 2, 4, or 8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerator_count DataprocCluster#accelerator_count}
+        :param accelerator_type: The short name of the accelerator type to expose to this instance. For example, nvidia-tesla-k80. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerator_type DataprocCluster#accelerator_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6bb8115d8b88c41af0fec9d9404aaa9477e5a18061f1f00937dcb25bd82b6d98)
@@ -7994,7 +7994,7 @@ class DataprocClusterClusterConfigWorkerConfigAccelerators:
 
         Often restricted to one of 1, 2, 4, or 8.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerator_count DataprocCluster#accelerator_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerator_count DataprocCluster#accelerator_count}
         '''
         result = self._values.get("accelerator_count")
         assert result is not None, "Required property 'accelerator_count' is missing"
@@ -8004,7 +8004,7 @@ class DataprocClusterClusterConfigWorkerConfigAccelerators:
     def accelerator_type(self) -> builtins.str:
         '''The short name of the accelerator type to expose to this instance. For example, nvidia-tesla-k80.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#accelerator_type DataprocCluster#accelerator_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#accelerator_type DataprocCluster#accelerator_type}
         '''
         result = self._values.get("accelerator_type")
         assert result is not None, "Required property 'accelerator_type' is missing"
@@ -8213,10 +8213,10 @@ class DataprocClusterClusterConfigWorkerConfigDiskConfig:
         num_local_ssds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param boot_disk_size_gb: Size of the primary disk attached to each node, specified in GB. The primary disk contains the boot volume and system libraries, and the smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
-        :param boot_disk_type: The disk type of the primary disk attached to each node. Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
-        :param local_ssd_interface: Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
-        :param num_local_ssds: The amount of local SSD disks that will be attached to each master cluster node. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
+        :param boot_disk_size_gb: Size of the primary disk attached to each node, specified in GB. The primary disk contains the boot volume and system libraries, and the smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
+        :param boot_disk_type: The disk type of the primary disk attached to each node. Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
+        :param local_ssd_interface: Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
+        :param num_local_ssds: The amount of local SSD disks that will be attached to each master cluster node. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__205b56d220620927788db71e1d60b1eb6741f8e84eabe90e2fdf75d4c5257df5)
@@ -8240,7 +8240,7 @@ class DataprocClusterClusterConfigWorkerConfigDiskConfig:
 
         The primary disk contains the boot volume and system libraries, and the smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
         '''
         result = self._values.get("boot_disk_size_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8249,7 +8249,7 @@ class DataprocClusterClusterConfigWorkerConfigDiskConfig:
     def boot_disk_type(self) -> typing.Optional[builtins.str]:
         '''The disk type of the primary disk attached to each node. Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
         '''
         result = self._values.get("boot_disk_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8258,7 +8258,7 @@ class DataprocClusterClusterConfigWorkerConfigDiskConfig:
     def local_ssd_interface(self) -> typing.Optional[builtins.str]:
         '''Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
         '''
         result = self._values.get("local_ssd_interface")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8267,7 +8267,7 @@ class DataprocClusterClusterConfigWorkerConfigDiskConfig:
     def num_local_ssds(self) -> typing.Optional[jsii.Number]:
         '''The amount of local SSD disks that will be attached to each master cluster node. Defaults to 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
         '''
         result = self._values.get("num_local_ssds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8449,10 +8449,10 @@ class DataprocClusterClusterConfigWorkerConfigOutputReference(
         num_local_ssds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param boot_disk_size_gb: Size of the primary disk attached to each node, specified in GB. The primary disk contains the boot volume and system libraries, and the smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
-        :param boot_disk_type: The disk type of the primary disk attached to each node. Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
-        :param local_ssd_interface: Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
-        :param num_local_ssds: The amount of local SSD disks that will be attached to each master cluster node. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
+        :param boot_disk_size_gb: Size of the primary disk attached to each node, specified in GB. The primary disk contains the boot volume and system libraries, and the smallest allowed disk size is 10GB. GCP will default to a predetermined computed value if not set (currently 500GB). Note: If SSDs are not attached, it also contains the HDFS data blocks and Hadoop working directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_size_gb DataprocCluster#boot_disk_size_gb}
+        :param boot_disk_type: The disk type of the primary disk attached to each node. Such as "pd-ssd" or "pd-standard". Defaults to "pd-standard". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#boot_disk_type DataprocCluster#boot_disk_type}
+        :param local_ssd_interface: Interface type of local SSDs (default is "scsi"). Valid values: "scsi" (Small Computer System Interface), "nvme" (Non-Volatile Memory Express). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#local_ssd_interface DataprocCluster#local_ssd_interface}
+        :param num_local_ssds: The amount of local SSD disks that will be attached to each master cluster node. Defaults to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#num_local_ssds DataprocCluster#num_local_ssds}
         '''
         value = DataprocClusterClusterConfigWorkerConfigDiskConfig(
             boot_disk_size_gb=boot_disk_size_gb,
@@ -8676,15 +8676,15 @@ class DataprocClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the cluster, unique within the project and zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#name DataprocCluster#name}
-        :param cluster_config: cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#cluster_config DataprocCluster#cluster_config}
-        :param graceful_decommission_timeout: The timeout duration which allows graceful decomissioning when you change the number of worker nodes directly through a terraform apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#graceful_decommission_timeout DataprocCluster#graceful_decommission_timeout}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#id DataprocCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: The list of the labels (key/value pairs) configured on the resource and to be applied to instances in the cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#labels DataprocCluster#labels}
-        :param project: The ID of the project in which the cluster will exist. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#project DataprocCluster#project}
-        :param region: The region in which the cluster and associated nodes will be created in. Defaults to global. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#region DataprocCluster#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#timeouts DataprocCluster#timeouts}
-        :param virtual_cluster_config: virtual_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#virtual_cluster_config DataprocCluster#virtual_cluster_config}
+        :param name: The name of the cluster, unique within the project and zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#name DataprocCluster#name}
+        :param cluster_config: cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#cluster_config DataprocCluster#cluster_config}
+        :param graceful_decommission_timeout: The timeout duration which allows graceful decomissioning when you change the number of worker nodes directly through a terraform apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#graceful_decommission_timeout DataprocCluster#graceful_decommission_timeout}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#id DataprocCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: The list of the labels (key/value pairs) configured on the resource and to be applied to instances in the cluster. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#labels DataprocCluster#labels}
+        :param project: The ID of the project in which the cluster will exist. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#project DataprocCluster#project}
+        :param region: The region in which the cluster and associated nodes will be created in. Defaults to global. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#region DataprocCluster#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#timeouts DataprocCluster#timeouts}
+        :param virtual_cluster_config: virtual_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#virtual_cluster_config DataprocCluster#virtual_cluster_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -8814,7 +8814,7 @@ class DataprocClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the cluster, unique within the project and zone.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#name DataprocCluster#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#name DataprocCluster#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -8824,7 +8824,7 @@ class DataprocClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cluster_config(self) -> typing.Optional[DataprocClusterClusterConfig]:
         '''cluster_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#cluster_config DataprocCluster#cluster_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#cluster_config DataprocCluster#cluster_config}
         '''
         result = self._values.get("cluster_config")
         return typing.cast(typing.Optional[DataprocClusterClusterConfig], result)
@@ -8833,14 +8833,14 @@ class DataprocClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def graceful_decommission_timeout(self) -> typing.Optional[builtins.str]:
         '''The timeout duration which allows graceful decomissioning when you change the number of worker nodes directly through a terraform apply.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#graceful_decommission_timeout DataprocCluster#graceful_decommission_timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#graceful_decommission_timeout DataprocCluster#graceful_decommission_timeout}
         '''
         result = self._values.get("graceful_decommission_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#id DataprocCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#id DataprocCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -8855,7 +8855,7 @@ class DataprocClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#labels DataprocCluster#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#labels DataprocCluster#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -8866,7 +8866,7 @@ class DataprocClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#project DataprocCluster#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#project DataprocCluster#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8875,7 +8875,7 @@ class DataprocClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''The region in which the cluster and associated nodes will be created in. Defaults to global.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#region DataprocCluster#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#region DataprocCluster#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8884,7 +8884,7 @@ class DataprocClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataprocClusterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#timeouts DataprocCluster#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#timeouts DataprocCluster#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataprocClusterTimeouts"], result)
@@ -8895,7 +8895,7 @@ class DataprocClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DataprocClusterVirtualClusterConfig"]:
         '''virtual_cluster_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#virtual_cluster_config DataprocCluster#virtual_cluster_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#virtual_cluster_config DataprocCluster#virtual_cluster_config}
         '''
         result = self._values.get("virtual_cluster_config")
         return typing.cast(typing.Optional["DataprocClusterVirtualClusterConfig"], result)
@@ -8926,9 +8926,9 @@ class DataprocClusterTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#create DataprocCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#delete DataprocCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#update DataprocCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#create DataprocCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#delete DataprocCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#update DataprocCluster#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__38a613b8d951875abe58651dab277cf4df7ef14e32a9326c6761e133cba07c97)
@@ -8945,19 +8945,19 @@ class DataprocClusterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#create DataprocCluster#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#create DataprocCluster#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#delete DataprocCluster#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#delete DataprocCluster#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#update DataprocCluster#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#update DataprocCluster#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9092,9 +9092,9 @@ class DataprocClusterVirtualClusterConfig:
         staging_bucket: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auxiliary_services_config: auxiliary_services_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#auxiliary_services_config DataprocCluster#auxiliary_services_config}
-        :param kubernetes_cluster_config: kubernetes_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kubernetes_cluster_config DataprocCluster#kubernetes_cluster_config}
-        :param staging_bucket: A Cloud Storage bucket used to stage job dependencies, config files, and job driver console output. If you do not specify a staging bucket, Cloud Dataproc will determine a Cloud Storage location (US, ASIA, or EU) for your cluster's staging bucket according to the Compute Engine zone where your cluster is deployed, and then create and manage this project-level, per-location bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#staging_bucket DataprocCluster#staging_bucket}
+        :param auxiliary_services_config: auxiliary_services_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#auxiliary_services_config DataprocCluster#auxiliary_services_config}
+        :param kubernetes_cluster_config: kubernetes_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kubernetes_cluster_config DataprocCluster#kubernetes_cluster_config}
+        :param staging_bucket: A Cloud Storage bucket used to stage job dependencies, config files, and job driver console output. If you do not specify a staging bucket, Cloud Dataproc will determine a Cloud Storage location (US, ASIA, or EU) for your cluster's staging bucket according to the Compute Engine zone where your cluster is deployed, and then create and manage this project-level, per-location bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#staging_bucket DataprocCluster#staging_bucket}
         '''
         if isinstance(auxiliary_services_config, dict):
             auxiliary_services_config = DataprocClusterVirtualClusterConfigAuxiliaryServicesConfig(**auxiliary_services_config)
@@ -9119,7 +9119,7 @@ class DataprocClusterVirtualClusterConfig:
     ) -> typing.Optional["DataprocClusterVirtualClusterConfigAuxiliaryServicesConfig"]:
         '''auxiliary_services_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#auxiliary_services_config DataprocCluster#auxiliary_services_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#auxiliary_services_config DataprocCluster#auxiliary_services_config}
         '''
         result = self._values.get("auxiliary_services_config")
         return typing.cast(typing.Optional["DataprocClusterVirtualClusterConfigAuxiliaryServicesConfig"], result)
@@ -9130,7 +9130,7 @@ class DataprocClusterVirtualClusterConfig:
     ) -> typing.Optional["DataprocClusterVirtualClusterConfigKubernetesClusterConfig"]:
         '''kubernetes_cluster_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kubernetes_cluster_config DataprocCluster#kubernetes_cluster_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kubernetes_cluster_config DataprocCluster#kubernetes_cluster_config}
         '''
         result = self._values.get("kubernetes_cluster_config")
         return typing.cast(typing.Optional["DataprocClusterVirtualClusterConfigKubernetesClusterConfig"], result)
@@ -9141,7 +9141,7 @@ class DataprocClusterVirtualClusterConfig:
 
         If you do not specify a staging bucket, Cloud Dataproc will determine a Cloud Storage location (US, ASIA, or EU) for your cluster's staging bucket according to the Compute Engine zone where your cluster is deployed, and then create and manage this project-level, per-location bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#staging_bucket DataprocCluster#staging_bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#staging_bucket DataprocCluster#staging_bucket}
         '''
         result = self._values.get("staging_bucket")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9174,8 +9174,8 @@ class DataprocClusterVirtualClusterConfigAuxiliaryServicesConfig:
         spark_history_server_config: typing.Optional[typing.Union["DataprocClusterVirtualClusterConfigAuxiliaryServicesConfigSparkHistoryServerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param metastore_config: metastore_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#metastore_config DataprocCluster#metastore_config}
-        :param spark_history_server_config: spark_history_server_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#spark_history_server_config DataprocCluster#spark_history_server_config}
+        :param metastore_config: metastore_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#metastore_config DataprocCluster#metastore_config}
+        :param spark_history_server_config: spark_history_server_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#spark_history_server_config DataprocCluster#spark_history_server_config}
         '''
         if isinstance(metastore_config, dict):
             metastore_config = DataprocClusterVirtualClusterConfigAuxiliaryServicesConfigMetastoreConfig(**metastore_config)
@@ -9197,7 +9197,7 @@ class DataprocClusterVirtualClusterConfigAuxiliaryServicesConfig:
     ) -> typing.Optional["DataprocClusterVirtualClusterConfigAuxiliaryServicesConfigMetastoreConfig"]:
         '''metastore_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#metastore_config DataprocCluster#metastore_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#metastore_config DataprocCluster#metastore_config}
         '''
         result = self._values.get("metastore_config")
         return typing.cast(typing.Optional["DataprocClusterVirtualClusterConfigAuxiliaryServicesConfigMetastoreConfig"], result)
@@ -9208,7 +9208,7 @@ class DataprocClusterVirtualClusterConfigAuxiliaryServicesConfig:
     ) -> typing.Optional["DataprocClusterVirtualClusterConfigAuxiliaryServicesConfigSparkHistoryServerConfig"]:
         '''spark_history_server_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#spark_history_server_config DataprocCluster#spark_history_server_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#spark_history_server_config DataprocCluster#spark_history_server_config}
         '''
         result = self._values.get("spark_history_server_config")
         return typing.cast(typing.Optional["DataprocClusterVirtualClusterConfigAuxiliaryServicesConfigSparkHistoryServerConfig"], result)
@@ -9237,7 +9237,7 @@ class DataprocClusterVirtualClusterConfigAuxiliaryServicesConfigMetastoreConfig:
         dataproc_metastore_service: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataproc_metastore_service: The Hive Metastore configuration for this workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#dataproc_metastore_service DataprocCluster#dataproc_metastore_service}
+        :param dataproc_metastore_service: The Hive Metastore configuration for this workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#dataproc_metastore_service DataprocCluster#dataproc_metastore_service}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__395ec210f5c3915ba1eb598d649f5e911053c14131ec190f7b662cb0e05923a2)
@@ -9250,7 +9250,7 @@ class DataprocClusterVirtualClusterConfigAuxiliaryServicesConfigMetastoreConfig:
     def dataproc_metastore_service(self) -> typing.Optional[builtins.str]:
         '''The Hive Metastore configuration for this workload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#dataproc_metastore_service DataprocCluster#dataproc_metastore_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#dataproc_metastore_service DataprocCluster#dataproc_metastore_service}
         '''
         result = self._values.get("dataproc_metastore_service")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9353,7 +9353,7 @@ class DataprocClusterVirtualClusterConfigAuxiliaryServicesConfigOutputReference(
         dataproc_metastore_service: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataproc_metastore_service: The Hive Metastore configuration for this workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#dataproc_metastore_service DataprocCluster#dataproc_metastore_service}
+        :param dataproc_metastore_service: The Hive Metastore configuration for this workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#dataproc_metastore_service DataprocCluster#dataproc_metastore_service}
         '''
         value = DataprocClusterVirtualClusterConfigAuxiliaryServicesConfigMetastoreConfig(
             dataproc_metastore_service=dataproc_metastore_service
@@ -9368,7 +9368,7 @@ class DataprocClusterVirtualClusterConfigAuxiliaryServicesConfigOutputReference(
         dataproc_cluster: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataproc_cluster: Resource name of an existing Dataproc Cluster to act as a Spark History Server for the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#dataproc_cluster DataprocCluster#dataproc_cluster}
+        :param dataproc_cluster: Resource name of an existing Dataproc Cluster to act as a Spark History Server for the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#dataproc_cluster DataprocCluster#dataproc_cluster}
         '''
         value = DataprocClusterVirtualClusterConfigAuxiliaryServicesConfigSparkHistoryServerConfig(
             dataproc_cluster=dataproc_cluster
@@ -9442,7 +9442,7 @@ class DataprocClusterVirtualClusterConfigAuxiliaryServicesConfigSparkHistoryServ
         dataproc_cluster: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataproc_cluster: Resource name of an existing Dataproc Cluster to act as a Spark History Server for the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#dataproc_cluster DataprocCluster#dataproc_cluster}
+        :param dataproc_cluster: Resource name of an existing Dataproc Cluster to act as a Spark History Server for the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#dataproc_cluster DataprocCluster#dataproc_cluster}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59b840cfa8bb2c3e51bc69865fcddeb6b5a25af130b017b13c466e6eb802c4eb)
@@ -9455,7 +9455,7 @@ class DataprocClusterVirtualClusterConfigAuxiliaryServicesConfigSparkHistoryServ
     def dataproc_cluster(self) -> typing.Optional[builtins.str]:
         '''Resource name of an existing Dataproc Cluster to act as a Spark History Server for the workload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#dataproc_cluster DataprocCluster#dataproc_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#dataproc_cluster DataprocCluster#dataproc_cluster}
         '''
         result = self._values.get("dataproc_cluster")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9549,9 +9549,9 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfig:
         kubernetes_namespace: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param gke_cluster_config: gke_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#gke_cluster_config DataprocCluster#gke_cluster_config}
-        :param kubernetes_software_config: kubernetes_software_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kubernetes_software_config DataprocCluster#kubernetes_software_config}
-        :param kubernetes_namespace: A namespace within the Kubernetes cluster to deploy into. If this namespace does not exist, it is created. If it exists, Dataproc verifies that another Dataproc VirtualCluster is not installed into it. If not specified, the name of the Dataproc Cluster is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kubernetes_namespace DataprocCluster#kubernetes_namespace}
+        :param gke_cluster_config: gke_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#gke_cluster_config DataprocCluster#gke_cluster_config}
+        :param kubernetes_software_config: kubernetes_software_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kubernetes_software_config DataprocCluster#kubernetes_software_config}
+        :param kubernetes_namespace: A namespace within the Kubernetes cluster to deploy into. If this namespace does not exist, it is created. If it exists, Dataproc verifies that another Dataproc VirtualCluster is not installed into it. If not specified, the name of the Dataproc Cluster is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kubernetes_namespace DataprocCluster#kubernetes_namespace}
         '''
         if isinstance(gke_cluster_config, dict):
             gke_cluster_config = DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig(**gke_cluster_config)
@@ -9575,7 +9575,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfig:
     ) -> "DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig":
         '''gke_cluster_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#gke_cluster_config DataprocCluster#gke_cluster_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#gke_cluster_config DataprocCluster#gke_cluster_config}
         '''
         result = self._values.get("gke_cluster_config")
         assert result is not None, "Required property 'gke_cluster_config' is missing"
@@ -9587,7 +9587,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfig:
     ) -> "DataprocClusterVirtualClusterConfigKubernetesClusterConfigKubernetesSoftwareConfig":
         '''kubernetes_software_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kubernetes_software_config DataprocCluster#kubernetes_software_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kubernetes_software_config DataprocCluster#kubernetes_software_config}
         '''
         result = self._values.get("kubernetes_software_config")
         assert result is not None, "Required property 'kubernetes_software_config' is missing"
@@ -9599,7 +9599,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfig:
 
         If this namespace does not exist, it is created. If it exists, Dataproc verifies that another Dataproc VirtualCluster is not installed into it. If not specified, the name of the Dataproc Cluster is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kubernetes_namespace DataprocCluster#kubernetes_namespace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kubernetes_namespace DataprocCluster#kubernetes_namespace}
         '''
         result = self._values.get("kubernetes_namespace")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9632,8 +9632,8 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
         node_pool_target: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfigNodePoolTarget", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param gke_cluster_target: A target GKE cluster to deploy to. It must be in the same project and region as the Dataproc cluster (the GKE cluster can be zonal or regional). Format: 'projects/{project}/locations/{location}/clusters/{cluster_id}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#gke_cluster_target DataprocCluster#gke_cluster_target}
-        :param node_pool_target: node_pool_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#node_pool_target DataprocCluster#node_pool_target}
+        :param gke_cluster_target: A target GKE cluster to deploy to. It must be in the same project and region as the Dataproc cluster (the GKE cluster can be zonal or regional). Format: 'projects/{project}/locations/{location}/clusters/{cluster_id}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#gke_cluster_target DataprocCluster#gke_cluster_target}
+        :param node_pool_target: node_pool_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#node_pool_target DataprocCluster#node_pool_target}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8a8e6d66631834d9031f383bc8eacf0b9839d86cc2900280431f71a817b4f788)
@@ -9651,7 +9651,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
 
         It must be in the same project and region as the Dataproc cluster (the GKE cluster can be zonal or regional). Format: 'projects/{project}/locations/{location}/clusters/{cluster_id}'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#gke_cluster_target DataprocCluster#gke_cluster_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#gke_cluster_target DataprocCluster#gke_cluster_target}
         '''
         result = self._values.get("gke_cluster_target")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9662,7 +9662,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfigNodePoolTarget"]]]:
         '''node_pool_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#node_pool_target DataprocCluster#node_pool_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#node_pool_target DataprocCluster#node_pool_target}
         '''
         result = self._values.get("node_pool_target")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfigNodePoolTarget"]]], result)
@@ -9697,9 +9697,9 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
         node_pool_config: typing.Optional[typing.Union["DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfigNodePoolTargetNodePoolConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param node_pool: The target GKE node pool. Format: 'projects/{project}/locations/{location}/clusters/{cluster}/nodePools/{nodePool}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#node_pool DataprocCluster#node_pool}
-        :param roles: The roles associated with the GKE node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#roles DataprocCluster#roles}
-        :param node_pool_config: node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#node_pool_config DataprocCluster#node_pool_config}
+        :param node_pool: The target GKE node pool. Format: 'projects/{project}/locations/{location}/clusters/{cluster}/nodePools/{nodePool}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#node_pool DataprocCluster#node_pool}
+        :param roles: The roles associated with the GKE node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#roles DataprocCluster#roles}
+        :param node_pool_config: node_pool_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#node_pool_config DataprocCluster#node_pool_config}
         '''
         if isinstance(node_pool_config, dict):
             node_pool_config = DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfigNodePoolTargetNodePoolConfig(**node_pool_config)
@@ -9719,7 +9719,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
     def node_pool(self) -> builtins.str:
         '''The target GKE node pool. Format: 'projects/{project}/locations/{location}/clusters/{cluster}/nodePools/{nodePool}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#node_pool DataprocCluster#node_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#node_pool DataprocCluster#node_pool}
         '''
         result = self._values.get("node_pool")
         assert result is not None, "Required property 'node_pool' is missing"
@@ -9729,7 +9729,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
     def roles(self) -> typing.List[builtins.str]:
         '''The roles associated with the GKE node pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#roles DataprocCluster#roles}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#roles DataprocCluster#roles}
         '''
         result = self._values.get("roles")
         assert result is not None, "Required property 'roles' is missing"
@@ -9741,7 +9741,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
     ) -> typing.Optional["DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfigNodePoolTargetNodePoolConfig"]:
         '''node_pool_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#node_pool_config DataprocCluster#node_pool_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#node_pool_config DataprocCluster#node_pool_config}
         '''
         result = self._values.get("node_pool_config")
         return typing.cast(typing.Optional["DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfigNodePoolTargetNodePoolConfig"], result)
@@ -9869,9 +9869,9 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
         config: typing.Optional[typing.Union["DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfigNodePoolTargetNodePoolConfigConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param locations: The list of Compute Engine zones where node pool nodes associated with a Dataproc on GKE virtual cluster will be located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#locations DataprocCluster#locations}
-        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#autoscaling DataprocCluster#autoscaling}
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#config DataprocCluster#config}
+        :param locations: The list of Compute Engine zones where node pool nodes associated with a Dataproc on GKE virtual cluster will be located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#locations DataprocCluster#locations}
+        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#autoscaling DataprocCluster#autoscaling}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#config DataprocCluster#config}
         '''
         if isinstance(autoscaling, dict):
             autoscaling = DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfigNodePoolTargetNodePoolConfigAutoscaling(**autoscaling)
@@ -9894,7 +9894,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
     def locations(self) -> typing.List[builtins.str]:
         '''The list of Compute Engine zones where node pool nodes associated with a Dataproc on GKE virtual cluster will be located.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#locations DataprocCluster#locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#locations DataprocCluster#locations}
         '''
         result = self._values.get("locations")
         assert result is not None, "Required property 'locations' is missing"
@@ -9906,7 +9906,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
     ) -> typing.Optional["DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfigNodePoolTargetNodePoolConfigAutoscaling"]:
         '''autoscaling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#autoscaling DataprocCluster#autoscaling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#autoscaling DataprocCluster#autoscaling}
         '''
         result = self._values.get("autoscaling")
         return typing.cast(typing.Optional["DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfigNodePoolTargetNodePoolConfigAutoscaling"], result)
@@ -9917,7 +9917,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
     ) -> typing.Optional["DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfigNodePoolTargetNodePoolConfigConfig"]:
         '''config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#config DataprocCluster#config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#config DataprocCluster#config}
         '''
         result = self._values.get("config")
         return typing.cast(typing.Optional["DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfigNodePoolTargetNodePoolConfigConfig"], result)
@@ -9947,8 +9947,8 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
         min_node_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_node_count: The maximum number of nodes in the node pool. Must be >= minNodeCount, and must be > 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#max_node_count DataprocCluster#max_node_count}
-        :param min_node_count: The minimum number of nodes in the node pool. Must be >= 0 and <= maxNodeCount. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#min_node_count DataprocCluster#min_node_count}
+        :param max_node_count: The maximum number of nodes in the node pool. Must be >= minNodeCount, and must be > 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#max_node_count DataprocCluster#max_node_count}
+        :param min_node_count: The minimum number of nodes in the node pool. Must be >= 0 and <= maxNodeCount. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#min_node_count DataprocCluster#min_node_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eab56bc3b7959b9500408b35790c01ab6da6e08ce42a8c5ed96548b8c9db5ebc)
@@ -9964,7 +9964,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
     def max_node_count(self) -> typing.Optional[jsii.Number]:
         '''The maximum number of nodes in the node pool. Must be >= minNodeCount, and must be > 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#max_node_count DataprocCluster#max_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#max_node_count DataprocCluster#max_node_count}
         '''
         result = self._values.get("max_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -9973,7 +9973,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
     def min_node_count(self) -> typing.Optional[jsii.Number]:
         '''The minimum number of nodes in the node pool. Must be >= 0 and <= maxNodeCount.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#min_node_count DataprocCluster#min_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#min_node_count DataprocCluster#min_node_count}
         '''
         result = self._values.get("min_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -10092,11 +10092,11 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
         spot: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param local_ssd_count: The minimum number of nodes in the node pool. Must be >= 0 and <= maxNodeCount. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#local_ssd_count DataprocCluster#local_ssd_count}
-        :param machine_type: The name of a Compute Engine machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
-        :param min_cpu_platform: Minimum CPU platform to be used by this instance. The instance may be scheduled on the specified or a newer CPU platform. Specify the friendly names of CPU platforms, such as "Intel Haswell" or "Intel Sandy Bridge". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
-        :param preemptible: Whether the nodes are created as preemptible VM instances. Preemptible nodes cannot be used in a node pool with the CONTROLLER role or in the DEFAULT node pool if the CONTROLLER role is not assigned (the DEFAULT node pool will assume the CONTROLLER role). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#preemptible DataprocCluster#preemptible}
-        :param spot: Spot flag for enabling Spot VM, which is a rebrand of the existing preemptible flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#spot DataprocCluster#spot}
+        :param local_ssd_count: The minimum number of nodes in the node pool. Must be >= 0 and <= maxNodeCount. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#local_ssd_count DataprocCluster#local_ssd_count}
+        :param machine_type: The name of a Compute Engine machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
+        :param min_cpu_platform: Minimum CPU platform to be used by this instance. The instance may be scheduled on the specified or a newer CPU platform. Specify the friendly names of CPU platforms, such as "Intel Haswell" or "Intel Sandy Bridge". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
+        :param preemptible: Whether the nodes are created as preemptible VM instances. Preemptible nodes cannot be used in a node pool with the CONTROLLER role or in the DEFAULT node pool if the CONTROLLER role is not assigned (the DEFAULT node pool will assume the CONTROLLER role). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#preemptible DataprocCluster#preemptible}
+        :param spot: Spot flag for enabling Spot VM, which is a rebrand of the existing preemptible flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#spot DataprocCluster#spot}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__15e3f230d1a6a1eb9d787aefc2fe25715f6cc1b8a960fbe6b6cee2ef78ab6c4f)
@@ -10121,7 +10121,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
     def local_ssd_count(self) -> typing.Optional[jsii.Number]:
         '''The minimum number of nodes in the node pool. Must be >= 0 and <= maxNodeCount.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#local_ssd_count DataprocCluster#local_ssd_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#local_ssd_count DataprocCluster#local_ssd_count}
         '''
         result = self._values.get("local_ssd_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -10130,7 +10130,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
     def machine_type(self) -> typing.Optional[builtins.str]:
         '''The name of a Compute Engine machine type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
         '''
         result = self._values.get("machine_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10141,7 +10141,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
 
         The instance may be scheduled on the specified or a newer CPU platform. Specify the friendly names of CPU platforms, such as "Intel Haswell" or "Intel Sandy Bridge".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
         '''
         result = self._values.get("min_cpu_platform")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10154,7 +10154,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
 
         Preemptible nodes cannot be used in a node pool with the CONTROLLER role or in the DEFAULT node pool if the CONTROLLER role is not assigned (the DEFAULT node pool will assume the CONTROLLER role).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#preemptible DataprocCluster#preemptible}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#preemptible DataprocCluster#preemptible}
         '''
         result = self._values.get("preemptible")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -10165,7 +10165,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Spot flag for enabling Spot VM, which is a rebrand of the existing preemptible flag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#spot DataprocCluster#spot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#spot DataprocCluster#spot}
         '''
         result = self._values.get("spot")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -10363,8 +10363,8 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
         min_node_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_node_count: The maximum number of nodes in the node pool. Must be >= minNodeCount, and must be > 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#max_node_count DataprocCluster#max_node_count}
-        :param min_node_count: The minimum number of nodes in the node pool. Must be >= 0 and <= maxNodeCount. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#min_node_count DataprocCluster#min_node_count}
+        :param max_node_count: The maximum number of nodes in the node pool. Must be >= minNodeCount, and must be > 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#max_node_count DataprocCluster#max_node_count}
+        :param min_node_count: The minimum number of nodes in the node pool. Must be >= 0 and <= maxNodeCount. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#min_node_count DataprocCluster#min_node_count}
         '''
         value = DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfigNodePoolTargetNodePoolConfigAutoscaling(
             max_node_count=max_node_count, min_node_count=min_node_count
@@ -10383,11 +10383,11 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
         spot: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param local_ssd_count: The minimum number of nodes in the node pool. Must be >= 0 and <= maxNodeCount. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#local_ssd_count DataprocCluster#local_ssd_count}
-        :param machine_type: The name of a Compute Engine machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
-        :param min_cpu_platform: Minimum CPU platform to be used by this instance. The instance may be scheduled on the specified or a newer CPU platform. Specify the friendly names of CPU platforms, such as "Intel Haswell" or "Intel Sandy Bridge". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
-        :param preemptible: Whether the nodes are created as preemptible VM instances. Preemptible nodes cannot be used in a node pool with the CONTROLLER role or in the DEFAULT node pool if the CONTROLLER role is not assigned (the DEFAULT node pool will assume the CONTROLLER role). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#preemptible DataprocCluster#preemptible}
-        :param spot: Spot flag for enabling Spot VM, which is a rebrand of the existing preemptible flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#spot DataprocCluster#spot}
+        :param local_ssd_count: The minimum number of nodes in the node pool. Must be >= 0 and <= maxNodeCount. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#local_ssd_count DataprocCluster#local_ssd_count}
+        :param machine_type: The name of a Compute Engine machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#machine_type DataprocCluster#machine_type}
+        :param min_cpu_platform: Minimum CPU platform to be used by this instance. The instance may be scheduled on the specified or a newer CPU platform. Specify the friendly names of CPU platforms, such as "Intel Haswell" or "Intel Sandy Bridge". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#min_cpu_platform DataprocCluster#min_cpu_platform}
+        :param preemptible: Whether the nodes are created as preemptible VM instances. Preemptible nodes cannot be used in a node pool with the CONTROLLER role or in the DEFAULT node pool if the CONTROLLER role is not assigned (the DEFAULT node pool will assume the CONTROLLER role). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#preemptible DataprocCluster#preemptible}
+        :param spot: Spot flag for enabling Spot VM, which is a rebrand of the existing preemptible flag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#spot DataprocCluster#spot}
         '''
         value = DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfigNodePoolTargetNodePoolConfigConfig(
             local_ssd_count=local_ssd_count,
@@ -10505,9 +10505,9 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig
         config: typing.Optional[typing.Union[DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfigNodePoolTargetNodePoolConfigConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param locations: The list of Compute Engine zones where node pool nodes associated with a Dataproc on GKE virtual cluster will be located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#locations DataprocCluster#locations}
-        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#autoscaling DataprocCluster#autoscaling}
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#config DataprocCluster#config}
+        :param locations: The list of Compute Engine zones where node pool nodes associated with a Dataproc on GKE virtual cluster will be located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#locations DataprocCluster#locations}
+        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#autoscaling DataprocCluster#autoscaling}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#config DataprocCluster#config}
         '''
         value = DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfigNodePoolTargetNodePoolConfig(
             locations=locations, autoscaling=autoscaling, config=config
@@ -10688,8 +10688,8 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigKubernetesSoftwa
         properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param component_version: The components that should be installed in this Dataproc cluster. The key must be a string from the KubernetesComponent enumeration. The value is the version of the software to be installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#component_version DataprocCluster#component_version}
-        :param properties: The properties to set on daemon config files. Property keys are specified in prefix:property format, for example spark:spark.kubernetes.container.image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#properties DataprocCluster#properties}
+        :param component_version: The components that should be installed in this Dataproc cluster. The key must be a string from the KubernetesComponent enumeration. The value is the version of the software to be installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#component_version DataprocCluster#component_version}
+        :param properties: The properties to set on daemon config files. Property keys are specified in prefix:property format, for example spark:spark.kubernetes.container.image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#properties DataprocCluster#properties}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a099ff68ce02d05fc036e4ab926bbf151100b0b613fc6ac2d3478d569326f700)
@@ -10707,7 +10707,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigKubernetesSoftwa
 
         The key must be a string from the KubernetesComponent enumeration. The value is the version of the software to be installed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#component_version DataprocCluster#component_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#component_version DataprocCluster#component_version}
         '''
         result = self._values.get("component_version")
         assert result is not None, "Required property 'component_version' is missing"
@@ -10717,7 +10717,7 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigKubernetesSoftwa
     def properties(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''The properties to set on daemon config files. Property keys are specified in prefix:property format, for example spark:spark.kubernetes.container.image.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#properties DataprocCluster#properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#properties DataprocCluster#properties}
         '''
         result = self._values.get("properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -10845,8 +10845,8 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigOutputReference(
         node_pool_target: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfigNodePoolTarget, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param gke_cluster_target: A target GKE cluster to deploy to. It must be in the same project and region as the Dataproc cluster (the GKE cluster can be zonal or regional). Format: 'projects/{project}/locations/{location}/clusters/{cluster_id}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#gke_cluster_target DataprocCluster#gke_cluster_target}
-        :param node_pool_target: node_pool_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#node_pool_target DataprocCluster#node_pool_target}
+        :param gke_cluster_target: A target GKE cluster to deploy to. It must be in the same project and region as the Dataproc cluster (the GKE cluster can be zonal or regional). Format: 'projects/{project}/locations/{location}/clusters/{cluster_id}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#gke_cluster_target DataprocCluster#gke_cluster_target}
+        :param node_pool_target: node_pool_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#node_pool_target DataprocCluster#node_pool_target}
         '''
         value = DataprocClusterVirtualClusterConfigKubernetesClusterConfigGkeClusterConfig(
             gke_cluster_target=gke_cluster_target, node_pool_target=node_pool_target
@@ -10862,8 +10862,8 @@ class DataprocClusterVirtualClusterConfigKubernetesClusterConfigOutputReference(
         properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param component_version: The components that should be installed in this Dataproc cluster. The key must be a string from the KubernetesComponent enumeration. The value is the version of the software to be installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#component_version DataprocCluster#component_version}
-        :param properties: The properties to set on daemon config files. Property keys are specified in prefix:property format, for example spark:spark.kubernetes.container.image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#properties DataprocCluster#properties}
+        :param component_version: The components that should be installed in this Dataproc cluster. The key must be a string from the KubernetesComponent enumeration. The value is the version of the software to be installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#component_version DataprocCluster#component_version}
+        :param properties: The properties to set on daemon config files. Property keys are specified in prefix:property format, for example spark:spark.kubernetes.container.image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#properties DataprocCluster#properties}
         '''
         value = DataprocClusterVirtualClusterConfigKubernetesClusterConfigKubernetesSoftwareConfig(
             component_version=component_version, properties=properties
@@ -10966,8 +10966,8 @@ class DataprocClusterVirtualClusterConfigOutputReference(
         spark_history_server_config: typing.Optional[typing.Union[DataprocClusterVirtualClusterConfigAuxiliaryServicesConfigSparkHistoryServerConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param metastore_config: metastore_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#metastore_config DataprocCluster#metastore_config}
-        :param spark_history_server_config: spark_history_server_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#spark_history_server_config DataprocCluster#spark_history_server_config}
+        :param metastore_config: metastore_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#metastore_config DataprocCluster#metastore_config}
+        :param spark_history_server_config: spark_history_server_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#spark_history_server_config DataprocCluster#spark_history_server_config}
         '''
         value = DataprocClusterVirtualClusterConfigAuxiliaryServicesConfig(
             metastore_config=metastore_config,
@@ -10985,9 +10985,9 @@ class DataprocClusterVirtualClusterConfigOutputReference(
         kubernetes_namespace: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param gke_cluster_config: gke_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#gke_cluster_config DataprocCluster#gke_cluster_config}
-        :param kubernetes_software_config: kubernetes_software_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kubernetes_software_config DataprocCluster#kubernetes_software_config}
-        :param kubernetes_namespace: A namespace within the Kubernetes cluster to deploy into. If this namespace does not exist, it is created. If it exists, Dataproc verifies that another Dataproc VirtualCluster is not installed into it. If not specified, the name of the Dataproc Cluster is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_cluster#kubernetes_namespace DataprocCluster#kubernetes_namespace}
+        :param gke_cluster_config: gke_cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#gke_cluster_config DataprocCluster#gke_cluster_config}
+        :param kubernetes_software_config: kubernetes_software_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kubernetes_software_config DataprocCluster#kubernetes_software_config}
+        :param kubernetes_namespace: A namespace within the Kubernetes cluster to deploy into. If this namespace does not exist, it is created. If it exists, Dataproc verifies that another Dataproc VirtualCluster is not installed into it. If not specified, the name of the Dataproc Cluster is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_cluster#kubernetes_namespace DataprocCluster#kubernetes_namespace}
         '''
         value = DataprocClusterVirtualClusterConfigKubernetesClusterConfig(
             gke_cluster_config=gke_cluster_config,

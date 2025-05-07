@@ -1,7 +1,7 @@
 r'''
 # `google_iam_projects_policy_binding`
 
-Refer to the Terraform Registry for docs: [`google_iam_projects_policy_binding`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding).
+Refer to the Terraform Registry for docs: [`google_iam_projects_policy_binding`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IamProjectsPolicyBinding(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.iamProjectsPolicyBinding.IamProjectsPolicyBinding",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding google_iam_projects_policy_binding}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding google_iam_projects_policy_binding}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class IamProjectsPolicyBinding(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding google_iam_projects_policy_binding} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding google_iam_projects_policy_binding} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location of the Policy Binding. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#location IamProjectsPolicyBinding#location}
-        :param policy: Required. Immutable. The resource name of the policy to be bound. The binding parent and policy must belong to the same Organization (or Project). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#policy IamProjectsPolicyBinding#policy}
-        :param policy_binding_id: The Policy Binding ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#policy_binding_id IamProjectsPolicyBinding#policy_binding_id}
-        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#target IamProjectsPolicyBinding#target}
-        :param annotations: Optional. User defined annotations. See https://google.aip.dev/148#annotations for more details such as format and size limitations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#annotations IamProjectsPolicyBinding#annotations}
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#condition IamProjectsPolicyBinding#condition}
-        :param display_name: Optional. The description of the policy binding. Must be less than or equal to 63 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#display_name IamProjectsPolicyBinding#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#id IamProjectsPolicyBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param policy_kind: Immutable. The kind of the policy to attach in this binding. This field must be one of the following: - Left empty (will be automatically set to the policy kind) - The input policy kind Possible values: POLICY_KIND_UNSPECIFIED PRINCIPAL_ACCESS_BOUNDARY ACCESS Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#policy_kind IamProjectsPolicyBinding#policy_kind}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#project IamProjectsPolicyBinding#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#timeouts IamProjectsPolicyBinding#timeouts}
+        :param location: The location of the Policy Binding. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#location IamProjectsPolicyBinding#location}
+        :param policy: Required. Immutable. The resource name of the policy to be bound. The binding parent and policy must belong to the same Organization (or Project). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#policy IamProjectsPolicyBinding#policy}
+        :param policy_binding_id: The Policy Binding ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#policy_binding_id IamProjectsPolicyBinding#policy_binding_id}
+        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#target IamProjectsPolicyBinding#target}
+        :param annotations: Optional. User defined annotations. See https://google.aip.dev/148#annotations for more details such as format and size limitations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#annotations IamProjectsPolicyBinding#annotations}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#condition IamProjectsPolicyBinding#condition}
+        :param display_name: Optional. The description of the policy binding. Must be less than or equal to 63 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#display_name IamProjectsPolicyBinding#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#id IamProjectsPolicyBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param policy_kind: Immutable. The kind of the policy to attach in this binding. This field must be one of the following: - Left empty (will be automatically set to the policy kind) - The input policy kind Possible values: POLICY_KIND_UNSPECIFIED PRINCIPAL_ACCESS_BOUNDARY ACCESS Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#policy_kind IamProjectsPolicyBinding#policy_kind}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#project IamProjectsPolicyBinding#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#timeouts IamProjectsPolicyBinding#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class IamProjectsPolicyBinding(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IamProjectsPolicyBinding to import.
-        :param import_from_id: The id of the existing IamProjectsPolicyBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IamProjectsPolicyBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IamProjectsPolicyBinding to import is found.
         '''
         if __debug__:
@@ -154,10 +154,10 @@ class IamProjectsPolicyBinding(
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param description: Optional. Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#description IamProjectsPolicyBinding#description}
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#expression IamProjectsPolicyBinding#expression}
-        :param location: Optional. String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#location IamProjectsPolicyBinding#location}
-        :param title: Optional. Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#title IamProjectsPolicyBinding#title}
+        :param description: Optional. Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#description IamProjectsPolicyBinding#description}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#expression IamProjectsPolicyBinding#expression}
+        :param location: Optional. String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#location IamProjectsPolicyBinding#location}
+        :param title: Optional. Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#title IamProjectsPolicyBinding#title}
         '''
         value = IamProjectsPolicyBindingCondition(
             description=description,
@@ -175,7 +175,7 @@ class IamProjectsPolicyBinding(
         principal_set: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param principal_set: Required. Immutable. Full Resource Name of the principal set used for principal access boundary policy bindings. Examples for each one of the following supported principal set types: - Project: - '//cloudresourcemanager.googleapis.com/projects/PROJECT_NUMBER' - '//cloudresourcemanager.googleapis.com/projects/PROJECT_ID' - Workload Identity Pool: '//iam.googleapis.com/projects/PROJECT_NUMBER/locations/LOCATION/workloadIdentityPools/WORKLOAD_POOL_ID' It must be parent by the policy binding's parent (the project). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#principal_set IamProjectsPolicyBinding#principal_set}
+        :param principal_set: Required. Immutable. Full Resource Name of the principal set used for principal access boundary policy bindings. Examples for each one of the following supported principal set types: - Project: - '//cloudresourcemanager.googleapis.com/projects/PROJECT_NUMBER' - '//cloudresourcemanager.googleapis.com/projects/PROJECT_ID' - Workload Identity Pool: '//iam.googleapis.com/projects/PROJECT_NUMBER/locations/LOCATION/workloadIdentityPools/WORKLOAD_POOL_ID' It must be parent by the policy binding's parent (the project). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#principal_set IamProjectsPolicyBinding#principal_set}
         '''
         value = IamProjectsPolicyBindingTarget(principal_set=principal_set)
 
@@ -190,9 +190,9 @@ class IamProjectsPolicyBinding(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#create IamProjectsPolicyBinding#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#delete IamProjectsPolicyBinding#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#update IamProjectsPolicyBinding#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#create IamProjectsPolicyBinding#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#delete IamProjectsPolicyBinding#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#update IamProjectsPolicyBinding#update}.
         '''
         value = IamProjectsPolicyBindingTimeouts(
             create=create, delete=delete, update=update
@@ -467,10 +467,10 @@ class IamProjectsPolicyBindingCondition:
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param description: Optional. Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#description IamProjectsPolicyBinding#description}
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#expression IamProjectsPolicyBinding#expression}
-        :param location: Optional. String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#location IamProjectsPolicyBinding#location}
-        :param title: Optional. Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#title IamProjectsPolicyBinding#title}
+        :param description: Optional. Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#description IamProjectsPolicyBinding#description}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#expression IamProjectsPolicyBinding#expression}
+        :param location: Optional. String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#location IamProjectsPolicyBinding#location}
+        :param title: Optional. Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#title IamProjectsPolicyBinding#title}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9237e8eea32033439312117fc0516b574eb4463b13388d31fcc9234e2313d5c6)
@@ -494,7 +494,7 @@ class IamProjectsPolicyBindingCondition:
 
         Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#description IamProjectsPolicyBinding#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#description IamProjectsPolicyBinding#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -503,7 +503,7 @@ class IamProjectsPolicyBindingCondition:
     def expression(self) -> typing.Optional[builtins.str]:
         '''Textual representation of an expression in Common Expression Language syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#expression IamProjectsPolicyBinding#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#expression IamProjectsPolicyBinding#expression}
         '''
         result = self._values.get("expression")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -514,7 +514,7 @@ class IamProjectsPolicyBindingCondition:
 
         String indicating the location of the expression for error reporting, e.g. a file name and a position in the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#location IamProjectsPolicyBinding#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#location IamProjectsPolicyBinding#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -525,7 +525,7 @@ class IamProjectsPolicyBindingCondition:
 
         Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#title IamProjectsPolicyBinding#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#title IamProjectsPolicyBinding#title}
         '''
         result = self._values.get("title")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -717,17 +717,17 @@ class IamProjectsPolicyBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location of the Policy Binding. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#location IamProjectsPolicyBinding#location}
-        :param policy: Required. Immutable. The resource name of the policy to be bound. The binding parent and policy must belong to the same Organization (or Project). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#policy IamProjectsPolicyBinding#policy}
-        :param policy_binding_id: The Policy Binding ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#policy_binding_id IamProjectsPolicyBinding#policy_binding_id}
-        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#target IamProjectsPolicyBinding#target}
-        :param annotations: Optional. User defined annotations. See https://google.aip.dev/148#annotations for more details such as format and size limitations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#annotations IamProjectsPolicyBinding#annotations}
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#condition IamProjectsPolicyBinding#condition}
-        :param display_name: Optional. The description of the policy binding. Must be less than or equal to 63 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#display_name IamProjectsPolicyBinding#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#id IamProjectsPolicyBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param policy_kind: Immutable. The kind of the policy to attach in this binding. This field must be one of the following: - Left empty (will be automatically set to the policy kind) - The input policy kind Possible values: POLICY_KIND_UNSPECIFIED PRINCIPAL_ACCESS_BOUNDARY ACCESS Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#policy_kind IamProjectsPolicyBinding#policy_kind}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#project IamProjectsPolicyBinding#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#timeouts IamProjectsPolicyBinding#timeouts}
+        :param location: The location of the Policy Binding. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#location IamProjectsPolicyBinding#location}
+        :param policy: Required. Immutable. The resource name of the policy to be bound. The binding parent and policy must belong to the same Organization (or Project). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#policy IamProjectsPolicyBinding#policy}
+        :param policy_binding_id: The Policy Binding ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#policy_binding_id IamProjectsPolicyBinding#policy_binding_id}
+        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#target IamProjectsPolicyBinding#target}
+        :param annotations: Optional. User defined annotations. See https://google.aip.dev/148#annotations for more details such as format and size limitations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#annotations IamProjectsPolicyBinding#annotations}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#condition IamProjectsPolicyBinding#condition}
+        :param display_name: Optional. The description of the policy binding. Must be less than or equal to 63 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#display_name IamProjectsPolicyBinding#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#id IamProjectsPolicyBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param policy_kind: Immutable. The kind of the policy to attach in this binding. This field must be one of the following: - Left empty (will be automatically set to the policy kind) - The input policy kind Possible values: POLICY_KIND_UNSPECIFIED PRINCIPAL_ACCESS_BOUNDARY ACCESS Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#policy_kind IamProjectsPolicyBinding#policy_kind}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#project IamProjectsPolicyBinding#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#timeouts IamProjectsPolicyBinding#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -860,7 +860,7 @@ class IamProjectsPolicyBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location of the Policy Binding.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#location IamProjectsPolicyBinding#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#location IamProjectsPolicyBinding#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -872,7 +872,7 @@ class IamProjectsPolicyBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Immutable. The resource name of the policy to be bound. The binding parent and policy must belong to the same Organization (or Project).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#policy IamProjectsPolicyBinding#policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#policy IamProjectsPolicyBinding#policy}
         '''
         result = self._values.get("policy")
         assert result is not None, "Required property 'policy' is missing"
@@ -882,7 +882,7 @@ class IamProjectsPolicyBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def policy_binding_id(self) -> builtins.str:
         '''The Policy Binding ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#policy_binding_id IamProjectsPolicyBinding#policy_binding_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#policy_binding_id IamProjectsPolicyBinding#policy_binding_id}
         '''
         result = self._values.get("policy_binding_id")
         assert result is not None, "Required property 'policy_binding_id' is missing"
@@ -892,7 +892,7 @@ class IamProjectsPolicyBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target(self) -> "IamProjectsPolicyBindingTarget":
         '''target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#target IamProjectsPolicyBinding#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#target IamProjectsPolicyBinding#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -907,7 +907,7 @@ class IamProjectsPolicyBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
         Please refer to the field 'effective_annotations' for all of the annotations present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#annotations IamProjectsPolicyBinding#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#annotations IamProjectsPolicyBinding#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -916,7 +916,7 @@ class IamProjectsPolicyBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def condition(self) -> typing.Optional[IamProjectsPolicyBindingCondition]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#condition IamProjectsPolicyBinding#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#condition IamProjectsPolicyBinding#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[IamProjectsPolicyBindingCondition], result)
@@ -925,14 +925,14 @@ class IamProjectsPolicyBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Optional. The description of the policy binding. Must be less than or equal to 63 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#display_name IamProjectsPolicyBinding#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#display_name IamProjectsPolicyBinding#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#id IamProjectsPolicyBinding#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#id IamProjectsPolicyBinding#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -948,14 +948,14 @@ class IamProjectsPolicyBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         field must be one of the following:  - Left empty (will be automatically set
         to the policy kind) - The input policy kind   Possible values:  POLICY_KIND_UNSPECIFIED PRINCIPAL_ACCESS_BOUNDARY ACCESS
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#policy_kind IamProjectsPolicyBinding#policy_kind}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#policy_kind IamProjectsPolicyBinding#policy_kind}
         '''
         result = self._values.get("policy_kind")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#project IamProjectsPolicyBinding#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#project IamProjectsPolicyBinding#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -963,7 +963,7 @@ class IamProjectsPolicyBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["IamProjectsPolicyBindingTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#timeouts IamProjectsPolicyBinding#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#timeouts IamProjectsPolicyBinding#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["IamProjectsPolicyBindingTimeouts"], result)
@@ -988,7 +988,7 @@ class IamProjectsPolicyBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class IamProjectsPolicyBindingTarget:
     def __init__(self, *, principal_set: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param principal_set: Required. Immutable. Full Resource Name of the principal set used for principal access boundary policy bindings. Examples for each one of the following supported principal set types: - Project: - '//cloudresourcemanager.googleapis.com/projects/PROJECT_NUMBER' - '//cloudresourcemanager.googleapis.com/projects/PROJECT_ID' - Workload Identity Pool: '//iam.googleapis.com/projects/PROJECT_NUMBER/locations/LOCATION/workloadIdentityPools/WORKLOAD_POOL_ID' It must be parent by the policy binding's parent (the project). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#principal_set IamProjectsPolicyBinding#principal_set}
+        :param principal_set: Required. Immutable. Full Resource Name of the principal set used for principal access boundary policy bindings. Examples for each one of the following supported principal set types: - Project: - '//cloudresourcemanager.googleapis.com/projects/PROJECT_NUMBER' - '//cloudresourcemanager.googleapis.com/projects/PROJECT_ID' - Workload Identity Pool: '//iam.googleapis.com/projects/PROJECT_NUMBER/locations/LOCATION/workloadIdentityPools/WORKLOAD_POOL_ID' It must be parent by the policy binding's parent (the project). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#principal_set IamProjectsPolicyBinding#principal_set}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__67c890c7479725c93b027b8718004cc979e1a44bc6ea03cca7662c942b423b77)
@@ -1012,7 +1012,7 @@ class IamProjectsPolicyBindingTarget:
         - Workload Identity Pool: '//iam.googleapis.com/projects/PROJECT_NUMBER/locations/LOCATION/workloadIdentityPools/WORKLOAD_POOL_ID'
           It must be parent by the policy binding's parent (the project).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#principal_set IamProjectsPolicyBinding#principal_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#principal_set IamProjectsPolicyBinding#principal_set}
         '''
         result = self._values.get("principal_set")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1100,9 +1100,9 @@ class IamProjectsPolicyBindingTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#create IamProjectsPolicyBinding#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#delete IamProjectsPolicyBinding#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#update IamProjectsPolicyBinding#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#create IamProjectsPolicyBinding#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#delete IamProjectsPolicyBinding#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#update IamProjectsPolicyBinding#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__12b740e0da2c6cafa5f98cc5c5fd4137fa5a56227ed86e3207cb0647b4c7b5cc)
@@ -1119,19 +1119,19 @@ class IamProjectsPolicyBindingTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#create IamProjectsPolicyBinding#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#create IamProjectsPolicyBinding#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#delete IamProjectsPolicyBinding#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#delete IamProjectsPolicyBinding#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_projects_policy_binding#update IamProjectsPolicyBinding#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_projects_policy_binding#update IamProjectsPolicyBinding#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

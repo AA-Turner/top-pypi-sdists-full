@@ -1,7 +1,7 @@
 r'''
 # `google_parameter_manager_parameter_version`
 
-Refer to the Terraform Registry for docs: [`google_parameter_manager_parameter_version`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version).
+Refer to the Terraform Registry for docs: [`google_parameter_manager_parameter_version`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ParameterManagerParameterVersion(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.parameterManagerParameterVersion.ParameterManagerParameterVersion",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version google_parameter_manager_parameter_version}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version google_parameter_manager_parameter_version}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class ParameterManagerParameterVersion(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version google_parameter_manager_parameter_version} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version google_parameter_manager_parameter_version} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param parameter: Parameter Manager Parameter resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#parameter ParameterManagerParameterVersion#parameter}
-        :param parameter_data: The Parameter data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#parameter_data ParameterManagerParameterVersion#parameter_data}
-        :param parameter_version_id: Version ID of the Parameter Version Resource. This must be unique within the Parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#parameter_version_id ParameterManagerParameterVersion#parameter_version_id}
-        :param disabled: The current state of Parameter Version. This field is only applicable for updating Parameter Version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#disabled ParameterManagerParameterVersion#disabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#id ParameterManagerParameterVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#timeouts ParameterManagerParameterVersion#timeouts}
+        :param parameter: Parameter Manager Parameter resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#parameter ParameterManagerParameterVersion#parameter}
+        :param parameter_data: The Parameter data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#parameter_data ParameterManagerParameterVersion#parameter_data}
+        :param parameter_version_id: Version ID of the Parameter Version Resource. This must be unique within the Parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#parameter_version_id ParameterManagerParameterVersion#parameter_version_id}
+        :param disabled: The current state of Parameter Version. This field is only applicable for updating Parameter Version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#disabled ParameterManagerParameterVersion#disabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#id ParameterManagerParameterVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#timeouts ParameterManagerParameterVersion#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class ParameterManagerParameterVersion(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ParameterManagerParameterVersion to import.
-        :param import_from_id: The id of the existing ParameterManagerParameterVersion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ParameterManagerParameterVersion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ParameterManagerParameterVersion to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class ParameterManagerParameterVersion(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#create ParameterManagerParameterVersion#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#delete ParameterManagerParameterVersion#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#update ParameterManagerParameterVersion#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#create ParameterManagerParameterVersion#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#delete ParameterManagerParameterVersion#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#update ParameterManagerParameterVersion#update}.
         '''
         value = ParameterManagerParameterVersionTimeouts(
             create=create, delete=delete, update=update
@@ -341,12 +341,12 @@ class ParameterManagerParameterVersionConfig(_cdktf_9a9027ec.TerraformMetaArgume
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param parameter: Parameter Manager Parameter resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#parameter ParameterManagerParameterVersion#parameter}
-        :param parameter_data: The Parameter data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#parameter_data ParameterManagerParameterVersion#parameter_data}
-        :param parameter_version_id: Version ID of the Parameter Version Resource. This must be unique within the Parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#parameter_version_id ParameterManagerParameterVersion#parameter_version_id}
-        :param disabled: The current state of Parameter Version. This field is only applicable for updating Parameter Version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#disabled ParameterManagerParameterVersion#disabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#id ParameterManagerParameterVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#timeouts ParameterManagerParameterVersion#timeouts}
+        :param parameter: Parameter Manager Parameter resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#parameter ParameterManagerParameterVersion#parameter}
+        :param parameter_data: The Parameter data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#parameter_data ParameterManagerParameterVersion#parameter_data}
+        :param parameter_version_id: Version ID of the Parameter Version Resource. This must be unique within the Parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#parameter_version_id ParameterManagerParameterVersion#parameter_version_id}
+        :param disabled: The current state of Parameter Version. This field is only applicable for updating Parameter Version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#disabled ParameterManagerParameterVersion#disabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#id ParameterManagerParameterVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#timeouts ParameterManagerParameterVersion#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -461,7 +461,7 @@ class ParameterManagerParameterVersionConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def parameter(self) -> builtins.str:
         '''Parameter Manager Parameter resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#parameter ParameterManagerParameterVersion#parameter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#parameter ParameterManagerParameterVersion#parameter}
         '''
         result = self._values.get("parameter")
         assert result is not None, "Required property 'parameter' is missing"
@@ -471,7 +471,7 @@ class ParameterManagerParameterVersionConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def parameter_data(self) -> builtins.str:
         '''The Parameter data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#parameter_data ParameterManagerParameterVersion#parameter_data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#parameter_data ParameterManagerParameterVersion#parameter_data}
         '''
         result = self._values.get("parameter_data")
         assert result is not None, "Required property 'parameter_data' is missing"
@@ -481,7 +481,7 @@ class ParameterManagerParameterVersionConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def parameter_version_id(self) -> builtins.str:
         '''Version ID of the Parameter Version Resource. This must be unique within the Parameter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#parameter_version_id ParameterManagerParameterVersion#parameter_version_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#parameter_version_id ParameterManagerParameterVersion#parameter_version_id}
         '''
         result = self._values.get("parameter_version_id")
         assert result is not None, "Required property 'parameter_version_id' is missing"
@@ -493,14 +493,14 @@ class ParameterManagerParameterVersionConfig(_cdktf_9a9027ec.TerraformMetaArgume
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''The current state of Parameter Version. This field is only applicable for updating Parameter Version.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#disabled ParameterManagerParameterVersion#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#disabled ParameterManagerParameterVersion#disabled}
         '''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#id ParameterManagerParameterVersion#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#id ParameterManagerParameterVersion#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -512,7 +512,7 @@ class ParameterManagerParameterVersionConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def timeouts(self) -> typing.Optional["ParameterManagerParameterVersionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#timeouts ParameterManagerParameterVersion#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#timeouts ParameterManagerParameterVersion#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ParameterManagerParameterVersionTimeouts"], result)
@@ -543,9 +543,9 @@ class ParameterManagerParameterVersionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#create ParameterManagerParameterVersion#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#delete ParameterManagerParameterVersion#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#update ParameterManagerParameterVersion#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#create ParameterManagerParameterVersion#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#delete ParameterManagerParameterVersion#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#update ParameterManagerParameterVersion#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__02c78f2e2d3ec0c9ab3b5505d7e9d6f8cb18527d159015e3f5de1afac2a72875)
@@ -562,19 +562,19 @@ class ParameterManagerParameterVersionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#create ParameterManagerParameterVersion#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#create ParameterManagerParameterVersion#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#delete ParameterManagerParameterVersion#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#delete ParameterManagerParameterVersion#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/parameter_manager_parameter_version#update ParameterManagerParameterVersion#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/parameter_manager_parameter_version#update ParameterManagerParameterVersion#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

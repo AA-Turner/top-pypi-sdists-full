@@ -2,7 +2,6 @@ import importlib.util
 import inspect
 import os
 import sys
-from copy import deepcopy
 from pathlib import Path
 from textwrap import dedent
 from typing import Dict
@@ -44,21 +43,10 @@ class ApplicationCommand(click.RichCommand):
         app = self.app
 
         # Check if there are any dynamic inputs
-        new_inputs = []
-
         for user_input in app.inputs:
             key = user_input.name
-            if ctx.params.get(key):
-                new_input = deepcopy(user_input)
-                new_input.value = ctx.params[key]
-
-                new_inputs.append(new_input)
-            else:
-                new_inputs.append(user_input)
-
-        if new_inputs:
-            app = deepcopy(app)
-            app.inputs = new_inputs
+            if key is not None and ctx.params.get(key):
+                user_input.value = ctx.params[key]
 
         if self.debug:
             app.command = [

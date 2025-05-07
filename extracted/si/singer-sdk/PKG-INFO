@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: singer-sdk
-Version: 0.45.11
+Version: 0.46.0
 Summary: A framework for building Singer taps
 Project-URL: Homepage, https://sdk.meltano.com/en/latest/
 Project-URL: Repository, https://github.com/meltano/sdk
@@ -30,7 +30,6 @@ Requires-Python: >=3.9
 Requires-Dist: backoff>=2.0.0; python_version < '4'
 Requires-Dist: backports-datetime-fromisoformat>=2.0.1; python_version < '3.11'
 Requires-Dist: click~=8.0
-Requires-Dist: fs>=2.4.16
 Requires-Dist: fsspec>=2024.9.0
 Requires-Dist: importlib-metadata>=5.0; python_version < '3.12'
 Requires-Dist: importlib-resources!=6.2.0,!=6.3.0,!=6.3.1,>=5.12.0; python_version < '3.10'
@@ -43,11 +42,11 @@ Requires-Dist: python-dotenv>=0.20
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: referencing>=0.30.0
 Requires-Dist: requests>=2.25.1
-Requires-Dist: setuptools<=70.3.0
 Requires-Dist: simpleeval!=1.0.1,>=0.9.13
 Requires-Dist: simplejson>=3.17.6
 Requires-Dist: sqlalchemy<3.0,>=1.4
 Requires-Dist: typing-extensions>=4.5.0
+Requires-Dist: universal-pathlib>=0.2.6
 Provides-Extra: faker
 Requires-Dist: faker>=22.5; extra == 'faker'
 Provides-Extra: jwt
@@ -59,7 +58,6 @@ Provides-Extra: parquet
 Requires-Dist: numpy>=1.22; extra == 'parquet'
 Requires-Dist: pyarrow>=13; extra == 'parquet'
 Provides-Extra: s3
-Requires-Dist: fs-s3fs>=1.1.1; extra == 's3'
 Requires-Dist: s3fs>=2024.9.0; extra == 's3'
 Provides-Extra: ssh
 Requires-Dist: paramiko>=3.3.0; extra == 'ssh'

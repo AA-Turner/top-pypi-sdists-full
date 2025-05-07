@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: litellm
-Version: 1.68.0
+Version: 1.68.1
 Summary: Library to easily interface with LLM API providers
 License: MIT
 Author: BerriAI
@@ -43,6 +43,7 @@ Requires-Dist: python-multipart (>=0.0.18,<0.0.19) ; extra == "proxy"
 Requires-Dist: pyyaml (>=6.0.1,<7.0.0) ; extra == "proxy"
 Requires-Dist: redisvl (>=0.4.1,<0.5.0) ; (python_version >= "3.9" and python_version < "3.14") and (extra == "extra-proxy")
 Requires-Dist: resend (>=0.8.0,<0.9.0) ; extra == "extra-proxy"
+Requires-Dist: rich (==13.7.1) ; extra == "proxy"
 Requires-Dist: rq ; extra == "proxy"
 Requires-Dist: tiktoken (>=0.7.0)
 Requires-Dist: tokenizers

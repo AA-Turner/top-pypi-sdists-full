@@ -139,8 +139,10 @@ class _Invocation:
         from_spawn_map: bool = False,
     ) -> "_Invocation":
         assert client.stub
+        stub = client.stub
+
         function_id = function.object_id
-        item = await _create_input(args, kwargs, client, method_name=function._use_method_name)
+        item = await _create_input(args, kwargs, stub, method_name=function._use_method_name)
 
         request = api_pb2.FunctionMapRequest(
             function_id=function_id,
@@ -181,7 +183,7 @@ class _Invocation:
                 item=item,
                 sync_client_retries_enabled=response.sync_client_retries_enabled,
             )
-            return _Invocation(client.stub, function_call_id, client, retry_context)
+            return _Invocation(stub, function_call_id, client, retry_context)
 
         request_put = api_pb2.FunctionPutInputsRequest(
             function_id=function_id, inputs=[item], function_call_id=function_call_id
@@ -203,7 +205,7 @@ class _Invocation:
             item=item,
             sync_client_retries_enabled=response.sync_client_retries_enabled,
         )
-        return _Invocation(client.stub, function_call_id, client, retry_context)
+        return _Invocation(stub, function_call_id, client, retry_context)
 
     async def pop_function_call_outputs(
         self, timeout: Optional[float], clear_on_success: bool, input_jwts: Optional[list[str]] = None
@@ -249,7 +251,7 @@ class _Invocation:
         item = api_pb2.FunctionRetryInputsItem(input_jwt=ctx.input_jwt, input=ctx.item.input)
         request = api_pb2.FunctionRetryInputsRequest(function_call_jwt=ctx.function_call_jwt, inputs=[item])
         await retry_transient_errors(
-            self.client.stub.FunctionRetryInputs,
+            self.stub.FunctionRetryInputs,
             request,
         )
 
@@ -475,6 +477,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         i6pn_enabled: bool = False,
         # Experimental: Clustered functions
         cluster_size: Optional[int] = None,
+        rdma: Optional[bool] = None,
         max_inputs: Optional[int] = None,
         ephemeral_disk: Optional[int] = None,
         # current default: first-party, future default: main-package
@@ -897,7 +900,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
 
                         function_definition_copy.resources.CopyFrom(
                             convert_fn_config_to_resources_config(
-                                cpu=cpu, memory=memory, gpu=_gpu, ephemeral_disk=ephemeral_disk
+                                cpu=cpu, memory=memory, gpu=_gpu, ephemeral_disk=ephemeral_disk, rdma=rdma
                             ),
                         )
                         ranked_function = api_pb2.FunctionData.RankedFunction(
@@ -912,7 +915,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
                     # assert isinstance(gpu, GPU_T)  # includes the case where gpu==None case
                     function_definition.resources.CopyFrom(
                         convert_fn_config_to_resources_config(
-                            cpu=cpu, memory=memory, gpu=gpu, ephemeral_disk=ephemeral_disk
+                            cpu=cpu, memory=memory, gpu=gpu, ephemeral_disk=ephemeral_disk, rdma=rdma
                         ),
                     )
 
@@ -1582,6 +1585,15 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         )
         fc._is_generator = self._is_generator if self._is_generator else False
         return fc
+
+    @synchronizer.no_input_translation
+    @live_method
+    async def _spawn_map_inner(self, *args: P.args, **kwargs: P.kwargs) -> None:
+        self._check_no_web_url("spawn_map")
+        if self._is_generator:
+            raise Exception("Cannot `spawn_map` over a generator function.")
+
+        await self._call_function_nowait(args, kwargs, api_pb2.FUNCTION_CALL_INVOCATION_TYPE_ASYNC, from_spawn_map=True)
 
     @synchronizer.no_input_translation
     @live_method

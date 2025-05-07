@@ -1,7 +1,7 @@
 r'''
 # `google_integration_connectors_connection`
 
-Refer to the Terraform Registry for docs: [`google_integration_connectors_connection`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection).
+Refer to the Terraform Registry for docs: [`google_integration_connectors_connection`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IntegrationConnectorsConnection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.integrationConnectorsConnection.IntegrationConnectorsConnection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection google_integration_connectors_connection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection google_integration_connectors_connection}.'''
 
     def __init__(
         self,
@@ -78,29 +78,29 @@ class IntegrationConnectorsConnection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection google_integration_connectors_connection} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection google_integration_connectors_connection} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param connector_version: connectorVersion of the Connector. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#connector_version IntegrationConnectorsConnection#connector_version}
-        :param location: Location in which Connection needs to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#location IntegrationConnectorsConnection#location}
-        :param name: Name of Connection needs to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#name IntegrationConnectorsConnection#name}
-        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_config IntegrationConnectorsConnection#auth_config}
-        :param config_variable: config_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#config_variable IntegrationConnectorsConnection#config_variable}
-        :param description: An arbitrary description for the Connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#description IntegrationConnectorsConnection#description}
-        :param destination_config: destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#destination_config IntegrationConnectorsConnection#destination_config}
-        :param eventing_config: eventing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#eventing_config IntegrationConnectorsConnection#eventing_config}
-        :param eventing_enablement_type: Eventing enablement type. Will be nil if eventing is not enabled. Possible values: ["EVENTING_AND_CONNECTION", "ONLY_EVENTING"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#eventing_enablement_type IntegrationConnectorsConnection#eventing_enablement_type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#id IntegrationConnectorsConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#labels IntegrationConnectorsConnection#labels}
-        :param lock_config: lock_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#lock_config IntegrationConnectorsConnection#lock_config}
-        :param log_config: log_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#log_config IntegrationConnectorsConnection#log_config}
-        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#node_config IntegrationConnectorsConnection#node_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#project IntegrationConnectorsConnection#project}.
-        :param service_account: Service account needed for runtime plane to access Google Cloud resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#service_account IntegrationConnectorsConnection#service_account}
-        :param ssl_config: ssl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#ssl_config IntegrationConnectorsConnection#ssl_config}
-        :param suspended: Suspended indicates if a user has suspended a connection or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#suspended IntegrationConnectorsConnection#suspended}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#timeouts IntegrationConnectorsConnection#timeouts}
+        :param connector_version: connectorVersion of the Connector. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#connector_version IntegrationConnectorsConnection#connector_version}
+        :param location: Location in which Connection needs to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#location IntegrationConnectorsConnection#location}
+        :param name: Name of Connection needs to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#name IntegrationConnectorsConnection#name}
+        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_config IntegrationConnectorsConnection#auth_config}
+        :param config_variable: config_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#config_variable IntegrationConnectorsConnection#config_variable}
+        :param description: An arbitrary description for the Connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#description IntegrationConnectorsConnection#description}
+        :param destination_config: destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#destination_config IntegrationConnectorsConnection#destination_config}
+        :param eventing_config: eventing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#eventing_config IntegrationConnectorsConnection#eventing_config}
+        :param eventing_enablement_type: Eventing enablement type. Will be nil if eventing is not enabled. Possible values: ["EVENTING_AND_CONNECTION", "ONLY_EVENTING"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#eventing_enablement_type IntegrationConnectorsConnection#eventing_enablement_type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#id IntegrationConnectorsConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#labels IntegrationConnectorsConnection#labels}
+        :param lock_config: lock_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#lock_config IntegrationConnectorsConnection#lock_config}
+        :param log_config: log_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#log_config IntegrationConnectorsConnection#log_config}
+        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#node_config IntegrationConnectorsConnection#node_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#project IntegrationConnectorsConnection#project}.
+        :param service_account: Service account needed for runtime plane to access Google Cloud resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#service_account IntegrationConnectorsConnection#service_account}
+        :param ssl_config: ssl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#ssl_config IntegrationConnectorsConnection#ssl_config}
+        :param suspended: Suspended indicates if a user has suspended a connection or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#suspended IntegrationConnectorsConnection#suspended}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#timeouts IntegrationConnectorsConnection#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -157,7 +157,7 @@ class IntegrationConnectorsConnection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IntegrationConnectorsConnection to import.
-        :param import_from_id: The id of the existing IntegrationConnectorsConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IntegrationConnectorsConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IntegrationConnectorsConnection to import is found.
         '''
         if __debug__:
@@ -182,14 +182,14 @@ class IntegrationConnectorsConnection(
         user_password: typing.Optional[typing.Union["IntegrationConnectorsConnectionAuthConfigUserPassword", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param auth_type: authType of the Connection Possible values: ["AUTH_TYPE_UNSPECIFIED", "USER_PASSWORD", "OAUTH2_JWT_BEARER", "OAUTH2_CLIENT_CREDENTIALS", "SSH_PUBLIC_KEY", "OAUTH2_AUTH_CODE_FLOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_type IntegrationConnectorsConnection#auth_type}
-        :param additional_variable: additional_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
-        :param auth_key: The type of authentication configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_key IntegrationConnectorsConnection#auth_key}
-        :param oauth2_auth_code_flow: oauth2_auth_code_flow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#oauth2_auth_code_flow IntegrationConnectorsConnection#oauth2_auth_code_flow}
-        :param oauth2_client_credentials: oauth2_client_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#oauth2_client_credentials IntegrationConnectorsConnection#oauth2_client_credentials}
-        :param oauth2_jwt_bearer: oauth2_jwt_bearer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#oauth2_jwt_bearer IntegrationConnectorsConnection#oauth2_jwt_bearer}
-        :param ssh_public_key: ssh_public_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#ssh_public_key IntegrationConnectorsConnection#ssh_public_key}
-        :param user_password: user_password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#user_password IntegrationConnectorsConnection#user_password}
+        :param auth_type: authType of the Connection Possible values: ["AUTH_TYPE_UNSPECIFIED", "USER_PASSWORD", "OAUTH2_JWT_BEARER", "OAUTH2_CLIENT_CREDENTIALS", "SSH_PUBLIC_KEY", "OAUTH2_AUTH_CODE_FLOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_type IntegrationConnectorsConnection#auth_type}
+        :param additional_variable: additional_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
+        :param auth_key: The type of authentication configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_key IntegrationConnectorsConnection#auth_key}
+        :param oauth2_auth_code_flow: oauth2_auth_code_flow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#oauth2_auth_code_flow IntegrationConnectorsConnection#oauth2_auth_code_flow}
+        :param oauth2_client_credentials: oauth2_client_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#oauth2_client_credentials IntegrationConnectorsConnection#oauth2_client_credentials}
+        :param oauth2_jwt_bearer: oauth2_jwt_bearer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#oauth2_jwt_bearer IntegrationConnectorsConnection#oauth2_jwt_bearer}
+        :param ssh_public_key: ssh_public_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#ssh_public_key IntegrationConnectorsConnection#ssh_public_key}
+        :param user_password: user_password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#user_password IntegrationConnectorsConnection#user_password}
         '''
         value = IntegrationConnectorsConnectionAuthConfig(
             auth_type=auth_type,
@@ -240,10 +240,10 @@ class IntegrationConnectorsConnection(
         enrichment_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param registration_destination_config: registration_destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#registration_destination_config IntegrationConnectorsConnection#registration_destination_config}
-        :param additional_variable: additional_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
-        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_config IntegrationConnectorsConnection#auth_config}
-        :param enrichment_enabled: Enrichment Enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#enrichment_enabled IntegrationConnectorsConnection#enrichment_enabled}
+        :param registration_destination_config: registration_destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#registration_destination_config IntegrationConnectorsConnection#registration_destination_config}
+        :param additional_variable: additional_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
+        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_config IntegrationConnectorsConnection#auth_config}
+        :param enrichment_enabled: Enrichment Enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#enrichment_enabled IntegrationConnectorsConnection#enrichment_enabled}
         '''
         value = IntegrationConnectorsConnectionEventingConfig(
             registration_destination_config=registration_destination_config,
@@ -262,8 +262,8 @@ class IntegrationConnectorsConnection(
         reason: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param locked: Indicates whether or not the connection is locked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#locked IntegrationConnectorsConnection#locked}
-        :param reason: Describes why a connection is locked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#reason IntegrationConnectorsConnection#reason}
+        :param locked: Indicates whether or not the connection is locked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#locked IntegrationConnectorsConnection#locked}
+        :param reason: Describes why a connection is locked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#reason IntegrationConnectorsConnection#reason}
         '''
         value = IntegrationConnectorsConnectionLockConfig(locked=locked, reason=reason)
 
@@ -276,7 +276,7 @@ class IntegrationConnectorsConnection(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Enabled represents whether logging is enabled or not for a connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#enabled IntegrationConnectorsConnection#enabled}
+        :param enabled: Enabled represents whether logging is enabled or not for a connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#enabled IntegrationConnectorsConnection#enabled}
         '''
         value = IntegrationConnectorsConnectionLogConfig(enabled=enabled)
 
@@ -290,8 +290,8 @@ class IntegrationConnectorsConnection(
         min_node_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_node_count: Minimum number of nodes in the runtime nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#max_node_count IntegrationConnectorsConnection#max_node_count}
-        :param min_node_count: Minimum number of nodes in the runtime nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#min_node_count IntegrationConnectorsConnection#min_node_count}
+        :param max_node_count: Minimum number of nodes in the runtime nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#max_node_count IntegrationConnectorsConnection#max_node_count}
+        :param min_node_count: Minimum number of nodes in the runtime nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#min_node_count IntegrationConnectorsConnection#min_node_count}
         '''
         value = IntegrationConnectorsConnectionNodeConfig(
             max_node_count=max_node_count, min_node_count=min_node_count
@@ -315,16 +315,16 @@ class IntegrationConnectorsConnection(
         use_ssl: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param type: Enum for controlling the SSL Type (TLS/MTLS) Possible values: ["TLS", "MTLS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
-        :param additional_variable: additional_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
-        :param client_certificate: client_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_certificate IntegrationConnectorsConnection#client_certificate}
-        :param client_cert_type: Type of Client Cert (PEM/JKS/.. etc.) Possible values: ["PEM"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_cert_type IntegrationConnectorsConnection#client_cert_type}
-        :param client_private_key: client_private_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_private_key IntegrationConnectorsConnection#client_private_key}
-        :param client_private_key_pass: client_private_key_pass block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_private_key_pass IntegrationConnectorsConnection#client_private_key_pass}
-        :param private_server_certificate: private_server_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#private_server_certificate IntegrationConnectorsConnection#private_server_certificate}
-        :param server_cert_type: Type of Server Cert (PEM/JKS/.. etc.) Possible values: ["PEM"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#server_cert_type IntegrationConnectorsConnection#server_cert_type}
-        :param trust_model: Enum for Trust Model Possible values: ["PUBLIC", "PRIVATE", "INSECURE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#trust_model IntegrationConnectorsConnection#trust_model}
-        :param use_ssl: Bool for enabling SSL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#use_ssl IntegrationConnectorsConnection#use_ssl}
+        :param type: Enum for controlling the SSL Type (TLS/MTLS) Possible values: ["TLS", "MTLS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
+        :param additional_variable: additional_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
+        :param client_certificate: client_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_certificate IntegrationConnectorsConnection#client_certificate}
+        :param client_cert_type: Type of Client Cert (PEM/JKS/.. etc.) Possible values: ["PEM"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_cert_type IntegrationConnectorsConnection#client_cert_type}
+        :param client_private_key: client_private_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_private_key IntegrationConnectorsConnection#client_private_key}
+        :param client_private_key_pass: client_private_key_pass block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_private_key_pass IntegrationConnectorsConnection#client_private_key_pass}
+        :param private_server_certificate: private_server_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#private_server_certificate IntegrationConnectorsConnection#private_server_certificate}
+        :param server_cert_type: Type of Server Cert (PEM/JKS/.. etc.) Possible values: ["PEM"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#server_cert_type IntegrationConnectorsConnection#server_cert_type}
+        :param trust_model: Enum for Trust Model Possible values: ["PUBLIC", "PRIVATE", "INSECURE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#trust_model IntegrationConnectorsConnection#trust_model}
+        :param use_ssl: Bool for enabling SSL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#use_ssl IntegrationConnectorsConnection#use_ssl}
         '''
         value = IntegrationConnectorsConnectionSslConfig(
             type=type,
@@ -350,9 +350,9 @@ class IntegrationConnectorsConnection(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#create IntegrationConnectorsConnection#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#delete IntegrationConnectorsConnection#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#update IntegrationConnectorsConnection#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#create IntegrationConnectorsConnection#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#delete IntegrationConnectorsConnection#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#update IntegrationConnectorsConnection#update}.
         '''
         value = IntegrationConnectorsConnectionTimeouts(
             create=create, delete=delete, update=update
@@ -814,14 +814,14 @@ class IntegrationConnectorsConnectionAuthConfig:
         user_password: typing.Optional[typing.Union["IntegrationConnectorsConnectionAuthConfigUserPassword", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param auth_type: authType of the Connection Possible values: ["AUTH_TYPE_UNSPECIFIED", "USER_PASSWORD", "OAUTH2_JWT_BEARER", "OAUTH2_CLIENT_CREDENTIALS", "SSH_PUBLIC_KEY", "OAUTH2_AUTH_CODE_FLOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_type IntegrationConnectorsConnection#auth_type}
-        :param additional_variable: additional_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
-        :param auth_key: The type of authentication configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_key IntegrationConnectorsConnection#auth_key}
-        :param oauth2_auth_code_flow: oauth2_auth_code_flow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#oauth2_auth_code_flow IntegrationConnectorsConnection#oauth2_auth_code_flow}
-        :param oauth2_client_credentials: oauth2_client_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#oauth2_client_credentials IntegrationConnectorsConnection#oauth2_client_credentials}
-        :param oauth2_jwt_bearer: oauth2_jwt_bearer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#oauth2_jwt_bearer IntegrationConnectorsConnection#oauth2_jwt_bearer}
-        :param ssh_public_key: ssh_public_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#ssh_public_key IntegrationConnectorsConnection#ssh_public_key}
-        :param user_password: user_password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#user_password IntegrationConnectorsConnection#user_password}
+        :param auth_type: authType of the Connection Possible values: ["AUTH_TYPE_UNSPECIFIED", "USER_PASSWORD", "OAUTH2_JWT_BEARER", "OAUTH2_CLIENT_CREDENTIALS", "SSH_PUBLIC_KEY", "OAUTH2_AUTH_CODE_FLOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_type IntegrationConnectorsConnection#auth_type}
+        :param additional_variable: additional_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
+        :param auth_key: The type of authentication configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_key IntegrationConnectorsConnection#auth_key}
+        :param oauth2_auth_code_flow: oauth2_auth_code_flow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#oauth2_auth_code_flow IntegrationConnectorsConnection#oauth2_auth_code_flow}
+        :param oauth2_client_credentials: oauth2_client_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#oauth2_client_credentials IntegrationConnectorsConnection#oauth2_client_credentials}
+        :param oauth2_jwt_bearer: oauth2_jwt_bearer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#oauth2_jwt_bearer IntegrationConnectorsConnection#oauth2_jwt_bearer}
+        :param ssh_public_key: ssh_public_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#ssh_public_key IntegrationConnectorsConnection#ssh_public_key}
+        :param user_password: user_password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#user_password IntegrationConnectorsConnection#user_password}
         '''
         if isinstance(oauth2_auth_code_flow, dict):
             oauth2_auth_code_flow = IntegrationConnectorsConnectionAuthConfigOauth2AuthCodeFlow(**oauth2_auth_code_flow)
@@ -865,7 +865,7 @@ class IntegrationConnectorsConnectionAuthConfig:
     def auth_type(self) -> builtins.str:
         '''authType of the Connection Possible values: ["AUTH_TYPE_UNSPECIFIED", "USER_PASSWORD", "OAUTH2_JWT_BEARER", "OAUTH2_CLIENT_CREDENTIALS", "SSH_PUBLIC_KEY", "OAUTH2_AUTH_CODE_FLOW"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_type IntegrationConnectorsConnection#auth_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_type IntegrationConnectorsConnection#auth_type}
         '''
         result = self._values.get("auth_type")
         assert result is not None, "Required property 'auth_type' is missing"
@@ -877,7 +877,7 @@ class IntegrationConnectorsConnectionAuthConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationConnectorsConnectionAuthConfigAdditionalVariable"]]]:
         '''additional_variable block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
         '''
         result = self._values.get("additional_variable")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationConnectorsConnectionAuthConfigAdditionalVariable"]]], result)
@@ -886,7 +886,7 @@ class IntegrationConnectorsConnectionAuthConfig:
     def auth_key(self) -> typing.Optional[builtins.str]:
         '''The type of authentication configured.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_key IntegrationConnectorsConnection#auth_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_key IntegrationConnectorsConnection#auth_key}
         '''
         result = self._values.get("auth_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -897,7 +897,7 @@ class IntegrationConnectorsConnectionAuthConfig:
     ) -> typing.Optional["IntegrationConnectorsConnectionAuthConfigOauth2AuthCodeFlow"]:
         '''oauth2_auth_code_flow block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#oauth2_auth_code_flow IntegrationConnectorsConnection#oauth2_auth_code_flow}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#oauth2_auth_code_flow IntegrationConnectorsConnection#oauth2_auth_code_flow}
         '''
         result = self._values.get("oauth2_auth_code_flow")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionAuthConfigOauth2AuthCodeFlow"], result)
@@ -908,7 +908,7 @@ class IntegrationConnectorsConnectionAuthConfig:
     ) -> typing.Optional["IntegrationConnectorsConnectionAuthConfigOauth2ClientCredentials"]:
         '''oauth2_client_credentials block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#oauth2_client_credentials IntegrationConnectorsConnection#oauth2_client_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#oauth2_client_credentials IntegrationConnectorsConnection#oauth2_client_credentials}
         '''
         result = self._values.get("oauth2_client_credentials")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionAuthConfigOauth2ClientCredentials"], result)
@@ -919,7 +919,7 @@ class IntegrationConnectorsConnectionAuthConfig:
     ) -> typing.Optional["IntegrationConnectorsConnectionAuthConfigOauth2JwtBearer"]:
         '''oauth2_jwt_bearer block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#oauth2_jwt_bearer IntegrationConnectorsConnection#oauth2_jwt_bearer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#oauth2_jwt_bearer IntegrationConnectorsConnection#oauth2_jwt_bearer}
         '''
         result = self._values.get("oauth2_jwt_bearer")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionAuthConfigOauth2JwtBearer"], result)
@@ -930,7 +930,7 @@ class IntegrationConnectorsConnectionAuthConfig:
     ) -> typing.Optional["IntegrationConnectorsConnectionAuthConfigSshPublicKey"]:
         '''ssh_public_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#ssh_public_key IntegrationConnectorsConnection#ssh_public_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#ssh_public_key IntegrationConnectorsConnection#ssh_public_key}
         '''
         result = self._values.get("ssh_public_key")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionAuthConfigSshPublicKey"], result)
@@ -941,7 +941,7 @@ class IntegrationConnectorsConnectionAuthConfig:
     ) -> typing.Optional["IntegrationConnectorsConnectionAuthConfigUserPassword"]:
         '''user_password block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#user_password IntegrationConnectorsConnection#user_password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#user_password IntegrationConnectorsConnection#user_password}
         '''
         result = self._values.get("user_password")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionAuthConfigUserPassword"], result)
@@ -982,12 +982,12 @@ class IntegrationConnectorsConnectionAuthConfigAdditionalVariable:
         string_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key: Key for the configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
-        :param boolean_value: Boolean Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
-        :param encryption_key_value: encryption_key_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
-        :param integer_value: Integer Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
-        :param secret_value: secret_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
-        :param string_value: String Value of configVariabley. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
+        :param key: Key for the configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
+        :param boolean_value: Boolean Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
+        :param encryption_key_value: encryption_key_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
+        :param integer_value: Integer Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
+        :param secret_value: secret_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
+        :param string_value: String Value of configVariabley. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
         '''
         if isinstance(encryption_key_value, dict):
             encryption_key_value = IntegrationConnectorsConnectionAuthConfigAdditionalVariableEncryptionKeyValue(**encryption_key_value)
@@ -1019,7 +1019,7 @@ class IntegrationConnectorsConnectionAuthConfigAdditionalVariable:
     def key(self) -> builtins.str:
         '''Key for the configVariable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -1031,7 +1031,7 @@ class IntegrationConnectorsConnectionAuthConfigAdditionalVariable:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Boolean Value of configVariable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
         '''
         result = self._values.get("boolean_value")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1042,7 +1042,7 @@ class IntegrationConnectorsConnectionAuthConfigAdditionalVariable:
     ) -> typing.Optional["IntegrationConnectorsConnectionAuthConfigAdditionalVariableEncryptionKeyValue"]:
         '''encryption_key_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
         '''
         result = self._values.get("encryption_key_value")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionAuthConfigAdditionalVariableEncryptionKeyValue"], result)
@@ -1051,7 +1051,7 @@ class IntegrationConnectorsConnectionAuthConfigAdditionalVariable:
     def integer_value(self) -> typing.Optional[jsii.Number]:
         '''Integer Value of configVariable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
         '''
         result = self._values.get("integer_value")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1062,7 +1062,7 @@ class IntegrationConnectorsConnectionAuthConfigAdditionalVariable:
     ) -> typing.Optional["IntegrationConnectorsConnectionAuthConfigAdditionalVariableSecretValue"]:
         '''secret_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
         '''
         result = self._values.get("secret_value")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionAuthConfigAdditionalVariableSecretValue"], result)
@@ -1071,7 +1071,7 @@ class IntegrationConnectorsConnectionAuthConfigAdditionalVariable:
     def string_value(self) -> typing.Optional[builtins.str]:
         '''String Value of configVariabley.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
         '''
         result = self._values.get("string_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1101,8 +1101,8 @@ class IntegrationConnectorsConnectionAuthConfigAdditionalVariableEncryptionKeyVa
         kms_key_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
-        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
+        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1cac7353988c945adb1ccad90ec8370291accde639805d0148e7e4e0bfe2a8f3)
@@ -1118,7 +1118,7 @@ class IntegrationConnectorsConnectionAuthConfigAdditionalVariableEncryptionKeyVa
     def type(self) -> builtins.str:
         '''Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -1132,7 +1132,7 @@ class IntegrationConnectorsConnectionAuthConfigAdditionalVariableEncryptionKeyVa
         expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*.
         Will be empty string if google managed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -1354,8 +1354,8 @@ class IntegrationConnectorsConnectionAuthConfigAdditionalVariableOutputReference
         kms_key_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
-        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
+        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         value = IntegrationConnectorsConnectionAuthConfigAdditionalVariableEncryptionKeyValue(
             type=type, kms_key_name=kms_key_name
@@ -1366,7 +1366,7 @@ class IntegrationConnectorsConnectionAuthConfigAdditionalVariableOutputReference
     @jsii.member(jsii_name="putSecretValue")
     def put_secret_value(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         value = IntegrationConnectorsConnectionAuthConfigAdditionalVariableSecretValue(
             secret_version=secret_version
@@ -1521,7 +1521,7 @@ class IntegrationConnectorsConnectionAuthConfigAdditionalVariableOutputReference
 class IntegrationConnectorsConnectionAuthConfigAdditionalVariableSecretValue:
     def __init__(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c040f19174e193c815b422a1bf23802ab9147b84f009e7a98c6be469ad5b298)
@@ -1534,7 +1534,7 @@ class IntegrationConnectorsConnectionAuthConfigAdditionalVariableSecretValue:
     def secret_version(self) -> builtins.str:
         '''Secret version of Secret Value for Config variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         result = self._values.get("secret_version")
         assert result is not None, "Required property 'secret_version' is missing"
@@ -1629,11 +1629,11 @@ class IntegrationConnectorsConnectionAuthConfigOauth2AuthCodeFlow:
         scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param auth_uri: Auth URL for Authorization Code Flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_uri IntegrationConnectorsConnection#auth_uri}
-        :param client_id: Client ID for user-provided OAuth app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_id IntegrationConnectorsConnection#client_id}
-        :param client_secret: client_secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_secret IntegrationConnectorsConnection#client_secret}
-        :param enable_pkce: Whether to enable PKCE when the user performs the auth code flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#enable_pkce IntegrationConnectorsConnection#enable_pkce}
-        :param scopes: Scopes the connection will request when the user performs the auth code flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#scopes IntegrationConnectorsConnection#scopes}
+        :param auth_uri: Auth URL for Authorization Code Flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_uri IntegrationConnectorsConnection#auth_uri}
+        :param client_id: Client ID for user-provided OAuth app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_id IntegrationConnectorsConnection#client_id}
+        :param client_secret: client_secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_secret IntegrationConnectorsConnection#client_secret}
+        :param enable_pkce: Whether to enable PKCE when the user performs the auth code flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#enable_pkce IntegrationConnectorsConnection#enable_pkce}
+        :param scopes: Scopes the connection will request when the user performs the auth code flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#scopes IntegrationConnectorsConnection#scopes}
         '''
         if isinstance(client_secret, dict):
             client_secret = IntegrationConnectorsConnectionAuthConfigOauth2AuthCodeFlowClientSecret(**client_secret)
@@ -1660,7 +1660,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2AuthCodeFlow:
     def auth_uri(self) -> typing.Optional[builtins.str]:
         '''Auth URL for Authorization Code Flow.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_uri IntegrationConnectorsConnection#auth_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_uri IntegrationConnectorsConnection#auth_uri}
         '''
         result = self._values.get("auth_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1669,7 +1669,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2AuthCodeFlow:
     def client_id(self) -> typing.Optional[builtins.str]:
         '''Client ID for user-provided OAuth app.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_id IntegrationConnectorsConnection#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_id IntegrationConnectorsConnection#client_id}
         '''
         result = self._values.get("client_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1680,7 +1680,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2AuthCodeFlow:
     ) -> typing.Optional["IntegrationConnectorsConnectionAuthConfigOauth2AuthCodeFlowClientSecret"]:
         '''client_secret block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_secret IntegrationConnectorsConnection#client_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_secret IntegrationConnectorsConnection#client_secret}
         '''
         result = self._values.get("client_secret")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionAuthConfigOauth2AuthCodeFlowClientSecret"], result)
@@ -1691,7 +1691,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2AuthCodeFlow:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to enable PKCE when the user performs the auth code flow.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#enable_pkce IntegrationConnectorsConnection#enable_pkce}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#enable_pkce IntegrationConnectorsConnection#enable_pkce}
         '''
         result = self._values.get("enable_pkce")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1700,7 +1700,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2AuthCodeFlow:
     def scopes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Scopes the connection will request when the user performs the auth code flow.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#scopes IntegrationConnectorsConnection#scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#scopes IntegrationConnectorsConnection#scopes}
         '''
         result = self._values.get("scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1725,7 +1725,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2AuthCodeFlow:
 class IntegrationConnectorsConnectionAuthConfigOauth2AuthCodeFlowClientSecret:
     def __init__(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3659af668cce19ed566ebcb7ab9d4a5d11e0e455137cc092f7a342394dd3f3a2)
@@ -1738,7 +1738,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2AuthCodeFlowClientSecret:
     def secret_version(self) -> builtins.str:
         '''The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -1836,7 +1836,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2AuthCodeFlowOutputReference
     @jsii.member(jsii_name="putClientSecret")
     def put_client_secret(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         value = IntegrationConnectorsConnectionAuthConfigOauth2AuthCodeFlowClientSecret(
             secret_version=secret_version
@@ -1982,8 +1982,8 @@ class IntegrationConnectorsConnectionAuthConfigOauth2ClientCredentials:
         client_secret: typing.Optional[typing.Union["IntegrationConnectorsConnectionAuthConfigOauth2ClientCredentialsClientSecret", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_id: Secret version of Password for Authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_id IntegrationConnectorsConnection#client_id}
-        :param client_secret: client_secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_secret IntegrationConnectorsConnection#client_secret}
+        :param client_id: Secret version of Password for Authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_id IntegrationConnectorsConnection#client_id}
+        :param client_secret: client_secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_secret IntegrationConnectorsConnection#client_secret}
         '''
         if isinstance(client_secret, dict):
             client_secret = IntegrationConnectorsConnectionAuthConfigOauth2ClientCredentialsClientSecret(**client_secret)
@@ -2001,7 +2001,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2ClientCredentials:
     def client_id(self) -> builtins.str:
         '''Secret version of Password for Authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_id IntegrationConnectorsConnection#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_id IntegrationConnectorsConnection#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -2013,7 +2013,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2ClientCredentials:
     ) -> typing.Optional["IntegrationConnectorsConnectionAuthConfigOauth2ClientCredentialsClientSecret"]:
         '''client_secret block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_secret IntegrationConnectorsConnection#client_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_secret IntegrationConnectorsConnection#client_secret}
         '''
         result = self._values.get("client_secret")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionAuthConfigOauth2ClientCredentialsClientSecret"], result)
@@ -2038,7 +2038,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2ClientCredentials:
 class IntegrationConnectorsConnectionAuthConfigOauth2ClientCredentialsClientSecret:
     def __init__(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e4b5561dbc28528ac2d0865e9a836ea3974ad432999522ef5c8895d0b9cac62c)
@@ -2051,7 +2051,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2ClientCredentialsClientSecr
     def secret_version(self) -> builtins.str:
         '''The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -2149,7 +2149,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2ClientCredentialsOutputRefe
     @jsii.member(jsii_name="putClientSecret")
     def put_client_secret(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         value = IntegrationConnectorsConnectionAuthConfigOauth2ClientCredentialsClientSecret(
             secret_version=secret_version
@@ -2223,8 +2223,8 @@ class IntegrationConnectorsConnectionAuthConfigOauth2JwtBearer:
         jwt_claims: typing.Optional[typing.Union["IntegrationConnectorsConnectionAuthConfigOauth2JwtBearerJwtClaims", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_key: client_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_key IntegrationConnectorsConnection#client_key}
-        :param jwt_claims: jwt_claims block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#jwt_claims IntegrationConnectorsConnection#jwt_claims}
+        :param client_key: client_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_key IntegrationConnectorsConnection#client_key}
+        :param jwt_claims: jwt_claims block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#jwt_claims IntegrationConnectorsConnection#jwt_claims}
         '''
         if isinstance(client_key, dict):
             client_key = IntegrationConnectorsConnectionAuthConfigOauth2JwtBearerClientKey(**client_key)
@@ -2246,7 +2246,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2JwtBearer:
     ) -> typing.Optional["IntegrationConnectorsConnectionAuthConfigOauth2JwtBearerClientKey"]:
         '''client_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_key IntegrationConnectorsConnection#client_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_key IntegrationConnectorsConnection#client_key}
         '''
         result = self._values.get("client_key")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionAuthConfigOauth2JwtBearerClientKey"], result)
@@ -2257,7 +2257,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2JwtBearer:
     ) -> typing.Optional["IntegrationConnectorsConnectionAuthConfigOauth2JwtBearerJwtClaims"]:
         '''jwt_claims block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#jwt_claims IntegrationConnectorsConnection#jwt_claims}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#jwt_claims IntegrationConnectorsConnection#jwt_claims}
         '''
         result = self._values.get("jwt_claims")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionAuthConfigOauth2JwtBearerJwtClaims"], result)
@@ -2282,7 +2282,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2JwtBearer:
 class IntegrationConnectorsConnectionAuthConfigOauth2JwtBearerClientKey:
     def __init__(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__435739f68d806f919644cd5bc59532128511408b6e5dac6d56e6ea240ddbc022)
@@ -2295,7 +2295,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2JwtBearerClientKey:
     def secret_version(self) -> builtins.str:
         '''The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -2384,9 +2384,9 @@ class IntegrationConnectorsConnectionAuthConfigOauth2JwtBearerJwtClaims:
         subject: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param audience: Value for the "aud" claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#audience IntegrationConnectorsConnection#audience}
-        :param issuer: Value for the "iss" claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#issuer IntegrationConnectorsConnection#issuer}
-        :param subject: Value for the "sub" claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#subject IntegrationConnectorsConnection#subject}
+        :param audience: Value for the "aud" claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#audience IntegrationConnectorsConnection#audience}
+        :param issuer: Value for the "iss" claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#issuer IntegrationConnectorsConnection#issuer}
+        :param subject: Value for the "sub" claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#subject IntegrationConnectorsConnection#subject}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__98fa20f27fac590a12d7aa45dd24adf4e2064d0f78f9c8a9776f29b5eae279b1)
@@ -2405,7 +2405,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2JwtBearerJwtClaims:
     def audience(self) -> typing.Optional[builtins.str]:
         '''Value for the "aud" claim.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#audience IntegrationConnectorsConnection#audience}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#audience IntegrationConnectorsConnection#audience}
         '''
         result = self._values.get("audience")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2414,7 +2414,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2JwtBearerJwtClaims:
     def issuer(self) -> typing.Optional[builtins.str]:
         '''Value for the "iss" claim.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#issuer IntegrationConnectorsConnection#issuer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#issuer IntegrationConnectorsConnection#issuer}
         '''
         result = self._values.get("issuer")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2423,7 +2423,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2JwtBearerJwtClaims:
     def subject(self) -> typing.Optional[builtins.str]:
         '''Value for the "sub" claim.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#subject IntegrationConnectorsConnection#subject}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#subject IntegrationConnectorsConnection#subject}
         '''
         result = self._values.get("subject")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2564,7 +2564,7 @@ class IntegrationConnectorsConnectionAuthConfigOauth2JwtBearerOutputReference(
     @jsii.member(jsii_name="putClientKey")
     def put_client_key(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         value = IntegrationConnectorsConnectionAuthConfigOauth2JwtBearerClientKey(
             secret_version=secret_version
@@ -2581,9 +2581,9 @@ class IntegrationConnectorsConnectionAuthConfigOauth2JwtBearerOutputReference(
         subject: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param audience: Value for the "aud" claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#audience IntegrationConnectorsConnection#audience}
-        :param issuer: Value for the "iss" claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#issuer IntegrationConnectorsConnection#issuer}
-        :param subject: Value for the "sub" claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#subject IntegrationConnectorsConnection#subject}
+        :param audience: Value for the "aud" claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#audience IntegrationConnectorsConnection#audience}
+        :param issuer: Value for the "iss" claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#issuer IntegrationConnectorsConnection#issuer}
+        :param subject: Value for the "sub" claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#subject IntegrationConnectorsConnection#subject}
         '''
         value = IntegrationConnectorsConnectionAuthConfigOauth2JwtBearerJwtClaims(
             audience=audience, issuer=issuer, subject=subject
@@ -2689,11 +2689,11 @@ class IntegrationConnectorsConnectionAuthConfigOutputReference(
         scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param auth_uri: Auth URL for Authorization Code Flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_uri IntegrationConnectorsConnection#auth_uri}
-        :param client_id: Client ID for user-provided OAuth app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_id IntegrationConnectorsConnection#client_id}
-        :param client_secret: client_secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_secret IntegrationConnectorsConnection#client_secret}
-        :param enable_pkce: Whether to enable PKCE when the user performs the auth code flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#enable_pkce IntegrationConnectorsConnection#enable_pkce}
-        :param scopes: Scopes the connection will request when the user performs the auth code flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#scopes IntegrationConnectorsConnection#scopes}
+        :param auth_uri: Auth URL for Authorization Code Flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_uri IntegrationConnectorsConnection#auth_uri}
+        :param client_id: Client ID for user-provided OAuth app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_id IntegrationConnectorsConnection#client_id}
+        :param client_secret: client_secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_secret IntegrationConnectorsConnection#client_secret}
+        :param enable_pkce: Whether to enable PKCE when the user performs the auth code flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#enable_pkce IntegrationConnectorsConnection#enable_pkce}
+        :param scopes: Scopes the connection will request when the user performs the auth code flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#scopes IntegrationConnectorsConnection#scopes}
         '''
         value = IntegrationConnectorsConnectionAuthConfigOauth2AuthCodeFlow(
             auth_uri=auth_uri,
@@ -2713,8 +2713,8 @@ class IntegrationConnectorsConnectionAuthConfigOutputReference(
         client_secret: typing.Optional[typing.Union[IntegrationConnectorsConnectionAuthConfigOauth2ClientCredentialsClientSecret, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_id: Secret version of Password for Authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_id IntegrationConnectorsConnection#client_id}
-        :param client_secret: client_secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_secret IntegrationConnectorsConnection#client_secret}
+        :param client_id: Secret version of Password for Authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_id IntegrationConnectorsConnection#client_id}
+        :param client_secret: client_secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_secret IntegrationConnectorsConnection#client_secret}
         '''
         value = IntegrationConnectorsConnectionAuthConfigOauth2ClientCredentials(
             client_id=client_id, client_secret=client_secret
@@ -2730,8 +2730,8 @@ class IntegrationConnectorsConnectionAuthConfigOutputReference(
         jwt_claims: typing.Optional[typing.Union[IntegrationConnectorsConnectionAuthConfigOauth2JwtBearerJwtClaims, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param client_key: client_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_key IntegrationConnectorsConnection#client_key}
-        :param jwt_claims: jwt_claims block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#jwt_claims IntegrationConnectorsConnection#jwt_claims}
+        :param client_key: client_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_key IntegrationConnectorsConnection#client_key}
+        :param jwt_claims: jwt_claims block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#jwt_claims IntegrationConnectorsConnection#jwt_claims}
         '''
         value = IntegrationConnectorsConnectionAuthConfigOauth2JwtBearer(
             client_key=client_key, jwt_claims=jwt_claims
@@ -2749,10 +2749,10 @@ class IntegrationConnectorsConnectionAuthConfigOutputReference(
         ssh_client_cert_pass: typing.Optional[typing.Union["IntegrationConnectorsConnectionAuthConfigSshPublicKeySshClientCertPass", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param username: The user account used to authenticate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#username IntegrationConnectorsConnection#username}
-        :param cert_type: Format of SSH Client cert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#cert_type IntegrationConnectorsConnection#cert_type}
-        :param ssh_client_cert: ssh_client_cert block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#ssh_client_cert IntegrationConnectorsConnection#ssh_client_cert}
-        :param ssh_client_cert_pass: ssh_client_cert_pass block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#ssh_client_cert_pass IntegrationConnectorsConnection#ssh_client_cert_pass}
+        :param username: The user account used to authenticate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#username IntegrationConnectorsConnection#username}
+        :param cert_type: Format of SSH Client cert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#cert_type IntegrationConnectorsConnection#cert_type}
+        :param ssh_client_cert: ssh_client_cert block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#ssh_client_cert IntegrationConnectorsConnection#ssh_client_cert}
+        :param ssh_client_cert_pass: ssh_client_cert_pass block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#ssh_client_cert_pass IntegrationConnectorsConnection#ssh_client_cert_pass}
         '''
         value = IntegrationConnectorsConnectionAuthConfigSshPublicKey(
             username=username,
@@ -2771,8 +2771,8 @@ class IntegrationConnectorsConnectionAuthConfigOutputReference(
         password: typing.Optional[typing.Union["IntegrationConnectorsConnectionAuthConfigUserPasswordPassword", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param username: Username for Authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#username IntegrationConnectorsConnection#username}
-        :param password: password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#password IntegrationConnectorsConnection#password}
+        :param username: Username for Authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#username IntegrationConnectorsConnection#username}
+        :param password: password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#password IntegrationConnectorsConnection#password}
         '''
         value = IntegrationConnectorsConnectionAuthConfigUserPassword(
             username=username, password=password
@@ -2964,10 +2964,10 @@ class IntegrationConnectorsConnectionAuthConfigSshPublicKey:
         ssh_client_cert_pass: typing.Optional[typing.Union["IntegrationConnectorsConnectionAuthConfigSshPublicKeySshClientCertPass", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param username: The user account used to authenticate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#username IntegrationConnectorsConnection#username}
-        :param cert_type: Format of SSH Client cert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#cert_type IntegrationConnectorsConnection#cert_type}
-        :param ssh_client_cert: ssh_client_cert block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#ssh_client_cert IntegrationConnectorsConnection#ssh_client_cert}
-        :param ssh_client_cert_pass: ssh_client_cert_pass block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#ssh_client_cert_pass IntegrationConnectorsConnection#ssh_client_cert_pass}
+        :param username: The user account used to authenticate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#username IntegrationConnectorsConnection#username}
+        :param cert_type: Format of SSH Client cert. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#cert_type IntegrationConnectorsConnection#cert_type}
+        :param ssh_client_cert: ssh_client_cert block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#ssh_client_cert IntegrationConnectorsConnection#ssh_client_cert}
+        :param ssh_client_cert_pass: ssh_client_cert_pass block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#ssh_client_cert_pass IntegrationConnectorsConnection#ssh_client_cert_pass}
         '''
         if isinstance(ssh_client_cert, dict):
             ssh_client_cert = IntegrationConnectorsConnectionAuthConfigSshPublicKeySshClientCert(**ssh_client_cert)
@@ -2993,7 +2993,7 @@ class IntegrationConnectorsConnectionAuthConfigSshPublicKey:
     def username(self) -> builtins.str:
         '''The user account used to authenticate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#username IntegrationConnectorsConnection#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#username IntegrationConnectorsConnection#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -3003,7 +3003,7 @@ class IntegrationConnectorsConnectionAuthConfigSshPublicKey:
     def cert_type(self) -> typing.Optional[builtins.str]:
         '''Format of SSH Client cert.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#cert_type IntegrationConnectorsConnection#cert_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#cert_type IntegrationConnectorsConnection#cert_type}
         '''
         result = self._values.get("cert_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3014,7 +3014,7 @@ class IntegrationConnectorsConnectionAuthConfigSshPublicKey:
     ) -> typing.Optional["IntegrationConnectorsConnectionAuthConfigSshPublicKeySshClientCert"]:
         '''ssh_client_cert block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#ssh_client_cert IntegrationConnectorsConnection#ssh_client_cert}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#ssh_client_cert IntegrationConnectorsConnection#ssh_client_cert}
         '''
         result = self._values.get("ssh_client_cert")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionAuthConfigSshPublicKeySshClientCert"], result)
@@ -3025,7 +3025,7 @@ class IntegrationConnectorsConnectionAuthConfigSshPublicKey:
     ) -> typing.Optional["IntegrationConnectorsConnectionAuthConfigSshPublicKeySshClientCertPass"]:
         '''ssh_client_cert_pass block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#ssh_client_cert_pass IntegrationConnectorsConnection#ssh_client_cert_pass}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#ssh_client_cert_pass IntegrationConnectorsConnection#ssh_client_cert_pass}
         '''
         result = self._values.get("ssh_client_cert_pass")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionAuthConfigSshPublicKeySshClientCertPass"], result)
@@ -3065,7 +3065,7 @@ class IntegrationConnectorsConnectionAuthConfigSshPublicKeyOutputReference(
     @jsii.member(jsii_name="putSshClientCert")
     def put_ssh_client_cert(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         value = IntegrationConnectorsConnectionAuthConfigSshPublicKeySshClientCert(
             secret_version=secret_version
@@ -3076,7 +3076,7 @@ class IntegrationConnectorsConnectionAuthConfigSshPublicKeyOutputReference(
     @jsii.member(jsii_name="putSshClientCertPass")
     def put_ssh_client_cert_pass(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         value = IntegrationConnectorsConnectionAuthConfigSshPublicKeySshClientCertPass(
             secret_version=secret_version
@@ -3184,7 +3184,7 @@ class IntegrationConnectorsConnectionAuthConfigSshPublicKeyOutputReference(
 class IntegrationConnectorsConnectionAuthConfigSshPublicKeySshClientCert:
     def __init__(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__36756f83dffc7f35b4696099ffd39b831c963322a17ed6bf9fd57a669d5e930a)
@@ -3197,7 +3197,7 @@ class IntegrationConnectorsConnectionAuthConfigSshPublicKeySshClientCert:
     def secret_version(self) -> builtins.str:
         '''The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -3280,7 +3280,7 @@ class IntegrationConnectorsConnectionAuthConfigSshPublicKeySshClientCertOutputRe
 class IntegrationConnectorsConnectionAuthConfigSshPublicKeySshClientCertPass:
     def __init__(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2440f9943abdf84643a484466f000d0e676a6083d516d20a536bc5054de75b40)
@@ -3293,7 +3293,7 @@ class IntegrationConnectorsConnectionAuthConfigSshPublicKeySshClientCertPass:
     def secret_version(self) -> builtins.str:
         '''The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -3381,8 +3381,8 @@ class IntegrationConnectorsConnectionAuthConfigUserPassword:
         password: typing.Optional[typing.Union["IntegrationConnectorsConnectionAuthConfigUserPasswordPassword", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param username: Username for Authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#username IntegrationConnectorsConnection#username}
-        :param password: password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#password IntegrationConnectorsConnection#password}
+        :param username: Username for Authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#username IntegrationConnectorsConnection#username}
+        :param password: password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#password IntegrationConnectorsConnection#password}
         '''
         if isinstance(password, dict):
             password = IntegrationConnectorsConnectionAuthConfigUserPasswordPassword(**password)
@@ -3400,7 +3400,7 @@ class IntegrationConnectorsConnectionAuthConfigUserPassword:
     def username(self) -> builtins.str:
         '''Username for Authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#username IntegrationConnectorsConnection#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#username IntegrationConnectorsConnection#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -3412,7 +3412,7 @@ class IntegrationConnectorsConnectionAuthConfigUserPassword:
     ) -> typing.Optional["IntegrationConnectorsConnectionAuthConfigUserPasswordPassword"]:
         '''password block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#password IntegrationConnectorsConnection#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#password IntegrationConnectorsConnection#password}
         '''
         result = self._values.get("password")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionAuthConfigUserPasswordPassword"], result)
@@ -3452,7 +3452,7 @@ class IntegrationConnectorsConnectionAuthConfigUserPasswordOutputReference(
     @jsii.member(jsii_name="putPassword")
     def put_password(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         value = IntegrationConnectorsConnectionAuthConfigUserPasswordPassword(
             secret_version=secret_version
@@ -3521,7 +3521,7 @@ class IntegrationConnectorsConnectionAuthConfigUserPasswordOutputReference(
 class IntegrationConnectorsConnectionAuthConfigUserPasswordPassword:
     def __init__(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2d2db0ebbe5fdac3c686e663151dc44a498d6516c79cb24577316fcf5e7adbaa)
@@ -3534,7 +3534,7 @@ class IntegrationConnectorsConnectionAuthConfigUserPasswordPassword:
     def secret_version(self) -> builtins.str:
         '''The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -3680,25 +3680,25 @@ class IntegrationConnectorsConnectionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param connector_version: connectorVersion of the Connector. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#connector_version IntegrationConnectorsConnection#connector_version}
-        :param location: Location in which Connection needs to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#location IntegrationConnectorsConnection#location}
-        :param name: Name of Connection needs to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#name IntegrationConnectorsConnection#name}
-        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_config IntegrationConnectorsConnection#auth_config}
-        :param config_variable: config_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#config_variable IntegrationConnectorsConnection#config_variable}
-        :param description: An arbitrary description for the Connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#description IntegrationConnectorsConnection#description}
-        :param destination_config: destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#destination_config IntegrationConnectorsConnection#destination_config}
-        :param eventing_config: eventing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#eventing_config IntegrationConnectorsConnection#eventing_config}
-        :param eventing_enablement_type: Eventing enablement type. Will be nil if eventing is not enabled. Possible values: ["EVENTING_AND_CONNECTION", "ONLY_EVENTING"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#eventing_enablement_type IntegrationConnectorsConnection#eventing_enablement_type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#id IntegrationConnectorsConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#labels IntegrationConnectorsConnection#labels}
-        :param lock_config: lock_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#lock_config IntegrationConnectorsConnection#lock_config}
-        :param log_config: log_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#log_config IntegrationConnectorsConnection#log_config}
-        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#node_config IntegrationConnectorsConnection#node_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#project IntegrationConnectorsConnection#project}.
-        :param service_account: Service account needed for runtime plane to access Google Cloud resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#service_account IntegrationConnectorsConnection#service_account}
-        :param ssl_config: ssl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#ssl_config IntegrationConnectorsConnection#ssl_config}
-        :param suspended: Suspended indicates if a user has suspended a connection or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#suspended IntegrationConnectorsConnection#suspended}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#timeouts IntegrationConnectorsConnection#timeouts}
+        :param connector_version: connectorVersion of the Connector. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#connector_version IntegrationConnectorsConnection#connector_version}
+        :param location: Location in which Connection needs to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#location IntegrationConnectorsConnection#location}
+        :param name: Name of Connection needs to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#name IntegrationConnectorsConnection#name}
+        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_config IntegrationConnectorsConnection#auth_config}
+        :param config_variable: config_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#config_variable IntegrationConnectorsConnection#config_variable}
+        :param description: An arbitrary description for the Connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#description IntegrationConnectorsConnection#description}
+        :param destination_config: destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#destination_config IntegrationConnectorsConnection#destination_config}
+        :param eventing_config: eventing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#eventing_config IntegrationConnectorsConnection#eventing_config}
+        :param eventing_enablement_type: Eventing enablement type. Will be nil if eventing is not enabled. Possible values: ["EVENTING_AND_CONNECTION", "ONLY_EVENTING"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#eventing_enablement_type IntegrationConnectorsConnection#eventing_enablement_type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#id IntegrationConnectorsConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#labels IntegrationConnectorsConnection#labels}
+        :param lock_config: lock_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#lock_config IntegrationConnectorsConnection#lock_config}
+        :param log_config: log_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#log_config IntegrationConnectorsConnection#log_config}
+        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#node_config IntegrationConnectorsConnection#node_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#project IntegrationConnectorsConnection#project}.
+        :param service_account: Service account needed for runtime plane to access Google Cloud resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#service_account IntegrationConnectorsConnection#service_account}
+        :param ssl_config: ssl_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#ssl_config IntegrationConnectorsConnection#ssl_config}
+        :param suspended: Suspended indicates if a user has suspended a connection or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#suspended IntegrationConnectorsConnection#suspended}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#timeouts IntegrationConnectorsConnection#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -3864,7 +3864,7 @@ class IntegrationConnectorsConnectionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def connector_version(self) -> builtins.str:
         '''connectorVersion of the Connector.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#connector_version IntegrationConnectorsConnection#connector_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#connector_version IntegrationConnectorsConnection#connector_version}
         '''
         result = self._values.get("connector_version")
         assert result is not None, "Required property 'connector_version' is missing"
@@ -3874,7 +3874,7 @@ class IntegrationConnectorsConnectionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def location(self) -> builtins.str:
         '''Location in which Connection needs to be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#location IntegrationConnectorsConnection#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#location IntegrationConnectorsConnection#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -3884,7 +3884,7 @@ class IntegrationConnectorsConnectionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def name(self) -> builtins.str:
         '''Name of Connection needs to be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#name IntegrationConnectorsConnection#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#name IntegrationConnectorsConnection#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -3894,7 +3894,7 @@ class IntegrationConnectorsConnectionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def auth_config(self) -> typing.Optional[IntegrationConnectorsConnectionAuthConfig]:
         '''auth_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_config IntegrationConnectorsConnection#auth_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_config IntegrationConnectorsConnection#auth_config}
         '''
         result = self._values.get("auth_config")
         return typing.cast(typing.Optional[IntegrationConnectorsConnectionAuthConfig], result)
@@ -3905,7 +3905,7 @@ class IntegrationConnectorsConnectionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationConnectorsConnectionConfigVariable"]]]:
         '''config_variable block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#config_variable IntegrationConnectorsConnection#config_variable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#config_variable IntegrationConnectorsConnection#config_variable}
         '''
         result = self._values.get("config_variable")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationConnectorsConnectionConfigVariable"]]], result)
@@ -3914,7 +3914,7 @@ class IntegrationConnectorsConnectionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def description(self) -> typing.Optional[builtins.str]:
         '''An arbitrary description for the Connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#description IntegrationConnectorsConnection#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#description IntegrationConnectorsConnection#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3925,7 +3925,7 @@ class IntegrationConnectorsConnectionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationConnectorsConnectionDestinationConfig"]]]:
         '''destination_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#destination_config IntegrationConnectorsConnection#destination_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#destination_config IntegrationConnectorsConnection#destination_config}
         '''
         result = self._values.get("destination_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationConnectorsConnectionDestinationConfig"]]], result)
@@ -3936,7 +3936,7 @@ class IntegrationConnectorsConnectionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     ) -> typing.Optional["IntegrationConnectorsConnectionEventingConfig"]:
         '''eventing_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#eventing_config IntegrationConnectorsConnection#eventing_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#eventing_config IntegrationConnectorsConnection#eventing_config}
         '''
         result = self._values.get("eventing_config")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionEventingConfig"], result)
@@ -3945,14 +3945,14 @@ class IntegrationConnectorsConnectionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def eventing_enablement_type(self) -> typing.Optional[builtins.str]:
         '''Eventing enablement type. Will be nil if eventing is not enabled. Possible values: ["EVENTING_AND_CONNECTION", "ONLY_EVENTING"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#eventing_enablement_type IntegrationConnectorsConnection#eventing_enablement_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#eventing_enablement_type IntegrationConnectorsConnection#eventing_enablement_type}
         '''
         result = self._values.get("eventing_enablement_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#id IntegrationConnectorsConnection#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#id IntegrationConnectorsConnection#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -3967,7 +3967,7 @@ class IntegrationConnectorsConnectionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#labels IntegrationConnectorsConnection#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#labels IntegrationConnectorsConnection#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3978,7 +3978,7 @@ class IntegrationConnectorsConnectionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     ) -> typing.Optional["IntegrationConnectorsConnectionLockConfig"]:
         '''lock_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#lock_config IntegrationConnectorsConnection#lock_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#lock_config IntegrationConnectorsConnection#lock_config}
         '''
         result = self._values.get("lock_config")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionLockConfig"], result)
@@ -3987,7 +3987,7 @@ class IntegrationConnectorsConnectionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def log_config(self) -> typing.Optional["IntegrationConnectorsConnectionLogConfig"]:
         '''log_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#log_config IntegrationConnectorsConnection#log_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#log_config IntegrationConnectorsConnection#log_config}
         '''
         result = self._values.get("log_config")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionLogConfig"], result)
@@ -3998,14 +3998,14 @@ class IntegrationConnectorsConnectionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     ) -> typing.Optional["IntegrationConnectorsConnectionNodeConfig"]:
         '''node_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#node_config IntegrationConnectorsConnection#node_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#node_config IntegrationConnectorsConnection#node_config}
         '''
         result = self._values.get("node_config")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionNodeConfig"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#project IntegrationConnectorsConnection#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#project IntegrationConnectorsConnection#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4013,7 +4013,7 @@ class IntegrationConnectorsConnectionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def service_account(self) -> typing.Optional[builtins.str]:
         '''Service account needed for runtime plane to access Google Cloud resources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#service_account IntegrationConnectorsConnection#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#service_account IntegrationConnectorsConnection#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4022,7 +4022,7 @@ class IntegrationConnectorsConnectionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def ssl_config(self) -> typing.Optional["IntegrationConnectorsConnectionSslConfig"]:
         '''ssl_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#ssl_config IntegrationConnectorsConnection#ssl_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#ssl_config IntegrationConnectorsConnection#ssl_config}
         '''
         result = self._values.get("ssl_config")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionSslConfig"], result)
@@ -4033,7 +4033,7 @@ class IntegrationConnectorsConnectionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Suspended indicates if a user has suspended a connection or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#suspended IntegrationConnectorsConnection#suspended}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#suspended IntegrationConnectorsConnection#suspended}
         '''
         result = self._values.get("suspended")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4042,7 +4042,7 @@ class IntegrationConnectorsConnectionConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def timeouts(self) -> typing.Optional["IntegrationConnectorsConnectionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#timeouts IntegrationConnectorsConnection#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#timeouts IntegrationConnectorsConnection#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionTimeouts"], result)
@@ -4083,12 +4083,12 @@ class IntegrationConnectorsConnectionConfigVariable:
         string_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key: Key for the configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
-        :param boolean_value: Boolean Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
-        :param encryption_key_value: encryption_key_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
-        :param integer_value: Integer Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
-        :param secret_value: secret_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
-        :param string_value: String Value of configVariabley. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
+        :param key: Key for the configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
+        :param boolean_value: Boolean Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
+        :param encryption_key_value: encryption_key_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
+        :param integer_value: Integer Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
+        :param secret_value: secret_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
+        :param string_value: String Value of configVariabley. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
         '''
         if isinstance(encryption_key_value, dict):
             encryption_key_value = IntegrationConnectorsConnectionConfigVariableEncryptionKeyValue(**encryption_key_value)
@@ -4120,7 +4120,7 @@ class IntegrationConnectorsConnectionConfigVariable:
     def key(self) -> builtins.str:
         '''Key for the configVariable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -4132,7 +4132,7 @@ class IntegrationConnectorsConnectionConfigVariable:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Boolean Value of configVariable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
         '''
         result = self._values.get("boolean_value")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4143,7 +4143,7 @@ class IntegrationConnectorsConnectionConfigVariable:
     ) -> typing.Optional["IntegrationConnectorsConnectionConfigVariableEncryptionKeyValue"]:
         '''encryption_key_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
         '''
         result = self._values.get("encryption_key_value")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionConfigVariableEncryptionKeyValue"], result)
@@ -4152,7 +4152,7 @@ class IntegrationConnectorsConnectionConfigVariable:
     def integer_value(self) -> typing.Optional[jsii.Number]:
         '''Integer Value of configVariable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
         '''
         result = self._values.get("integer_value")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4163,7 +4163,7 @@ class IntegrationConnectorsConnectionConfigVariable:
     ) -> typing.Optional["IntegrationConnectorsConnectionConfigVariableSecretValue"]:
         '''secret_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
         '''
         result = self._values.get("secret_value")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionConfigVariableSecretValue"], result)
@@ -4172,7 +4172,7 @@ class IntegrationConnectorsConnectionConfigVariable:
     def string_value(self) -> typing.Optional[builtins.str]:
         '''String Value of configVariabley.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
         '''
         result = self._values.get("string_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4202,8 +4202,8 @@ class IntegrationConnectorsConnectionConfigVariableEncryptionKeyValue:
         kms_key_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
-        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
+        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2a5ed5b76d3a450d63344b6bfa58ce7f917d3e183c4869a707db7dc7d203410f)
@@ -4219,7 +4219,7 @@ class IntegrationConnectorsConnectionConfigVariableEncryptionKeyValue:
     def type(self) -> builtins.str:
         '''Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -4233,7 +4233,7 @@ class IntegrationConnectorsConnectionConfigVariableEncryptionKeyValue:
         expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*.
         Will be empty string if google managed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -4455,8 +4455,8 @@ class IntegrationConnectorsConnectionConfigVariableOutputReference(
         kms_key_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
-        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
+        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         value = IntegrationConnectorsConnectionConfigVariableEncryptionKeyValue(
             type=type, kms_key_name=kms_key_name
@@ -4467,7 +4467,7 @@ class IntegrationConnectorsConnectionConfigVariableOutputReference(
     @jsii.member(jsii_name="putSecretValue")
     def put_secret_value(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         value = IntegrationConnectorsConnectionConfigVariableSecretValue(
             secret_version=secret_version
@@ -4622,7 +4622,7 @@ class IntegrationConnectorsConnectionConfigVariableOutputReference(
 class IntegrationConnectorsConnectionConfigVariableSecretValue:
     def __init__(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d5f11312db5a590b8dabaac8dd3ebfd45f2da5667666f5fecb8b5773c4aa5e9f)
@@ -4635,7 +4635,7 @@ class IntegrationConnectorsConnectionConfigVariableSecretValue:
     def secret_version(self) -> builtins.str:
         '''Secret version of Secret Value for Config variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         result = self._values.get("secret_version")
         assert result is not None, "Required property 'secret_version' is missing"
@@ -4867,8 +4867,8 @@ class IntegrationConnectorsConnectionDestinationConfig:
         destination: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["IntegrationConnectorsConnectionDestinationConfigDestination", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param key: The key is the destination identifier that is supported by the Connector. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#destination IntegrationConnectorsConnection#destination}
+        :param key: The key is the destination identifier that is supported by the Connector. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#destination IntegrationConnectorsConnection#destination}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ff9859246bb637bdafe4157ece9214258e9a348467e9f901b38dee2d90225a0)
@@ -4884,7 +4884,7 @@ class IntegrationConnectorsConnectionDestinationConfig:
     def key(self) -> builtins.str:
         '''The key is the destination identifier that is supported by the Connector.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -4896,7 +4896,7 @@ class IntegrationConnectorsConnectionDestinationConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationConnectorsConnectionDestinationConfigDestination"]]]:
         '''destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#destination IntegrationConnectorsConnection#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#destination IntegrationConnectorsConnection#destination}
         '''
         result = self._values.get("destination")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationConnectorsConnectionDestinationConfigDestination"]]], result)
@@ -4931,9 +4931,9 @@ class IntegrationConnectorsConnectionDestinationConfigDestination:
         service_attachment: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host: For publicly routable host. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#host IntegrationConnectorsConnection#host}
-        :param port: The port is the target port number that is accepted by the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#port IntegrationConnectorsConnection#port}
-        :param service_attachment: PSC service attachments. Format: projects/* /regions/* /serviceAttachments/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#service_attachment IntegrationConnectorsConnection#service_attachment} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param host: For publicly routable host. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#host IntegrationConnectorsConnection#host}
+        :param port: The port is the target port number that is accepted by the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#port IntegrationConnectorsConnection#port}
+        :param service_attachment: PSC service attachments. Format: projects/* /regions/* /serviceAttachments/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#service_attachment IntegrationConnectorsConnection#service_attachment} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__82921b34946b1f9a697b136da9beb4960df08c8efcccdf3b507a1332ff4f36e2)
@@ -4952,7 +4952,7 @@ class IntegrationConnectorsConnectionDestinationConfigDestination:
     def host(self) -> typing.Optional[builtins.str]:
         '''For publicly routable host.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#host IntegrationConnectorsConnection#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#host IntegrationConnectorsConnection#host}
         '''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4961,7 +4961,7 @@ class IntegrationConnectorsConnectionDestinationConfigDestination:
     def port(self) -> typing.Optional[jsii.Number]:
         '''The port is the target port number that is accepted by the destination.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#port IntegrationConnectorsConnection#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#port IntegrationConnectorsConnection#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4970,7 +4970,7 @@ class IntegrationConnectorsConnectionDestinationConfigDestination:
     def service_attachment(self) -> typing.Optional[builtins.str]:
         '''PSC service attachments. Format: projects/* /regions/* /serviceAttachments/*.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#service_attachment IntegrationConnectorsConnection#service_attachment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#service_attachment IntegrationConnectorsConnection#service_attachment}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -5394,10 +5394,10 @@ class IntegrationConnectorsConnectionEventingConfig:
         enrichment_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param registration_destination_config: registration_destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#registration_destination_config IntegrationConnectorsConnection#registration_destination_config}
-        :param additional_variable: additional_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
-        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_config IntegrationConnectorsConnection#auth_config}
-        :param enrichment_enabled: Enrichment Enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#enrichment_enabled IntegrationConnectorsConnection#enrichment_enabled}
+        :param registration_destination_config: registration_destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#registration_destination_config IntegrationConnectorsConnection#registration_destination_config}
+        :param additional_variable: additional_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
+        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_config IntegrationConnectorsConnection#auth_config}
+        :param enrichment_enabled: Enrichment Enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#enrichment_enabled IntegrationConnectorsConnection#enrichment_enabled}
         '''
         if isinstance(registration_destination_config, dict):
             registration_destination_config = IntegrationConnectorsConnectionEventingConfigRegistrationDestinationConfig(**registration_destination_config)
@@ -5425,7 +5425,7 @@ class IntegrationConnectorsConnectionEventingConfig:
     ) -> "IntegrationConnectorsConnectionEventingConfigRegistrationDestinationConfig":
         '''registration_destination_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#registration_destination_config IntegrationConnectorsConnection#registration_destination_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#registration_destination_config IntegrationConnectorsConnection#registration_destination_config}
         '''
         result = self._values.get("registration_destination_config")
         assert result is not None, "Required property 'registration_destination_config' is missing"
@@ -5437,7 +5437,7 @@ class IntegrationConnectorsConnectionEventingConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationConnectorsConnectionEventingConfigAdditionalVariable"]]]:
         '''additional_variable block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
         '''
         result = self._values.get("additional_variable")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationConnectorsConnectionEventingConfigAdditionalVariable"]]], result)
@@ -5448,7 +5448,7 @@ class IntegrationConnectorsConnectionEventingConfig:
     ) -> typing.Optional["IntegrationConnectorsConnectionEventingConfigAuthConfig"]:
         '''auth_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_config IntegrationConnectorsConnection#auth_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_config IntegrationConnectorsConnection#auth_config}
         '''
         result = self._values.get("auth_config")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionEventingConfigAuthConfig"], result)
@@ -5459,7 +5459,7 @@ class IntegrationConnectorsConnectionEventingConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enrichment Enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#enrichment_enabled IntegrationConnectorsConnection#enrichment_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#enrichment_enabled IntegrationConnectorsConnection#enrichment_enabled}
         '''
         result = self._values.get("enrichment_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5500,12 +5500,12 @@ class IntegrationConnectorsConnectionEventingConfigAdditionalVariable:
         string_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key: Key for the configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
-        :param boolean_value: Boolean Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
-        :param encryption_key_value: encryption_key_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
-        :param integer_value: Integer Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
-        :param secret_value: secret_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
-        :param string_value: String Value of configVariabley. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
+        :param key: Key for the configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
+        :param boolean_value: Boolean Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
+        :param encryption_key_value: encryption_key_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
+        :param integer_value: Integer Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
+        :param secret_value: secret_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
+        :param string_value: String Value of configVariabley. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
         '''
         if isinstance(encryption_key_value, dict):
             encryption_key_value = IntegrationConnectorsConnectionEventingConfigAdditionalVariableEncryptionKeyValue(**encryption_key_value)
@@ -5537,7 +5537,7 @@ class IntegrationConnectorsConnectionEventingConfigAdditionalVariable:
     def key(self) -> builtins.str:
         '''Key for the configVariable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -5549,7 +5549,7 @@ class IntegrationConnectorsConnectionEventingConfigAdditionalVariable:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Boolean Value of configVariable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
         '''
         result = self._values.get("boolean_value")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5560,7 +5560,7 @@ class IntegrationConnectorsConnectionEventingConfigAdditionalVariable:
     ) -> typing.Optional["IntegrationConnectorsConnectionEventingConfigAdditionalVariableEncryptionKeyValue"]:
         '''encryption_key_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
         '''
         result = self._values.get("encryption_key_value")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionEventingConfigAdditionalVariableEncryptionKeyValue"], result)
@@ -5569,7 +5569,7 @@ class IntegrationConnectorsConnectionEventingConfigAdditionalVariable:
     def integer_value(self) -> typing.Optional[jsii.Number]:
         '''Integer Value of configVariable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
         '''
         result = self._values.get("integer_value")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5580,7 +5580,7 @@ class IntegrationConnectorsConnectionEventingConfigAdditionalVariable:
     ) -> typing.Optional["IntegrationConnectorsConnectionEventingConfigAdditionalVariableSecretValue"]:
         '''secret_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
         '''
         result = self._values.get("secret_value")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionEventingConfigAdditionalVariableSecretValue"], result)
@@ -5589,7 +5589,7 @@ class IntegrationConnectorsConnectionEventingConfigAdditionalVariable:
     def string_value(self) -> typing.Optional[builtins.str]:
         '''String Value of configVariabley.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
         '''
         result = self._values.get("string_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5619,8 +5619,8 @@ class IntegrationConnectorsConnectionEventingConfigAdditionalVariableEncryptionK
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
+        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d7578fb67081ff8bf1dd9db6efb13b81e4dd0da1292f88852943e0245a7b5f95)
@@ -5640,7 +5640,7 @@ class IntegrationConnectorsConnectionEventingConfigAdditionalVariableEncryptionK
         expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*.
         Will be empty string if google managed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -5651,7 +5651,7 @@ class IntegrationConnectorsConnectionEventingConfigAdditionalVariableEncryptionK
     def type(self) -> typing.Optional[builtins.str]:
         '''Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5875,8 +5875,8 @@ class IntegrationConnectorsConnectionEventingConfigAdditionalVariableOutputRefer
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
+        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
         '''
         value = IntegrationConnectorsConnectionEventingConfigAdditionalVariableEncryptionKeyValue(
             kms_key_name=kms_key_name, type=type
@@ -5887,7 +5887,7 @@ class IntegrationConnectorsConnectionEventingConfigAdditionalVariableOutputRefer
     @jsii.member(jsii_name="putSecretValue")
     def put_secret_value(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         value = IntegrationConnectorsConnectionEventingConfigAdditionalVariableSecretValue(
             secret_version=secret_version
@@ -6042,7 +6042,7 @@ class IntegrationConnectorsConnectionEventingConfigAdditionalVariableOutputRefer
 class IntegrationConnectorsConnectionEventingConfigAdditionalVariableSecretValue:
     def __init__(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b8847f1e0b52123381f2d8b12b87181c09c24e7ea56a845f960cdf60c77cd42b)
@@ -6055,7 +6055,7 @@ class IntegrationConnectorsConnectionEventingConfigAdditionalVariableSecretValue
     def secret_version(self) -> builtins.str:
         '''Secret version of Secret Value for Config variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         result = self._values.get("secret_version")
         assert result is not None, "Required property 'secret_version' is missing"
@@ -6148,10 +6148,10 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfig:
         auth_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_type: authType of the Connection Possible values: ["USER_PASSWORD"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_type IntegrationConnectorsConnection#auth_type}
-        :param user_password: user_password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#user_password IntegrationConnectorsConnection#user_password}
-        :param additional_variable: additional_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
-        :param auth_key: The type of authentication configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_key IntegrationConnectorsConnection#auth_key}
+        :param auth_type: authType of the Connection Possible values: ["USER_PASSWORD"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_type IntegrationConnectorsConnection#auth_type}
+        :param user_password: user_password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#user_password IntegrationConnectorsConnection#user_password}
+        :param additional_variable: additional_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
+        :param auth_key: The type of authentication configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_key IntegrationConnectorsConnection#auth_key}
         '''
         if isinstance(user_password, dict):
             user_password = IntegrationConnectorsConnectionEventingConfigAuthConfigUserPassword(**user_password)
@@ -6174,7 +6174,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfig:
     def auth_type(self) -> builtins.str:
         '''authType of the Connection Possible values: ["USER_PASSWORD"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_type IntegrationConnectorsConnection#auth_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_type IntegrationConnectorsConnection#auth_type}
         '''
         result = self._values.get("auth_type")
         assert result is not None, "Required property 'auth_type' is missing"
@@ -6186,7 +6186,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfig:
     ) -> "IntegrationConnectorsConnectionEventingConfigAuthConfigUserPassword":
         '''user_password block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#user_password IntegrationConnectorsConnection#user_password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#user_password IntegrationConnectorsConnection#user_password}
         '''
         result = self._values.get("user_password")
         assert result is not None, "Required property 'user_password' is missing"
@@ -6198,7 +6198,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariable"]]]:
         '''additional_variable block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
         '''
         result = self._values.get("additional_variable")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariable"]]], result)
@@ -6207,7 +6207,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfig:
     def auth_key(self) -> typing.Optional[builtins.str]:
         '''The type of authentication configured.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_key IntegrationConnectorsConnection#auth_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_key IntegrationConnectorsConnection#auth_key}
         '''
         result = self._values.get("auth_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6248,12 +6248,12 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariable:
         string_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key: Key for the configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
-        :param boolean_value: Boolean Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
-        :param encryption_key_value: encryption_key_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
-        :param integer_value: Integer Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
-        :param secret_value: secret_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
-        :param string_value: String Value of configVariabley. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
+        :param key: Key for the configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
+        :param boolean_value: Boolean Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
+        :param encryption_key_value: encryption_key_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
+        :param integer_value: Integer Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
+        :param secret_value: secret_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
+        :param string_value: String Value of configVariabley. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
         '''
         if isinstance(encryption_key_value, dict):
             encryption_key_value = IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariableEncryptionKeyValue(**encryption_key_value)
@@ -6285,7 +6285,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariable:
     def key(self) -> builtins.str:
         '''Key for the configVariable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -6297,7 +6297,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariable:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Boolean Value of configVariable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
         '''
         result = self._values.get("boolean_value")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6308,7 +6308,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariable:
     ) -> typing.Optional["IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariableEncryptionKeyValue"]:
         '''encryption_key_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
         '''
         result = self._values.get("encryption_key_value")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariableEncryptionKeyValue"], result)
@@ -6317,7 +6317,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariable:
     def integer_value(self) -> typing.Optional[jsii.Number]:
         '''Integer Value of configVariable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
         '''
         result = self._values.get("integer_value")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6328,7 +6328,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariable:
     ) -> typing.Optional["IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariableSecretValue"]:
         '''secret_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
         '''
         result = self._values.get("secret_value")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariableSecretValue"], result)
@@ -6337,7 +6337,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariable:
     def string_value(self) -> typing.Optional[builtins.str]:
         '''String Value of configVariabley.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
         '''
         result = self._values.get("string_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6367,8 +6367,8 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariableE
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
+        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1d71816293fb20a913dfa3b0bfa377b5e900f895d28f0e08fc35a789175d67b2)
@@ -6388,7 +6388,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariableE
         expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*.
         Will be empty string if google managed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -6399,7 +6399,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariableE
     def type(self) -> typing.Optional[builtins.str]:
         '''Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6623,8 +6623,8 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariableO
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
+        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
         '''
         value = IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariableEncryptionKeyValue(
             kms_key_name=kms_key_name, type=type
@@ -6635,7 +6635,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariableO
     @jsii.member(jsii_name="putSecretValue")
     def put_secret_value(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         value = IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariableSecretValue(
             secret_version=secret_version
@@ -6790,7 +6790,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariableO
 class IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariableSecretValue:
     def __init__(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0136c4a5abba67772b4b0ec120e69cd16fb4a9e70409b433a2330770447b5b25)
@@ -6803,7 +6803,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigAdditionalVariableS
     def secret_version(self) -> builtins.str:
         '''Secret version of Secret Value for Config variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         result = self._values.get("secret_version")
         assert result is not None, "Required property 'secret_version' is missing"
@@ -6917,8 +6917,8 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigOutputReference(
         username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param password: password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#password IntegrationConnectorsConnection#password}
-        :param username: Username for Authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#username IntegrationConnectorsConnection#username}
+        :param password: password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#password IntegrationConnectorsConnection#password}
+        :param username: Username for Authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#username IntegrationConnectorsConnection#username}
         '''
         value = IntegrationConnectorsConnectionEventingConfigAuthConfigUserPassword(
             password=password, username=username
@@ -7027,8 +7027,8 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigUserPassword:
         username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param password: password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#password IntegrationConnectorsConnection#password}
-        :param username: Username for Authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#username IntegrationConnectorsConnection#username}
+        :param password: password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#password IntegrationConnectorsConnection#password}
+        :param username: Username for Authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#username IntegrationConnectorsConnection#username}
         '''
         if isinstance(password, dict):
             password = IntegrationConnectorsConnectionEventingConfigAuthConfigUserPasswordPassword(**password)
@@ -7048,7 +7048,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigUserPassword:
     ) -> typing.Optional["IntegrationConnectorsConnectionEventingConfigAuthConfigUserPasswordPassword"]:
         '''password block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#password IntegrationConnectorsConnection#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#password IntegrationConnectorsConnection#password}
         '''
         result = self._values.get("password")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionEventingConfigAuthConfigUserPasswordPassword"], result)
@@ -7057,7 +7057,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigUserPassword:
     def username(self) -> typing.Optional[builtins.str]:
         '''Username for Authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#username IntegrationConnectorsConnection#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#username IntegrationConnectorsConnection#username}
         '''
         result = self._values.get("username")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7097,7 +7097,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigUserPasswordOutputR
     @jsii.member(jsii_name="putPassword")
     def put_password(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         value = IntegrationConnectorsConnectionEventingConfigAuthConfigUserPasswordPassword(
             secret_version=secret_version
@@ -7170,7 +7170,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigUserPasswordOutputR
 class IntegrationConnectorsConnectionEventingConfigAuthConfigUserPasswordPassword:
     def __init__(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param secret_version: The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d53c8e0efe597dd6fdf00d8ce1e64202012a3a1738796e77ddd7925c682e2290)
@@ -7183,7 +7183,7 @@ class IntegrationConnectorsConnectionEventingConfigAuthConfigUserPasswordPasswor
     def secret_version(self) -> builtins.str:
         '''The resource name of the secret version in the format, format as: projects/* /secrets/* /versions/*.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -7301,10 +7301,10 @@ class IntegrationConnectorsConnectionEventingConfigOutputReference(
         auth_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_type: authType of the Connection Possible values: ["USER_PASSWORD"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_type IntegrationConnectorsConnection#auth_type}
-        :param user_password: user_password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#user_password IntegrationConnectorsConnection#user_password}
-        :param additional_variable: additional_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
-        :param auth_key: The type of authentication configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#auth_key IntegrationConnectorsConnection#auth_key}
+        :param auth_type: authType of the Connection Possible values: ["USER_PASSWORD"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_type IntegrationConnectorsConnection#auth_type}
+        :param user_password: user_password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#user_password IntegrationConnectorsConnection#user_password}
+        :param additional_variable: additional_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
+        :param auth_key: The type of authentication configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#auth_key IntegrationConnectorsConnection#auth_key}
         '''
         value = IntegrationConnectorsConnectionEventingConfigAuthConfig(
             auth_type=auth_type,
@@ -7323,8 +7323,8 @@ class IntegrationConnectorsConnectionEventingConfigOutputReference(
         key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#destination IntegrationConnectorsConnection#destination}
-        :param key: Key for the connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#destination IntegrationConnectorsConnection#destination}
+        :param key: Key for the connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
         '''
         value = IntegrationConnectorsConnectionEventingConfigRegistrationDestinationConfig(
             destination=destination, key=key
@@ -7441,8 +7441,8 @@ class IntegrationConnectorsConnectionEventingConfigRegistrationDestinationConfig
         key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#destination IntegrationConnectorsConnection#destination}
-        :param key: Key for the connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#destination IntegrationConnectorsConnection#destination}
+        :param key: Key for the connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7949c521601a7b718cb39770c3a518ddf3fed849c1f0a5085c5dbf474f8f530d)
@@ -7460,7 +7460,7 @@ class IntegrationConnectorsConnectionEventingConfigRegistrationDestinationConfig
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationConnectorsConnectionEventingConfigRegistrationDestinationConfigDestination"]]]:
         '''destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#destination IntegrationConnectorsConnection#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#destination IntegrationConnectorsConnection#destination}
         '''
         result = self._values.get("destination")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationConnectorsConnectionEventingConfigRegistrationDestinationConfigDestination"]]], result)
@@ -7469,7 +7469,7 @@ class IntegrationConnectorsConnectionEventingConfigRegistrationDestinationConfig
     def key(self) -> typing.Optional[builtins.str]:
         '''Key for the connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
         '''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7504,9 +7504,9 @@ class IntegrationConnectorsConnectionEventingConfigRegistrationDestinationConfig
         service_attachment: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host: Host. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#host IntegrationConnectorsConnection#host}
-        :param port: port number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#port IntegrationConnectorsConnection#port}
-        :param service_attachment: Service Attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#service_attachment IntegrationConnectorsConnection#service_attachment}
+        :param host: Host. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#host IntegrationConnectorsConnection#host}
+        :param port: port number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#port IntegrationConnectorsConnection#port}
+        :param service_attachment: Service Attachment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#service_attachment IntegrationConnectorsConnection#service_attachment}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__28ceffd4ac6f38da16b6b92378dee9f5195b866042ceb550b6fd8aff3f6ac01c)
@@ -7525,7 +7525,7 @@ class IntegrationConnectorsConnectionEventingConfigRegistrationDestinationConfig
     def host(self) -> typing.Optional[builtins.str]:
         '''Host.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#host IntegrationConnectorsConnection#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#host IntegrationConnectorsConnection#host}
         '''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7534,7 +7534,7 @@ class IntegrationConnectorsConnectionEventingConfigRegistrationDestinationConfig
     def port(self) -> typing.Optional[jsii.Number]:
         '''port number.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#port IntegrationConnectorsConnection#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#port IntegrationConnectorsConnection#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7543,7 +7543,7 @@ class IntegrationConnectorsConnectionEventingConfigRegistrationDestinationConfig
     def service_attachment(self) -> typing.Optional[builtins.str]:
         '''Service Attachment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#service_attachment IntegrationConnectorsConnection#service_attachment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#service_attachment IntegrationConnectorsConnection#service_attachment}
         '''
         result = self._values.get("service_attachment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8165,8 +8165,8 @@ class IntegrationConnectorsConnectionLockConfig:
         reason: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param locked: Indicates whether or not the connection is locked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#locked IntegrationConnectorsConnection#locked}
-        :param reason: Describes why a connection is locked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#reason IntegrationConnectorsConnection#reason}
+        :param locked: Indicates whether or not the connection is locked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#locked IntegrationConnectorsConnection#locked}
+        :param reason: Describes why a connection is locked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#reason IntegrationConnectorsConnection#reason}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8ea2d467459f46d826ea9713d3f1d36f0265d7cceb11dc7a55996187f0f367da)
@@ -8182,7 +8182,7 @@ class IntegrationConnectorsConnectionLockConfig:
     def locked(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Indicates whether or not the connection is locked.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#locked IntegrationConnectorsConnection#locked}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#locked IntegrationConnectorsConnection#locked}
         '''
         result = self._values.get("locked")
         assert result is not None, "Required property 'locked' is missing"
@@ -8192,7 +8192,7 @@ class IntegrationConnectorsConnectionLockConfig:
     def reason(self) -> typing.Optional[builtins.str]:
         '''Describes why a connection is locked.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#reason IntegrationConnectorsConnection#reason}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#reason IntegrationConnectorsConnection#reason}
         '''
         result = self._values.get("reason")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8302,7 +8302,7 @@ class IntegrationConnectorsConnectionLogConfig:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Enabled represents whether logging is enabled or not for a connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#enabled IntegrationConnectorsConnection#enabled}
+        :param enabled: Enabled represents whether logging is enabled or not for a connection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#enabled IntegrationConnectorsConnection#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__88a109a339fe595cada2d515c57d9fba5c7d0b6a68831e977adba0cb08a2bd6e)
@@ -8315,7 +8315,7 @@ class IntegrationConnectorsConnectionLogConfig:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Enabled represents whether logging is enabled or not for a connection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#enabled IntegrationConnectorsConnection#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#enabled IntegrationConnectorsConnection#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -8406,8 +8406,8 @@ class IntegrationConnectorsConnectionNodeConfig:
         min_node_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_node_count: Minimum number of nodes in the runtime nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#max_node_count IntegrationConnectorsConnection#max_node_count}
-        :param min_node_count: Minimum number of nodes in the runtime nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#min_node_count IntegrationConnectorsConnection#min_node_count}
+        :param max_node_count: Minimum number of nodes in the runtime nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#max_node_count IntegrationConnectorsConnection#max_node_count}
+        :param min_node_count: Minimum number of nodes in the runtime nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#min_node_count IntegrationConnectorsConnection#min_node_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2338ea037eecca7605513daa561de7fa28822f8ec195ed86b122e8bed1007737)
@@ -8423,7 +8423,7 @@ class IntegrationConnectorsConnectionNodeConfig:
     def max_node_count(self) -> typing.Optional[jsii.Number]:
         '''Minimum number of nodes in the runtime nodes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#max_node_count IntegrationConnectorsConnection#max_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#max_node_count IntegrationConnectorsConnection#max_node_count}
         '''
         result = self._values.get("max_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8432,7 +8432,7 @@ class IntegrationConnectorsConnectionNodeConfig:
     def min_node_count(self) -> typing.Optional[jsii.Number]:
         '''Minimum number of nodes in the runtime nodes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#min_node_count IntegrationConnectorsConnection#min_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#min_node_count IntegrationConnectorsConnection#min_node_count}
         '''
         result = self._values.get("min_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8561,16 +8561,16 @@ class IntegrationConnectorsConnectionSslConfig:
         use_ssl: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param type: Enum for controlling the SSL Type (TLS/MTLS) Possible values: ["TLS", "MTLS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
-        :param additional_variable: additional_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
-        :param client_certificate: client_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_certificate IntegrationConnectorsConnection#client_certificate}
-        :param client_cert_type: Type of Client Cert (PEM/JKS/.. etc.) Possible values: ["PEM"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_cert_type IntegrationConnectorsConnection#client_cert_type}
-        :param client_private_key: client_private_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_private_key IntegrationConnectorsConnection#client_private_key}
-        :param client_private_key_pass: client_private_key_pass block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_private_key_pass IntegrationConnectorsConnection#client_private_key_pass}
-        :param private_server_certificate: private_server_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#private_server_certificate IntegrationConnectorsConnection#private_server_certificate}
-        :param server_cert_type: Type of Server Cert (PEM/JKS/.. etc.) Possible values: ["PEM"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#server_cert_type IntegrationConnectorsConnection#server_cert_type}
-        :param trust_model: Enum for Trust Model Possible values: ["PUBLIC", "PRIVATE", "INSECURE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#trust_model IntegrationConnectorsConnection#trust_model}
-        :param use_ssl: Bool for enabling SSL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#use_ssl IntegrationConnectorsConnection#use_ssl}
+        :param type: Enum for controlling the SSL Type (TLS/MTLS) Possible values: ["TLS", "MTLS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
+        :param additional_variable: additional_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
+        :param client_certificate: client_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_certificate IntegrationConnectorsConnection#client_certificate}
+        :param client_cert_type: Type of Client Cert (PEM/JKS/.. etc.) Possible values: ["PEM"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_cert_type IntegrationConnectorsConnection#client_cert_type}
+        :param client_private_key: client_private_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_private_key IntegrationConnectorsConnection#client_private_key}
+        :param client_private_key_pass: client_private_key_pass block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_private_key_pass IntegrationConnectorsConnection#client_private_key_pass}
+        :param private_server_certificate: private_server_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#private_server_certificate IntegrationConnectorsConnection#private_server_certificate}
+        :param server_cert_type: Type of Server Cert (PEM/JKS/.. etc.) Possible values: ["PEM"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#server_cert_type IntegrationConnectorsConnection#server_cert_type}
+        :param trust_model: Enum for Trust Model Possible values: ["PUBLIC", "PRIVATE", "INSECURE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#trust_model IntegrationConnectorsConnection#trust_model}
+        :param use_ssl: Bool for enabling SSL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#use_ssl IntegrationConnectorsConnection#use_ssl}
         '''
         if isinstance(client_certificate, dict):
             client_certificate = IntegrationConnectorsConnectionSslConfigClientCertificate(**client_certificate)
@@ -8618,7 +8618,7 @@ class IntegrationConnectorsConnectionSslConfig:
     def type(self) -> builtins.str:
         '''Enum for controlling the SSL Type (TLS/MTLS) Possible values: ["TLS", "MTLS"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -8630,7 +8630,7 @@ class IntegrationConnectorsConnectionSslConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationConnectorsConnectionSslConfigAdditionalVariable"]]]:
         '''additional_variable block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#additional_variable IntegrationConnectorsConnection#additional_variable}
         '''
         result = self._values.get("additional_variable")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationConnectorsConnectionSslConfigAdditionalVariable"]]], result)
@@ -8641,7 +8641,7 @@ class IntegrationConnectorsConnectionSslConfig:
     ) -> typing.Optional["IntegrationConnectorsConnectionSslConfigClientCertificate"]:
         '''client_certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_certificate IntegrationConnectorsConnection#client_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_certificate IntegrationConnectorsConnection#client_certificate}
         '''
         result = self._values.get("client_certificate")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionSslConfigClientCertificate"], result)
@@ -8650,7 +8650,7 @@ class IntegrationConnectorsConnectionSslConfig:
     def client_cert_type(self) -> typing.Optional[builtins.str]:
         '''Type of Client Cert (PEM/JKS/.. etc.) Possible values: ["PEM"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_cert_type IntegrationConnectorsConnection#client_cert_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_cert_type IntegrationConnectorsConnection#client_cert_type}
         '''
         result = self._values.get("client_cert_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8661,7 +8661,7 @@ class IntegrationConnectorsConnectionSslConfig:
     ) -> typing.Optional["IntegrationConnectorsConnectionSslConfigClientPrivateKey"]:
         '''client_private_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_private_key IntegrationConnectorsConnection#client_private_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_private_key IntegrationConnectorsConnection#client_private_key}
         '''
         result = self._values.get("client_private_key")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionSslConfigClientPrivateKey"], result)
@@ -8672,7 +8672,7 @@ class IntegrationConnectorsConnectionSslConfig:
     ) -> typing.Optional["IntegrationConnectorsConnectionSslConfigClientPrivateKeyPass"]:
         '''client_private_key_pass block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#client_private_key_pass IntegrationConnectorsConnection#client_private_key_pass}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#client_private_key_pass IntegrationConnectorsConnection#client_private_key_pass}
         '''
         result = self._values.get("client_private_key_pass")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionSslConfigClientPrivateKeyPass"], result)
@@ -8683,7 +8683,7 @@ class IntegrationConnectorsConnectionSslConfig:
     ) -> typing.Optional["IntegrationConnectorsConnectionSslConfigPrivateServerCertificate"]:
         '''private_server_certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#private_server_certificate IntegrationConnectorsConnection#private_server_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#private_server_certificate IntegrationConnectorsConnection#private_server_certificate}
         '''
         result = self._values.get("private_server_certificate")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionSslConfigPrivateServerCertificate"], result)
@@ -8692,7 +8692,7 @@ class IntegrationConnectorsConnectionSslConfig:
     def server_cert_type(self) -> typing.Optional[builtins.str]:
         '''Type of Server Cert (PEM/JKS/.. etc.) Possible values: ["PEM"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#server_cert_type IntegrationConnectorsConnection#server_cert_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#server_cert_type IntegrationConnectorsConnection#server_cert_type}
         '''
         result = self._values.get("server_cert_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8701,7 +8701,7 @@ class IntegrationConnectorsConnectionSslConfig:
     def trust_model(self) -> typing.Optional[builtins.str]:
         '''Enum for Trust Model Possible values: ["PUBLIC", "PRIVATE", "INSECURE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#trust_model IntegrationConnectorsConnection#trust_model}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#trust_model IntegrationConnectorsConnection#trust_model}
         '''
         result = self._values.get("trust_model")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8712,7 +8712,7 @@ class IntegrationConnectorsConnectionSslConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Bool for enabling SSL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#use_ssl IntegrationConnectorsConnection#use_ssl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#use_ssl IntegrationConnectorsConnection#use_ssl}
         '''
         result = self._values.get("use_ssl")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8753,12 +8753,12 @@ class IntegrationConnectorsConnectionSslConfigAdditionalVariable:
         string_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key: Key for the configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
-        :param boolean_value: Boolean Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
-        :param encryption_key_value: encryption_key_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
-        :param integer_value: Integer Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
-        :param secret_value: secret_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
-        :param string_value: String Value of configVariabley. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
+        :param key: Key for the configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
+        :param boolean_value: Boolean Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
+        :param encryption_key_value: encryption_key_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
+        :param integer_value: Integer Value of configVariable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
+        :param secret_value: secret_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
+        :param string_value: String Value of configVariabley. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
         '''
         if isinstance(encryption_key_value, dict):
             encryption_key_value = IntegrationConnectorsConnectionSslConfigAdditionalVariableEncryptionKeyValue(**encryption_key_value)
@@ -8790,7 +8790,7 @@ class IntegrationConnectorsConnectionSslConfigAdditionalVariable:
     def key(self) -> builtins.str:
         '''Key for the configVariable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#key IntegrationConnectorsConnection#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -8802,7 +8802,7 @@ class IntegrationConnectorsConnectionSslConfigAdditionalVariable:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Boolean Value of configVariable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#boolean_value IntegrationConnectorsConnection#boolean_value}
         '''
         result = self._values.get("boolean_value")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8813,7 +8813,7 @@ class IntegrationConnectorsConnectionSslConfigAdditionalVariable:
     ) -> typing.Optional["IntegrationConnectorsConnectionSslConfigAdditionalVariableEncryptionKeyValue"]:
         '''encryption_key_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#encryption_key_value IntegrationConnectorsConnection#encryption_key_value}
         '''
         result = self._values.get("encryption_key_value")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionSslConfigAdditionalVariableEncryptionKeyValue"], result)
@@ -8822,7 +8822,7 @@ class IntegrationConnectorsConnectionSslConfigAdditionalVariable:
     def integer_value(self) -> typing.Optional[jsii.Number]:
         '''Integer Value of configVariable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#integer_value IntegrationConnectorsConnection#integer_value}
         '''
         result = self._values.get("integer_value")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8833,7 +8833,7 @@ class IntegrationConnectorsConnectionSslConfigAdditionalVariable:
     ) -> typing.Optional["IntegrationConnectorsConnectionSslConfigAdditionalVariableSecretValue"]:
         '''secret_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_value IntegrationConnectorsConnection#secret_value}
         '''
         result = self._values.get("secret_value")
         return typing.cast(typing.Optional["IntegrationConnectorsConnectionSslConfigAdditionalVariableSecretValue"], result)
@@ -8842,7 +8842,7 @@ class IntegrationConnectorsConnectionSslConfigAdditionalVariable:
     def string_value(self) -> typing.Optional[builtins.str]:
         '''String Value of configVariabley.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#string_value IntegrationConnectorsConnection#string_value}
         '''
         result = self._values.get("string_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8872,8 +8872,8 @@ class IntegrationConnectorsConnectionSslConfigAdditionalVariableEncryptionKeyVal
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
+        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__93216645811c53ea7f047086f8dfcaa9e6cedfc9ca2c8b26f609bd79e7ec4092)
@@ -8893,7 +8893,7 @@ class IntegrationConnectorsConnectionSslConfigAdditionalVariableEncryptionKeyVal
         expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*.
         Will be empty string if google managed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -8904,7 +8904,7 @@ class IntegrationConnectorsConnectionSslConfigAdditionalVariableEncryptionKeyVal
     def type(self) -> typing.Optional[builtins.str]:
         '''Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9128,8 +9128,8 @@ class IntegrationConnectorsConnectionSslConfigAdditionalVariableOutputReference(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
+        :param kms_key_name: The [KMS key name] with which the content of the Operation is encrypted. The expected format: projects/* /locations/* /keyRings/* /cryptoKeys/*. Will be empty string if google managed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#kms_key_name IntegrationConnectorsConnection#kms_key_name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param type: Type of Encryption Key Possible values: ["GOOGLE_MANAGED", "CUSTOMER_MANAGED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#type IntegrationConnectorsConnection#type}
         '''
         value = IntegrationConnectorsConnectionSslConfigAdditionalVariableEncryptionKeyValue(
             kms_key_name=kms_key_name, type=type
@@ -9140,7 +9140,7 @@ class IntegrationConnectorsConnectionSslConfigAdditionalVariableOutputReference(
     @jsii.member(jsii_name="putSecretValue")
     def put_secret_value(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         value = IntegrationConnectorsConnectionSslConfigAdditionalVariableSecretValue(
             secret_version=secret_version
@@ -9295,7 +9295,7 @@ class IntegrationConnectorsConnectionSslConfigAdditionalVariableOutputReference(
 class IntegrationConnectorsConnectionSslConfigAdditionalVariableSecretValue:
     def __init__(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a098e37405933a001829f1b171e9d9c1d048ccc594e0845fe38e2a9e2a9155a)
@@ -9308,7 +9308,7 @@ class IntegrationConnectorsConnectionSslConfigAdditionalVariableSecretValue:
     def secret_version(self) -> builtins.str:
         '''Secret version of Secret Value for Config variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         result = self._values.get("secret_version")
         assert result is not None, "Required property 'secret_version' is missing"
@@ -9389,7 +9389,7 @@ class IntegrationConnectorsConnectionSslConfigAdditionalVariableSecretValueOutpu
 class IntegrationConnectorsConnectionSslConfigClientCertificate:
     def __init__(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ebda8cc556302d5c9a9ca0c0c226dfe4ed3f1f5c7fae93e08ce022579916a65)
@@ -9402,7 +9402,7 @@ class IntegrationConnectorsConnectionSslConfigClientCertificate:
     def secret_version(self) -> builtins.str:
         '''Secret version of Secret Value for Config variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         result = self._values.get("secret_version")
         assert result is not None, "Required property 'secret_version' is missing"
@@ -9483,7 +9483,7 @@ class IntegrationConnectorsConnectionSslConfigClientCertificateOutputReference(
 class IntegrationConnectorsConnectionSslConfigClientPrivateKey:
     def __init__(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5362f5d86fec9831a6d16ab93f39265c541de45c8574278a2810f51c0f6d5aa1)
@@ -9496,7 +9496,7 @@ class IntegrationConnectorsConnectionSslConfigClientPrivateKey:
     def secret_version(self) -> builtins.str:
         '''Secret version of Secret Value for Config variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         result = self._values.get("secret_version")
         assert result is not None, "Required property 'secret_version' is missing"
@@ -9577,7 +9577,7 @@ class IntegrationConnectorsConnectionSslConfigClientPrivateKeyOutputReference(
 class IntegrationConnectorsConnectionSslConfigClientPrivateKeyPass:
     def __init__(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1302620ff7359db642c8af507a43185dcbbf846a73493cc9da689747fb339b1d)
@@ -9590,7 +9590,7 @@ class IntegrationConnectorsConnectionSslConfigClientPrivateKeyPass:
     def secret_version(self) -> builtins.str:
         '''Secret version of Secret Value for Config variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         result = self._values.get("secret_version")
         assert result is not None, "Required property 'secret_version' is missing"
@@ -9699,7 +9699,7 @@ class IntegrationConnectorsConnectionSslConfigOutputReference(
     @jsii.member(jsii_name="putClientCertificate")
     def put_client_certificate(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         value = IntegrationConnectorsConnectionSslConfigClientCertificate(
             secret_version=secret_version
@@ -9710,7 +9710,7 @@ class IntegrationConnectorsConnectionSslConfigOutputReference(
     @jsii.member(jsii_name="putClientPrivateKey")
     def put_client_private_key(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         value = IntegrationConnectorsConnectionSslConfigClientPrivateKey(
             secret_version=secret_version
@@ -9721,7 +9721,7 @@ class IntegrationConnectorsConnectionSslConfigOutputReference(
     @jsii.member(jsii_name="putClientPrivateKeyPass")
     def put_client_private_key_pass(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         value = IntegrationConnectorsConnectionSslConfigClientPrivateKeyPass(
             secret_version=secret_version
@@ -9732,7 +9732,7 @@ class IntegrationConnectorsConnectionSslConfigOutputReference(
     @jsii.member(jsii_name="putPrivateServerCertificate")
     def put_private_server_certificate(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         value = IntegrationConnectorsConnectionSslConfigPrivateServerCertificate(
             secret_version=secret_version
@@ -9962,7 +9962,7 @@ class IntegrationConnectorsConnectionSslConfigOutputReference(
 class IntegrationConnectorsConnectionSslConfigPrivateServerCertificate:
     def __init__(self, *, secret_version: builtins.str) -> None:
         '''
-        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        :param secret_version: Secret version of Secret Value for Config variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__64f98f0f1175752ab8ca4355d80ca02cb3218996acba9a3305572381611cf5cf)
@@ -9975,7 +9975,7 @@ class IntegrationConnectorsConnectionSslConfigPrivateServerCertificate:
     def secret_version(self) -> builtins.str:
         '''Secret version of Secret Value for Config variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#secret_version IntegrationConnectorsConnection#secret_version}
         '''
         result = self._values.get("secret_version")
         assert result is not None, "Required property 'secret_version' is missing"
@@ -10216,9 +10216,9 @@ class IntegrationConnectorsConnectionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#create IntegrationConnectorsConnection#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#delete IntegrationConnectorsConnection#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#update IntegrationConnectorsConnection#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#create IntegrationConnectorsConnection#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#delete IntegrationConnectorsConnection#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#update IntegrationConnectorsConnection#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f884edec2a25cbab5894e1cc4f1be76d2885ed99984ab4bffbdeefd4a7d2d511)
@@ -10235,19 +10235,19 @@ class IntegrationConnectorsConnectionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#create IntegrationConnectorsConnection#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#create IntegrationConnectorsConnection#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#delete IntegrationConnectorsConnection#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#delete IntegrationConnectorsConnection#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_connection#update IntegrationConnectorsConnection#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_connection#update IntegrationConnectorsConnection#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

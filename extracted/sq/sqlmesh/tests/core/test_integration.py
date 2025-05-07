@@ -61,7 +61,7 @@ from sqlmesh.core.snapshot import (
     SnapshotTableInfo,
 )
 from sqlmesh.utils.date import TimeLike, now, to_date, to_datetime, to_timestamp
-from sqlmesh.utils.errors import NoChangesPlanError
+from sqlmesh.utils.errors import NoChangesPlanError, SQLMeshError
 from sqlmesh.utils.pydantic import validate_string
 from tests.conftest import DuckDBMetadata, SushiDataValidator
 from tests.utils.test_helpers import use_terminal_console
@@ -3034,7 +3034,7 @@ def test_prod_restatement_plan_clears_unaligned_intervals_in_derived_dev_tables(
     ]
 
     # mess with A independently of SQLMesh to prove a whole day gets restated for B instead of just 1hr
-    snapshot_table_name = ctx.table_name("test.a", False)
+    snapshot_table_name = ctx.table_name("test.a", "dev")
     engine_adapter.execute(
         f"delete from {snapshot_table_name} where cast(ts as date) == '2024-01-01'"
     )
@@ -4092,6 +4092,60 @@ def test_evaluate_uncategorized_snapshot(init_and_plan_context: t.Callable):
         "sushi.top_waiters", start="2023-01-05", end="2023-01-06", execution_time=now()
     )
     assert set(df["one"].tolist()) == {1}
+
+
+@time_machine.travel("2023-01-08 15:00:00 UTC")
+def test_table_name(init_and_plan_context: t.Callable):
+    context, plan = init_and_plan_context("examples/sushi")
+    context.apply(plan)
+
+    snapshot = context.get_snapshot("sushi.waiter_revenue_by_day")
+    assert snapshot
+    assert (
+        context.table_name("sushi.waiter_revenue_by_day", "prod")
+        == f"memory.sqlmesh__sushi.sushi__waiter_revenue_by_day__{snapshot.version}"
+    )
+
+    with pytest.raises(SQLMeshError, match="Environment 'dev' was not found."):
+        context.table_name("sushi.waiter_revenue_by_day", "dev")
+
+    with pytest.raises(
+        SQLMeshError, match="Model 'sushi.missing' was not found in environment 'prod'."
+    ):
+        context.table_name("sushi.missing", "prod")
+
+    # Add a new projection
+    model = context.get_model("sushi.waiter_revenue_by_day")
+    context.upsert_model(add_projection_to_model(t.cast(SqlModel, model)))
+
+    context.plan("dev_a", auto_apply=True, no_prompts=True, skip_tests=True)
+
+    new_snapshot = context.get_snapshot("sushi.waiter_revenue_by_day")
+    assert new_snapshot.version != snapshot.version
+
+    assert (
+        context.table_name("sushi.waiter_revenue_by_day", "dev_a")
+        == f"memory.sqlmesh__sushi.sushi__waiter_revenue_by_day__{new_snapshot.version}"
+    )
+
+    # Make a forward-only change
+    context.upsert_model(model, stamp="forward_only")
+
+    context.plan("dev_b", auto_apply=True, no_prompts=True, skip_tests=True, forward_only=True)
+
+    forward_only_snapshot = context.get_snapshot("sushi.waiter_revenue_by_day")
+    assert forward_only_snapshot.version == snapshot.version
+    assert forward_only_snapshot.dev_version != snapshot.version
+
+    assert (
+        context.table_name("sushi.waiter_revenue_by_day", "dev_b")
+        == f"memory.sqlmesh__sushi.sushi__waiter_revenue_by_day__{forward_only_snapshot.dev_version}__dev"
+    )
+
+    assert (
+        context.table_name("sushi.waiter_revenue_by_day", "dev_b", prod=True)
+        == f"memory.sqlmesh__sushi.sushi__waiter_revenue_by_day__{snapshot.version}"
+    )
 
 
 @time_machine.travel("2023-01-08 15:00:00 UTC")
@@ -5609,3 +5663,82 @@ def test_plan_environment_statements_doesnt_cause_extra_diff(tmp_path: Path):
 
     # second plan - nothing has changed so should report no changes
     assert not ctx.plan(auto_apply=True, no_prompts=True).has_changes
+
+
+def test_janitor_cleanup_order(mocker: MockerFixture, tmp_path: Path):
+    def setup_scenario():
+        models_dir = tmp_path / "models"
+
+        if not models_dir.exists():
+            models_dir.mkdir()
+
+        model1_path = models_dir / "model1.sql"
+
+        with open(model1_path, "w") as f:
+            f.write("MODEL(name test.model1, kind FULL); SELECT 1 AS col")
+
+        config = Config(
+            model_defaults=ModelDefaultsConfig(dialect="duckdb"),
+        )
+        ctx = Context(paths=[tmp_path], config=config)
+
+        ctx.plan("dev", no_prompts=True, auto_apply=True)
+
+        model1_snapshot = ctx.get_snapshot("test.model1")
+
+        # Delete the model file to cause a snapshot expiration
+        model1_path.unlink()
+
+        ctx.load()
+
+        ctx.plan("dev", no_prompts=True, auto_apply=True)
+
+        # Invalidate the environment to cause an environment cleanup
+        ctx.invalidate_environment("dev")
+
+        try:
+            ctx._run_janitor(ignore_ttl=True)
+        except:
+            pass
+
+        return ctx, model1_snapshot
+
+    # Case 1: Assume that the snapshot cleanup yields an error, the snapshot records
+    # should still exist in the state sync so the next janitor can retry
+    mocker.patch(
+        "sqlmesh.core.snapshot.evaluator.SnapshotEvaluator.cleanup",
+        side_effect=Exception("snapshot cleanup error"),
+    )
+    ctx, model1_snapshot = setup_scenario()
+
+    # - Check that the snapshot record exists in the state sync
+    state_snapshot = ctx.state_sync.state_sync.get_snapshots([model1_snapshot.snapshot_id])
+    assert state_snapshot
+
+    # - Run the janitor again, this time it should succeed
+    mocker.patch("sqlmesh.core.snapshot.evaluator.SnapshotEvaluator.cleanup")
+    ctx._run_janitor(ignore_ttl=True)
+
+    # - Check that the snapshot record does not exist in the state sync anymore
+    state_snapshot = ctx.state_sync.state_sync.get_snapshots([model1_snapshot.snapshot_id])
+    assert not state_snapshot
+
+    # Case 2: Assume that the view cleanup yields an error, the enviroment
+    # record should still exist
+    mocker.patch(
+        "sqlmesh.core.context.cleanup_expired_views", side_effect=Exception("view cleanup error")
+    )
+    ctx, model1_snapshot = setup_scenario()
+
+    views = ctx.fetchdf("FROM duckdb_views() SELECT * EXCLUDE(sql) WHERE NOT internal")
+    assert views.empty
+
+    # - Check that the environment record exists in the state sync
+    assert ctx.state_sync.get_environment("dev")
+
+    # - Run the janitor again, this time it should succeed
+    mocker.patch("sqlmesh.core.context.cleanup_expired_views")
+    ctx._run_janitor(ignore_ttl=True)
+
+    # - Check that the environment record does not exist in the state sync anymore
+    assert not ctx.state_sync.get_environment("dev")

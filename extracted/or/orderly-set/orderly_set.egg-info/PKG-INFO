@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: orderly-set
-Version: 5.4.0
+Version: 5.4.1
 Summary: Orderly set
 Home-page: https://github.com/seperman/orderly-set
 Download-URL: https://github.com/seperman/orderly-set/tarball/master
@@ -32,7 +32,7 @@ Dynamic: license
 Dynamic: requires-python
 Dynamic: summary
 
-# Orderly Set 5.4.0
+# Orderly Set 5.4.1
 
 Orderly Set is a package containing multiple implementations of Ordered Set.
 

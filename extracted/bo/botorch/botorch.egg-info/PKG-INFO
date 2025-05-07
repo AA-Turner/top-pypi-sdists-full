@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: botorch
-Version: 0.13.0
+Version: 0.14.0
 Summary: Bayesian Optimization in PyTorch
 Home-page: https://botorch.org
 Author: Meta Platforms, Inc.
@@ -29,6 +29,7 @@ Requires-Dist: threadpoolctl
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: requests; extra == "dev"
 Requires-Dist: flake8; extra == "dev"
 Requires-Dist: ufmt; extra == "dev"
 Requires-Dist: flake8-docstrings; extra == "dev"
@@ -42,11 +43,10 @@ Requires-Dist: sphinx-rtd-theme; extra == "dev"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: requests; extra == "test"
 Provides-Extra: tutorials
-Requires-Dist: ax-platform; extra == "tutorials"
 Requires-Dist: cma; extra == "tutorials"
 Requires-Dist: jupyter; extra == "tutorials"
-Requires-Dist: kaleido; extra == "tutorials"
 Requires-Dist: matplotlib; extra == "tutorials"
 Requires-Dist: memory_profiler; extra == "tutorials"
 Requires-Dist: papermill; extra == "tutorials"
@@ -64,6 +64,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: project-url
 Dynamic: provides-extra
 Dynamic: requires-dist

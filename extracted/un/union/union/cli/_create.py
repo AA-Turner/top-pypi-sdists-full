@@ -2,15 +2,11 @@ import logging
 import re
 import typing
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import rich.markup
 import rich_click as click
-from flytekit.configuration import (
-    AuthType,
-    Config,
-    PlatformConfig,
-)
+from flytekit.configuration import AuthType, Config, PlatformConfig
 from flytekit.remote import remote_fs
 from rich.console import Console
 
@@ -27,19 +23,26 @@ from union.cli._artifact_create_common import ArtifactCreateCommand
 from union.cli._common import _get_organization, _validate_key_value_pairs
 from union.cli._option import MutuallyExclusiveArgument, MutuallyExclusiveOption
 from union.internal.identity.app_payload_pb2 import CreateAppRequest
-from union.internal.identity.enums_pb2 import (
-    ConsentMethod,
-    GrantTypes,
-    ResponseTypes,
-    TokenEndpointAuthMethod,
+from union.internal.identity.enums_pb2 import ConsentMethod, GrantTypes, ResponseTypes, TokenEndpointAuthMethod
+from union.internal.secret.definition_pb2 import (
+    SECRET_TYPE_GENERIC,
+    SECRET_TYPE_IMAGE_PULL_SECRET,
+    SecretIdentifier,
+    SecretSpec,
+    SecretType,
 )
-from union.internal.secret.definition_pb2 import SecretIdentifier, SecretSpec
 from union.internal.secret.payload_pb2 import CreateSecretRequest
 from union.remote import UnionRemote
+from union.ucimage._docker_credentials_helper import derive_docker_credentials
 from union.workspace._config import _DEFAULT_CONFIG_YAML_FOR_BASE_IMAGE, _DEFAULT_CONFIG_YAML_FOR_IMAGE_SPEC
 from union.workspace._vscode import WorkspaceConfig, build_workspace_image
 
 logger = logging.getLogger("union.cli._create")
+
+# Simplified --type option for users they don't have to fill entire enum string "SECRET_TYPE_IMAGE_PULL_SECRET"
+_SIMPLE_IMAGEPULL_TYPE = (
+    SecretType.Name(SECRET_TYPE_IMAGE_PULL_SECRET).replace("SECRET_TYPE_", "").replace("_", "-").lower()
+)
 
 
 @click.group()
@@ -81,6 +84,12 @@ def create():
 )
 @click.option("--project", help="Project name")
 @click.option("--domain", help="Domain name")
+@click.option(
+    "-t",
+    "--type",
+    type=click.Choice([_SIMPLE_IMAGEPULL_TYPE]),
+    help=f"The type of secret. Currently only '{_SIMPLE_IMAGEPULL_TYPE}' is supported.",
+)
 def secret(
     name: Optional[str],
     name_option: Optional[str],
@@ -88,15 +97,26 @@ def secret(
     value_file: str,
     project: Optional[str],
     domain: Optional[str],
+    type: Optional[str],
 ):
     """Create a secret with NAME."""
     name = name or name_option
 
+    if type == _SIMPLE_IMAGEPULL_TYPE:
+        if not value_file:
+            click.ClickException("The type of secret is only supported with a file")
+        type = SECRET_TYPE_IMAGE_PULL_SECRET
+    else:
+        type = SECRET_TYPE_GENERIC
+
     if value_file:
         with open(value_file, "rb") as f:
-            secret_spec = SecretSpec(binary_value=f.read())
+            secret_spec = SecretSpec(
+                binary_value=f.read(),
+                type=type,
+            )
     else:
-        secret_spec = SecretSpec(string_value=value)
+        secret_spec = SecretSpec(string_value=value, type=type)
 
     remote = UnionRemote(default_domain=domain, default_project=project)
     stub = remote.secret_client
@@ -327,3 +347,45 @@ def artifact(
     remote.create_artifact(artifact=a)
     url = remote.generate_console_url(a)
     Console().print(f"[green]Created artifact with name: [bold][link={url}]{name}:{version}[/link][/bold][/green]")
+
+
+@create.command("imagepullsecret")
+@click.option(
+    "-r",
+    "--registries",
+    help="Docker registries to create image pull secret for",
+    multiple=True,
+)
+@click.option(
+    "-i",
+    "--input-file",
+    type=click.Path(path_type=Path),
+    help="Path to the input file, defaults to DOCKER_CONFIG and ~/.docker/config.json",
+)
+@click.option(
+    "-o",
+    "--output-file",
+    type=click.Path(path_type=Path),
+    help="Path to the output file, defaults to randome temporary file",
+)
+@click.option(
+    "-q",
+    "--quiet",
+    is_flag=True,
+    help="Only output the file path without any formatting",
+)
+def image_pull_secret(
+    registries: Optional[List[str]], input_file: Optional[Path], output_file: Optional[Path], quiet: bool = False
+):
+    """Attempts to create dockerconfigjson by generating tokens that don't require credHelpers."""
+    output_file_path = derive_docker_credentials(
+        registries=registries,
+        docker_config_path=input_file,
+        output_path=output_file,
+    )
+
+    if quiet:
+        print(output_file_path)
+    else:
+        console = Console()
+        console.print(f"🔐 [yellow]Configuration saved to {output_file_path}[/yellow]")

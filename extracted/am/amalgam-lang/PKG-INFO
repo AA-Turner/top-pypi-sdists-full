@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: amalgam-lang
-Version: 19.0.1
+Version: 19.0.2
 Summary: A direct interface with Amalgam compiled DLL, dylib, or so.
 Author: Howso Incorporated
 Author-email: support@howso.com

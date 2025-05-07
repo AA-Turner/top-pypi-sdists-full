@@ -23,7 +23,6 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import typing
-import warnings
 import weakref
 from contextlib import suppress
 
@@ -244,15 +243,6 @@ class Canvas:
     def widget_info(self):
         return self._widget_info
 
-    def _get_widget_info(self):
-        warnings.warn(
-            f"Method `{self.__class__.__name__}._get_widget_info` is deprecated, "
-            f"please use property `{self.__class__.__name__}.widget_info`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.widget_info
-
     @property
     def text(self) -> list[bytes]:
         """
@@ -265,15 +255,6 @@ class Canvas:
         """Decoded text content of the canvas as a sequence of strings, one for each row."""
         encoding = get_encoding()
         return tuple(line.decode(encoding) for line in self.text)
-
-    def _text_content(self):
-        warnings.warn(
-            f"Method `{self.__class__.__name__}._text_content` is deprecated, "
-            f"please use property `{self.__class__.__name__}.text`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.text
 
     def content(
         self,
@@ -295,10 +276,10 @@ class Canvas:
         raise NotImplementedError()
 
     def get_cursor(self) -> tuple[int, int] | None:
-        c = self.coords.get("cursor", None)
-        if not c:
-            return None
-        return c[:2]  # trim off data part
+        if c := self.coords.get("cursor", None):
+            return c[:2]  # trim off data part
+
+        return None
 
     def set_cursor(self, c: tuple[int, int] | None) -> None:
         if self.widget_info and self.cacheable:
@@ -312,10 +293,10 @@ class Canvas:
     cursor = property(get_cursor, set_cursor)
 
     def get_pop_up(self) -> tuple[int, int, tuple[Widget, int, int]] | None:
-        c = self.coords.get("pop up", None)
-        if not c:
-            return None
-        return c
+        if c := self.coords.get("pop up", None):
+            return c
+
+        return None
 
     def set_pop_up(self, w: Widget, left: int, top: int, overlay_width: int, overlay_height: int) -> None:
         """
@@ -808,7 +789,7 @@ class CompositeCanvas(Canvas):
 
             if right > 0:
                 new_top_cviews.append((0, 0, right, rows, None, blank_canvas))
-            shards = [(top_rows, new_top_cviews)] + shards[1:]
+            shards = [(top_rows, new_top_cviews), *shards[1:]]
 
         self.coords = self.translate_coords(left, 0)
         self.shards = shards
@@ -833,7 +814,7 @@ class CompositeCanvas(Canvas):
 
         if bottom > 0:
             if orig_shards is self.shards:
-                self.shards = self.shards[:]
+                self.shards = self.shards.copy()
             self.shards.append((bottom, [(0, 0, cols, bottom, None, blank_canvas)]))
 
     def overlay(self, other: CompositeCanvas, left: int, top: int) -> None:
@@ -902,11 +883,11 @@ class CompositeCanvas(Canvas):
             for cv in original_cviews:
                 # cv[4] == attr_map
                 if cv[4] is None:
-                    new_cviews.append(cv[:4] + (mapping,) + cv[5:])
+                    new_cviews.append((*cv[:4], mapping, *cv[5:]))
                 else:
                     combined = mapping.copy()
                     combined.update([(k, mapping.get(v, v)) for k, v in cv[4].items()])
-                    new_cviews.append(cv[:4] + (combined,) + cv[5:])
+                    new_cviews.append((*cv[:4], combined, *cv[5:]))
             shards.append((num_rows, new_cviews))
         self.shards = shards
 
@@ -1002,7 +983,7 @@ def shard_cviews_delta(cviews, other_cviews):
             continue
         # top-left-aligned cviews, compare them
         if cv[5] is other_cv[5] and cv[:5] == other_cv[:5]:
-            yield cv[:5] + (None,) + cv[6:]
+            yield (*cv[:5], None, *cv[6:])
         else:
             yield cv
         other_cols += other_cv[2]
@@ -1185,7 +1166,7 @@ def shards_join(shard_lists):
 
 
 def cview_trim_rows(cv, rows: int):
-    return cv[:3] + (rows,) + cv[4:]
+    return (*cv[:3], rows, *cv[4:])
 
 
 def cview_trim_top(cv, trim: int):
@@ -1193,11 +1174,11 @@ def cview_trim_top(cv, trim: int):
 
 
 def cview_trim_left(cv, trim: int):
-    return (cv[0] + trim, cv[1], cv[2] - trim) + cv[3:]
+    return (cv[0] + trim, cv[1], cv[2] - trim, *cv[3:])
 
 
 def cview_trim_cols(cv, cols: int):
-    return cv[:2] + (cols,) + cv[3:]
+    return (*cv[:2], cols, *cv[3:])
 
 
 def CanvasCombine(canvas_info: Iterable[tuple[Canvas, typing.Any, bool]]) -> CompositeCanvas:
@@ -1229,7 +1210,7 @@ def CanvasCombine(canvas_info: Iterable[tuple[Canvas, typing.Any, bool]]) -> Com
         row += canv.rows()
 
     if focus_index:
-        children = [children[focus_index]] + children[:focus_index] + children[focus_index + 1 :]
+        children = [children[focus_index], *children[:focus_index], *children[focus_index + 1 :]]
 
     combined_canvas.shards = shards
     combined_canvas.children = children
@@ -1295,7 +1276,7 @@ def CanvasJoin(canvas_info: Iterable[tuple[Canvas, typing.Any, bool, int]]) -> C
         col += composite_canvas.cols()
 
     if focus_item:
-        children = [children[focus_item]] + children[:focus_item] + children[focus_item + 1 :]
+        children = [children[focus_item], *children[:focus_item], *children[focus_item + 1 :]]
 
     joined_canvas.shards = shards_join(shard_lists)
     joined_canvas.children = children

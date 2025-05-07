@@ -148,6 +148,8 @@ STATS_INTERVAL_SECS = env("STATS_INTERVAL_SECS", cast=int, default=60)
 DATABASE_URI = env("DATABASE_URI", cast=str, default=getenv("POSTGRES_URI", undefined))
 MIGRATIONS_PATH = env("MIGRATIONS_PATH", cast=str, default="/storage/migrations")
 
+POSTGRES_POOL_MAX_SIZE = env("LANGGRAPH_POSTGRES_POOL_MAX_SIZE", cast=int, default=150)
+
 
 def _get_encryption_key(key_str: str | None):
     if not key_str:

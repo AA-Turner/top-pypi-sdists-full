@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel
 
 from hud.types import CustomGym, Gym
-from hud.utils.common import HudStyleConfig, HudStyleConfigs
+from hud.utils.common import FunctionConfig, FunctionConfigs
 
 if TYPE_CHECKING:
     from inspect_ai.dataset import Sample
@@ -17,12 +17,12 @@ if TYPE_CHECKING:
 UBUNTU_DOCKERFILE = "ubuntu:latest"
 
 
-def convert_inspect_setup(setup: str) -> list[HudStyleConfig]:
+def convert_inspect_setup(setup: str) -> list[FunctionConfig]:
     """
     Inspect setup is a single bash string to run in the environment.
-    We convert this into a single HudStyleConfig using the exec command
+    We convert this into a single FunctionConfig using the exec command
     """
-    return [HudStyleConfig(function="bash", args=[setup])]
+    return [FunctionConfig(function="bash", args=[setup])]
 
 
 class Task(BaseModel):
@@ -52,16 +52,9 @@ class Task(BaseModel):
 
     id: str | None = None
     prompt: str
-    setup: HudStyleConfigs | None = None
-    evaluate: HudStyleConfigs | None = None
+    setup: FunctionConfigs | None = None
+    evaluate: FunctionConfigs | None = None
     gym: Gym | None = None
-    
-    target: str | list[str] | None = None
-    
-    choices: list[str] | None = None
-    files: dict[str, str] | None = None
-    metadata: dict[str, Any] | None = None
-    
     config: dict[str, Any] | None = None
 
     @classmethod
@@ -75,7 +68,7 @@ class Task(BaseModel):
 
         Returns:
             Task instance
-        
+
         The Inspect Sample has these fields:
         - input (str | list[ChatMessage]): The input to be submitted to the model
         - choices (list[str] | None): Optional multiple choice answer list
@@ -103,8 +96,8 @@ class Task(BaseModel):
                 evaluate_config = ("match_all", sample.target)
 
         task_gym: Gym | None = None
-        task_setup: HudStyleConfigs | None = None
-        
+        task_setup: FunctionConfigs | None = None
+
         sandbox = sample.sandbox
         dockerfile = None
         use_qa_gym = True
@@ -131,13 +124,10 @@ class Task(BaseModel):
             task_setup = [x for x in convert_inspect_setup(sample.setup)] if sample.setup else None
             # TODO: Handle sample.files for CustomGym case if needed
 
-
         return cls(
             id=None,
             prompt=prompt,
             setup=task_setup,
-            metadata=sample.metadata,
-            choices=sample.choices,
             evaluate=evaluate_config,
             gym=task_gym,
             # files=sample.files, # TODO: Decide how/if to handle files

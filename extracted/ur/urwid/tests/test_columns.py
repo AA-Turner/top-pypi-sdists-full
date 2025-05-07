@@ -155,11 +155,10 @@ class ColumnsTest(unittest.TestCase):
                     str(ctx.warnings[0].message),
                 )
 
-        with self.subTest(
-            'BOX not added to "box_columns" but widget handled as FLOW',
-        ), self.assertWarns(
-            urwid.widget.ColumnsWarning,
-        ) as ctx:
+        with (
+            self.subTest('BOX not added to "box_columns" but widget handled as FLOW'),
+            self.assertWarns(urwid.widget.ColumnsWarning) as ctx,
+        ):
             self.maxDiff = None
             contents = (
                 (urwid.WEIGHT, 1, urwid.SolidFill()),
@@ -776,9 +775,9 @@ class ColumnsTest(unittest.TestCase):
 
     def test_old_attributes(self):
         c = urwid.Columns([urwid.Text("a"), urwid.SolidFill("x")], box_columns=[1])
-        with self.assertWarns(PendingDeprecationWarning):
+        with self.assertWarns(DeprecationWarning):
             self.assertEqual(c.box_columns, [1])
-        with self.assertWarns(PendingDeprecationWarning):
+        with self.assertWarns(DeprecationWarning):
             c.box_columns = []
 
         self.assertEqual(c.box_columns, [])

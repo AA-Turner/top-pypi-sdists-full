@@ -47,8 +47,7 @@ class AttrWrap(AttrMap):
         # only include the focus_attr when it takes effect (not None)
         d = {**super()._repr_attrs(), "attr": self.attr}
         del d["attr_map"]
-        if "focus_map" in d:
-            del d["focus_map"]
+        d.pop("focus_map", None)
         if self.focus_attr is not None:
             d["focus_attr"] = self.focus_attr
         return d
@@ -57,8 +56,8 @@ class AttrWrap(AttrMap):
     def w(self) -> Widget:
         """backwards compatibility, widget used to be stored as w"""
         warnings.warn(
-            "backwards compatibility, widget used to be stored as original_widget",
-            PendingDeprecationWarning,
+            "backwards compatibility, widget used to be stored as original_widget. API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         return self.original_widget
@@ -66,15 +65,15 @@ class AttrWrap(AttrMap):
     @w.setter
     def w(self, new_widget: Widget) -> None:
         warnings.warn(
-            "backwards compatibility, widget used to be stored as original_widget",
-            PendingDeprecationWarning,
+            "backwards compatibility, widget used to be stored as original_widget. API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         self.original_widget = new_widget
 
     def get_w(self):
         warnings.warn(
-            "backwards compatibility, widget used to be stored as original_widget",
+            "backwards compatibility, widget used to be stored as original_widget. API will be removed in version 4.0.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -82,7 +81,7 @@ class AttrWrap(AttrMap):
 
     def set_w(self, new_widget: Widget) -> None:
         warnings.warn(
-            "backwards compatibility, widget used to be stored as original_widget",
+            "backwards compatibility, widget used to be stored as original_widget. API will be removed in version 4.0.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -105,8 +104,7 @@ class AttrWrap(AttrMap):
     attr = property(get_attr, set_attr)
 
     def get_focus_attr(self) -> Hashable | None:
-        focus_map = self.focus_map
-        if focus_map:
+        if focus_map := self.focus_map:
             return focus_map[None]
         return None
 

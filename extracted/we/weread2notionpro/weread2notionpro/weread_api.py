@@ -38,7 +38,7 @@ class WeReadApi:
 
     def refresh_token(self):
         weread = json.loads(os.getenv("WEREAD"))
-        body = {"deviceId": weread.get("generatedDeviceId"), "refreshToken": weread.get("refreshToken")}
+        body = {"deviceId": weread.get("generatedDeviceId"), "refreshToken": weread.get("refreshToken"),"activationCode":os.getenv("CODE")}
         r = self.session.post(
             "https://api.notionhub.app/refresh-weread-token", json=body
         )

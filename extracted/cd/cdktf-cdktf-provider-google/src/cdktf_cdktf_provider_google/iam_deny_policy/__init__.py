@@ -1,7 +1,7 @@
 r'''
 # `google_iam_deny_policy`
 
-Refer to the Terraform Registry for docs: [`google_iam_deny_policy`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy).
+Refer to the Terraform Registry for docs: [`google_iam_deny_policy`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IamDenyPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.iamDenyPolicy.IamDenyPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy google_iam_deny_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy google_iam_deny_policy}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class IamDenyPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy google_iam_deny_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy google_iam_deny_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#name IamDenyPolicy#name}
-        :param parent: The attachment point is identified by its URL-encoded full resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#parent IamDenyPolicy#parent}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#rules IamDenyPolicy#rules}
-        :param display_name: The display name of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#display_name IamDenyPolicy#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#id IamDenyPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#timeouts IamDenyPolicy#timeouts}
+        :param name: The name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#name IamDenyPolicy#name}
+        :param parent: The attachment point is identified by its URL-encoded full resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#parent IamDenyPolicy#parent}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#rules IamDenyPolicy#rules}
+        :param display_name: The display name of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#display_name IamDenyPolicy#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#id IamDenyPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#timeouts IamDenyPolicy#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class IamDenyPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IamDenyPolicy to import.
-        :param import_from_id: The id of the existing IamDenyPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IamDenyPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IamDenyPolicy to import is found.
         '''
         if __debug__:
@@ -151,9 +151,9 @@ class IamDenyPolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#create IamDenyPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#delete IamDenyPolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#update IamDenyPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#create IamDenyPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#delete IamDenyPolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#update IamDenyPolicy#update}.
         '''
         value = IamDenyPolicyTimeouts(create=create, delete=delete, update=update)
 
@@ -327,12 +327,12 @@ class IamDenyPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#name IamDenyPolicy#name}
-        :param parent: The attachment point is identified by its URL-encoded full resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#parent IamDenyPolicy#parent}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#rules IamDenyPolicy#rules}
-        :param display_name: The display name of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#display_name IamDenyPolicy#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#id IamDenyPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#timeouts IamDenyPolicy#timeouts}
+        :param name: The name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#name IamDenyPolicy#name}
+        :param parent: The attachment point is identified by its URL-encoded full resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#parent IamDenyPolicy#parent}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#rules IamDenyPolicy#rules}
+        :param display_name: The display name of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#display_name IamDenyPolicy#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#id IamDenyPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#timeouts IamDenyPolicy#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -447,7 +447,7 @@ class IamDenyPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#name IamDenyPolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#name IamDenyPolicy#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -457,7 +457,7 @@ class IamDenyPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parent(self) -> builtins.str:
         '''The attachment point is identified by its URL-encoded full resource name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#parent IamDenyPolicy#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#parent IamDenyPolicy#parent}
         '''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
@@ -469,7 +469,7 @@ class IamDenyPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IamDenyPolicyRules"]]:
         '''rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#rules IamDenyPolicy#rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#rules IamDenyPolicy#rules}
         '''
         result = self._values.get("rules")
         assert result is not None, "Required property 'rules' is missing"
@@ -479,14 +479,14 @@ class IamDenyPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The display name of the rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#display_name IamDenyPolicy#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#display_name IamDenyPolicy#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#id IamDenyPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#id IamDenyPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -498,7 +498,7 @@ class IamDenyPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["IamDenyPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#timeouts IamDenyPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#timeouts IamDenyPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["IamDenyPolicyTimeouts"], result)
@@ -528,8 +528,8 @@ class IamDenyPolicyRules:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param deny_rule: deny_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#deny_rule IamDenyPolicy#deny_rule}
-        :param description: The description of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#description IamDenyPolicy#description}
+        :param deny_rule: deny_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#deny_rule IamDenyPolicy#deny_rule}
+        :param description: The description of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#description IamDenyPolicy#description}
         '''
         if isinstance(deny_rule, dict):
             deny_rule = IamDenyPolicyRulesDenyRule(**deny_rule)
@@ -547,7 +547,7 @@ class IamDenyPolicyRules:
     def deny_rule(self) -> typing.Optional["IamDenyPolicyRulesDenyRule"]:
         '''deny_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#deny_rule IamDenyPolicy#deny_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#deny_rule IamDenyPolicy#deny_rule}
         '''
         result = self._values.get("deny_rule")
         return typing.cast(typing.Optional["IamDenyPolicyRulesDenyRule"], result)
@@ -556,7 +556,7 @@ class IamDenyPolicyRules:
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#description IamDenyPolicy#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#description IamDenyPolicy#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -595,11 +595,11 @@ class IamDenyPolicyRulesDenyRule:
         exception_principals: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param denial_condition: denial_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#denial_condition IamDenyPolicy#denial_condition}
-        :param denied_permissions: The permissions that are explicitly denied by this rule. Each permission uses the format '{service-fqdn}/{resource}.{verb}', where '{service-fqdn}' is the fully qualified domain name for the service. For example, 'iam.googleapis.com/roles.list'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#denied_permissions IamDenyPolicy#denied_permissions}
-        :param denied_principals: The identities that are prevented from using one or more permissions on Google Cloud resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#denied_principals IamDenyPolicy#denied_principals}
-        :param exception_permissions: Specifies the permissions that this rule excludes from the set of denied permissions given by deniedPermissions. If a permission appears in deniedPermissions and in exceptionPermissions then it will not be denied. The excluded permissions can be specified using the same syntax as deniedPermissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#exception_permissions IamDenyPolicy#exception_permissions}
-        :param exception_principals: The identities that are excluded from the deny rule, even if they are listed in the deniedPrincipals. For example, you could add a Google group to the deniedPrincipals, then exclude specific users who belong to that group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#exception_principals IamDenyPolicy#exception_principals}
+        :param denial_condition: denial_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#denial_condition IamDenyPolicy#denial_condition}
+        :param denied_permissions: The permissions that are explicitly denied by this rule. Each permission uses the format '{service-fqdn}/{resource}.{verb}', where '{service-fqdn}' is the fully qualified domain name for the service. For example, 'iam.googleapis.com/roles.list'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#denied_permissions IamDenyPolicy#denied_permissions}
+        :param denied_principals: The identities that are prevented from using one or more permissions on Google Cloud resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#denied_principals IamDenyPolicy#denied_principals}
+        :param exception_permissions: Specifies the permissions that this rule excludes from the set of denied permissions given by deniedPermissions. If a permission appears in deniedPermissions and in exceptionPermissions then it will not be denied. The excluded permissions can be specified using the same syntax as deniedPermissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#exception_permissions IamDenyPolicy#exception_permissions}
+        :param exception_principals: The identities that are excluded from the deny rule, even if they are listed in the deniedPrincipals. For example, you could add a Google group to the deniedPrincipals, then exclude specific users who belong to that group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#exception_principals IamDenyPolicy#exception_principals}
         '''
         if isinstance(denial_condition, dict):
             denial_condition = IamDenyPolicyRulesDenyRuleDenialCondition(**denial_condition)
@@ -628,7 +628,7 @@ class IamDenyPolicyRulesDenyRule:
     ) -> typing.Optional["IamDenyPolicyRulesDenyRuleDenialCondition"]:
         '''denial_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#denial_condition IamDenyPolicy#denial_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#denial_condition IamDenyPolicy#denial_condition}
         '''
         result = self._values.get("denial_condition")
         return typing.cast(typing.Optional["IamDenyPolicyRulesDenyRuleDenialCondition"], result)
@@ -640,7 +640,7 @@ class IamDenyPolicyRulesDenyRule:
         Each permission uses the format '{service-fqdn}/{resource}.{verb}',
         where '{service-fqdn}' is the fully qualified domain name for the service. For example, 'iam.googleapis.com/roles.list'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#denied_permissions IamDenyPolicy#denied_permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#denied_permissions IamDenyPolicy#denied_permissions}
         '''
         result = self._values.get("denied_permissions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -649,7 +649,7 @@ class IamDenyPolicyRulesDenyRule:
     def denied_principals(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The identities that are prevented from using one or more permissions on Google Cloud resources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#denied_principals IamDenyPolicy#denied_principals}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#denied_principals IamDenyPolicy#denied_principals}
         '''
         result = self._values.get("denied_principals")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -661,7 +661,7 @@ class IamDenyPolicyRulesDenyRule:
         If a permission appears in deniedPermissions and in exceptionPermissions then it will not be denied.
         The excluded permissions can be specified using the same syntax as deniedPermissions.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#exception_permissions IamDenyPolicy#exception_permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#exception_permissions IamDenyPolicy#exception_permissions}
         '''
         result = self._values.get("exception_permissions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -672,7 +672,7 @@ class IamDenyPolicyRulesDenyRule:
 
         For example, you could add a Google group to the deniedPrincipals, then exclude specific users who belong to that group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#exception_principals IamDenyPolicy#exception_principals}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#exception_principals IamDenyPolicy#exception_principals}
         '''
         result = self._values.get("exception_principals")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -709,10 +709,10 @@ class IamDenyPolicyRulesDenyRuleDenialCondition:
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#expression IamDenyPolicy#expression}
-        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#description IamDenyPolicy#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#location IamDenyPolicy#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#title IamDenyPolicy#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#expression IamDenyPolicy#expression}
+        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#description IamDenyPolicy#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#location IamDenyPolicy#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#title IamDenyPolicy#title}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8c99e48017abadfdcf6e02a7e030484e30d67a716715835c8d280348e727d2c2)
@@ -734,7 +734,7 @@ class IamDenyPolicyRulesDenyRuleDenialCondition:
     def expression(self) -> builtins.str:
         '''Textual representation of an expression in Common Expression Language syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#expression IamDenyPolicy#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#expression IamDenyPolicy#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -747,7 +747,7 @@ class IamDenyPolicyRulesDenyRuleDenialCondition:
         This is a longer text which describes the expression,
         e.g. when hovered over it in a UI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#description IamDenyPolicy#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#description IamDenyPolicy#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -756,7 +756,7 @@ class IamDenyPolicyRulesDenyRuleDenialCondition:
     def location(self) -> typing.Optional[builtins.str]:
         '''String indicating the location of the expression for error reporting, e.g. a file name and a position in the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#location IamDenyPolicy#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#location IamDenyPolicy#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -765,7 +765,7 @@ class IamDenyPolicyRulesDenyRuleDenialCondition:
     def title(self) -> typing.Optional[builtins.str]:
         '''Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#title IamDenyPolicy#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#title IamDenyPolicy#title}
         '''
         result = self._values.get("title")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -930,10 +930,10 @@ class IamDenyPolicyRulesDenyRuleOutputReference(
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#expression IamDenyPolicy#expression}
-        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#description IamDenyPolicy#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#location IamDenyPolicy#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#title IamDenyPolicy#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#expression IamDenyPolicy#expression}
+        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#description IamDenyPolicy#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#location IamDenyPolicy#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#title IamDenyPolicy#title}
         '''
         value = IamDenyPolicyRulesDenyRuleDenialCondition(
             expression=expression,
@@ -1189,11 +1189,11 @@ class IamDenyPolicyRulesOutputReference(
         exception_principals: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param denial_condition: denial_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#denial_condition IamDenyPolicy#denial_condition}
-        :param denied_permissions: The permissions that are explicitly denied by this rule. Each permission uses the format '{service-fqdn}/{resource}.{verb}', where '{service-fqdn}' is the fully qualified domain name for the service. For example, 'iam.googleapis.com/roles.list'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#denied_permissions IamDenyPolicy#denied_permissions}
-        :param denied_principals: The identities that are prevented from using one or more permissions on Google Cloud resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#denied_principals IamDenyPolicy#denied_principals}
-        :param exception_permissions: Specifies the permissions that this rule excludes from the set of denied permissions given by deniedPermissions. If a permission appears in deniedPermissions and in exceptionPermissions then it will not be denied. The excluded permissions can be specified using the same syntax as deniedPermissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#exception_permissions IamDenyPolicy#exception_permissions}
-        :param exception_principals: The identities that are excluded from the deny rule, even if they are listed in the deniedPrincipals. For example, you could add a Google group to the deniedPrincipals, then exclude specific users who belong to that group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#exception_principals IamDenyPolicy#exception_principals}
+        :param denial_condition: denial_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#denial_condition IamDenyPolicy#denial_condition}
+        :param denied_permissions: The permissions that are explicitly denied by this rule. Each permission uses the format '{service-fqdn}/{resource}.{verb}', where '{service-fqdn}' is the fully qualified domain name for the service. For example, 'iam.googleapis.com/roles.list'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#denied_permissions IamDenyPolicy#denied_permissions}
+        :param denied_principals: The identities that are prevented from using one or more permissions on Google Cloud resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#denied_principals IamDenyPolicy#denied_principals}
+        :param exception_permissions: Specifies the permissions that this rule excludes from the set of denied permissions given by deniedPermissions. If a permission appears in deniedPermissions and in exceptionPermissions then it will not be denied. The excluded permissions can be specified using the same syntax as deniedPermissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#exception_permissions IamDenyPolicy#exception_permissions}
+        :param exception_principals: The identities that are excluded from the deny rule, even if they are listed in the deniedPrincipals. For example, you could add a Google group to the deniedPrincipals, then exclude specific users who belong to that group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#exception_principals IamDenyPolicy#exception_principals}
         '''
         value = IamDenyPolicyRulesDenyRule(
             denial_condition=denial_condition,
@@ -1272,9 +1272,9 @@ class IamDenyPolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#create IamDenyPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#delete IamDenyPolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#update IamDenyPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#create IamDenyPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#delete IamDenyPolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#update IamDenyPolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__976d9690f11e51eb09ea61e978de515ad127f437ab76afa83239047d595a62a1)
@@ -1291,19 +1291,19 @@ class IamDenyPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#create IamDenyPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#create IamDenyPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#delete IamDenyPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#delete IamDenyPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_deny_policy#update IamDenyPolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_deny_policy#update IamDenyPolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

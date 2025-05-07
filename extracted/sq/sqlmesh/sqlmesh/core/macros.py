@@ -41,7 +41,12 @@ from sqlmesh.utils import (
 from sqlmesh.utils.date import DatetimeRanges, to_datetime, to_date
 from sqlmesh.utils.errors import MacroEvalError, SQLMeshError
 from sqlmesh.utils.jinja import JinjaMacroRegistry, has_jinja
-from sqlmesh.utils.metaprogramming import Executable, SqlValue, prepare_env, print_exception
+from sqlmesh.utils.metaprogramming import (
+    Executable,
+    SqlValue,
+    format_evaluated_code_exception,
+    prepare_env,
+)
 
 if t.TYPE_CHECKING:
     from sqlglot.dialects.dialect import DialectType
@@ -220,15 +225,17 @@ class MacroEvaluator:
         func = self.macros.get(normalize_macro_name(name))
 
         if not callable(func):
-            raise SQLMeshError(f"Macro '{name}' does not exist.")
+            raise MacroEvalError(f"Macro '{name}' does not exist.")
 
         try:
             return call_macro(
                 func, self.dialect, self._path, provided_args=(self, *args), provided_kwargs=kwargs
             )  # type: ignore
         except Exception as e:
-            print_exception(e, self.python_env)
-            raise MacroEvalError("Error trying to eval macro.") from e
+            raise MacroEvalError(
+                f"An error occurred during evaluation of '{name}'\n\n"
+                + format_evaluated_code_exception(e, self.python_env)
+            )
 
     def transform(
         self, expression: exp.Expression
@@ -371,10 +378,10 @@ class MacroEvaluator:
             code = self.generator.generate(node)
             return eval(code, self.env, self.locals)
         except Exception as e:
-            print_exception(e, self.python_env)
             raise MacroEvalError(
-                f"Error trying to eval macro.\n\nGenerated code: {code}\n\nOriginal sql: {node}"
-            ) from e
+                f"Error trying to eval macro.\n\nGenerated code: {code}\n\nOriginal sql: {node}\n\n"
+                + format_evaluated_code_exception(e, self.python_env)
+            )
 
     def parse_one(
         self, sql: str | exp.Expression, into: t.Optional[exp.IntoType] = None, **opts: t.Any
@@ -483,6 +490,32 @@ class MacroEvaluator:
     def gateway(self) -> t.Optional[str]:
         """Returns the gateway name."""
         return self.var(c.GATEWAY)
+
+    @property
+    def snapshots(self) -> t.Dict[str, Snapshot]:
+        """Returns the snapshots if available."""
+        return self._snapshots
+
+    @property
+    def this_env(self) -> str:
+        """Returns the name of the current environment in before after all."""
+        if "this_env" not in self.locals:
+            raise SQLMeshError("Environment name is only available in before_all and after_all")
+        return self.locals["this_env"]
+
+    @property
+    def schemas(self) -> t.List[str]:
+        """Returns the schemas of the current environment in before after all macros."""
+        if "schemas" not in self.locals:
+            raise SQLMeshError("Schemas are only available in before_all and after_all")
+        return self.locals["schemas"]
+
+    @property
+    def views(self) -> t.List[str]:
+        """Returns the views of the current environment in before after all macros."""
+        if "views" not in self.locals:
+            raise SQLMeshError("Views are only available in before_all and after_all")
+        return self.locals["views"]
 
     def var(self, var_name: str, default: t.Optional[t.Any] = None) -> t.Optional[t.Any]:
         """Returns the value of the specified variable, or the default value if it doesn't exist."""

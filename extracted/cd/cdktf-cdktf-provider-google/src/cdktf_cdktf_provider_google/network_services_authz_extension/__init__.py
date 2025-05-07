@@ -1,7 +1,7 @@
 r'''
 # `google_network_services_authz_extension`
 
-Refer to the Terraform Registry for docs: [`google_network_services_authz_extension`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension).
+Refer to the Terraform Registry for docs: [`google_network_services_authz_extension`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetworkServicesAuthzExtension(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.networkServicesAuthzExtension.NetworkServicesAuthzExtension",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension google_network_services_authz_extension}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension google_network_services_authz_extension}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class NetworkServicesAuthzExtension(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension google_network_services_authz_extension} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension google_network_services_authz_extension} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param authority: The :authority header in the gRPC request sent from Envoy to the extension service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#authority NetworkServicesAuthzExtension#authority}
-        :param load_balancing_scheme: All backend services and forwarding rules referenced by this extension must share the same load balancing scheme. For more information, refer to `Backend services overview <https://cloud.google.com/load-balancing/docs/backend-service>`_. Possible values: ["INTERNAL_MANAGED", "EXTERNAL_MANAGED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#load_balancing_scheme NetworkServicesAuthzExtension#load_balancing_scheme}
-        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#location NetworkServicesAuthzExtension#location}
-        :param name: Identifier. Name of the AuthzExtension resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#name NetworkServicesAuthzExtension#name}
-        :param service: The reference to the service that runs the extension. To configure a callout extension, service must be a fully-qualified reference to a `backend service <https://cloud.google.com/compute/docs/reference/rest/v1/backendServices>`_ in the format: https://www.googleapis.com/compute/v1/projects/{project}/regions/{region}/backendServices/{backendService} or https://www.googleapis.com/compute/v1/projects/{project}/global/backendServices/{backendService}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#service NetworkServicesAuthzExtension#service}
-        :param timeout: Specifies the timeout for each individual message on the stream. The timeout must be between 10-10000 milliseconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#timeout NetworkServicesAuthzExtension#timeout}
-        :param description: A human-readable description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#description NetworkServicesAuthzExtension#description}
-        :param fail_open: Determines how the proxy behaves if the call to the extension fails or times out. When set to TRUE, request or response processing continues without error. Any subsequent extensions in the extension chain are also executed. When set to FALSE or the default setting of FALSE is used, one of the following happens: - If response headers have not been delivered to the downstream client, a generic 500 error is returned to the client. The error response can be tailored by configuring a custom error response in the load balancer. - If response headers have been delivered, then the HTTP stream to the downstream client is reset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#fail_open NetworkServicesAuthzExtension#fail_open}
-        :param forward_headers: List of the HTTP headers to forward to the extension (from the client). If omitted, all headers are sent. Each element is a string indicating the header name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#forward_headers NetworkServicesAuthzExtension#forward_headers}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#id NetworkServicesAuthzExtension#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Set of labels associated with the AuthzExtension resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#labels NetworkServicesAuthzExtension#labels}
-        :param metadata: The metadata provided here is included as part of the metadata_context (of type google.protobuf.Struct) in the ProcessingRequest message sent to the extension server. The metadata is available under the namespace com.google.authz_extension.. The following variables are supported in the metadata Struct:. {forwarding_rule_id} - substituted with the forwarding rule's fully qualified resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#metadata NetworkServicesAuthzExtension#metadata}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#project NetworkServicesAuthzExtension#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#timeouts NetworkServicesAuthzExtension#timeouts}
-        :param wire_format: The format of communication supported by the callout extension. Will be set to EXT_PROC_GRPC by the backend if no value is set. Possible values: ["WIRE_FORMAT_UNSPECIFIED", "EXT_PROC_GRPC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#wire_format NetworkServicesAuthzExtension#wire_format}
+        :param authority: The :authority header in the gRPC request sent from Envoy to the extension service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#authority NetworkServicesAuthzExtension#authority}
+        :param load_balancing_scheme: All backend services and forwarding rules referenced by this extension must share the same load balancing scheme. For more information, refer to `Backend services overview <https://cloud.google.com/load-balancing/docs/backend-service>`_. Possible values: ["INTERNAL_MANAGED", "EXTERNAL_MANAGED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#load_balancing_scheme NetworkServicesAuthzExtension#load_balancing_scheme}
+        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#location NetworkServicesAuthzExtension#location}
+        :param name: Identifier. Name of the AuthzExtension resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#name NetworkServicesAuthzExtension#name}
+        :param service: The reference to the service that runs the extension. To configure a callout extension, service must be a fully-qualified reference to a `backend service <https://cloud.google.com/compute/docs/reference/rest/v1/backendServices>`_ in the format: https://www.googleapis.com/compute/v1/projects/{project}/regions/{region}/backendServices/{backendService} or https://www.googleapis.com/compute/v1/projects/{project}/global/backendServices/{backendService}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#service NetworkServicesAuthzExtension#service}
+        :param timeout: Specifies the timeout for each individual message on the stream. The timeout must be between 10-10000 milliseconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#timeout NetworkServicesAuthzExtension#timeout}
+        :param description: A human-readable description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#description NetworkServicesAuthzExtension#description}
+        :param fail_open: Determines how the proxy behaves if the call to the extension fails or times out. When set to TRUE, request or response processing continues without error. Any subsequent extensions in the extension chain are also executed. When set to FALSE or the default setting of FALSE is used, one of the following happens: - If response headers have not been delivered to the downstream client, a generic 500 error is returned to the client. The error response can be tailored by configuring a custom error response in the load balancer. - If response headers have been delivered, then the HTTP stream to the downstream client is reset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#fail_open NetworkServicesAuthzExtension#fail_open}
+        :param forward_headers: List of the HTTP headers to forward to the extension (from the client). If omitted, all headers are sent. Each element is a string indicating the header name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#forward_headers NetworkServicesAuthzExtension#forward_headers}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#id NetworkServicesAuthzExtension#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Set of labels associated with the AuthzExtension resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#labels NetworkServicesAuthzExtension#labels}
+        :param metadata: The metadata provided here is included as part of the metadata_context (of type google.protobuf.Struct) in the ProcessingRequest message sent to the extension server. The metadata is available under the namespace com.google.authz_extension.. The following variables are supported in the metadata Struct:. {forwarding_rule_id} - substituted with the forwarding rule's fully qualified resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#metadata NetworkServicesAuthzExtension#metadata}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#project NetworkServicesAuthzExtension#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#timeouts NetworkServicesAuthzExtension#timeouts}
+        :param wire_format: The format of communication supported by the callout extension. Will be set to EXT_PROC_GRPC by the backend if no value is set. Possible values: ["WIRE_FORMAT_UNSPECIFIED", "EXT_PROC_GRPC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#wire_format NetworkServicesAuthzExtension#wire_format}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class NetworkServicesAuthzExtension(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetworkServicesAuthzExtension to import.
-        :param import_from_id: The id of the existing NetworkServicesAuthzExtension that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetworkServicesAuthzExtension that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetworkServicesAuthzExtension to import is found.
         '''
         if __debug__:
@@ -165,9 +165,9 @@ class NetworkServicesAuthzExtension(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#create NetworkServicesAuthzExtension#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#delete NetworkServicesAuthzExtension#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#update NetworkServicesAuthzExtension#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#create NetworkServicesAuthzExtension#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#delete NetworkServicesAuthzExtension#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#update NetworkServicesAuthzExtension#update}.
         '''
         value = NetworkServicesAuthzExtensionTimeouts(
             create=create, delete=delete, update=update
@@ -567,21 +567,21 @@ class NetworkServicesAuthzExtensionConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param authority: The :authority header in the gRPC request sent from Envoy to the extension service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#authority NetworkServicesAuthzExtension#authority}
-        :param load_balancing_scheme: All backend services and forwarding rules referenced by this extension must share the same load balancing scheme. For more information, refer to `Backend services overview <https://cloud.google.com/load-balancing/docs/backend-service>`_. Possible values: ["INTERNAL_MANAGED", "EXTERNAL_MANAGED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#load_balancing_scheme NetworkServicesAuthzExtension#load_balancing_scheme}
-        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#location NetworkServicesAuthzExtension#location}
-        :param name: Identifier. Name of the AuthzExtension resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#name NetworkServicesAuthzExtension#name}
-        :param service: The reference to the service that runs the extension. To configure a callout extension, service must be a fully-qualified reference to a `backend service <https://cloud.google.com/compute/docs/reference/rest/v1/backendServices>`_ in the format: https://www.googleapis.com/compute/v1/projects/{project}/regions/{region}/backendServices/{backendService} or https://www.googleapis.com/compute/v1/projects/{project}/global/backendServices/{backendService}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#service NetworkServicesAuthzExtension#service}
-        :param timeout: Specifies the timeout for each individual message on the stream. The timeout must be between 10-10000 milliseconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#timeout NetworkServicesAuthzExtension#timeout}
-        :param description: A human-readable description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#description NetworkServicesAuthzExtension#description}
-        :param fail_open: Determines how the proxy behaves if the call to the extension fails or times out. When set to TRUE, request or response processing continues without error. Any subsequent extensions in the extension chain are also executed. When set to FALSE or the default setting of FALSE is used, one of the following happens: - If response headers have not been delivered to the downstream client, a generic 500 error is returned to the client. The error response can be tailored by configuring a custom error response in the load balancer. - If response headers have been delivered, then the HTTP stream to the downstream client is reset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#fail_open NetworkServicesAuthzExtension#fail_open}
-        :param forward_headers: List of the HTTP headers to forward to the extension (from the client). If omitted, all headers are sent. Each element is a string indicating the header name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#forward_headers NetworkServicesAuthzExtension#forward_headers}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#id NetworkServicesAuthzExtension#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Set of labels associated with the AuthzExtension resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#labels NetworkServicesAuthzExtension#labels}
-        :param metadata: The metadata provided here is included as part of the metadata_context (of type google.protobuf.Struct) in the ProcessingRequest message sent to the extension server. The metadata is available under the namespace com.google.authz_extension.. The following variables are supported in the metadata Struct:. {forwarding_rule_id} - substituted with the forwarding rule's fully qualified resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#metadata NetworkServicesAuthzExtension#metadata}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#project NetworkServicesAuthzExtension#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#timeouts NetworkServicesAuthzExtension#timeouts}
-        :param wire_format: The format of communication supported by the callout extension. Will be set to EXT_PROC_GRPC by the backend if no value is set. Possible values: ["WIRE_FORMAT_UNSPECIFIED", "EXT_PROC_GRPC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#wire_format NetworkServicesAuthzExtension#wire_format}
+        :param authority: The :authority header in the gRPC request sent from Envoy to the extension service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#authority NetworkServicesAuthzExtension#authority}
+        :param load_balancing_scheme: All backend services and forwarding rules referenced by this extension must share the same load balancing scheme. For more information, refer to `Backend services overview <https://cloud.google.com/load-balancing/docs/backend-service>`_. Possible values: ["INTERNAL_MANAGED", "EXTERNAL_MANAGED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#load_balancing_scheme NetworkServicesAuthzExtension#load_balancing_scheme}
+        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#location NetworkServicesAuthzExtension#location}
+        :param name: Identifier. Name of the AuthzExtension resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#name NetworkServicesAuthzExtension#name}
+        :param service: The reference to the service that runs the extension. To configure a callout extension, service must be a fully-qualified reference to a `backend service <https://cloud.google.com/compute/docs/reference/rest/v1/backendServices>`_ in the format: https://www.googleapis.com/compute/v1/projects/{project}/regions/{region}/backendServices/{backendService} or https://www.googleapis.com/compute/v1/projects/{project}/global/backendServices/{backendService}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#service NetworkServicesAuthzExtension#service}
+        :param timeout: Specifies the timeout for each individual message on the stream. The timeout must be between 10-10000 milliseconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#timeout NetworkServicesAuthzExtension#timeout}
+        :param description: A human-readable description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#description NetworkServicesAuthzExtension#description}
+        :param fail_open: Determines how the proxy behaves if the call to the extension fails or times out. When set to TRUE, request or response processing continues without error. Any subsequent extensions in the extension chain are also executed. When set to FALSE or the default setting of FALSE is used, one of the following happens: - If response headers have not been delivered to the downstream client, a generic 500 error is returned to the client. The error response can be tailored by configuring a custom error response in the load balancer. - If response headers have been delivered, then the HTTP stream to the downstream client is reset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#fail_open NetworkServicesAuthzExtension#fail_open}
+        :param forward_headers: List of the HTTP headers to forward to the extension (from the client). If omitted, all headers are sent. Each element is a string indicating the header name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#forward_headers NetworkServicesAuthzExtension#forward_headers}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#id NetworkServicesAuthzExtension#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Set of labels associated with the AuthzExtension resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#labels NetworkServicesAuthzExtension#labels}
+        :param metadata: The metadata provided here is included as part of the metadata_context (of type google.protobuf.Struct) in the ProcessingRequest message sent to the extension server. The metadata is available under the namespace com.google.authz_extension.. The following variables are supported in the metadata Struct:. {forwarding_rule_id} - substituted with the forwarding rule's fully qualified resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#metadata NetworkServicesAuthzExtension#metadata}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#project NetworkServicesAuthzExtension#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#timeouts NetworkServicesAuthzExtension#timeouts}
+        :param wire_format: The format of communication supported by the callout extension. Will be set to EXT_PROC_GRPC by the backend if no value is set. Possible values: ["WIRE_FORMAT_UNSPECIFIED", "EXT_PROC_GRPC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#wire_format NetworkServicesAuthzExtension#wire_format}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -720,7 +720,7 @@ class NetworkServicesAuthzExtensionConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def authority(self) -> builtins.str:
         '''The :authority header in the gRPC request sent from Envoy to the extension service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#authority NetworkServicesAuthzExtension#authority}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#authority NetworkServicesAuthzExtension#authority}
         '''
         result = self._values.get("authority")
         assert result is not None, "Required property 'authority' is missing"
@@ -732,7 +732,7 @@ class NetworkServicesAuthzExtensionConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
         For more information, refer to `Backend services overview <https://cloud.google.com/load-balancing/docs/backend-service>`_. Possible values: ["INTERNAL_MANAGED", "EXTERNAL_MANAGED"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#load_balancing_scheme NetworkServicesAuthzExtension#load_balancing_scheme}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#load_balancing_scheme NetworkServicesAuthzExtension#load_balancing_scheme}
         '''
         result = self._values.get("load_balancing_scheme")
         assert result is not None, "Required property 'load_balancing_scheme' is missing"
@@ -742,7 +742,7 @@ class NetworkServicesAuthzExtensionConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def location(self) -> builtins.str:
         '''The location of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#location NetworkServicesAuthzExtension#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#location NetworkServicesAuthzExtension#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -752,7 +752,7 @@ class NetworkServicesAuthzExtensionConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def name(self) -> builtins.str:
         '''Identifier. Name of the AuthzExtension resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#name NetworkServicesAuthzExtension#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#name NetworkServicesAuthzExtension#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -765,7 +765,7 @@ class NetworkServicesAuthzExtensionConfig(_cdktf_9a9027ec.TerraformMetaArguments
         To configure a callout extension, service must be a fully-qualified reference to a `backend service <https://cloud.google.com/compute/docs/reference/rest/v1/backendServices>`_ in the format:
         https://www.googleapis.com/compute/v1/projects/{project}/regions/{region}/backendServices/{backendService} or https://www.googleapis.com/compute/v1/projects/{project}/global/backendServices/{backendService}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#service NetworkServicesAuthzExtension#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#service NetworkServicesAuthzExtension#service}
         '''
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
@@ -775,7 +775,7 @@ class NetworkServicesAuthzExtensionConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def timeout(self) -> builtins.str:
         '''Specifies the timeout for each individual message on the stream. The timeout must be between 10-10000 milliseconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#timeout NetworkServicesAuthzExtension#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#timeout NetworkServicesAuthzExtension#timeout}
         '''
         result = self._values.get("timeout")
         assert result is not None, "Required property 'timeout' is missing"
@@ -785,7 +785,7 @@ class NetworkServicesAuthzExtensionConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def description(self) -> typing.Optional[builtins.str]:
         '''A human-readable description of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#description NetworkServicesAuthzExtension#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#description NetworkServicesAuthzExtension#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -801,7 +801,7 @@ class NetworkServicesAuthzExtensionConfig(_cdktf_9a9027ec.TerraformMetaArguments
         - If response headers have not been delivered to the downstream client, a generic 500 error is returned to the client. The error response can be tailored by configuring a custom error response in the load balancer.
         - If response headers have been delivered, then the HTTP stream to the downstream client is reset.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#fail_open NetworkServicesAuthzExtension#fail_open}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#fail_open NetworkServicesAuthzExtension#fail_open}
         '''
         result = self._values.get("fail_open")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -812,14 +812,14 @@ class NetworkServicesAuthzExtensionConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
         If omitted, all headers are sent. Each element is a string indicating the header name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#forward_headers NetworkServicesAuthzExtension#forward_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#forward_headers NetworkServicesAuthzExtension#forward_headers}
         '''
         result = self._values.get("forward_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#id NetworkServicesAuthzExtension#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#id NetworkServicesAuthzExtension#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -834,7 +834,7 @@ class NetworkServicesAuthzExtensionConfig(_cdktf_9a9027ec.TerraformMetaArguments
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#labels NetworkServicesAuthzExtension#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#labels NetworkServicesAuthzExtension#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -845,14 +845,14 @@ class NetworkServicesAuthzExtensionConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
         {forwarding_rule_id} - substituted with the forwarding rule's fully qualified resource name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#metadata NetworkServicesAuthzExtension#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#metadata NetworkServicesAuthzExtension#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#project NetworkServicesAuthzExtension#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#project NetworkServicesAuthzExtension#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -860,7 +860,7 @@ class NetworkServicesAuthzExtensionConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def timeouts(self) -> typing.Optional["NetworkServicesAuthzExtensionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#timeouts NetworkServicesAuthzExtension#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#timeouts NetworkServicesAuthzExtension#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NetworkServicesAuthzExtensionTimeouts"], result)
@@ -871,7 +871,7 @@ class NetworkServicesAuthzExtensionConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
         Will be set to EXT_PROC_GRPC by the backend if no value is set. Possible values: ["WIRE_FORMAT_UNSPECIFIED", "EXT_PROC_GRPC"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#wire_format NetworkServicesAuthzExtension#wire_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#wire_format NetworkServicesAuthzExtension#wire_format}
         '''
         result = self._values.get("wire_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -902,9 +902,9 @@ class NetworkServicesAuthzExtensionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#create NetworkServicesAuthzExtension#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#delete NetworkServicesAuthzExtension#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#update NetworkServicesAuthzExtension#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#create NetworkServicesAuthzExtension#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#delete NetworkServicesAuthzExtension#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#update NetworkServicesAuthzExtension#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__81a86c0795c7ff0662907c0830cc1bf5a33719ff4bc5e3f1f1dfb16d6c014261)
@@ -921,19 +921,19 @@ class NetworkServicesAuthzExtensionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#create NetworkServicesAuthzExtension#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#create NetworkServicesAuthzExtension#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#delete NetworkServicesAuthzExtension#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#delete NetworkServicesAuthzExtension#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_services_authz_extension#update NetworkServicesAuthzExtension#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_services_authz_extension#update NetworkServicesAuthzExtension#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

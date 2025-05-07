@@ -1,7 +1,7 @@
 r'''
 # `google_compute_resource_policy_attachment`
 
-Refer to the Terraform Registry for docs: [`google_compute_resource_policy_attachment`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment).
+Refer to the Terraform Registry for docs: [`google_compute_resource_policy_attachment`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeResourcePolicyAttachment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeResourcePolicyAttachment.ComputeResourcePolicyAttachment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment google_compute_resource_policy_attachment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment google_compute_resource_policy_attachment}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class ComputeResourcePolicyAttachment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment google_compute_resource_policy_attachment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment google_compute_resource_policy_attachment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance: The name of the instance in which the resource policies are attached to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#instance ComputeResourcePolicyAttachment#instance}
-        :param name: The resource policy to be attached to the instance for scheduling start/stop operations. Do not specify the self link. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#name ComputeResourcePolicyAttachment#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#id ComputeResourcePolicyAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#project ComputeResourcePolicyAttachment#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#timeouts ComputeResourcePolicyAttachment#timeouts}
-        :param zone: A reference to the zone where the instance resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#zone ComputeResourcePolicyAttachment#zone}
+        :param instance: The name of the instance in which the resource policies are attached to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#instance ComputeResourcePolicyAttachment#instance}
+        :param name: The resource policy to be attached to the instance for scheduling start/stop operations. Do not specify the self link. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#name ComputeResourcePolicyAttachment#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#id ComputeResourcePolicyAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#project ComputeResourcePolicyAttachment#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#timeouts ComputeResourcePolicyAttachment#timeouts}
+        :param zone: A reference to the zone where the instance resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#zone ComputeResourcePolicyAttachment#zone}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class ComputeResourcePolicyAttachment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeResourcePolicyAttachment to import.
-        :param import_from_id: The id of the existing ComputeResourcePolicyAttachment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeResourcePolicyAttachment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeResourcePolicyAttachment to import is found.
         '''
         if __debug__:
@@ -137,8 +137,8 @@ class ComputeResourcePolicyAttachment(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#create ComputeResourcePolicyAttachment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#delete ComputeResourcePolicyAttachment#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#create ComputeResourcePolicyAttachment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#delete ComputeResourcePolicyAttachment#delete}.
         '''
         value = ComputeResourcePolicyAttachmentTimeouts(create=create, delete=delete)
 
@@ -316,12 +316,12 @@ class ComputeResourcePolicyAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance: The name of the instance in which the resource policies are attached to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#instance ComputeResourcePolicyAttachment#instance}
-        :param name: The resource policy to be attached to the instance for scheduling start/stop operations. Do not specify the self link. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#name ComputeResourcePolicyAttachment#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#id ComputeResourcePolicyAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#project ComputeResourcePolicyAttachment#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#timeouts ComputeResourcePolicyAttachment#timeouts}
-        :param zone: A reference to the zone where the instance resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#zone ComputeResourcePolicyAttachment#zone}
+        :param instance: The name of the instance in which the resource policies are attached to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#instance ComputeResourcePolicyAttachment#instance}
+        :param name: The resource policy to be attached to the instance for scheduling start/stop operations. Do not specify the self link. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#name ComputeResourcePolicyAttachment#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#id ComputeResourcePolicyAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#project ComputeResourcePolicyAttachment#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#timeouts ComputeResourcePolicyAttachment#timeouts}
+        :param zone: A reference to the zone where the instance resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#zone ComputeResourcePolicyAttachment#zone}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -437,7 +437,7 @@ class ComputeResourcePolicyAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def instance(self) -> builtins.str:
         '''The name of the instance in which the resource policies are attached to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#instance ComputeResourcePolicyAttachment#instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#instance ComputeResourcePolicyAttachment#instance}
         '''
         result = self._values.get("instance")
         assert result is not None, "Required property 'instance' is missing"
@@ -447,7 +447,7 @@ class ComputeResourcePolicyAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def name(self) -> builtins.str:
         '''The resource policy to be attached to the instance for scheduling start/stop operations. Do not specify the self link.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#name ComputeResourcePolicyAttachment#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#name ComputeResourcePolicyAttachment#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -455,7 +455,7 @@ class ComputeResourcePolicyAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#id ComputeResourcePolicyAttachment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#id ComputeResourcePolicyAttachment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -465,7 +465,7 @@ class ComputeResourcePolicyAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#project ComputeResourcePolicyAttachment#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#project ComputeResourcePolicyAttachment#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -473,7 +473,7 @@ class ComputeResourcePolicyAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def timeouts(self) -> typing.Optional["ComputeResourcePolicyAttachmentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#timeouts ComputeResourcePolicyAttachment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#timeouts ComputeResourcePolicyAttachment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeResourcePolicyAttachmentTimeouts"], result)
@@ -482,7 +482,7 @@ class ComputeResourcePolicyAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def zone(self) -> typing.Optional[builtins.str]:
         '''A reference to the zone where the instance resides.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#zone ComputeResourcePolicyAttachment#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#zone ComputeResourcePolicyAttachment#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -512,8 +512,8 @@ class ComputeResourcePolicyAttachmentTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#create ComputeResourcePolicyAttachment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#delete ComputeResourcePolicyAttachment#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#create ComputeResourcePolicyAttachment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#delete ComputeResourcePolicyAttachment#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8144c6d0a78857a4204a45fea9dd2be3211249709f612c18343585a08d19e79a)
@@ -527,13 +527,13 @@ class ComputeResourcePolicyAttachmentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#create ComputeResourcePolicyAttachment#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#create ComputeResourcePolicyAttachment#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy_attachment#delete ComputeResourcePolicyAttachment#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy_attachment#delete ComputeResourcePolicyAttachment#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

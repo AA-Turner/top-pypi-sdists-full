@@ -1,7 +1,7 @@
 r'''
 # `docker_volume`
 
-Refer to the Terraform Registry for docs: [`docker_volume`](https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume).
+Refer to the Terraform Registry for docs: [`docker_volume`](https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Volume(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-docker.volume.Volume",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume docker_volume}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume docker_volume}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class Volume(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume docker_volume} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume docker_volume} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param driver: Driver type for the volume. Defaults to ``local``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#driver Volume#driver}
-        :param driver_opts: Options specific to the driver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#driver_opts Volume#driver_opts}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#id Volume#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#labels Volume#labels}
-        :param name: The name of the Docker volume (will be generated if not provided). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#name Volume#name}
+        :param driver: Driver type for the volume. Defaults to ``local``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#driver Volume#driver}
+        :param driver_opts: Options specific to the driver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#driver_opts Volume#driver_opts}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#id Volume#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#labels Volume#labels}
+        :param name: The name of the Docker volume (will be generated if not provided). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#name Volume#name}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class Volume(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Volume to import.
-        :param import_from_id: The id of the existing Volume that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Volume that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Volume to import is found.
         '''
         if __debug__:
@@ -303,11 +303,11 @@ class VolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param driver: Driver type for the volume. Defaults to ``local``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#driver Volume#driver}
-        :param driver_opts: Options specific to the driver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#driver_opts Volume#driver_opts}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#id Volume#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#labels Volume#labels}
-        :param name: The name of the Docker volume (will be generated if not provided). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#name Volume#name}
+        :param driver: Driver type for the volume. Defaults to ``local``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#driver Volume#driver}
+        :param driver_opts: Options specific to the driver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#driver_opts Volume#driver_opts}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#id Volume#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#labels Volume#labels}
+        :param name: The name of the Docker volume (will be generated if not provided). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#name Volume#name}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -419,7 +419,7 @@ class VolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def driver(self) -> typing.Optional[builtins.str]:
         '''Driver type for the volume. Defaults to ``local``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#driver Volume#driver}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#driver Volume#driver}
         '''
         result = self._values.get("driver")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -430,14 +430,14 @@ class VolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Options specific to the driver.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#driver_opts Volume#driver_opts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#driver_opts Volume#driver_opts}
         '''
         result = self._values.get("driver_opts")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#id Volume#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#id Volume#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -451,7 +451,7 @@ class VolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["VolumeLabels"]]]:
         '''labels block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#labels Volume#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#labels Volume#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["VolumeLabels"]]], result)
@@ -460,7 +460,7 @@ class VolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the Docker volume (will be generated if not provided).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#name Volume#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#name Volume#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -485,8 +485,8 @@ class VolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class VolumeLabels:
     def __init__(self, *, label: builtins.str, value: builtins.str) -> None:
         '''
-        :param label: Name of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#label Volume#label}
-        :param value: Value of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#value Volume#value}
+        :param label: Name of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#label Volume#label}
+        :param value: Value of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#value Volume#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1c007d0f36518eb6825e45bceeb3eef1c7e3499bc3ba4fa2baa0e488a1921aca)
@@ -501,7 +501,7 @@ class VolumeLabels:
     def label(self) -> builtins.str:
         '''Name of the label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#label Volume#label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#label Volume#label}
         '''
         result = self._values.get("label")
         assert result is not None, "Required property 'label' is missing"
@@ -511,7 +511,7 @@ class VolumeLabels:
     def value(self) -> builtins.str:
         '''Value of the label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/volume#value Volume#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/volume#value Volume#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"

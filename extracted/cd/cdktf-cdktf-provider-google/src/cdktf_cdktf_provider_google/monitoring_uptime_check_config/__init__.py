@@ -1,7 +1,7 @@
 r'''
 # `google_monitoring_uptime_check_config`
 
-Refer to the Terraform Registry for docs: [`google_monitoring_uptime_check_config`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config).
+Refer to the Terraform Registry for docs: [`google_monitoring_uptime_check_config`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MonitoringUptimeCheckConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.monitoringUptimeCheckConfig.MonitoringUptimeCheckConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config google_monitoring_uptime_check_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config google_monitoring_uptime_check_config}.'''
 
     def __init__(
         self,
@@ -75,26 +75,26 @@ class MonitoringUptimeCheckConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config google_monitoring_uptime_check_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config google_monitoring_uptime_check_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: A human-friendly name for the uptime check configuration. The display name should be unique within a Stackdriver Workspace in order to make it easier to identify; however, uniqueness is not enforced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#display_name MonitoringUptimeCheckConfig#display_name}
-        :param timeout: The maximum amount of time to wait for the request to complete (must be between 1 and 60 seconds). `See the accepted formats <https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration>`_ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#timeout MonitoringUptimeCheckConfig#timeout}
-        :param checker_type: The checker type to use for the check. If the monitored resource type is 'servicedirectory_service', 'checker_type' must be set to 'VPC_CHECKERS'. Possible values: ["STATIC_IP_CHECKERS", "VPC_CHECKERS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#checker_type MonitoringUptimeCheckConfig#checker_type}
-        :param content_matchers: content_matchers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#content_matchers MonitoringUptimeCheckConfig#content_matchers}
-        :param http_check: http_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#http_check MonitoringUptimeCheckConfig#http_check}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#id MonitoringUptimeCheckConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_check_failures: Specifies whether to log the results of failed probes to Cloud Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#log_check_failures MonitoringUptimeCheckConfig#log_check_failures}
-        :param monitored_resource: monitored_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#monitored_resource MonitoringUptimeCheckConfig#monitored_resource}
-        :param period: How often, in seconds, the uptime check is performed. Currently, the only supported values are 60s (1 minute), 300s (5 minutes), 600s (10 minutes), and 900s (15 minutes). Optional, defaults to 300s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#period MonitoringUptimeCheckConfig#period}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#project MonitoringUptimeCheckConfig#project}.
-        :param resource_group: resource_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#resource_group MonitoringUptimeCheckConfig#resource_group}
-        :param selected_regions: The list of regions from which the check will be run. Some regions contain one location, and others contain more than one. If this field is specified, enough regions to include a minimum of 3 locations must be provided, or an error message is returned. Not specifying this field will result in uptime checks running from all regions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#selected_regions MonitoringUptimeCheckConfig#selected_regions}
-        :param synthetic_monitor: synthetic_monitor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#synthetic_monitor MonitoringUptimeCheckConfig#synthetic_monitor}
-        :param tcp_check: tcp_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#tcp_check MonitoringUptimeCheckConfig#tcp_check}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#timeouts MonitoringUptimeCheckConfig#timeouts}
-        :param user_labels: User-supplied key/value data to be used for organizing and identifying the 'UptimeCheckConfig' objects. The field can contain up to 64 entries. Each key and value is limited to 63 Unicode characters or 128 bytes, whichever is smaller. Labels and values can contain only lowercase letters, numerals, underscores, and dashes. Keys must begin with a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#user_labels MonitoringUptimeCheckConfig#user_labels}
+        :param display_name: A human-friendly name for the uptime check configuration. The display name should be unique within a Stackdriver Workspace in order to make it easier to identify; however, uniqueness is not enforced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#display_name MonitoringUptimeCheckConfig#display_name}
+        :param timeout: The maximum amount of time to wait for the request to complete (must be between 1 and 60 seconds). `See the accepted formats <https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration>`_ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#timeout MonitoringUptimeCheckConfig#timeout}
+        :param checker_type: The checker type to use for the check. If the monitored resource type is 'servicedirectory_service', 'checker_type' must be set to 'VPC_CHECKERS'. Possible values: ["STATIC_IP_CHECKERS", "VPC_CHECKERS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#checker_type MonitoringUptimeCheckConfig#checker_type}
+        :param content_matchers: content_matchers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#content_matchers MonitoringUptimeCheckConfig#content_matchers}
+        :param http_check: http_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#http_check MonitoringUptimeCheckConfig#http_check}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#id MonitoringUptimeCheckConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_check_failures: Specifies whether to log the results of failed probes to Cloud Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#log_check_failures MonitoringUptimeCheckConfig#log_check_failures}
+        :param monitored_resource: monitored_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#monitored_resource MonitoringUptimeCheckConfig#monitored_resource}
+        :param period: How often, in seconds, the uptime check is performed. Currently, the only supported values are 60s (1 minute), 300s (5 minutes), 600s (10 minutes), and 900s (15 minutes). Optional, defaults to 300s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#period MonitoringUptimeCheckConfig#period}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#project MonitoringUptimeCheckConfig#project}.
+        :param resource_group: resource_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#resource_group MonitoringUptimeCheckConfig#resource_group}
+        :param selected_regions: The list of regions from which the check will be run. Some regions contain one location, and others contain more than one. If this field is specified, enough regions to include a minimum of 3 locations must be provided, or an error message is returned. Not specifying this field will result in uptime checks running from all regions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#selected_regions MonitoringUptimeCheckConfig#selected_regions}
+        :param synthetic_monitor: synthetic_monitor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#synthetic_monitor MonitoringUptimeCheckConfig#synthetic_monitor}
+        :param tcp_check: tcp_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#tcp_check MonitoringUptimeCheckConfig#tcp_check}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#timeouts MonitoringUptimeCheckConfig#timeouts}
+        :param user_labels: User-supplied key/value data to be used for organizing and identifying the 'UptimeCheckConfig' objects. The field can contain up to 64 entries. Each key and value is limited to 63 Unicode characters or 128 bytes, whichever is smaller. Labels and values can contain only lowercase letters, numerals, underscores, and dashes. Keys must begin with a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#user_labels MonitoringUptimeCheckConfig#user_labels}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -148,7 +148,7 @@ class MonitoringUptimeCheckConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MonitoringUptimeCheckConfig to import.
-        :param import_from_id: The id of the existing MonitoringUptimeCheckConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MonitoringUptimeCheckConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MonitoringUptimeCheckConfig to import is found.
         '''
         if __debug__:
@@ -192,20 +192,20 @@ class MonitoringUptimeCheckConfig(
         validate_ssl: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param accepted_response_status_codes: accepted_response_status_codes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#accepted_response_status_codes MonitoringUptimeCheckConfig#accepted_response_status_codes}
-        :param auth_info: auth_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#auth_info MonitoringUptimeCheckConfig#auth_info}
-        :param body: The request body associated with the HTTP POST request. If 'content_type' is 'URL_ENCODED', the body passed in must be URL-encoded. Users can provide a 'Content-Length' header via the 'headers' field or the API will do so. If the 'request_method' is 'GET' and 'body' is not empty, the API will return an error. The maximum byte size is 1 megabyte. Note - As with all bytes fields JSON representations are base64 encoded. e.g. 'foo=bar' in URL-encoded form is 'foo%3Dbar' and in base64 encoding is 'Zm9vJTI1M0RiYXI='. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#body MonitoringUptimeCheckConfig#body}
-        :param content_type: The content type to use for the check. Possible values: ["TYPE_UNSPECIFIED", "URL_ENCODED", "USER_PROVIDED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#content_type MonitoringUptimeCheckConfig#content_type}
-        :param custom_content_type: A user provided content type header to use for the check. The invalid configurations outlined in the 'content_type' field apply to custom_content_type', as well as the following 1. 'content_type' is 'URL_ENCODED' and 'custom_content_type' is set. 2. 'content_type' is 'USER_PROVIDED' and 'custom_content_type' is not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#custom_content_type MonitoringUptimeCheckConfig#custom_content_type}
-        :param headers: The list of headers to send as part of the uptime check request. If two headers have the same key and different values, they should be entered as a single header, with the value being a comma-separated list of all the desired values as described in `RFC 2616 (page 31) <https://www.w3.org/Protocols/rfc2616/rfc2616.txt>`_. Entering two separate headers with the same key in a Create call will cause the first to be overwritten by the second. The maximum number of headers allowed is 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#headers MonitoringUptimeCheckConfig#headers}
-        :param mask_headers: Boolean specifying whether to encrypt the header information. Encryption should be specified for any headers related to authentication that you do not wish to be seen when retrieving the configuration. The server will be responsible for encrypting the headers. On Get/List calls, if 'mask_headers' is set to 'true' then the headers will be obscured with '******'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#mask_headers MonitoringUptimeCheckConfig#mask_headers}
-        :param path: The path to the page to run the check against. Will be combined with the host (specified within the MonitoredResource) and port to construct the full URL. If the provided path does not begin with '/', a '/' will be prepended automatically. Optional (defaults to '/'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#path MonitoringUptimeCheckConfig#path}
-        :param ping_config: ping_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#ping_config MonitoringUptimeCheckConfig#ping_config}
-        :param port: The port to the page to run the check against. Will be combined with 'host' (specified within the `'monitored_resource' <#nested_monitored_resource>`_) and path to construct the full URL. Optional (defaults to 80 without SSL, or 443 with SSL). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#port MonitoringUptimeCheckConfig#port}
-        :param request_method: The HTTP request method to use for the check. If set to 'METHOD_UNSPECIFIED' then 'request_method' defaults to 'GET'. Default value: "GET" Possible values: ["METHOD_UNSPECIFIED", "GET", "POST"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#request_method MonitoringUptimeCheckConfig#request_method}
-        :param service_agent_authentication: service_agent_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#service_agent_authentication MonitoringUptimeCheckConfig#service_agent_authentication}
-        :param use_ssl: If true, use HTTPS instead of HTTP to run the check. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#use_ssl MonitoringUptimeCheckConfig#use_ssl}
-        :param validate_ssl: Boolean specifying whether to include SSL certificate validation as a part of the Uptime check. Only applies to checks where 'monitored_resource' is set to 'uptime_url'. If 'use_ssl' is 'false', setting 'validate_ssl' to 'true' has no effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#validate_ssl MonitoringUptimeCheckConfig#validate_ssl}
+        :param accepted_response_status_codes: accepted_response_status_codes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#accepted_response_status_codes MonitoringUptimeCheckConfig#accepted_response_status_codes}
+        :param auth_info: auth_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#auth_info MonitoringUptimeCheckConfig#auth_info}
+        :param body: The request body associated with the HTTP POST request. If 'content_type' is 'URL_ENCODED', the body passed in must be URL-encoded. Users can provide a 'Content-Length' header via the 'headers' field or the API will do so. If the 'request_method' is 'GET' and 'body' is not empty, the API will return an error. The maximum byte size is 1 megabyte. Note - As with all bytes fields JSON representations are base64 encoded. e.g. 'foo=bar' in URL-encoded form is 'foo%3Dbar' and in base64 encoding is 'Zm9vJTI1M0RiYXI='. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#body MonitoringUptimeCheckConfig#body}
+        :param content_type: The content type to use for the check. Possible values: ["TYPE_UNSPECIFIED", "URL_ENCODED", "USER_PROVIDED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#content_type MonitoringUptimeCheckConfig#content_type}
+        :param custom_content_type: A user provided content type header to use for the check. The invalid configurations outlined in the 'content_type' field apply to custom_content_type', as well as the following 1. 'content_type' is 'URL_ENCODED' and 'custom_content_type' is set. 2. 'content_type' is 'USER_PROVIDED' and 'custom_content_type' is not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#custom_content_type MonitoringUptimeCheckConfig#custom_content_type}
+        :param headers: The list of headers to send as part of the uptime check request. If two headers have the same key and different values, they should be entered as a single header, with the value being a comma-separated list of all the desired values as described in `RFC 2616 (page 31) <https://www.w3.org/Protocols/rfc2616/rfc2616.txt>`_. Entering two separate headers with the same key in a Create call will cause the first to be overwritten by the second. The maximum number of headers allowed is 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#headers MonitoringUptimeCheckConfig#headers}
+        :param mask_headers: Boolean specifying whether to encrypt the header information. Encryption should be specified for any headers related to authentication that you do not wish to be seen when retrieving the configuration. The server will be responsible for encrypting the headers. On Get/List calls, if 'mask_headers' is set to 'true' then the headers will be obscured with '******'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#mask_headers MonitoringUptimeCheckConfig#mask_headers}
+        :param path: The path to the page to run the check against. Will be combined with the host (specified within the MonitoredResource) and port to construct the full URL. If the provided path does not begin with '/', a '/' will be prepended automatically. Optional (defaults to '/'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#path MonitoringUptimeCheckConfig#path}
+        :param ping_config: ping_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#ping_config MonitoringUptimeCheckConfig#ping_config}
+        :param port: The port to the page to run the check against. Will be combined with 'host' (specified within the `'monitored_resource' <#nested_monitored_resource>`_) and path to construct the full URL. Optional (defaults to 80 without SSL, or 443 with SSL). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#port MonitoringUptimeCheckConfig#port}
+        :param request_method: The HTTP request method to use for the check. If set to 'METHOD_UNSPECIFIED' then 'request_method' defaults to 'GET'. Default value: "GET" Possible values: ["METHOD_UNSPECIFIED", "GET", "POST"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#request_method MonitoringUptimeCheckConfig#request_method}
+        :param service_agent_authentication: service_agent_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#service_agent_authentication MonitoringUptimeCheckConfig#service_agent_authentication}
+        :param use_ssl: If true, use HTTPS instead of HTTP to run the check. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#use_ssl MonitoringUptimeCheckConfig#use_ssl}
+        :param validate_ssl: Boolean specifying whether to include SSL certificate validation as a part of the Uptime check. Only applies to checks where 'monitored_resource' is set to 'uptime_url'. If 'use_ssl' is 'false', setting 'validate_ssl' to 'true' has no effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#validate_ssl MonitoringUptimeCheckConfig#validate_ssl}
         '''
         value = MonitoringUptimeCheckConfigHttpCheck(
             accepted_response_status_codes=accepted_response_status_codes,
@@ -234,8 +234,8 @@ class MonitoringUptimeCheckConfig(
         type: builtins.str,
     ) -> None:
         '''
-        :param labels: Values for all of the labels listed in the associated monitored resource descriptor. For example, Compute Engine VM instances use the labels 'project_id', 'instance_id', and 'zone'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#labels MonitoringUptimeCheckConfig#labels}
-        :param type: The monitored resource type. This field must match the type field of a `'MonitoredResourceDescriptor' <https://cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.monitoredResourceDescriptors#MonitoredResourceDescriptor>`_ object. For example, the type of a Compute Engine VM instance is 'gce_instance'. For a list of types, see `Monitoring resource types <https://cloud.google.com/monitoring/api/resources>`_ and `Logging resource types <https://cloud.google.com/logging/docs/api/v2/resource-list>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#type MonitoringUptimeCheckConfig#type}
+        :param labels: Values for all of the labels listed in the associated monitored resource descriptor. For example, Compute Engine VM instances use the labels 'project_id', 'instance_id', and 'zone'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#labels MonitoringUptimeCheckConfig#labels}
+        :param type: The monitored resource type. This field must match the type field of a `'MonitoredResourceDescriptor' <https://cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.monitoredResourceDescriptors#MonitoredResourceDescriptor>`_ object. For example, the type of a Compute Engine VM instance is 'gce_instance'. For a list of types, see `Monitoring resource types <https://cloud.google.com/monitoring/api/resources>`_ and `Logging resource types <https://cloud.google.com/logging/docs/api/v2/resource-list>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#type MonitoringUptimeCheckConfig#type}
         '''
         value = MonitoringUptimeCheckConfigMonitoredResource(labels=labels, type=type)
 
@@ -249,8 +249,8 @@ class MonitoringUptimeCheckConfig(
         resource_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param group_id: The group of resources being monitored. Should be the 'name' of a group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#group_id MonitoringUptimeCheckConfig#group_id}
-        :param resource_type: The resource type of the group members. Possible values: ["RESOURCE_TYPE_UNSPECIFIED", "INSTANCE", "AWS_ELB_LOAD_BALANCER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#resource_type MonitoringUptimeCheckConfig#resource_type}
+        :param group_id: The group of resources being monitored. Should be the 'name' of a group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#group_id MonitoringUptimeCheckConfig#group_id}
+        :param resource_type: The resource type of the group members. Possible values: ["RESOURCE_TYPE_UNSPECIFIED", "INSTANCE", "AWS_ELB_LOAD_BALANCER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#resource_type MonitoringUptimeCheckConfig#resource_type}
         '''
         value = MonitoringUptimeCheckConfigResourceGroup(
             group_id=group_id, resource_type=resource_type
@@ -265,7 +265,7 @@ class MonitoringUptimeCheckConfig(
         cloud_function_v2: typing.Union["MonitoringUptimeCheckConfigSyntheticMonitorCloudFunctionV2", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param cloud_function_v2: cloud_function_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#cloud_function_v2 MonitoringUptimeCheckConfig#cloud_function_v2}
+        :param cloud_function_v2: cloud_function_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#cloud_function_v2 MonitoringUptimeCheckConfig#cloud_function_v2}
         '''
         value = MonitoringUptimeCheckConfigSyntheticMonitor(
             cloud_function_v2=cloud_function_v2
@@ -281,8 +281,8 @@ class MonitoringUptimeCheckConfig(
         ping_config: typing.Optional[typing.Union["MonitoringUptimeCheckConfigTcpCheckPingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param port: The port to the page to run the check against. Will be combined with host (specified within the 'monitored_resource') to construct the full URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#port MonitoringUptimeCheckConfig#port}
-        :param ping_config: ping_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#ping_config MonitoringUptimeCheckConfig#ping_config}
+        :param port: The port to the page to run the check against. Will be combined with host (specified within the 'monitored_resource') to construct the full URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#port MonitoringUptimeCheckConfig#port}
+        :param ping_config: ping_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#ping_config MonitoringUptimeCheckConfig#ping_config}
         '''
         value = MonitoringUptimeCheckConfigTcpCheck(port=port, ping_config=ping_config)
 
@@ -297,9 +297,9 @@ class MonitoringUptimeCheckConfig(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#create MonitoringUptimeCheckConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#delete MonitoringUptimeCheckConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#update MonitoringUptimeCheckConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#create MonitoringUptimeCheckConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#delete MonitoringUptimeCheckConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#update MonitoringUptimeCheckConfig#update}.
         '''
         value = MonitoringUptimeCheckConfigTimeouts(
             create=create, delete=delete, update=update
@@ -702,22 +702,22 @@ class MonitoringUptimeCheckConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: A human-friendly name for the uptime check configuration. The display name should be unique within a Stackdriver Workspace in order to make it easier to identify; however, uniqueness is not enforced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#display_name MonitoringUptimeCheckConfig#display_name}
-        :param timeout: The maximum amount of time to wait for the request to complete (must be between 1 and 60 seconds). `See the accepted formats <https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration>`_ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#timeout MonitoringUptimeCheckConfig#timeout}
-        :param checker_type: The checker type to use for the check. If the monitored resource type is 'servicedirectory_service', 'checker_type' must be set to 'VPC_CHECKERS'. Possible values: ["STATIC_IP_CHECKERS", "VPC_CHECKERS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#checker_type MonitoringUptimeCheckConfig#checker_type}
-        :param content_matchers: content_matchers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#content_matchers MonitoringUptimeCheckConfig#content_matchers}
-        :param http_check: http_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#http_check MonitoringUptimeCheckConfig#http_check}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#id MonitoringUptimeCheckConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_check_failures: Specifies whether to log the results of failed probes to Cloud Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#log_check_failures MonitoringUptimeCheckConfig#log_check_failures}
-        :param monitored_resource: monitored_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#monitored_resource MonitoringUptimeCheckConfig#monitored_resource}
-        :param period: How often, in seconds, the uptime check is performed. Currently, the only supported values are 60s (1 minute), 300s (5 minutes), 600s (10 minutes), and 900s (15 minutes). Optional, defaults to 300s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#period MonitoringUptimeCheckConfig#period}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#project MonitoringUptimeCheckConfig#project}.
-        :param resource_group: resource_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#resource_group MonitoringUptimeCheckConfig#resource_group}
-        :param selected_regions: The list of regions from which the check will be run. Some regions contain one location, and others contain more than one. If this field is specified, enough regions to include a minimum of 3 locations must be provided, or an error message is returned. Not specifying this field will result in uptime checks running from all regions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#selected_regions MonitoringUptimeCheckConfig#selected_regions}
-        :param synthetic_monitor: synthetic_monitor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#synthetic_monitor MonitoringUptimeCheckConfig#synthetic_monitor}
-        :param tcp_check: tcp_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#tcp_check MonitoringUptimeCheckConfig#tcp_check}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#timeouts MonitoringUptimeCheckConfig#timeouts}
-        :param user_labels: User-supplied key/value data to be used for organizing and identifying the 'UptimeCheckConfig' objects. The field can contain up to 64 entries. Each key and value is limited to 63 Unicode characters or 128 bytes, whichever is smaller. Labels and values can contain only lowercase letters, numerals, underscores, and dashes. Keys must begin with a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#user_labels MonitoringUptimeCheckConfig#user_labels}
+        :param display_name: A human-friendly name for the uptime check configuration. The display name should be unique within a Stackdriver Workspace in order to make it easier to identify; however, uniqueness is not enforced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#display_name MonitoringUptimeCheckConfig#display_name}
+        :param timeout: The maximum amount of time to wait for the request to complete (must be between 1 and 60 seconds). `See the accepted formats <https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration>`_ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#timeout MonitoringUptimeCheckConfig#timeout}
+        :param checker_type: The checker type to use for the check. If the monitored resource type is 'servicedirectory_service', 'checker_type' must be set to 'VPC_CHECKERS'. Possible values: ["STATIC_IP_CHECKERS", "VPC_CHECKERS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#checker_type MonitoringUptimeCheckConfig#checker_type}
+        :param content_matchers: content_matchers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#content_matchers MonitoringUptimeCheckConfig#content_matchers}
+        :param http_check: http_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#http_check MonitoringUptimeCheckConfig#http_check}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#id MonitoringUptimeCheckConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_check_failures: Specifies whether to log the results of failed probes to Cloud Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#log_check_failures MonitoringUptimeCheckConfig#log_check_failures}
+        :param monitored_resource: monitored_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#monitored_resource MonitoringUptimeCheckConfig#monitored_resource}
+        :param period: How often, in seconds, the uptime check is performed. Currently, the only supported values are 60s (1 minute), 300s (5 minutes), 600s (10 minutes), and 900s (15 minutes). Optional, defaults to 300s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#period MonitoringUptimeCheckConfig#period}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#project MonitoringUptimeCheckConfig#project}.
+        :param resource_group: resource_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#resource_group MonitoringUptimeCheckConfig#resource_group}
+        :param selected_regions: The list of regions from which the check will be run. Some regions contain one location, and others contain more than one. If this field is specified, enough regions to include a minimum of 3 locations must be provided, or an error message is returned. Not specifying this field will result in uptime checks running from all regions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#selected_regions MonitoringUptimeCheckConfig#selected_regions}
+        :param synthetic_monitor: synthetic_monitor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#synthetic_monitor MonitoringUptimeCheckConfig#synthetic_monitor}
+        :param tcp_check: tcp_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#tcp_check MonitoringUptimeCheckConfig#tcp_check}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#timeouts MonitoringUptimeCheckConfig#timeouts}
+        :param user_labels: User-supplied key/value data to be used for organizing and identifying the 'UptimeCheckConfig' objects. The field can contain up to 64 entries. Each key and value is limited to 63 Unicode characters or 128 bytes, whichever is smaller. Labels and values can contain only lowercase letters, numerals, underscores, and dashes. Keys must begin with a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#user_labels MonitoringUptimeCheckConfig#user_labels}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -875,7 +875,7 @@ class MonitoringUptimeCheckConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The display name should be unique within a Stackdriver Workspace in order to make it easier to identify; however, uniqueness is not enforced.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#display_name MonitoringUptimeCheckConfig#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#display_name MonitoringUptimeCheckConfig#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -887,7 +887,7 @@ class MonitoringUptimeCheckConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         `See the accepted formats <https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration>`_
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#timeout MonitoringUptimeCheckConfig#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#timeout MonitoringUptimeCheckConfig#timeout}
         '''
         result = self._values.get("timeout")
         assert result is not None, "Required property 'timeout' is missing"
@@ -899,7 +899,7 @@ class MonitoringUptimeCheckConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If the monitored resource type is 'servicedirectory_service', 'checker_type' must be set to 'VPC_CHECKERS'. Possible values: ["STATIC_IP_CHECKERS", "VPC_CHECKERS"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#checker_type MonitoringUptimeCheckConfig#checker_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#checker_type MonitoringUptimeCheckConfig#checker_type}
         '''
         result = self._values.get("checker_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -910,7 +910,7 @@ class MonitoringUptimeCheckConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitoringUptimeCheckConfigContentMatchers"]]]:
         '''content_matchers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#content_matchers MonitoringUptimeCheckConfig#content_matchers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#content_matchers MonitoringUptimeCheckConfig#content_matchers}
         '''
         result = self._values.get("content_matchers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitoringUptimeCheckConfigContentMatchers"]]], result)
@@ -919,14 +919,14 @@ class MonitoringUptimeCheckConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def http_check(self) -> typing.Optional["MonitoringUptimeCheckConfigHttpCheck"]:
         '''http_check block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#http_check MonitoringUptimeCheckConfig#http_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#http_check MonitoringUptimeCheckConfig#http_check}
         '''
         result = self._values.get("http_check")
         return typing.cast(typing.Optional["MonitoringUptimeCheckConfigHttpCheck"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#id MonitoringUptimeCheckConfig#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#id MonitoringUptimeCheckConfig#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -940,7 +940,7 @@ class MonitoringUptimeCheckConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Specifies whether to log the results of failed probes to Cloud Logging.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#log_check_failures MonitoringUptimeCheckConfig#log_check_failures}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#log_check_failures MonitoringUptimeCheckConfig#log_check_failures}
         '''
         result = self._values.get("log_check_failures")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -951,7 +951,7 @@ class MonitoringUptimeCheckConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["MonitoringUptimeCheckConfigMonitoredResource"]:
         '''monitored_resource block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#monitored_resource MonitoringUptimeCheckConfig#monitored_resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#monitored_resource MonitoringUptimeCheckConfig#monitored_resource}
         '''
         result = self._values.get("monitored_resource")
         return typing.cast(typing.Optional["MonitoringUptimeCheckConfigMonitoredResource"], result)
@@ -962,14 +962,14 @@ class MonitoringUptimeCheckConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Currently, the only supported values are 60s (1 minute), 300s (5 minutes), 600s (10 minutes), and 900s (15 minutes). Optional, defaults to 300s.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#period MonitoringUptimeCheckConfig#period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#period MonitoringUptimeCheckConfig#period}
         '''
         result = self._values.get("period")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#project MonitoringUptimeCheckConfig#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#project MonitoringUptimeCheckConfig#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -979,7 +979,7 @@ class MonitoringUptimeCheckConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["MonitoringUptimeCheckConfigResourceGroup"]:
         '''resource_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#resource_group MonitoringUptimeCheckConfig#resource_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#resource_group MonitoringUptimeCheckConfig#resource_group}
         '''
         result = self._values.get("resource_group")
         return typing.cast(typing.Optional["MonitoringUptimeCheckConfigResourceGroup"], result)
@@ -990,7 +990,7 @@ class MonitoringUptimeCheckConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Some regions contain one location, and others contain more than one. If this field is specified, enough regions to include a minimum of 3 locations must be provided, or an error message is returned. Not specifying this field will result in uptime checks running from all regions.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#selected_regions MonitoringUptimeCheckConfig#selected_regions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#selected_regions MonitoringUptimeCheckConfig#selected_regions}
         '''
         result = self._values.get("selected_regions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1001,7 +1001,7 @@ class MonitoringUptimeCheckConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["MonitoringUptimeCheckConfigSyntheticMonitor"]:
         '''synthetic_monitor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#synthetic_monitor MonitoringUptimeCheckConfig#synthetic_monitor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#synthetic_monitor MonitoringUptimeCheckConfig#synthetic_monitor}
         '''
         result = self._values.get("synthetic_monitor")
         return typing.cast(typing.Optional["MonitoringUptimeCheckConfigSyntheticMonitor"], result)
@@ -1010,7 +1010,7 @@ class MonitoringUptimeCheckConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tcp_check(self) -> typing.Optional["MonitoringUptimeCheckConfigTcpCheck"]:
         '''tcp_check block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#tcp_check MonitoringUptimeCheckConfig#tcp_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#tcp_check MonitoringUptimeCheckConfig#tcp_check}
         '''
         result = self._values.get("tcp_check")
         return typing.cast(typing.Optional["MonitoringUptimeCheckConfigTcpCheck"], result)
@@ -1019,7 +1019,7 @@ class MonitoringUptimeCheckConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MonitoringUptimeCheckConfigTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#timeouts MonitoringUptimeCheckConfig#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#timeouts MonitoringUptimeCheckConfig#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MonitoringUptimeCheckConfigTimeouts"], result)
@@ -1032,7 +1032,7 @@ class MonitoringUptimeCheckConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The field can contain up to 64 entries. Each key and value is limited to 63 Unicode characters or 128 bytes, whichever is smaller. Labels and values can contain only lowercase letters, numerals, underscores, and dashes. Keys must begin with a letter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#user_labels MonitoringUptimeCheckConfig#user_labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#user_labels MonitoringUptimeCheckConfig#user_labels}
         '''
         result = self._values.get("user_labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1067,9 +1067,9 @@ class MonitoringUptimeCheckConfigContentMatchers:
         matcher: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param content: String or regex content to match (max 1024 bytes). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#content MonitoringUptimeCheckConfig#content}
-        :param json_path_matcher: json_path_matcher block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#json_path_matcher MonitoringUptimeCheckConfig#json_path_matcher}
-        :param matcher: The type of content matcher that will be applied to the server output, compared to the content string when the check is run. Default value: "CONTAINS_STRING" Possible values: ["CONTAINS_STRING", "NOT_CONTAINS_STRING", "MATCHES_REGEX", "NOT_MATCHES_REGEX", "MATCHES_JSON_PATH", "NOT_MATCHES_JSON_PATH"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#matcher MonitoringUptimeCheckConfig#matcher}
+        :param content: String or regex content to match (max 1024 bytes). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#content MonitoringUptimeCheckConfig#content}
+        :param json_path_matcher: json_path_matcher block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#json_path_matcher MonitoringUptimeCheckConfig#json_path_matcher}
+        :param matcher: The type of content matcher that will be applied to the server output, compared to the content string when the check is run. Default value: "CONTAINS_STRING" Possible values: ["CONTAINS_STRING", "NOT_CONTAINS_STRING", "MATCHES_REGEX", "NOT_MATCHES_REGEX", "MATCHES_JSON_PATH", "NOT_MATCHES_JSON_PATH"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#matcher MonitoringUptimeCheckConfig#matcher}
         '''
         if isinstance(json_path_matcher, dict):
             json_path_matcher = MonitoringUptimeCheckConfigContentMatchersJsonPathMatcher(**json_path_matcher)
@@ -1090,7 +1090,7 @@ class MonitoringUptimeCheckConfigContentMatchers:
     def content(self) -> builtins.str:
         '''String or regex content to match (max 1024 bytes).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#content MonitoringUptimeCheckConfig#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#content MonitoringUptimeCheckConfig#content}
         '''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
@@ -1102,7 +1102,7 @@ class MonitoringUptimeCheckConfigContentMatchers:
     ) -> typing.Optional["MonitoringUptimeCheckConfigContentMatchersJsonPathMatcher"]:
         '''json_path_matcher block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#json_path_matcher MonitoringUptimeCheckConfig#json_path_matcher}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#json_path_matcher MonitoringUptimeCheckConfig#json_path_matcher}
         '''
         result = self._values.get("json_path_matcher")
         return typing.cast(typing.Optional["MonitoringUptimeCheckConfigContentMatchersJsonPathMatcher"], result)
@@ -1113,7 +1113,7 @@ class MonitoringUptimeCheckConfigContentMatchers:
 
         Default value: "CONTAINS_STRING" Possible values: ["CONTAINS_STRING", "NOT_CONTAINS_STRING", "MATCHES_REGEX", "NOT_MATCHES_REGEX", "MATCHES_JSON_PATH", "NOT_MATCHES_JSON_PATH"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#matcher MonitoringUptimeCheckConfig#matcher}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#matcher MonitoringUptimeCheckConfig#matcher}
         '''
         result = self._values.get("matcher")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1143,8 +1143,8 @@ class MonitoringUptimeCheckConfigContentMatchersJsonPathMatcher:
         json_matcher: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param json_path: JSONPath within the response output pointing to the expected 'ContentMatcher::content' to match against. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#json_path MonitoringUptimeCheckConfig#json_path}
-        :param json_matcher: Options to perform JSONPath content matching. Default value: "EXACT_MATCH" Possible values: ["EXACT_MATCH", "REGEX_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#json_matcher MonitoringUptimeCheckConfig#json_matcher}
+        :param json_path: JSONPath within the response output pointing to the expected 'ContentMatcher::content' to match against. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#json_path MonitoringUptimeCheckConfig#json_path}
+        :param json_matcher: Options to perform JSONPath content matching. Default value: "EXACT_MATCH" Possible values: ["EXACT_MATCH", "REGEX_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#json_matcher MonitoringUptimeCheckConfig#json_matcher}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7831f52ff5c5afa8731494eb9e0ef121dc3d5db81b51532233bb60730525ac9d)
@@ -1160,7 +1160,7 @@ class MonitoringUptimeCheckConfigContentMatchersJsonPathMatcher:
     def json_path(self) -> builtins.str:
         '''JSONPath within the response output pointing to the expected 'ContentMatcher::content' to match against.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#json_path MonitoringUptimeCheckConfig#json_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#json_path MonitoringUptimeCheckConfig#json_path}
         '''
         result = self._values.get("json_path")
         assert result is not None, "Required property 'json_path' is missing"
@@ -1170,7 +1170,7 @@ class MonitoringUptimeCheckConfigContentMatchersJsonPathMatcher:
     def json_matcher(self) -> typing.Optional[builtins.str]:
         '''Options to perform JSONPath content matching. Default value: "EXACT_MATCH" Possible values: ["EXACT_MATCH", "REGEX_MATCH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#json_matcher MonitoringUptimeCheckConfig#json_matcher}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#json_matcher MonitoringUptimeCheckConfig#json_matcher}
         '''
         result = self._values.get("json_matcher")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1390,8 +1390,8 @@ class MonitoringUptimeCheckConfigContentMatchersOutputReference(
         json_matcher: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param json_path: JSONPath within the response output pointing to the expected 'ContentMatcher::content' to match against. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#json_path MonitoringUptimeCheckConfig#json_path}
-        :param json_matcher: Options to perform JSONPath content matching. Default value: "EXACT_MATCH" Possible values: ["EXACT_MATCH", "REGEX_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#json_matcher MonitoringUptimeCheckConfig#json_matcher}
+        :param json_path: JSONPath within the response output pointing to the expected 'ContentMatcher::content' to match against. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#json_path MonitoringUptimeCheckConfig#json_path}
+        :param json_matcher: Options to perform JSONPath content matching. Default value: "EXACT_MATCH" Possible values: ["EXACT_MATCH", "REGEX_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#json_matcher MonitoringUptimeCheckConfig#json_matcher}
         '''
         value = MonitoringUptimeCheckConfigContentMatchersJsonPathMatcher(
             json_path=json_path, json_matcher=json_matcher
@@ -1513,20 +1513,20 @@ class MonitoringUptimeCheckConfigHttpCheck:
         validate_ssl: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param accepted_response_status_codes: accepted_response_status_codes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#accepted_response_status_codes MonitoringUptimeCheckConfig#accepted_response_status_codes}
-        :param auth_info: auth_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#auth_info MonitoringUptimeCheckConfig#auth_info}
-        :param body: The request body associated with the HTTP POST request. If 'content_type' is 'URL_ENCODED', the body passed in must be URL-encoded. Users can provide a 'Content-Length' header via the 'headers' field or the API will do so. If the 'request_method' is 'GET' and 'body' is not empty, the API will return an error. The maximum byte size is 1 megabyte. Note - As with all bytes fields JSON representations are base64 encoded. e.g. 'foo=bar' in URL-encoded form is 'foo%3Dbar' and in base64 encoding is 'Zm9vJTI1M0RiYXI='. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#body MonitoringUptimeCheckConfig#body}
-        :param content_type: The content type to use for the check. Possible values: ["TYPE_UNSPECIFIED", "URL_ENCODED", "USER_PROVIDED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#content_type MonitoringUptimeCheckConfig#content_type}
-        :param custom_content_type: A user provided content type header to use for the check. The invalid configurations outlined in the 'content_type' field apply to custom_content_type', as well as the following 1. 'content_type' is 'URL_ENCODED' and 'custom_content_type' is set. 2. 'content_type' is 'USER_PROVIDED' and 'custom_content_type' is not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#custom_content_type MonitoringUptimeCheckConfig#custom_content_type}
-        :param headers: The list of headers to send as part of the uptime check request. If two headers have the same key and different values, they should be entered as a single header, with the value being a comma-separated list of all the desired values as described in `RFC 2616 (page 31) <https://www.w3.org/Protocols/rfc2616/rfc2616.txt>`_. Entering two separate headers with the same key in a Create call will cause the first to be overwritten by the second. The maximum number of headers allowed is 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#headers MonitoringUptimeCheckConfig#headers}
-        :param mask_headers: Boolean specifying whether to encrypt the header information. Encryption should be specified for any headers related to authentication that you do not wish to be seen when retrieving the configuration. The server will be responsible for encrypting the headers. On Get/List calls, if 'mask_headers' is set to 'true' then the headers will be obscured with '******'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#mask_headers MonitoringUptimeCheckConfig#mask_headers}
-        :param path: The path to the page to run the check against. Will be combined with the host (specified within the MonitoredResource) and port to construct the full URL. If the provided path does not begin with '/', a '/' will be prepended automatically. Optional (defaults to '/'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#path MonitoringUptimeCheckConfig#path}
-        :param ping_config: ping_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#ping_config MonitoringUptimeCheckConfig#ping_config}
-        :param port: The port to the page to run the check against. Will be combined with 'host' (specified within the `'monitored_resource' <#nested_monitored_resource>`_) and path to construct the full URL. Optional (defaults to 80 without SSL, or 443 with SSL). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#port MonitoringUptimeCheckConfig#port}
-        :param request_method: The HTTP request method to use for the check. If set to 'METHOD_UNSPECIFIED' then 'request_method' defaults to 'GET'. Default value: "GET" Possible values: ["METHOD_UNSPECIFIED", "GET", "POST"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#request_method MonitoringUptimeCheckConfig#request_method}
-        :param service_agent_authentication: service_agent_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#service_agent_authentication MonitoringUptimeCheckConfig#service_agent_authentication}
-        :param use_ssl: If true, use HTTPS instead of HTTP to run the check. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#use_ssl MonitoringUptimeCheckConfig#use_ssl}
-        :param validate_ssl: Boolean specifying whether to include SSL certificate validation as a part of the Uptime check. Only applies to checks where 'monitored_resource' is set to 'uptime_url'. If 'use_ssl' is 'false', setting 'validate_ssl' to 'true' has no effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#validate_ssl MonitoringUptimeCheckConfig#validate_ssl}
+        :param accepted_response_status_codes: accepted_response_status_codes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#accepted_response_status_codes MonitoringUptimeCheckConfig#accepted_response_status_codes}
+        :param auth_info: auth_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#auth_info MonitoringUptimeCheckConfig#auth_info}
+        :param body: The request body associated with the HTTP POST request. If 'content_type' is 'URL_ENCODED', the body passed in must be URL-encoded. Users can provide a 'Content-Length' header via the 'headers' field or the API will do so. If the 'request_method' is 'GET' and 'body' is not empty, the API will return an error. The maximum byte size is 1 megabyte. Note - As with all bytes fields JSON representations are base64 encoded. e.g. 'foo=bar' in URL-encoded form is 'foo%3Dbar' and in base64 encoding is 'Zm9vJTI1M0RiYXI='. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#body MonitoringUptimeCheckConfig#body}
+        :param content_type: The content type to use for the check. Possible values: ["TYPE_UNSPECIFIED", "URL_ENCODED", "USER_PROVIDED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#content_type MonitoringUptimeCheckConfig#content_type}
+        :param custom_content_type: A user provided content type header to use for the check. The invalid configurations outlined in the 'content_type' field apply to custom_content_type', as well as the following 1. 'content_type' is 'URL_ENCODED' and 'custom_content_type' is set. 2. 'content_type' is 'USER_PROVIDED' and 'custom_content_type' is not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#custom_content_type MonitoringUptimeCheckConfig#custom_content_type}
+        :param headers: The list of headers to send as part of the uptime check request. If two headers have the same key and different values, they should be entered as a single header, with the value being a comma-separated list of all the desired values as described in `RFC 2616 (page 31) <https://www.w3.org/Protocols/rfc2616/rfc2616.txt>`_. Entering two separate headers with the same key in a Create call will cause the first to be overwritten by the second. The maximum number of headers allowed is 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#headers MonitoringUptimeCheckConfig#headers}
+        :param mask_headers: Boolean specifying whether to encrypt the header information. Encryption should be specified for any headers related to authentication that you do not wish to be seen when retrieving the configuration. The server will be responsible for encrypting the headers. On Get/List calls, if 'mask_headers' is set to 'true' then the headers will be obscured with '******'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#mask_headers MonitoringUptimeCheckConfig#mask_headers}
+        :param path: The path to the page to run the check against. Will be combined with the host (specified within the MonitoredResource) and port to construct the full URL. If the provided path does not begin with '/', a '/' will be prepended automatically. Optional (defaults to '/'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#path MonitoringUptimeCheckConfig#path}
+        :param ping_config: ping_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#ping_config MonitoringUptimeCheckConfig#ping_config}
+        :param port: The port to the page to run the check against. Will be combined with 'host' (specified within the `'monitored_resource' <#nested_monitored_resource>`_) and path to construct the full URL. Optional (defaults to 80 without SSL, or 443 with SSL). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#port MonitoringUptimeCheckConfig#port}
+        :param request_method: The HTTP request method to use for the check. If set to 'METHOD_UNSPECIFIED' then 'request_method' defaults to 'GET'. Default value: "GET" Possible values: ["METHOD_UNSPECIFIED", "GET", "POST"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#request_method MonitoringUptimeCheckConfig#request_method}
+        :param service_agent_authentication: service_agent_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#service_agent_authentication MonitoringUptimeCheckConfig#service_agent_authentication}
+        :param use_ssl: If true, use HTTPS instead of HTTP to run the check. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#use_ssl MonitoringUptimeCheckConfig#use_ssl}
+        :param validate_ssl: Boolean specifying whether to include SSL certificate validation as a part of the Uptime check. Only applies to checks where 'monitored_resource' is set to 'uptime_url'. If 'use_ssl' is 'false', setting 'validate_ssl' to 'true' has no effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#validate_ssl MonitoringUptimeCheckConfig#validate_ssl}
         '''
         if isinstance(auth_info, dict):
             auth_info = MonitoringUptimeCheckConfigHttpCheckAuthInfo(**auth_info)
@@ -1586,7 +1586,7 @@ class MonitoringUptimeCheckConfigHttpCheck:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitoringUptimeCheckConfigHttpCheckAcceptedResponseStatusCodes"]]]:
         '''accepted_response_status_codes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#accepted_response_status_codes MonitoringUptimeCheckConfig#accepted_response_status_codes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#accepted_response_status_codes MonitoringUptimeCheckConfig#accepted_response_status_codes}
         '''
         result = self._values.get("accepted_response_status_codes")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitoringUptimeCheckConfigHttpCheckAcceptedResponseStatusCodes"]]], result)
@@ -1597,7 +1597,7 @@ class MonitoringUptimeCheckConfigHttpCheck:
     ) -> typing.Optional["MonitoringUptimeCheckConfigHttpCheckAuthInfo"]:
         '''auth_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#auth_info MonitoringUptimeCheckConfig#auth_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#auth_info MonitoringUptimeCheckConfig#auth_info}
         '''
         result = self._values.get("auth_info")
         return typing.cast(typing.Optional["MonitoringUptimeCheckConfigHttpCheckAuthInfo"], result)
@@ -1608,7 +1608,7 @@ class MonitoringUptimeCheckConfigHttpCheck:
 
         If 'content_type' is 'URL_ENCODED', the body passed in must be URL-encoded. Users can provide a 'Content-Length' header via the 'headers' field or the API will do so. If the 'request_method' is 'GET' and 'body' is not empty, the API will return an error. The maximum byte size is 1 megabyte. Note - As with all bytes fields JSON representations are base64 encoded. e.g. 'foo=bar' in URL-encoded form is 'foo%3Dbar' and in base64 encoding is 'Zm9vJTI1M0RiYXI='.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#body MonitoringUptimeCheckConfig#body}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#body MonitoringUptimeCheckConfig#body}
         '''
         result = self._values.get("body")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1617,7 +1617,7 @@ class MonitoringUptimeCheckConfigHttpCheck:
     def content_type(self) -> typing.Optional[builtins.str]:
         '''The content type to use for the check. Possible values: ["TYPE_UNSPECIFIED", "URL_ENCODED", "USER_PROVIDED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#content_type MonitoringUptimeCheckConfig#content_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#content_type MonitoringUptimeCheckConfig#content_type}
         '''
         result = self._values.get("content_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1628,7 +1628,7 @@ class MonitoringUptimeCheckConfigHttpCheck:
 
         The invalid configurations outlined in the 'content_type' field apply to custom_content_type', as well as the following 1. 'content_type' is 'URL_ENCODED' and 'custom_content_type' is set. 2. 'content_type' is 'USER_PROVIDED' and 'custom_content_type' is not set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#custom_content_type MonitoringUptimeCheckConfig#custom_content_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#custom_content_type MonitoringUptimeCheckConfig#custom_content_type}
         '''
         result = self._values.get("custom_content_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1639,7 +1639,7 @@ class MonitoringUptimeCheckConfigHttpCheck:
 
         If two headers have the same key and different values, they should be entered as a single header, with the value being a comma-separated list of all the desired values as described in `RFC 2616 (page 31) <https://www.w3.org/Protocols/rfc2616/rfc2616.txt>`_. Entering two separate headers with the same key in a Create call will cause the first to be overwritten by the second. The maximum number of headers allowed is 100.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#headers MonitoringUptimeCheckConfig#headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#headers MonitoringUptimeCheckConfig#headers}
         '''
         result = self._values.get("headers")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1652,7 +1652,7 @@ class MonitoringUptimeCheckConfigHttpCheck:
 
         Encryption should be specified for any headers related to authentication that you do not wish to be seen when retrieving the configuration. The server will be responsible for encrypting the headers. On Get/List calls, if 'mask_headers' is set to 'true' then the headers will be obscured with '******'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#mask_headers MonitoringUptimeCheckConfig#mask_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#mask_headers MonitoringUptimeCheckConfig#mask_headers}
         '''
         result = self._values.get("mask_headers")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1663,7 +1663,7 @@ class MonitoringUptimeCheckConfigHttpCheck:
 
         Will be combined with the host (specified within the MonitoredResource) and port to construct the full URL. If the provided path does not begin with '/', a '/' will be prepended automatically. Optional (defaults to '/').
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#path MonitoringUptimeCheckConfig#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#path MonitoringUptimeCheckConfig#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1674,7 +1674,7 @@ class MonitoringUptimeCheckConfigHttpCheck:
     ) -> typing.Optional["MonitoringUptimeCheckConfigHttpCheckPingConfig"]:
         '''ping_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#ping_config MonitoringUptimeCheckConfig#ping_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#ping_config MonitoringUptimeCheckConfig#ping_config}
         '''
         result = self._values.get("ping_config")
         return typing.cast(typing.Optional["MonitoringUptimeCheckConfigHttpCheckPingConfig"], result)
@@ -1685,7 +1685,7 @@ class MonitoringUptimeCheckConfigHttpCheck:
 
         Will be combined with 'host' (specified within the `'monitored_resource' <#nested_monitored_resource>`_) and path to construct the full URL. Optional (defaults to 80 without SSL, or 443 with SSL).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#port MonitoringUptimeCheckConfig#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#port MonitoringUptimeCheckConfig#port}
         '''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1696,7 +1696,7 @@ class MonitoringUptimeCheckConfigHttpCheck:
 
         If set to 'METHOD_UNSPECIFIED' then 'request_method' defaults to 'GET'. Default value: "GET" Possible values: ["METHOD_UNSPECIFIED", "GET", "POST"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#request_method MonitoringUptimeCheckConfig#request_method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#request_method MonitoringUptimeCheckConfig#request_method}
         '''
         result = self._values.get("request_method")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1707,7 +1707,7 @@ class MonitoringUptimeCheckConfigHttpCheck:
     ) -> typing.Optional["MonitoringUptimeCheckConfigHttpCheckServiceAgentAuthentication"]:
         '''service_agent_authentication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#service_agent_authentication MonitoringUptimeCheckConfig#service_agent_authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#service_agent_authentication MonitoringUptimeCheckConfig#service_agent_authentication}
         '''
         result = self._values.get("service_agent_authentication")
         return typing.cast(typing.Optional["MonitoringUptimeCheckConfigHttpCheckServiceAgentAuthentication"], result)
@@ -1718,7 +1718,7 @@ class MonitoringUptimeCheckConfigHttpCheck:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, use HTTPS instead of HTTP to run the check.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#use_ssl MonitoringUptimeCheckConfig#use_ssl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#use_ssl MonitoringUptimeCheckConfig#use_ssl}
         '''
         result = self._values.get("use_ssl")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1731,7 +1731,7 @@ class MonitoringUptimeCheckConfigHttpCheck:
 
         Only applies to checks where 'monitored_resource' is set to 'uptime_url'. If 'use_ssl' is 'false', setting 'validate_ssl' to 'true' has no effect.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#validate_ssl MonitoringUptimeCheckConfig#validate_ssl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#validate_ssl MonitoringUptimeCheckConfig#validate_ssl}
         '''
         result = self._values.get("validate_ssl")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1761,8 +1761,8 @@ class MonitoringUptimeCheckConfigHttpCheckAcceptedResponseStatusCodes:
         status_value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param status_class: A class of status codes to accept. Possible values: ["STATUS_CLASS_1XX", "STATUS_CLASS_2XX", "STATUS_CLASS_3XX", "STATUS_CLASS_4XX", "STATUS_CLASS_5XX", "STATUS_CLASS_ANY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#status_class MonitoringUptimeCheckConfig#status_class}
-        :param status_value: A status code to accept. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#status_value MonitoringUptimeCheckConfig#status_value}
+        :param status_class: A class of status codes to accept. Possible values: ["STATUS_CLASS_1XX", "STATUS_CLASS_2XX", "STATUS_CLASS_3XX", "STATUS_CLASS_4XX", "STATUS_CLASS_5XX", "STATUS_CLASS_ANY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#status_class MonitoringUptimeCheckConfig#status_class}
+        :param status_value: A status code to accept. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#status_value MonitoringUptimeCheckConfig#status_value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e4865d480af3b8d146894971da216ed8dd30d65bd11d31c9281b084cabe5a144)
@@ -1778,7 +1778,7 @@ class MonitoringUptimeCheckConfigHttpCheckAcceptedResponseStatusCodes:
     def status_class(self) -> typing.Optional[builtins.str]:
         '''A class of status codes to accept. Possible values: ["STATUS_CLASS_1XX", "STATUS_CLASS_2XX", "STATUS_CLASS_3XX", "STATUS_CLASS_4XX", "STATUS_CLASS_5XX", "STATUS_CLASS_ANY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#status_class MonitoringUptimeCheckConfig#status_class}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#status_class MonitoringUptimeCheckConfig#status_class}
         '''
         result = self._values.get("status_class")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1787,7 +1787,7 @@ class MonitoringUptimeCheckConfigHttpCheckAcceptedResponseStatusCodes:
     def status_value(self) -> typing.Optional[jsii.Number]:
         '''A status code to accept.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#status_value MonitoringUptimeCheckConfig#status_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#status_value MonitoringUptimeCheckConfig#status_value}
         '''
         result = self._values.get("status_value")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2003,10 +2003,10 @@ class MonitoringUptimeCheckConfigHttpCheckAuthInfo:
         password_wo_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param username: The username to authenticate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#username MonitoringUptimeCheckConfig#username}
-        :param password: The password to authenticate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#password MonitoringUptimeCheckConfig#password}
-        :param password_wo: The password to authenticate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#password_wo MonitoringUptimeCheckConfig#password_wo}
-        :param password_wo_version: The password write-only version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#password_wo_version MonitoringUptimeCheckConfig#password_wo_version}
+        :param username: The username to authenticate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#username MonitoringUptimeCheckConfig#username}
+        :param password: The password to authenticate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#password MonitoringUptimeCheckConfig#password}
+        :param password_wo: The password to authenticate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#password_wo MonitoringUptimeCheckConfig#password_wo}
+        :param password_wo_version: The password write-only version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#password_wo_version MonitoringUptimeCheckConfig#password_wo_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b002f871fd2676a9251fc5e0d16bf6af6fc5d857a07a5252ace1d680d6768d0)
@@ -2028,7 +2028,7 @@ class MonitoringUptimeCheckConfigHttpCheckAuthInfo:
     def username(self) -> builtins.str:
         '''The username to authenticate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#username MonitoringUptimeCheckConfig#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#username MonitoringUptimeCheckConfig#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -2038,7 +2038,7 @@ class MonitoringUptimeCheckConfigHttpCheckAuthInfo:
     def password(self) -> typing.Optional[builtins.str]:
         '''The password to authenticate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#password MonitoringUptimeCheckConfig#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#password MonitoringUptimeCheckConfig#password}
         '''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2047,7 +2047,7 @@ class MonitoringUptimeCheckConfigHttpCheckAuthInfo:
     def password_wo(self) -> typing.Optional[builtins.str]:
         '''The password to authenticate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#password_wo MonitoringUptimeCheckConfig#password_wo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#password_wo MonitoringUptimeCheckConfig#password_wo}
         '''
         result = self._values.get("password_wo")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2056,7 +2056,7 @@ class MonitoringUptimeCheckConfigHttpCheckAuthInfo:
     def password_wo_version(self) -> typing.Optional[builtins.str]:
         '''The password write-only version.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#password_wo_version MonitoringUptimeCheckConfig#password_wo_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#password_wo_version MonitoringUptimeCheckConfig#password_wo_version}
         '''
         result = self._values.get("password_wo_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2234,10 +2234,10 @@ class MonitoringUptimeCheckConfigHttpCheckOutputReference(
         password_wo_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param username: The username to authenticate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#username MonitoringUptimeCheckConfig#username}
-        :param password: The password to authenticate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#password MonitoringUptimeCheckConfig#password}
-        :param password_wo: The password to authenticate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#password_wo MonitoringUptimeCheckConfig#password_wo}
-        :param password_wo_version: The password write-only version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#password_wo_version MonitoringUptimeCheckConfig#password_wo_version}
+        :param username: The username to authenticate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#username MonitoringUptimeCheckConfig#username}
+        :param password: The password to authenticate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#password MonitoringUptimeCheckConfig#password}
+        :param password_wo: The password to authenticate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#password_wo MonitoringUptimeCheckConfig#password_wo}
+        :param password_wo_version: The password write-only version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#password_wo_version MonitoringUptimeCheckConfig#password_wo_version}
         '''
         value = MonitoringUptimeCheckConfigHttpCheckAuthInfo(
             username=username,
@@ -2251,7 +2251,7 @@ class MonitoringUptimeCheckConfigHttpCheckOutputReference(
     @jsii.member(jsii_name="putPingConfig")
     def put_ping_config(self, *, pings_count: jsii.Number) -> None:
         '''
-        :param pings_count: Number of ICMP pings. A maximum of 3 ICMP pings is currently supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#pings_count MonitoringUptimeCheckConfig#pings_count}
+        :param pings_count: Number of ICMP pings. A maximum of 3 ICMP pings is currently supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#pings_count MonitoringUptimeCheckConfig#pings_count}
         '''
         value = MonitoringUptimeCheckConfigHttpCheckPingConfig(pings_count=pings_count)
 
@@ -2264,7 +2264,7 @@ class MonitoringUptimeCheckConfigHttpCheckOutputReference(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: The type of authentication to use. Possible values: ["SERVICE_AGENT_AUTHENTICATION_TYPE_UNSPECIFIED", "OIDC_TOKEN"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#type MonitoringUptimeCheckConfig#type}
+        :param type: The type of authentication to use. Possible values: ["SERVICE_AGENT_AUTHENTICATION_TYPE_UNSPECIFIED", "OIDC_TOKEN"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#type MonitoringUptimeCheckConfig#type}
         '''
         value = MonitoringUptimeCheckConfigHttpCheckServiceAgentAuthentication(
             type=type
@@ -2593,7 +2593,7 @@ class MonitoringUptimeCheckConfigHttpCheckOutputReference(
 class MonitoringUptimeCheckConfigHttpCheckPingConfig:
     def __init__(self, *, pings_count: jsii.Number) -> None:
         '''
-        :param pings_count: Number of ICMP pings. A maximum of 3 ICMP pings is currently supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#pings_count MonitoringUptimeCheckConfig#pings_count}
+        :param pings_count: Number of ICMP pings. A maximum of 3 ICMP pings is currently supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#pings_count MonitoringUptimeCheckConfig#pings_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8a9393784c6207b165f26d296ca9ca60877d5017cb7ded18ab7759f86bea6d75)
@@ -2606,7 +2606,7 @@ class MonitoringUptimeCheckConfigHttpCheckPingConfig:
     def pings_count(self) -> jsii.Number:
         '''Number of ICMP pings. A maximum of 3 ICMP pings is currently supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#pings_count MonitoringUptimeCheckConfig#pings_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#pings_count MonitoringUptimeCheckConfig#pings_count}
         '''
         result = self._values.get("pings_count")
         assert result is not None, "Required property 'pings_count' is missing"
@@ -2687,7 +2687,7 @@ class MonitoringUptimeCheckConfigHttpCheckPingConfigOutputReference(
 class MonitoringUptimeCheckConfigHttpCheckServiceAgentAuthentication:
     def __init__(self, *, type: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param type: The type of authentication to use. Possible values: ["SERVICE_AGENT_AUTHENTICATION_TYPE_UNSPECIFIED", "OIDC_TOKEN"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#type MonitoringUptimeCheckConfig#type}
+        :param type: The type of authentication to use. Possible values: ["SERVICE_AGENT_AUTHENTICATION_TYPE_UNSPECIFIED", "OIDC_TOKEN"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#type MonitoringUptimeCheckConfig#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__797e498aa4f065f2c8b66236b8dc9b4d81d1efc1bf316219c014b20a0bf58b04)
@@ -2700,7 +2700,7 @@ class MonitoringUptimeCheckConfigHttpCheckServiceAgentAuthentication:
     def type(self) -> typing.Optional[builtins.str]:
         '''The type of authentication to use. Possible values: ["SERVICE_AGENT_AUTHENTICATION_TYPE_UNSPECIFIED", "OIDC_TOKEN"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#type MonitoringUptimeCheckConfig#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#type MonitoringUptimeCheckConfig#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2789,8 +2789,8 @@ class MonitoringUptimeCheckConfigMonitoredResource:
         type: builtins.str,
     ) -> None:
         '''
-        :param labels: Values for all of the labels listed in the associated monitored resource descriptor. For example, Compute Engine VM instances use the labels 'project_id', 'instance_id', and 'zone'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#labels MonitoringUptimeCheckConfig#labels}
-        :param type: The monitored resource type. This field must match the type field of a `'MonitoredResourceDescriptor' <https://cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.monitoredResourceDescriptors#MonitoredResourceDescriptor>`_ object. For example, the type of a Compute Engine VM instance is 'gce_instance'. For a list of types, see `Monitoring resource types <https://cloud.google.com/monitoring/api/resources>`_ and `Logging resource types <https://cloud.google.com/logging/docs/api/v2/resource-list>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#type MonitoringUptimeCheckConfig#type}
+        :param labels: Values for all of the labels listed in the associated monitored resource descriptor. For example, Compute Engine VM instances use the labels 'project_id', 'instance_id', and 'zone'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#labels MonitoringUptimeCheckConfig#labels}
+        :param type: The monitored resource type. This field must match the type field of a `'MonitoredResourceDescriptor' <https://cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.monitoredResourceDescriptors#MonitoredResourceDescriptor>`_ object. For example, the type of a Compute Engine VM instance is 'gce_instance'. For a list of types, see `Monitoring resource types <https://cloud.google.com/monitoring/api/resources>`_ and `Logging resource types <https://cloud.google.com/logging/docs/api/v2/resource-list>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#type MonitoringUptimeCheckConfig#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e8a57ea68e8381a7e5d16034ebd9450191978ee55104d6ab243d0fe1c31124e4)
@@ -2807,7 +2807,7 @@ class MonitoringUptimeCheckConfigMonitoredResource:
 
         For example, Compute Engine VM instances use the labels 'project_id', 'instance_id', and 'zone'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#labels MonitoringUptimeCheckConfig#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#labels MonitoringUptimeCheckConfig#labels}
         '''
         result = self._values.get("labels")
         assert result is not None, "Required property 'labels' is missing"
@@ -2819,7 +2819,7 @@ class MonitoringUptimeCheckConfigMonitoredResource:
 
         This field must match the type field of a `'MonitoredResourceDescriptor' <https://cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.monitoredResourceDescriptors#MonitoredResourceDescriptor>`_ object. For example, the type of a Compute Engine VM instance is 'gce_instance'. For a list of types, see `Monitoring resource types <https://cloud.google.com/monitoring/api/resources>`_ and `Logging resource types <https://cloud.google.com/logging/docs/api/v2/resource-list>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#type MonitoringUptimeCheckConfig#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#type MonitoringUptimeCheckConfig#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -2924,8 +2924,8 @@ class MonitoringUptimeCheckConfigResourceGroup:
         resource_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param group_id: The group of resources being monitored. Should be the 'name' of a group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#group_id MonitoringUptimeCheckConfig#group_id}
-        :param resource_type: The resource type of the group members. Possible values: ["RESOURCE_TYPE_UNSPECIFIED", "INSTANCE", "AWS_ELB_LOAD_BALANCER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#resource_type MonitoringUptimeCheckConfig#resource_type}
+        :param group_id: The group of resources being monitored. Should be the 'name' of a group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#group_id MonitoringUptimeCheckConfig#group_id}
+        :param resource_type: The resource type of the group members. Possible values: ["RESOURCE_TYPE_UNSPECIFIED", "INSTANCE", "AWS_ELB_LOAD_BALANCER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#resource_type MonitoringUptimeCheckConfig#resource_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f100667c91205d0928732278ba1d7ec789499ca2bd0e0153ade457ef0fe77af9)
@@ -2941,7 +2941,7 @@ class MonitoringUptimeCheckConfigResourceGroup:
     def group_id(self) -> typing.Optional[builtins.str]:
         '''The group of resources being monitored. Should be the 'name' of a group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#group_id MonitoringUptimeCheckConfig#group_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#group_id MonitoringUptimeCheckConfig#group_id}
         '''
         result = self._values.get("group_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2950,7 +2950,7 @@ class MonitoringUptimeCheckConfigResourceGroup:
     def resource_type(self) -> typing.Optional[builtins.str]:
         '''The resource type of the group members. Possible values: ["RESOURCE_TYPE_UNSPECIFIED", "INSTANCE", "AWS_ELB_LOAD_BALANCER"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#resource_type MonitoringUptimeCheckConfig#resource_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#resource_type MonitoringUptimeCheckConfig#resource_type}
         '''
         result = self._values.get("resource_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3059,7 +3059,7 @@ class MonitoringUptimeCheckConfigSyntheticMonitor:
         cloud_function_v2: typing.Union["MonitoringUptimeCheckConfigSyntheticMonitorCloudFunctionV2", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param cloud_function_v2: cloud_function_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#cloud_function_v2 MonitoringUptimeCheckConfig#cloud_function_v2}
+        :param cloud_function_v2: cloud_function_v2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#cloud_function_v2 MonitoringUptimeCheckConfig#cloud_function_v2}
         '''
         if isinstance(cloud_function_v2, dict):
             cloud_function_v2 = MonitoringUptimeCheckConfigSyntheticMonitorCloudFunctionV2(**cloud_function_v2)
@@ -3076,7 +3076,7 @@ class MonitoringUptimeCheckConfigSyntheticMonitor:
     ) -> "MonitoringUptimeCheckConfigSyntheticMonitorCloudFunctionV2":
         '''cloud_function_v2 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#cloud_function_v2 MonitoringUptimeCheckConfig#cloud_function_v2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#cloud_function_v2 MonitoringUptimeCheckConfig#cloud_function_v2}
         '''
         result = self._values.get("cloud_function_v2")
         assert result is not None, "Required property 'cloud_function_v2' is missing"
@@ -3102,7 +3102,7 @@ class MonitoringUptimeCheckConfigSyntheticMonitor:
 class MonitoringUptimeCheckConfigSyntheticMonitorCloudFunctionV2:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: The fully qualified name of the cloud function resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#name MonitoringUptimeCheckConfig#name}
+        :param name: The fully qualified name of the cloud function resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#name MonitoringUptimeCheckConfig#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__92fc8a68cedf84bacf306212f95787a8142dbecaf60ee508e168b159a9bca9d9)
@@ -3115,7 +3115,7 @@ class MonitoringUptimeCheckConfigSyntheticMonitorCloudFunctionV2:
     def name(self) -> builtins.str:
         '''The fully qualified name of the cloud function resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#name MonitoringUptimeCheckConfig#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#name MonitoringUptimeCheckConfig#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -3211,7 +3211,7 @@ class MonitoringUptimeCheckConfigSyntheticMonitorOutputReference(
     @jsii.member(jsii_name="putCloudFunctionV2")
     def put_cloud_function_v2(self, *, name: builtins.str) -> None:
         '''
-        :param name: The fully qualified name of the cloud function resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#name MonitoringUptimeCheckConfig#name}
+        :param name: The fully qualified name of the cloud function resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#name MonitoringUptimeCheckConfig#name}
         '''
         value = MonitoringUptimeCheckConfigSyntheticMonitorCloudFunctionV2(name=name)
 
@@ -3262,8 +3262,8 @@ class MonitoringUptimeCheckConfigTcpCheck:
         ping_config: typing.Optional[typing.Union["MonitoringUptimeCheckConfigTcpCheckPingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param port: The port to the page to run the check against. Will be combined with host (specified within the 'monitored_resource') to construct the full URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#port MonitoringUptimeCheckConfig#port}
-        :param ping_config: ping_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#ping_config MonitoringUptimeCheckConfig#ping_config}
+        :param port: The port to the page to run the check against. Will be combined with host (specified within the 'monitored_resource') to construct the full URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#port MonitoringUptimeCheckConfig#port}
+        :param ping_config: ping_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#ping_config MonitoringUptimeCheckConfig#ping_config}
         '''
         if isinstance(ping_config, dict):
             ping_config = MonitoringUptimeCheckConfigTcpCheckPingConfig(**ping_config)
@@ -3283,7 +3283,7 @@ class MonitoringUptimeCheckConfigTcpCheck:
 
         Will be combined with host (specified within the 'monitored_resource') to construct the full URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#port MonitoringUptimeCheckConfig#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#port MonitoringUptimeCheckConfig#port}
         '''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
@@ -3295,7 +3295,7 @@ class MonitoringUptimeCheckConfigTcpCheck:
     ) -> typing.Optional["MonitoringUptimeCheckConfigTcpCheckPingConfig"]:
         '''ping_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#ping_config MonitoringUptimeCheckConfig#ping_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#ping_config MonitoringUptimeCheckConfig#ping_config}
         '''
         result = self._values.get("ping_config")
         return typing.cast(typing.Optional["MonitoringUptimeCheckConfigTcpCheckPingConfig"], result)
@@ -3335,7 +3335,7 @@ class MonitoringUptimeCheckConfigTcpCheckOutputReference(
     @jsii.member(jsii_name="putPingConfig")
     def put_ping_config(self, *, pings_count: jsii.Number) -> None:
         '''
-        :param pings_count: Number of ICMP pings. A maximum of 3 ICMP pings is currently supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#pings_count MonitoringUptimeCheckConfig#pings_count}
+        :param pings_count: Number of ICMP pings. A maximum of 3 ICMP pings is currently supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#pings_count MonitoringUptimeCheckConfig#pings_count}
         '''
         value = MonitoringUptimeCheckConfigTcpCheckPingConfig(pings_count=pings_count)
 
@@ -3400,7 +3400,7 @@ class MonitoringUptimeCheckConfigTcpCheckOutputReference(
 class MonitoringUptimeCheckConfigTcpCheckPingConfig:
     def __init__(self, *, pings_count: jsii.Number) -> None:
         '''
-        :param pings_count: Number of ICMP pings. A maximum of 3 ICMP pings is currently supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#pings_count MonitoringUptimeCheckConfig#pings_count}
+        :param pings_count: Number of ICMP pings. A maximum of 3 ICMP pings is currently supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#pings_count MonitoringUptimeCheckConfig#pings_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__95fcdaaa5003ffe6495da67d1384d1c57c1302fad80d128677cf37fb50241a06)
@@ -3413,7 +3413,7 @@ class MonitoringUptimeCheckConfigTcpCheckPingConfig:
     def pings_count(self) -> jsii.Number:
         '''Number of ICMP pings. A maximum of 3 ICMP pings is currently supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#pings_count MonitoringUptimeCheckConfig#pings_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#pings_count MonitoringUptimeCheckConfig#pings_count}
         '''
         result = self._values.get("pings_count")
         assert result is not None, "Required property 'pings_count' is missing"
@@ -3500,9 +3500,9 @@ class MonitoringUptimeCheckConfigTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#create MonitoringUptimeCheckConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#delete MonitoringUptimeCheckConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#update MonitoringUptimeCheckConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#create MonitoringUptimeCheckConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#delete MonitoringUptimeCheckConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#update MonitoringUptimeCheckConfig#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__908e637595d13c3c72cf382db55446975942b9ed52ebed29660ee5bde31a67bf)
@@ -3519,19 +3519,19 @@ class MonitoringUptimeCheckConfigTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#create MonitoringUptimeCheckConfig#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#create MonitoringUptimeCheckConfig#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#delete MonitoringUptimeCheckConfig#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#delete MonitoringUptimeCheckConfig#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_uptime_check_config#update MonitoringUptimeCheckConfig#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_uptime_check_config#update MonitoringUptimeCheckConfig#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

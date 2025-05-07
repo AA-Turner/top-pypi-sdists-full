@@ -1,7 +1,7 @@
 r'''
 # `google_service_account`
 
-Refer to the Terraform Registry for docs: [`google_service_account`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account).
+Refer to the Terraform Registry for docs: [`google_service_account`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ServiceAccount(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.serviceAccount.ServiceAccount",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account google_service_account}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account google_service_account}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class ServiceAccount(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account google_service_account} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account google_service_account} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param account_id: The account id that is used to generate the service account email address and a stable unique id. It is unique within a project, must be 6-30 characters long, and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_ to comply with RFC1035. Changing this forces a new service account to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#account_id ServiceAccount#account_id}
-        :param create_ignore_already_exists: If set to true, skip service account creation if a service account with the same email already exists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#create_ignore_already_exists ServiceAccount#create_ignore_already_exists}
-        :param description: A text description of the service account. Must be less than or equal to 256 UTF-8 bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#description ServiceAccount#description}
-        :param disabled: Whether the service account is disabled. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#disabled ServiceAccount#disabled}
-        :param display_name: The display name for the service account. Can be updated without creating a new resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#display_name ServiceAccount#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#id ServiceAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project that the service account will be created in. Defaults to the provider project configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#project ServiceAccount#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#timeouts ServiceAccount#timeouts}
+        :param account_id: The account id that is used to generate the service account email address and a stable unique id. It is unique within a project, must be 6-30 characters long, and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_ to comply with RFC1035. Changing this forces a new service account to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#account_id ServiceAccount#account_id}
+        :param create_ignore_already_exists: If set to true, skip service account creation if a service account with the same email already exists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#create_ignore_already_exists ServiceAccount#create_ignore_already_exists}
+        :param description: A text description of the service account. Must be less than or equal to 256 UTF-8 bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#description ServiceAccount#description}
+        :param disabled: Whether the service account is disabled. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#disabled ServiceAccount#disabled}
+        :param display_name: The display name for the service account. Can be updated without creating a new resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#display_name ServiceAccount#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#id ServiceAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project that the service account will be created in. Defaults to the provider project configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#project ServiceAccount#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#timeouts ServiceAccount#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class ServiceAccount(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ServiceAccount to import.
-        :param import_from_id: The id of the existing ServiceAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ServiceAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ServiceAccount to import is found.
         '''
         if __debug__:
@@ -138,7 +138,7 @@ class ServiceAccount(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#create ServiceAccount#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#create ServiceAccount#create}.
         '''
         value = ServiceAccountTimeouts(create=create)
 
@@ -398,14 +398,14 @@ class ServiceAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param account_id: The account id that is used to generate the service account email address and a stable unique id. It is unique within a project, must be 6-30 characters long, and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_ to comply with RFC1035. Changing this forces a new service account to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#account_id ServiceAccount#account_id}
-        :param create_ignore_already_exists: If set to true, skip service account creation if a service account with the same email already exists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#create_ignore_already_exists ServiceAccount#create_ignore_already_exists}
-        :param description: A text description of the service account. Must be less than or equal to 256 UTF-8 bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#description ServiceAccount#description}
-        :param disabled: Whether the service account is disabled. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#disabled ServiceAccount#disabled}
-        :param display_name: The display name for the service account. Can be updated without creating a new resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#display_name ServiceAccount#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#id ServiceAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project that the service account will be created in. Defaults to the provider project configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#project ServiceAccount#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#timeouts ServiceAccount#timeouts}
+        :param account_id: The account id that is used to generate the service account email address and a stable unique id. It is unique within a project, must be 6-30 characters long, and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_ to comply with RFC1035. Changing this forces a new service account to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#account_id ServiceAccount#account_id}
+        :param create_ignore_already_exists: If set to true, skip service account creation if a service account with the same email already exists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#create_ignore_already_exists ServiceAccount#create_ignore_already_exists}
+        :param description: A text description of the service account. Must be less than or equal to 256 UTF-8 bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#description ServiceAccount#description}
+        :param disabled: Whether the service account is disabled. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#disabled ServiceAccount#disabled}
+        :param display_name: The display name for the service account. Can be updated without creating a new resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#display_name ServiceAccount#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#id ServiceAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project that the service account will be created in. Defaults to the provider project configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#project ServiceAccount#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#timeouts ServiceAccount#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -530,7 +530,7 @@ class ServiceAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         It is unique within a project, must be 6-30 characters long, and match the regular expression `a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_ to comply with RFC1035. Changing this forces a new service account to be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#account_id ServiceAccount#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#account_id ServiceAccount#account_id}
         '''
         result = self._values.get("account_id")
         assert result is not None, "Required property 'account_id' is missing"
@@ -542,7 +542,7 @@ class ServiceAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, skip service account creation if a service account with the same email already exists.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#create_ignore_already_exists ServiceAccount#create_ignore_already_exists}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#create_ignore_already_exists ServiceAccount#create_ignore_already_exists}
         '''
         result = self._values.get("create_ignore_already_exists")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -551,7 +551,7 @@ class ServiceAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A text description of the service account. Must be less than or equal to 256 UTF-8 bytes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#description ServiceAccount#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#description ServiceAccount#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -562,7 +562,7 @@ class ServiceAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the service account is disabled. Defaults to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#disabled ServiceAccount#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#disabled ServiceAccount#disabled}
         '''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -571,14 +571,14 @@ class ServiceAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The display name for the service account. Can be updated without creating a new resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#display_name ServiceAccount#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#display_name ServiceAccount#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#id ServiceAccount#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#id ServiceAccount#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -590,7 +590,7 @@ class ServiceAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''The ID of the project that the service account will be created in. Defaults to the provider project configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#project ServiceAccount#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#project ServiceAccount#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -599,7 +599,7 @@ class ServiceAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ServiceAccountTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#timeouts ServiceAccount#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#timeouts ServiceAccount#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ServiceAccountTimeouts"], result)
@@ -624,7 +624,7 @@ class ServiceAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class ServiceAccountTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#create ServiceAccount#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#create ServiceAccount#create}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2a5f8dc756e47ded52c19cbf8c7f4cb344e33f30612baafff8b4b43b954f90ad)
@@ -635,7 +635,7 @@ class ServiceAccountTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account#create ServiceAccount#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account#create ServiceAccount#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 

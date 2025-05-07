@@ -61,8 +61,8 @@ from union.internal.identity.app_service_pb2_grpc import AppsServiceStub
 from union.internal.imagebuilder import definition_pb2 as image_definition__pb2
 from union.internal.imagebuilder import payload_pb2 as image_payload__pb2
 from union.internal.imagebuilder import service_pb2_grpc as image_service_pb2_grpc
-from union.internal.secret.definition_pb2 import Secret
-from union.internal.secret.payload_pb2 import ListSecretsRequest
+from union.internal.secret.definition_pb2 import Secret, SecretIdentifier
+from union.internal.secret.payload_pb2 import GetSecretRequest, ListSecretsRequest
 from union.internal.secret.secret_pb2_grpc import SecretServiceStub
 from union.remote._app_template_factory import AppTemplate, HuggingFaceModelInfo, get_app_templates_for_model
 
@@ -537,21 +537,9 @@ class UnionRemote(FlyteRemote):
         if domain is None:
             domain = self.default_domain
 
-        # XXX: Querying all the secrets is expensive and slow
-        # Go through all the scopes to get secrets. There are tenants that do not org scoped secrets, so we have
-        # iterate through the different scopes.
-        # secrets = (
-        #     self._get_secrets() + self._get_secrets(project=project) +
-        # self._get_secrets(project=project, domain=domain)
-        # )
-
-        # if not self._secret_exists(secrets, hf_token_key, project, domain):
-        #     msg = f"Secret named: {hf_token_key} does not exist. Please create one with `union create secret`"
-        #     raise ValueError(msg)
-
-        # if not self._secret_exists(secrets, union_api_key, project, domain):
-        #     msg = f"Secret named: {union_api_key} does not exist. Please create one with `union create secret`"
-        #     raise ValueError(msg)
+        if not self._secret_exists(union_api_key, project=project, domain=domain):
+            msg = f"Secret named: {union_api_key} does not exist. Please create one with `union create secret`"
+            raise ValueError(msg)
 
         from union.remote._cache_model import create_hf_model_cache_workflow
 
@@ -632,20 +620,27 @@ class UnionRemote(FlyteRemote):
 
         return secrets
 
-    def _secret_exists(self, secrets: List[Secret], name: str, project: str, domain: str) -> bool:
+    def _secret_exists(self, name: str, project: Optional[str] = None, domain: Optional[str] = None) -> bool:
         """
         Return True if secret name exists that accepts project and domain.
         """
-        for secret in secrets:
-            if secret.id.name == name:
-                if secret.id.project == project and secret.id.domain == domain:
-                    return True
-                elif secret.id.project == project and secret.id.domain == "":
-                    return True
-                elif secret.id.project == "" and secret.id.domain == domain:
-                    return True
-                elif secret.id.project == "" and secret.id.domain == "":
-                    return True
+        stub = self.secret_client
+
+        if project is None and domain is None:
+            project_domain_pairs = [(None, None)]
+        elif project is not None:
+            project_domain_pairs = [(None, None), (project, None)]
+        else:
+            project_domain_pairs = [(None, None), (project, None), (project, domain)]
+
+        for project_, domain_ in project_domain_pairs:
+            request = GetSecretRequest(id=SecretIdentifier(name=name, project=project_, domain=domain_))
+            try:
+                stub.GetSecret(request)
+                return True
+            except Exception:
+                continue
+
         return False
 
     def _get_image_fqin(self, name: str) -> str:

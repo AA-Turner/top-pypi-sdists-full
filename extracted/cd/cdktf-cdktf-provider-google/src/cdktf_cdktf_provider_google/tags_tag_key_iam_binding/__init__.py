@@ -1,7 +1,7 @@
 r'''
 # `google_tags_tag_key_iam_binding`
 
-Refer to the Terraform Registry for docs: [`google_tags_tag_key_iam_binding`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding).
+Refer to the Terraform Registry for docs: [`google_tags_tag_key_iam_binding`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TagsTagKeyIamBinding(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.tagsTagKeyIamBinding.TagsTagKeyIamBinding",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding google_tags_tag_key_iam_binding}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding google_tags_tag_key_iam_binding}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class TagsTagKeyIamBinding(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding google_tags_tag_key_iam_binding} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding google_tags_tag_key_iam_binding} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#members TagsTagKeyIamBinding#members}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#role TagsTagKeyIamBinding#role}.
-        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#tag_key TagsTagKeyIamBinding#tag_key}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#condition TagsTagKeyIamBinding#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#id TagsTagKeyIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#members TagsTagKeyIamBinding#members}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#role TagsTagKeyIamBinding#role}.
+        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#tag_key TagsTagKeyIamBinding#tag_key}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#condition TagsTagKeyIamBinding#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#id TagsTagKeyIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class TagsTagKeyIamBinding(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TagsTagKeyIamBinding to import.
-        :param import_from_id: The id of the existing TagsTagKeyIamBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TagsTagKeyIamBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TagsTagKeyIamBinding to import is found.
         '''
         if __debug__:
@@ -135,9 +135,9 @@ class TagsTagKeyIamBinding(
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#expression TagsTagKeyIamBinding#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#title TagsTagKeyIamBinding#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#description TagsTagKeyIamBinding#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#expression TagsTagKeyIamBinding#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#title TagsTagKeyIamBinding#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#description TagsTagKeyIamBinding#description}.
         '''
         value = TagsTagKeyIamBindingCondition(
             expression=expression, title=title, description=description
@@ -268,9 +268,9 @@ class TagsTagKeyIamBindingCondition:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#expression TagsTagKeyIamBinding#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#title TagsTagKeyIamBinding#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#description TagsTagKeyIamBinding#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#expression TagsTagKeyIamBinding#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#title TagsTagKeyIamBinding#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#description TagsTagKeyIamBinding#description}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8f0b003feedb1aeb744ad92fc6e54c71f6e95dc458fdb1bbb017dd22da908563)
@@ -286,21 +286,21 @@ class TagsTagKeyIamBindingCondition:
 
     @builtins.property
     def expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#expression TagsTagKeyIamBinding#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#expression TagsTagKeyIamBinding#expression}.'''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#title TagsTagKeyIamBinding#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#title TagsTagKeyIamBinding#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#description TagsTagKeyIamBinding#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#description TagsTagKeyIamBinding#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -450,11 +450,11 @@ class TagsTagKeyIamBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#members TagsTagKeyIamBinding#members}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#role TagsTagKeyIamBinding#role}.
-        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#tag_key TagsTagKeyIamBinding#tag_key}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#condition TagsTagKeyIamBinding#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#id TagsTagKeyIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#members TagsTagKeyIamBinding#members}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#role TagsTagKeyIamBinding#role}.
+        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#tag_key TagsTagKeyIamBinding#tag_key}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#condition TagsTagKeyIamBinding#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#id TagsTagKeyIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -564,21 +564,21 @@ class TagsTagKeyIamBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def members(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#members TagsTagKeyIamBinding#members}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#members TagsTagKeyIamBinding#members}.'''
         result = self._values.get("members")
         assert result is not None, "Required property 'members' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#role TagsTagKeyIamBinding#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#role TagsTagKeyIamBinding#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def tag_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#tag_key TagsTagKeyIamBinding#tag_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#tag_key TagsTagKeyIamBinding#tag_key}.'''
         result = self._values.get("tag_key")
         assert result is not None, "Required property 'tag_key' is missing"
         return typing.cast(builtins.str, result)
@@ -587,14 +587,14 @@ class TagsTagKeyIamBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def condition(self) -> typing.Optional[TagsTagKeyIamBindingCondition]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#condition TagsTagKeyIamBinding#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#condition TagsTagKeyIamBinding#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[TagsTagKeyIamBindingCondition], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_key_iam_binding#id TagsTagKeyIamBinding#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_key_iam_binding#id TagsTagKeyIamBinding#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

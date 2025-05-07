@@ -3481,6 +3481,7 @@ class EbsBlockDeviceTypeDef(TypedDict):
     Throughput: NotRequired[int]
     OutpostArn: NotRequired[str]
     Encrypted: NotRequired[bool]
+    VolumeInitializationRate: NotRequired[int]
 
 
 class BlockPublicAccessStatesTypeDef(TypedDict):
@@ -6742,6 +6743,7 @@ class LaunchTemplateEbsBlockDeviceRequestTypeDef(TypedDict):
     VolumeSize: NotRequired[int]
     VolumeType: NotRequired[VolumeTypeType]
     Throughput: NotRequired[int]
+    VolumeInitializationRate: NotRequired[int]
 
 
 class LaunchTemplateEbsBlockDeviceTypeDef(TypedDict):
@@ -6753,6 +6755,7 @@ class LaunchTemplateEbsBlockDeviceTypeDef(TypedDict):
     VolumeSize: NotRequired[int]
     VolumeType: NotRequired[VolumeTypeType]
     Throughput: NotRequired[int]
+    VolumeInitializationRate: NotRequired[int]
 
 
 class LaunchTemplateCpuOptionsRequestTypeDef(TypedDict):
@@ -15513,6 +15516,7 @@ class VolumeResponseTypeDef(TypedDict):
     Throughput: int
     SseType: SSETypeType
     Operator: OperatorResponseTypeDef
+    VolumeInitializationRate: int
     VolumeId: str
     Size: int
     SnapshotId: str
@@ -15535,6 +15539,7 @@ class VolumeTypeDef(TypedDict):
     Throughput: NotRequired[int]
     SseType: NotRequired[SSETypeType]
     Operator: NotRequired[OperatorResponseTypeDef]
+    VolumeInitializationRate: NotRequired[int]
     VolumeId: NotRequired[str]
     Size: NotRequired[int]
     SnapshotId: NotRequired[str]
@@ -18776,6 +18781,7 @@ class CreateReplaceRootVolumeTaskRequestTypeDef(TypedDict):
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
     ImageId: NotRequired[str]
     DeleteReplacedRootVolume: NotRequired[bool]
+    VolumeInitializationRate: NotRequired[int]
 
 
 class CreateRestoreImageTaskRequestTypeDef(TypedDict):
@@ -19135,6 +19141,7 @@ class CreateVolumeRequestServiceResourceCreateVolumeTypeDef(TypedDict):
     MultiAttachEnabled: NotRequired[bool]
     Throughput: NotRequired[int]
     ClientToken: NotRequired[str]
+    VolumeInitializationRate: NotRequired[int]
     Operator: NotRequired[OperatorRequestTypeDef]
     DryRun: NotRequired[bool]
 
@@ -19152,6 +19159,7 @@ class CreateVolumeRequestTypeDef(TypedDict):
     MultiAttachEnabled: NotRequired[bool]
     Throughput: NotRequired[int]
     ClientToken: NotRequired[str]
+    VolumeInitializationRate: NotRequired[int]
     Operator: NotRequired[OperatorRequestTypeDef]
     DryRun: NotRequired[bool]
 

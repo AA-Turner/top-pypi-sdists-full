@@ -61,7 +61,7 @@ def set_settings(ctx, instance=None):
         "debug-info",
         None,
     ]
-    if "--json" in click.get_os_args():
+    if "--json" in sys.argv:
         _echo_enabled = False
 
     if instance is not None:
@@ -93,11 +93,12 @@ def set_settings(ctx, instance=None):
         settings_module = import__django_settings(
             os.environ["DJANGO_SETTINGS_MODULE"]
         )
-        for member in python_inspect.getmembers(settings_module):
-            if isinstance(member[1], (LazySettings, Settings)):
-                settings = member[1]
-                break
-
+        found_settings = python_inspect.getmembers(
+            settings_module,
+            lambda item: isinstance(item, (LazySettings, Settings)),
+        )
+        if found_settings:
+            settings = found_settings[0][1]
         if settings is not None and _echo_enabled:
             click.echo(
                 click.style(
@@ -106,7 +107,7 @@ def set_settings(ctx, instance=None):
             )
 
     if settings is None:
-        if instance is None and "--help" not in click.get_os_args():
+        if instance is None and "--help" not in sys.argv:
             if ctx.invoked_subcommand and ctx.invoked_subcommand not in [
                 "init",
             ]:
@@ -316,7 +317,7 @@ def init(ctx, fileformat, path, env, _vars, _secrets, wg, y, django):
             "app = Flask(__name__)\n"
             "FlaskDynaconf(app)\n"
         )
-        exit(1)
+        sys.exit(1)
 
     path = Path(path)
 
@@ -646,7 +647,7 @@ def _list(
 
         if value is empty:
             click.secho("Key not found", bg="red", fg="white", err=True)
-            return
+            sys.exit(1)
 
         if not _json:
             click.echo(format_setting(key, value))

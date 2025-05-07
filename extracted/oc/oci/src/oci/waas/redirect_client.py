@@ -154,7 +154,7 @@ class RedirectClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/waas/change_http_redirect_compartment.py.html>`__ to see an example of how to use change_http_redirect_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/waas/change_http_redirect_compartment.py.html>`__ to see an example of how to use change_http_redirect_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['httpRedirectId']
@@ -259,7 +259,7 @@ class RedirectClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/waas/create_http_redirect.py.html>`__ to see an example of how to use create_http_redirect API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/waas/create_http_redirect.py.html>`__ to see an example of how to use create_http_redirect API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -355,7 +355,7 @@ class RedirectClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/waas/delete_http_redirect.py.html>`__ to see an example of how to use delete_http_redirect API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/waas/delete_http_redirect.py.html>`__ to see an example of how to use delete_http_redirect API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['httpRedirectId']
@@ -456,7 +456,7 @@ class RedirectClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/waas/get_http_redirect.py.html>`__ to see an example of how to use get_http_redirect API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/waas/get_http_redirect.py.html>`__ to see an example of how to use get_http_redirect API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['httpRedirectId']
@@ -589,7 +589,7 @@ class RedirectClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/waas/list_http_redirects.py.html>`__ to see an example of how to use list_http_redirects API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/waas/list_http_redirects.py.html>`__ to see an example of how to use list_http_redirects API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -734,7 +734,7 @@ class RedirectClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/waas/update_http_redirect.py.html>`__ to see an example of how to use update_http_redirect API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/waas/update_http_redirect.py.html>`__ to see an example of how to use update_http_redirect API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['httpRedirectId']

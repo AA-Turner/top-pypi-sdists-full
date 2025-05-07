@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: docxtpl
-Version: 0.19.1
+Version: 0.20.0
 Summary: Python docx template engine
 Home-page: https://github.com/elapouya/python-docx-template
 Author: Eric Lapouyade
@@ -67,6 +67,12 @@ If you like python-docx-template, please have a look at some of my other project
 
 News
 ====
+0.20.0 (2024-12-29)
+-------------------
+- Add RichTextParagraph (Thanks to ST-Imrie)
+- Add RTL support for bold/italic (Thanks to bm-rana)
+- Update documentation
+
 0.19.1 (2024-12-29)
 -------------------
 - PR #575 : fix unicode in footnotes (Thanks to Jonathan Pyle)

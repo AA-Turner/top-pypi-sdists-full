@@ -1,7 +1,7 @@
 r'''
 # `google_cloud_identity_group_membership`
 
-Refer to the Terraform Registry for docs: [`google_cloud_identity_group_membership`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership).
+Refer to the Terraform Registry for docs: [`google_cloud_identity_group_membership`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudIdentityGroupMembership(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.cloudIdentityGroupMembership.CloudIdentityGroupMembership",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership google_cloud_identity_group_membership}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership google_cloud_identity_group_membership}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class CloudIdentityGroupMembership(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership google_cloud_identity_group_membership} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership google_cloud_identity_group_membership} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param group: The name of the Group to create this membership in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#group CloudIdentityGroupMembership#group}
-        :param roles: roles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#roles CloudIdentityGroupMembership#roles}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#id CloudIdentityGroupMembership#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param preferred_member_key: preferred_member_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#preferred_member_key CloudIdentityGroupMembership#preferred_member_key}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#timeouts CloudIdentityGroupMembership#timeouts}
+        :param group: The name of the Group to create this membership in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#group CloudIdentityGroupMembership#group}
+        :param roles: roles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#roles CloudIdentityGroupMembership#roles}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#id CloudIdentityGroupMembership#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param preferred_member_key: preferred_member_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#preferred_member_key CloudIdentityGroupMembership#preferred_member_key}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#timeouts CloudIdentityGroupMembership#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class CloudIdentityGroupMembership(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudIdentityGroupMembership to import.
-        :param import_from_id: The id of the existing CloudIdentityGroupMembership that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudIdentityGroupMembership that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudIdentityGroupMembership to import is found.
         '''
         if __debug__:
@@ -134,8 +134,8 @@ class CloudIdentityGroupMembership(
         namespace: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: The ID of the entity. For Google-managed entities, the id must be the email address of an existing group or user. For external-identity-mapped entities, the id must be a string conforming to the Identity Source's requirements. Must be unique within a namespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#id CloudIdentityGroupMembership#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param namespace: The namespace in which the entity exists. If not specified, the EntityKey represents a Google-managed entity such as a Google user or a Google Group. If specified, the EntityKey represents an external-identity-mapped group. The namespace must correspond to an identity source created in Admin Console and must be in the form of 'identitysources/{identity_source_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#namespace CloudIdentityGroupMembership#namespace}
+        :param id: The ID of the entity. For Google-managed entities, the id must be the email address of an existing group or user. For external-identity-mapped entities, the id must be a string conforming to the Identity Source's requirements. Must be unique within a namespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#id CloudIdentityGroupMembership#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param namespace: The namespace in which the entity exists. If not specified, the EntityKey represents a Google-managed entity such as a Google user or a Google Group. If specified, the EntityKey represents an external-identity-mapped group. The namespace must correspond to an identity source created in Admin Console and must be in the form of 'identitysources/{identity_source_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#namespace CloudIdentityGroupMembership#namespace}
         '''
         value = CloudIdentityGroupMembershipPreferredMemberKey(
             id=id, namespace=namespace
@@ -165,9 +165,9 @@ class CloudIdentityGroupMembership(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#create CloudIdentityGroupMembership#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#delete CloudIdentityGroupMembership#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#update CloudIdentityGroupMembership#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#create CloudIdentityGroupMembership#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#delete CloudIdentityGroupMembership#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#update CloudIdentityGroupMembership#update}.
         '''
         value = CloudIdentityGroupMembershipTimeouts(
             create=create, delete=delete, update=update
@@ -336,11 +336,11 @@ class CloudIdentityGroupMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param group: The name of the Group to create this membership in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#group CloudIdentityGroupMembership#group}
-        :param roles: roles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#roles CloudIdentityGroupMembership#roles}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#id CloudIdentityGroupMembership#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param preferred_member_key: preferred_member_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#preferred_member_key CloudIdentityGroupMembership#preferred_member_key}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#timeouts CloudIdentityGroupMembership#timeouts}
+        :param group: The name of the Group to create this membership in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#group CloudIdentityGroupMembership#group}
+        :param roles: roles block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#roles CloudIdentityGroupMembership#roles}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#id CloudIdentityGroupMembership#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param preferred_member_key: preferred_member_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#preferred_member_key CloudIdentityGroupMembership#preferred_member_key}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#timeouts CloudIdentityGroupMembership#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -455,7 +455,7 @@ class CloudIdentityGroupMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def group(self) -> builtins.str:
         '''The name of the Group to create this membership in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#group CloudIdentityGroupMembership#group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#group CloudIdentityGroupMembership#group}
         '''
         result = self._values.get("group")
         assert result is not None, "Required property 'group' is missing"
@@ -467,7 +467,7 @@ class CloudIdentityGroupMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CloudIdentityGroupMembershipRoles"]]:
         '''roles block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#roles CloudIdentityGroupMembership#roles}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#roles CloudIdentityGroupMembership#roles}
         '''
         result = self._values.get("roles")
         assert result is not None, "Required property 'roles' is missing"
@@ -475,7 +475,7 @@ class CloudIdentityGroupMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#id CloudIdentityGroupMembership#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#id CloudIdentityGroupMembership#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -489,7 +489,7 @@ class CloudIdentityGroupMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional["CloudIdentityGroupMembershipPreferredMemberKey"]:
         '''preferred_member_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#preferred_member_key CloudIdentityGroupMembership#preferred_member_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#preferred_member_key CloudIdentityGroupMembership#preferred_member_key}
         '''
         result = self._values.get("preferred_member_key")
         return typing.cast(typing.Optional["CloudIdentityGroupMembershipPreferredMemberKey"], result)
@@ -498,7 +498,7 @@ class CloudIdentityGroupMembershipConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def timeouts(self) -> typing.Optional["CloudIdentityGroupMembershipTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#timeouts CloudIdentityGroupMembership#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#timeouts CloudIdentityGroupMembership#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CloudIdentityGroupMembershipTimeouts"], result)
@@ -528,8 +528,8 @@ class CloudIdentityGroupMembershipPreferredMemberKey:
         namespace: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: The ID of the entity. For Google-managed entities, the id must be the email address of an existing group or user. For external-identity-mapped entities, the id must be a string conforming to the Identity Source's requirements. Must be unique within a namespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#id CloudIdentityGroupMembership#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param namespace: The namespace in which the entity exists. If not specified, the EntityKey represents a Google-managed entity such as a Google user or a Google Group. If specified, the EntityKey represents an external-identity-mapped group. The namespace must correspond to an identity source created in Admin Console and must be in the form of 'identitysources/{identity_source_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#namespace CloudIdentityGroupMembership#namespace}
+        :param id: The ID of the entity. For Google-managed entities, the id must be the email address of an existing group or user. For external-identity-mapped entities, the id must be a string conforming to the Identity Source's requirements. Must be unique within a namespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#id CloudIdentityGroupMembership#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param namespace: The namespace in which the entity exists. If not specified, the EntityKey represents a Google-managed entity such as a Google user or a Google Group. If specified, the EntityKey represents an external-identity-mapped group. The namespace must correspond to an identity source created in Admin Console and must be in the form of 'identitysources/{identity_source_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#namespace CloudIdentityGroupMembership#namespace}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9c1cb6a8db1e2500583cd40695ae54c27dd0d518aa91d1d67b4c86dbcb8e39e1)
@@ -553,7 +553,7 @@ class CloudIdentityGroupMembershipPreferredMemberKey:
 
         Must be unique within a namespace.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#id CloudIdentityGroupMembership#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#id CloudIdentityGroupMembership#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -573,7 +573,7 @@ class CloudIdentityGroupMembershipPreferredMemberKey:
         The namespace must correspond to an identity source created in Admin Console
         and must be in the form of 'identitysources/{identity_source_id}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#namespace CloudIdentityGroupMembership#namespace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#namespace CloudIdentityGroupMembership#namespace}
         '''
         result = self._values.get("namespace")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -679,8 +679,8 @@ class CloudIdentityGroupMembershipRoles:
         expiry_detail: typing.Optional[typing.Union["CloudIdentityGroupMembershipRolesExpiryDetail", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param name: The name of the MembershipRole. Must be one of OWNER, MANAGER, MEMBER. Possible values: ["OWNER", "MANAGER", "MEMBER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#name CloudIdentityGroupMembership#name}
-        :param expiry_detail: expiry_detail block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#expiry_detail CloudIdentityGroupMembership#expiry_detail}
+        :param name: The name of the MembershipRole. Must be one of OWNER, MANAGER, MEMBER. Possible values: ["OWNER", "MANAGER", "MEMBER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#name CloudIdentityGroupMembership#name}
+        :param expiry_detail: expiry_detail block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#expiry_detail CloudIdentityGroupMembership#expiry_detail}
         '''
         if isinstance(expiry_detail, dict):
             expiry_detail = CloudIdentityGroupMembershipRolesExpiryDetail(**expiry_detail)
@@ -698,7 +698,7 @@ class CloudIdentityGroupMembershipRoles:
     def name(self) -> builtins.str:
         '''The name of the MembershipRole. Must be one of OWNER, MANAGER, MEMBER. Possible values: ["OWNER", "MANAGER", "MEMBER"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#name CloudIdentityGroupMembership#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#name CloudIdentityGroupMembership#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -710,7 +710,7 @@ class CloudIdentityGroupMembershipRoles:
     ) -> typing.Optional["CloudIdentityGroupMembershipRolesExpiryDetail"]:
         '''expiry_detail block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#expiry_detail CloudIdentityGroupMembership#expiry_detail}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#expiry_detail CloudIdentityGroupMembership#expiry_detail}
         '''
         result = self._values.get("expiry_detail")
         return typing.cast(typing.Optional["CloudIdentityGroupMembershipRolesExpiryDetail"], result)
@@ -735,7 +735,7 @@ class CloudIdentityGroupMembershipRoles:
 class CloudIdentityGroupMembershipRolesExpiryDetail:
     def __init__(self, *, expire_time: builtins.str) -> None:
         '''
-        :param expire_time: The time at which the MembershipRole will expire. A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#expire_time CloudIdentityGroupMembership#expire_time}
+        :param expire_time: The time at which the MembershipRole will expire. A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#expire_time CloudIdentityGroupMembership#expire_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bf9b218ba8da4eb1a96037596b5f55a3dc0c4f3a1ce77d1d8f4eca366c283730)
@@ -753,7 +753,7 @@ class CloudIdentityGroupMembershipRolesExpiryDetail:
 
         Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#expire_time CloudIdentityGroupMembership#expire_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#expire_time CloudIdentityGroupMembership#expire_time}
         '''
         result = self._values.get("expire_time")
         assert result is not None, "Required property 'expire_time' is missing"
@@ -948,7 +948,7 @@ class CloudIdentityGroupMembershipRolesOutputReference(
     @jsii.member(jsii_name="putExpiryDetail")
     def put_expiry_detail(self, *, expire_time: builtins.str) -> None:
         '''
-        :param expire_time: The time at which the MembershipRole will expire. A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#expire_time CloudIdentityGroupMembership#expire_time}
+        :param expire_time: The time at which the MembershipRole will expire. A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#expire_time CloudIdentityGroupMembership#expire_time}
         '''
         value = CloudIdentityGroupMembershipRolesExpiryDetail(expire_time=expire_time)
 
@@ -1021,9 +1021,9 @@ class CloudIdentityGroupMembershipTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#create CloudIdentityGroupMembership#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#delete CloudIdentityGroupMembership#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#update CloudIdentityGroupMembership#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#create CloudIdentityGroupMembership#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#delete CloudIdentityGroupMembership#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#update CloudIdentityGroupMembership#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59150ceda146ff2f53c1e4ea4ed4975a0d898dd5471157ebf7c29aa52f921ffb)
@@ -1040,19 +1040,19 @@ class CloudIdentityGroupMembershipTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#create CloudIdentityGroupMembership#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#create CloudIdentityGroupMembership#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#delete CloudIdentityGroupMembership#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#delete CloudIdentityGroupMembership#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/cloud_identity_group_membership#update CloudIdentityGroupMembership#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/cloud_identity_group_membership#update CloudIdentityGroupMembership#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

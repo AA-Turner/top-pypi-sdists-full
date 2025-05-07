@@ -163,7 +163,7 @@ class OperatorControlClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/operatoraccesscontrol/change_operator_control_compartment.py.html>`__ to see an example of how to use change_operator_control_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/operatoraccesscontrol/change_operator_control_compartment.py.html>`__ to see an example of how to use change_operator_control_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operatorControlId']
@@ -273,7 +273,7 @@ class OperatorControlClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/operatoraccesscontrol/create_operator_control.py.html>`__ to see an example of how to use create_operator_control API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/operatoraccesscontrol/create_operator_control.py.html>`__ to see an example of how to use create_operator_control API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -378,7 +378,7 @@ class OperatorControlClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/operatoraccesscontrol/delete_operator_control.py.html>`__ to see an example of how to use delete_operator_control API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/operatoraccesscontrol/delete_operator_control.py.html>`__ to see an example of how to use delete_operator_control API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operatorControlId']
@@ -484,7 +484,7 @@ class OperatorControlClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/operatoraccesscontrol/get_operator_control.py.html>`__ to see an example of how to use get_operator_control API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/operatoraccesscontrol/get_operator_control.py.html>`__ to see an example of how to use get_operator_control API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operatorControlId']
@@ -609,7 +609,7 @@ class OperatorControlClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/operatoraccesscontrol/list_operator_controls.py.html>`__ to see an example of how to use list_operator_controls API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/operatoraccesscontrol/list_operator_controls.py.html>`__ to see an example of how to use list_operator_controls API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -747,7 +747,7 @@ class OperatorControlClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/operatoraccesscontrol/update_operator_control.py.html>`__ to see an example of how to use update_operator_control API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/operatoraccesscontrol/update_operator_control.py.html>`__ to see an example of how to use update_operator_control API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['operatorControlId']

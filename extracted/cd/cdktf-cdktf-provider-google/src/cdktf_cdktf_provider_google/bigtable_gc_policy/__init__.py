@@ -1,7 +1,7 @@
 r'''
 # `google_bigtable_gc_policy`
 
-Refer to the Terraform Registry for docs: [`google_bigtable_gc_policy`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy).
+Refer to the Terraform Registry for docs: [`google_bigtable_gc_policy`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BigtableGcPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.bigtableGcPolicy.BigtableGcPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy google_bigtable_gc_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy google_bigtable_gc_policy}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class BigtableGcPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy google_bigtable_gc_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy google_bigtable_gc_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param column_family: The name of the column family. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#column_family BigtableGcPolicy#column_family}
-        :param instance_name: The name of the Bigtable instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#instance_name BigtableGcPolicy#instance_name}
-        :param table: The name of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#table BigtableGcPolicy#table}
-        :param deletion_policy: The deletion policy for the GC policy. Setting ABANDON allows the resource to be abandoned rather than deleted. This is useful for GC policy as it cannot be deleted in a replicated instance. Possible values are: "ABANDON". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#deletion_policy BigtableGcPolicy#deletion_policy}
-        :param gc_rules: Serialized JSON string for garbage collection policy. Conflicts with "mode", "max_age" and "max_version". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#gc_rules BigtableGcPolicy#gc_rules}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#id BigtableGcPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_warnings: Allows ignoring warnings when updating the GC policy. This can be used to increase the gc policy on replicated clusters. Doing this may make clusters be inconsistent for a longer period of time, before using this make sure you understand the risks listed at https://cloud.google.com/bigtable/docs/garbage-collection#increasing Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#ignore_warnings BigtableGcPolicy#ignore_warnings}
-        :param max_age: max_age block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#max_age BigtableGcPolicy#max_age}
-        :param max_version: max_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#max_version BigtableGcPolicy#max_version}
-        :param mode: NOTE: 'gc_rules' is more flexible, and should be preferred over this field for new resources. This field may be deprecated in the future. If multiple policies are set, you should choose between UNION OR INTERSECTION. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#mode BigtableGcPolicy#mode}
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#project BigtableGcPolicy#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#timeouts BigtableGcPolicy#timeouts}
+        :param column_family: The name of the column family. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#column_family BigtableGcPolicy#column_family}
+        :param instance_name: The name of the Bigtable instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#instance_name BigtableGcPolicy#instance_name}
+        :param table: The name of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#table BigtableGcPolicy#table}
+        :param deletion_policy: The deletion policy for the GC policy. Setting ABANDON allows the resource to be abandoned rather than deleted. This is useful for GC policy as it cannot be deleted in a replicated instance. Possible values are: "ABANDON". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#deletion_policy BigtableGcPolicy#deletion_policy}
+        :param gc_rules: Serialized JSON string for garbage collection policy. Conflicts with "mode", "max_age" and "max_version". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#gc_rules BigtableGcPolicy#gc_rules}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#id BigtableGcPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_warnings: Allows ignoring warnings when updating the GC policy. This can be used to increase the gc policy on replicated clusters. Doing this may make clusters be inconsistent for a longer period of time, before using this make sure you understand the risks listed at https://cloud.google.com/bigtable/docs/garbage-collection#increasing Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#ignore_warnings BigtableGcPolicy#ignore_warnings}
+        :param max_age: max_age block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#max_age BigtableGcPolicy#max_age}
+        :param max_version: max_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#max_version BigtableGcPolicy#max_version}
+        :param mode: NOTE: 'gc_rules' is more flexible, and should be preferred over this field for new resources. This field may be deprecated in the future. If multiple policies are set, you should choose between UNION OR INTERSECTION. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#mode BigtableGcPolicy#mode}
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#project BigtableGcPolicy#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#timeouts BigtableGcPolicy#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class BigtableGcPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BigtableGcPolicy to import.
-        :param import_from_id: The id of the existing BigtableGcPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BigtableGcPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BigtableGcPolicy to import is found.
         '''
         if __debug__:
@@ -155,8 +155,8 @@ class BigtableGcPolicy(
         duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param days: Number of days before applying GC policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#days BigtableGcPolicy#days}
-        :param duration: Duration before applying GC policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#duration BigtableGcPolicy#duration}
+        :param days: Number of days before applying GC policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#days BigtableGcPolicy#days}
+        :param duration: Duration before applying GC policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#duration BigtableGcPolicy#duration}
         '''
         value = BigtableGcPolicyMaxAge(days=days, duration=duration)
 
@@ -183,8 +183,8 @@ class BigtableGcPolicy(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#create BigtableGcPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#delete BigtableGcPolicy#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#create BigtableGcPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#delete BigtableGcPolicy#delete}.
         '''
         value = BigtableGcPolicyTimeouts(create=create, delete=delete)
 
@@ -491,18 +491,18 @@ class BigtableGcPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param column_family: The name of the column family. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#column_family BigtableGcPolicy#column_family}
-        :param instance_name: The name of the Bigtable instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#instance_name BigtableGcPolicy#instance_name}
-        :param table: The name of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#table BigtableGcPolicy#table}
-        :param deletion_policy: The deletion policy for the GC policy. Setting ABANDON allows the resource to be abandoned rather than deleted. This is useful for GC policy as it cannot be deleted in a replicated instance. Possible values are: "ABANDON". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#deletion_policy BigtableGcPolicy#deletion_policy}
-        :param gc_rules: Serialized JSON string for garbage collection policy. Conflicts with "mode", "max_age" and "max_version". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#gc_rules BigtableGcPolicy#gc_rules}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#id BigtableGcPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_warnings: Allows ignoring warnings when updating the GC policy. This can be used to increase the gc policy on replicated clusters. Doing this may make clusters be inconsistent for a longer period of time, before using this make sure you understand the risks listed at https://cloud.google.com/bigtable/docs/garbage-collection#increasing Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#ignore_warnings BigtableGcPolicy#ignore_warnings}
-        :param max_age: max_age block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#max_age BigtableGcPolicy#max_age}
-        :param max_version: max_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#max_version BigtableGcPolicy#max_version}
-        :param mode: NOTE: 'gc_rules' is more flexible, and should be preferred over this field for new resources. This field may be deprecated in the future. If multiple policies are set, you should choose between UNION OR INTERSECTION. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#mode BigtableGcPolicy#mode}
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#project BigtableGcPolicy#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#timeouts BigtableGcPolicy#timeouts}
+        :param column_family: The name of the column family. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#column_family BigtableGcPolicy#column_family}
+        :param instance_name: The name of the Bigtable instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#instance_name BigtableGcPolicy#instance_name}
+        :param table: The name of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#table BigtableGcPolicy#table}
+        :param deletion_policy: The deletion policy for the GC policy. Setting ABANDON allows the resource to be abandoned rather than deleted. This is useful for GC policy as it cannot be deleted in a replicated instance. Possible values are: "ABANDON". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#deletion_policy BigtableGcPolicy#deletion_policy}
+        :param gc_rules: Serialized JSON string for garbage collection policy. Conflicts with "mode", "max_age" and "max_version". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#gc_rules BigtableGcPolicy#gc_rules}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#id BigtableGcPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_warnings: Allows ignoring warnings when updating the GC policy. This can be used to increase the gc policy on replicated clusters. Doing this may make clusters be inconsistent for a longer period of time, before using this make sure you understand the risks listed at https://cloud.google.com/bigtable/docs/garbage-collection#increasing Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#ignore_warnings BigtableGcPolicy#ignore_warnings}
+        :param max_age: max_age block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#max_age BigtableGcPolicy#max_age}
+        :param max_version: max_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#max_version BigtableGcPolicy#max_version}
+        :param mode: NOTE: 'gc_rules' is more flexible, and should be preferred over this field for new resources. This field may be deprecated in the future. If multiple policies are set, you should choose between UNION OR INTERSECTION. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#mode BigtableGcPolicy#mode}
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#project BigtableGcPolicy#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#timeouts BigtableGcPolicy#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -637,7 +637,7 @@ class BigtableGcPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def column_family(self) -> builtins.str:
         '''The name of the column family.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#column_family BigtableGcPolicy#column_family}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#column_family BigtableGcPolicy#column_family}
         '''
         result = self._values.get("column_family")
         assert result is not None, "Required property 'column_family' is missing"
@@ -647,7 +647,7 @@ class BigtableGcPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance_name(self) -> builtins.str:
         '''The name of the Bigtable instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#instance_name BigtableGcPolicy#instance_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#instance_name BigtableGcPolicy#instance_name}
         '''
         result = self._values.get("instance_name")
         assert result is not None, "Required property 'instance_name' is missing"
@@ -657,7 +657,7 @@ class BigtableGcPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def table(self) -> builtins.str:
         '''The name of the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#table BigtableGcPolicy#table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#table BigtableGcPolicy#table}
         '''
         result = self._values.get("table")
         assert result is not None, "Required property 'table' is missing"
@@ -671,7 +671,7 @@ class BigtableGcPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         to be abandoned rather than deleted. This is useful for GC policy as it cannot be deleted
         in a replicated instance. Possible values are: "ABANDON".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#deletion_policy BigtableGcPolicy#deletion_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#deletion_policy BigtableGcPolicy#deletion_policy}
         '''
         result = self._values.get("deletion_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -680,14 +680,14 @@ class BigtableGcPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def gc_rules(self) -> typing.Optional[builtins.str]:
         '''Serialized JSON string for garbage collection policy. Conflicts with "mode", "max_age" and "max_version".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#gc_rules BigtableGcPolicy#gc_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#gc_rules BigtableGcPolicy#gc_rules}
         '''
         result = self._values.get("gc_rules")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#id BigtableGcPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#id BigtableGcPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -706,7 +706,7 @@ class BigtableGcPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         inconsistent for a longer period of time, before using this make sure you understand
         the risks listed at https://cloud.google.com/bigtable/docs/garbage-collection#increasing
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#ignore_warnings BigtableGcPolicy#ignore_warnings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#ignore_warnings BigtableGcPolicy#ignore_warnings}
         '''
         result = self._values.get("ignore_warnings")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -715,7 +715,7 @@ class BigtableGcPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def max_age(self) -> typing.Optional["BigtableGcPolicyMaxAge"]:
         '''max_age block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#max_age BigtableGcPolicy#max_age}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#max_age BigtableGcPolicy#max_age}
         '''
         result = self._values.get("max_age")
         return typing.cast(typing.Optional["BigtableGcPolicyMaxAge"], result)
@@ -726,7 +726,7 @@ class BigtableGcPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BigtableGcPolicyMaxVersion"]]]:
         '''max_version block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#max_version BigtableGcPolicy#max_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#max_version BigtableGcPolicy#max_version}
         '''
         result = self._values.get("max_version")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BigtableGcPolicyMaxVersion"]]], result)
@@ -737,7 +737,7 @@ class BigtableGcPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This field may be deprecated in the future. If multiple policies are set, you should choose between UNION OR INTERSECTION.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#mode BigtableGcPolicy#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#mode BigtableGcPolicy#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -748,7 +748,7 @@ class BigtableGcPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#project BigtableGcPolicy#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#project BigtableGcPolicy#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -757,7 +757,7 @@ class BigtableGcPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BigtableGcPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#timeouts BigtableGcPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#timeouts BigtableGcPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BigtableGcPolicyTimeouts"], result)
@@ -787,8 +787,8 @@ class BigtableGcPolicyMaxAge:
         duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param days: Number of days before applying GC policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#days BigtableGcPolicy#days}
-        :param duration: Duration before applying GC policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#duration BigtableGcPolicy#duration}
+        :param days: Number of days before applying GC policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#days BigtableGcPolicy#days}
+        :param duration: Duration before applying GC policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#duration BigtableGcPolicy#duration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8c752d9e192a89aa473dedccbcd5032c22f973ea14dac7790110ec6862e84964)
@@ -804,7 +804,7 @@ class BigtableGcPolicyMaxAge:
     def days(self) -> typing.Optional[jsii.Number]:
         '''Number of days before applying GC policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#days BigtableGcPolicy#days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#days BigtableGcPolicy#days}
         '''
         result = self._values.get("days")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -813,7 +813,7 @@ class BigtableGcPolicyMaxAge:
     def duration(self) -> typing.Optional[builtins.str]:
         '''Duration before applying GC policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#duration BigtableGcPolicy#duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#duration BigtableGcPolicy#duration}
         '''
         result = self._values.get("duration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -913,7 +913,7 @@ class BigtableGcPolicyMaxAgeOutputReference(
 class BigtableGcPolicyMaxVersion:
     def __init__(self, *, number: jsii.Number) -> None:
         '''
-        :param number: Number of version before applying the GC policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#number BigtableGcPolicy#number}
+        :param number: Number of version before applying the GC policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#number BigtableGcPolicy#number}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3d9e17dd5e708b9f78097e7b355ee89c77a7c09b3f148b7b78a594001d957e2c)
@@ -926,7 +926,7 @@ class BigtableGcPolicyMaxVersion:
     def number(self) -> jsii.Number:
         '''Number of version before applying the GC policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#number BigtableGcPolicy#number}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#number BigtableGcPolicy#number}
         '''
         result = self._values.get("number")
         assert result is not None, "Required property 'number' is missing"
@@ -1108,8 +1108,8 @@ class BigtableGcPolicyTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#create BigtableGcPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#delete BigtableGcPolicy#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#create BigtableGcPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#delete BigtableGcPolicy#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ff3ef7f160129e6090767b2352a6466b71dd2063bedf591d8019722e3d42264)
@@ -1123,13 +1123,13 @@ class BigtableGcPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#create BigtableGcPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#create BigtableGcPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_gc_policy#delete BigtableGcPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_gc_policy#delete BigtableGcPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

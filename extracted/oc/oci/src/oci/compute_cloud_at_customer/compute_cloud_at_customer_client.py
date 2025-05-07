@@ -169,7 +169,7 @@ class ComputeCloudAtCustomerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/computecloudatcustomer/change_ccc_infrastructure_compartment.py.html>`__ to see an example of how to use change_ccc_infrastructure_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/computecloudatcustomer/change_ccc_infrastructure_compartment.py.html>`__ to see an example of how to use change_ccc_infrastructure_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['cccInfrastructureId']
@@ -300,7 +300,7 @@ class ComputeCloudAtCustomerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/computecloudatcustomer/change_ccc_upgrade_schedule_compartment.py.html>`__ to see an example of how to use change_ccc_upgrade_schedule_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/computecloudatcustomer/change_ccc_upgrade_schedule_compartment.py.html>`__ to see an example of how to use change_ccc_upgrade_schedule_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['cccUpgradeScheduleId']
@@ -413,7 +413,7 @@ class ComputeCloudAtCustomerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/computecloudatcustomer/create_ccc_infrastructure.py.html>`__ to see an example of how to use create_ccc_infrastructure API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/computecloudatcustomer/create_ccc_infrastructure.py.html>`__ to see an example of how to use create_ccc_infrastructure API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -513,7 +513,7 @@ class ComputeCloudAtCustomerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/computecloudatcustomer/create_ccc_upgrade_schedule.py.html>`__ to see an example of how to use create_ccc_upgrade_schedule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/computecloudatcustomer/create_ccc_upgrade_schedule.py.html>`__ to see an example of how to use create_ccc_upgrade_schedule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -619,7 +619,7 @@ class ComputeCloudAtCustomerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/computecloudatcustomer/delete_ccc_infrastructure.py.html>`__ to see an example of how to use delete_ccc_infrastructure API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/computecloudatcustomer/delete_ccc_infrastructure.py.html>`__ to see an example of how to use delete_ccc_infrastructure API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['cccInfrastructureId']
@@ -730,7 +730,7 @@ class ComputeCloudAtCustomerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/computecloudatcustomer/delete_ccc_upgrade_schedule.py.html>`__ to see an example of how to use delete_ccc_upgrade_schedule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/computecloudatcustomer/delete_ccc_upgrade_schedule.py.html>`__ to see an example of how to use delete_ccc_upgrade_schedule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['cccUpgradeScheduleId']
@@ -834,7 +834,7 @@ class ComputeCloudAtCustomerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/computecloudatcustomer/get_ccc_infrastructure.py.html>`__ to see an example of how to use get_ccc_infrastructure API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/computecloudatcustomer/get_ccc_infrastructure.py.html>`__ to see an example of how to use get_ccc_infrastructure API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['cccInfrastructureId']
@@ -940,7 +940,7 @@ class ComputeCloudAtCustomerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/computecloudatcustomer/get_ccc_upgrade_schedule.py.html>`__ to see an example of how to use get_ccc_upgrade_schedule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/computecloudatcustomer/get_ccc_upgrade_schedule.py.html>`__ to see an example of how to use get_ccc_upgrade_schedule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['cccUpgradeScheduleId']
@@ -1090,7 +1090,7 @@ class ComputeCloudAtCustomerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/computecloudatcustomer/list_ccc_infrastructures.py.html>`__ to see an example of how to use list_ccc_infrastructures API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/computecloudatcustomer/list_ccc_infrastructures.py.html>`__ to see an example of how to use list_ccc_infrastructures API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1284,7 +1284,7 @@ class ComputeCloudAtCustomerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/computecloudatcustomer/list_ccc_upgrade_schedules.py.html>`__ to see an example of how to use list_ccc_upgrade_schedules API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/computecloudatcustomer/list_ccc_upgrade_schedules.py.html>`__ to see an example of how to use list_ccc_upgrade_schedules API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1441,7 +1441,7 @@ class ComputeCloudAtCustomerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/computecloudatcustomer/update_ccc_infrastructure.py.html>`__ to see an example of how to use update_ccc_infrastructure API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/computecloudatcustomer/update_ccc_infrastructure.py.html>`__ to see an example of how to use update_ccc_infrastructure API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['cccInfrastructureId']
@@ -1556,7 +1556,7 @@ class ComputeCloudAtCustomerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/computecloudatcustomer/update_ccc_upgrade_schedule.py.html>`__ to see an example of how to use update_ccc_upgrade_schedule API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/computecloudatcustomer/update_ccc_upgrade_schedule.py.html>`__ to see an example of how to use update_ccc_upgrade_schedule API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['cccUpgradeScheduleId']

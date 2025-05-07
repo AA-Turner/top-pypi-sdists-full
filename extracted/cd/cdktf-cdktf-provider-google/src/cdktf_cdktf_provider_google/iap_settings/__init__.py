@@ -1,7 +1,7 @@
 r'''
 # `google_iap_settings`
 
-Refer to the Terraform Registry for docs: [`google_iap_settings`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings).
+Refer to the Terraform Registry for docs: [`google_iap_settings`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IapSettings(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.iapSettings.IapSettings",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings google_iap_settings}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings google_iap_settings}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class IapSettings(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings google_iap_settings} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings google_iap_settings} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The resource name of the IAP protected resource. Name can have below resources: - organizations/{organization_id} - folders/{folder_id} - projects/{project_id} - projects/{project_id}/iap_web - projects/{project_id}/iap_web/compute - projects/{project_id}/iap_web/compute-{region} - projects/{project_id}/iap_web/compute/services/{service_id} - projects/{project_id}/iap_web/compute-{region}/services/{service_id} - projects/{project_id}/iap_web/appengine-{app_id} - projects/{project_id}/iap_web/appengine-{app_id}/services/{service_id} - projects/{project_id}/iap_web/appengine-{app_id}/services/{service_id}/version/{version_id} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#name IapSettings#name}
-        :param access_settings: access_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#access_settings IapSettings#access_settings}
-        :param application_settings: application_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#application_settings IapSettings#application_settings}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#id IapSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#timeouts IapSettings#timeouts}
+        :param name: The resource name of the IAP protected resource. Name can have below resources: - organizations/{organization_id} - folders/{folder_id} - projects/{project_id} - projects/{project_id}/iap_web - projects/{project_id}/iap_web/compute - projects/{project_id}/iap_web/compute-{region} - projects/{project_id}/iap_web/compute/services/{service_id} - projects/{project_id}/iap_web/compute-{region}/services/{service_id} - projects/{project_id}/iap_web/appengine-{app_id} - projects/{project_id}/iap_web/appengine-{app_id}/services/{service_id} - projects/{project_id}/iap_web/appengine-{app_id}/services/{service_id}/version/{version_id} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#name IapSettings#name}
+        :param access_settings: access_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#access_settings IapSettings#access_settings}
+        :param application_settings: application_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#application_settings IapSettings#application_settings}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#id IapSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#timeouts IapSettings#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class IapSettings(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IapSettings to import.
-        :param import_from_id: The id of the existing IapSettings that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IapSettings that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IapSettings to import is found.
         '''
         if __debug__:
@@ -139,13 +139,13 @@ class IapSettings(
         workforce_identity_settings: typing.Optional[typing.Union["IapSettingsAccessSettingsWorkforceIdentitySettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allowed_domains_settings: allowed_domains_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#allowed_domains_settings IapSettings#allowed_domains_settings}
-        :param cors_settings: cors_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#cors_settings IapSettings#cors_settings}
-        :param gcip_settings: gcip_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#gcip_settings IapSettings#gcip_settings}
-        :param identity_sources: Identity sources that IAP can use to authenticate the end user. Only one identity source can be configured. The possible values are: - 'WORKFORCE_IDENTITY_FEDERATION': Use external identities set up on Google Cloud Workforce Identity Federation. Possible values: ["WORKFORCE_IDENTITY_FEDERATION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#identity_sources IapSettings#identity_sources}
-        :param oauth_settings: oauth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#oauth_settings IapSettings#oauth_settings}
-        :param reauth_settings: reauth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#reauth_settings IapSettings#reauth_settings}
-        :param workforce_identity_settings: workforce_identity_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#workforce_identity_settings IapSettings#workforce_identity_settings}
+        :param allowed_domains_settings: allowed_domains_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#allowed_domains_settings IapSettings#allowed_domains_settings}
+        :param cors_settings: cors_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#cors_settings IapSettings#cors_settings}
+        :param gcip_settings: gcip_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#gcip_settings IapSettings#gcip_settings}
+        :param identity_sources: Identity sources that IAP can use to authenticate the end user. Only one identity source can be configured. The possible values are: - 'WORKFORCE_IDENTITY_FEDERATION': Use external identities set up on Google Cloud Workforce Identity Federation. Possible values: ["WORKFORCE_IDENTITY_FEDERATION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#identity_sources IapSettings#identity_sources}
+        :param oauth_settings: oauth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#oauth_settings IapSettings#oauth_settings}
+        :param reauth_settings: reauth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#reauth_settings IapSettings#reauth_settings}
+        :param workforce_identity_settings: workforce_identity_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#workforce_identity_settings IapSettings#workforce_identity_settings}
         '''
         value = IapSettingsAccessSettings(
             allowed_domains_settings=allowed_domains_settings,
@@ -169,10 +169,10 @@ class IapSettings(
         csm_settings: typing.Optional[typing.Union["IapSettingsApplicationSettingsCsmSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param access_denied_page_settings: access_denied_page_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#access_denied_page_settings IapSettings#access_denied_page_settings}
-        :param attribute_propagation_settings: attribute_propagation_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#attribute_propagation_settings IapSettings#attribute_propagation_settings}
-        :param cookie_domain: The Domain value to set for cookies generated by IAP. This value is not validated by the API, but will be ignored at runtime if invalid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#cookie_domain IapSettings#cookie_domain}
-        :param csm_settings: csm_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#csm_settings IapSettings#csm_settings}
+        :param access_denied_page_settings: access_denied_page_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#access_denied_page_settings IapSettings#access_denied_page_settings}
+        :param attribute_propagation_settings: attribute_propagation_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#attribute_propagation_settings IapSettings#attribute_propagation_settings}
+        :param cookie_domain: The Domain value to set for cookies generated by IAP. This value is not validated by the API, but will be ignored at runtime if invalid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#cookie_domain IapSettings#cookie_domain}
+        :param csm_settings: csm_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#csm_settings IapSettings#csm_settings}
         '''
         value = IapSettingsApplicationSettings(
             access_denied_page_settings=access_denied_page_settings,
@@ -192,9 +192,9 @@ class IapSettings(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#create IapSettings#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#delete IapSettings#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#update IapSettings#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#create IapSettings#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#delete IapSettings#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#update IapSettings#update}.
         '''
         value = IapSettingsTimeouts(create=create, delete=delete, update=update)
 
@@ -324,13 +324,13 @@ class IapSettingsAccessSettings:
         workforce_identity_settings: typing.Optional[typing.Union["IapSettingsAccessSettingsWorkforceIdentitySettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allowed_domains_settings: allowed_domains_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#allowed_domains_settings IapSettings#allowed_domains_settings}
-        :param cors_settings: cors_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#cors_settings IapSettings#cors_settings}
-        :param gcip_settings: gcip_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#gcip_settings IapSettings#gcip_settings}
-        :param identity_sources: Identity sources that IAP can use to authenticate the end user. Only one identity source can be configured. The possible values are: - 'WORKFORCE_IDENTITY_FEDERATION': Use external identities set up on Google Cloud Workforce Identity Federation. Possible values: ["WORKFORCE_IDENTITY_FEDERATION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#identity_sources IapSettings#identity_sources}
-        :param oauth_settings: oauth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#oauth_settings IapSettings#oauth_settings}
-        :param reauth_settings: reauth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#reauth_settings IapSettings#reauth_settings}
-        :param workforce_identity_settings: workforce_identity_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#workforce_identity_settings IapSettings#workforce_identity_settings}
+        :param allowed_domains_settings: allowed_domains_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#allowed_domains_settings IapSettings#allowed_domains_settings}
+        :param cors_settings: cors_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#cors_settings IapSettings#cors_settings}
+        :param gcip_settings: gcip_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#gcip_settings IapSettings#gcip_settings}
+        :param identity_sources: Identity sources that IAP can use to authenticate the end user. Only one identity source can be configured. The possible values are: - 'WORKFORCE_IDENTITY_FEDERATION': Use external identities set up on Google Cloud Workforce Identity Federation. Possible values: ["WORKFORCE_IDENTITY_FEDERATION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#identity_sources IapSettings#identity_sources}
+        :param oauth_settings: oauth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#oauth_settings IapSettings#oauth_settings}
+        :param reauth_settings: reauth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#reauth_settings IapSettings#reauth_settings}
+        :param workforce_identity_settings: workforce_identity_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#workforce_identity_settings IapSettings#workforce_identity_settings}
         '''
         if isinstance(allowed_domains_settings, dict):
             allowed_domains_settings = IapSettingsAccessSettingsAllowedDomainsSettings(**allowed_domains_settings)
@@ -375,7 +375,7 @@ class IapSettingsAccessSettings:
     ) -> typing.Optional["IapSettingsAccessSettingsAllowedDomainsSettings"]:
         '''allowed_domains_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#allowed_domains_settings IapSettings#allowed_domains_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#allowed_domains_settings IapSettings#allowed_domains_settings}
         '''
         result = self._values.get("allowed_domains_settings")
         return typing.cast(typing.Optional["IapSettingsAccessSettingsAllowedDomainsSettings"], result)
@@ -384,7 +384,7 @@ class IapSettingsAccessSettings:
     def cors_settings(self) -> typing.Optional["IapSettingsAccessSettingsCorsSettings"]:
         '''cors_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#cors_settings IapSettings#cors_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#cors_settings IapSettings#cors_settings}
         '''
         result = self._values.get("cors_settings")
         return typing.cast(typing.Optional["IapSettingsAccessSettingsCorsSettings"], result)
@@ -393,7 +393,7 @@ class IapSettingsAccessSettings:
     def gcip_settings(self) -> typing.Optional["IapSettingsAccessSettingsGcipSettings"]:
         '''gcip_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#gcip_settings IapSettings#gcip_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#gcip_settings IapSettings#gcip_settings}
         '''
         result = self._values.get("gcip_settings")
         return typing.cast(typing.Optional["IapSettingsAccessSettingsGcipSettings"], result)
@@ -408,7 +408,7 @@ class IapSettingsAccessSettings:
         - 'WORKFORCE_IDENTITY_FEDERATION': Use external identities set up on Google Cloud Workforce
           Identity Federation. Possible values: ["WORKFORCE_IDENTITY_FEDERATION"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#identity_sources IapSettings#identity_sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#identity_sources IapSettings#identity_sources}
         '''
         result = self._values.get("identity_sources")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -419,7 +419,7 @@ class IapSettingsAccessSettings:
     ) -> typing.Optional["IapSettingsAccessSettingsOauthSettings"]:
         '''oauth_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#oauth_settings IapSettings#oauth_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#oauth_settings IapSettings#oauth_settings}
         '''
         result = self._values.get("oauth_settings")
         return typing.cast(typing.Optional["IapSettingsAccessSettingsOauthSettings"], result)
@@ -430,7 +430,7 @@ class IapSettingsAccessSettings:
     ) -> typing.Optional["IapSettingsAccessSettingsReauthSettings"]:
         '''reauth_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#reauth_settings IapSettings#reauth_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#reauth_settings IapSettings#reauth_settings}
         '''
         result = self._values.get("reauth_settings")
         return typing.cast(typing.Optional["IapSettingsAccessSettingsReauthSettings"], result)
@@ -441,7 +441,7 @@ class IapSettingsAccessSettings:
     ) -> typing.Optional["IapSettingsAccessSettingsWorkforceIdentitySettings"]:
         '''workforce_identity_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#workforce_identity_settings IapSettings#workforce_identity_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#workforce_identity_settings IapSettings#workforce_identity_settings}
         '''
         result = self._values.get("workforce_identity_settings")
         return typing.cast(typing.Optional["IapSettingsAccessSettingsWorkforceIdentitySettings"], result)
@@ -471,8 +471,8 @@ class IapSettingsAccessSettingsAllowedDomainsSettings:
         enable: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param domains: List of trusted domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#domains IapSettings#domains}
-        :param enable: Configuration for customers to opt in for the feature. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#enable IapSettings#enable}
+        :param domains: List of trusted domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#domains IapSettings#domains}
+        :param enable: Configuration for customers to opt in for the feature. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#enable IapSettings#enable}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a4ee3283e85980fbb699c1affcf51afaf44cd50e7a2353317198ec46400d05bb)
@@ -488,7 +488,7 @@ class IapSettingsAccessSettingsAllowedDomainsSettings:
     def domains(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of trusted domains.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#domains IapSettings#domains}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#domains IapSettings#domains}
         '''
         result = self._values.get("domains")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -499,7 +499,7 @@ class IapSettingsAccessSettingsAllowedDomainsSettings:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Configuration for customers to opt in for the feature.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#enable IapSettings#enable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#enable IapSettings#enable}
         '''
         result = self._values.get("enable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -613,7 +613,7 @@ class IapSettingsAccessSettingsCorsSettings:
         allow_http_options: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allow_http_options: Configuration to allow HTTP OPTIONS calls to skip authorization. If undefined, IAP will not apply any special logic to OPTIONS requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#allow_http_options IapSettings#allow_http_options}
+        :param allow_http_options: Configuration to allow HTTP OPTIONS calls to skip authorization. If undefined, IAP will not apply any special logic to OPTIONS requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#allow_http_options IapSettings#allow_http_options}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d35232c21c2b225128eebc08a4ba535c2038273d6d0e5715bc70eb5dfd5c9b5c)
@@ -630,7 +630,7 @@ class IapSettingsAccessSettingsCorsSettings:
 
         If undefined, IAP will not apply any special logic to OPTIONS requests.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#allow_http_options IapSettings#allow_http_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#allow_http_options IapSettings#allow_http_options}
         '''
         result = self._values.get("allow_http_options")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -724,8 +724,8 @@ class IapSettingsAccessSettingsGcipSettings:
         tenant_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param login_page_uri: Login page URI associated with the GCIP tenants. Typically, all resources within the same project share the same login page, though it could be overridden at the sub resource level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#login_page_uri IapSettings#login_page_uri}
-        :param tenant_ids: GCIP tenant ids that are linked to the IAP resource. tenantIds could be a string beginning with a number character to indicate authenticating with GCIP tenant flow, or in the format of _ to indicate authenticating with GCIP agent flow. If agent flow is used, tenantIds should only contain one single element, while for tenant flow, tenantIds can contain multiple elements. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#tenant_ids IapSettings#tenant_ids}
+        :param login_page_uri: Login page URI associated with the GCIP tenants. Typically, all resources within the same project share the same login page, though it could be overridden at the sub resource level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#login_page_uri IapSettings#login_page_uri}
+        :param tenant_ids: GCIP tenant ids that are linked to the IAP resource. tenantIds could be a string beginning with a number character to indicate authenticating with GCIP tenant flow, or in the format of _ to indicate authenticating with GCIP agent flow. If agent flow is used, tenantIds should only contain one single element, while for tenant flow, tenantIds can contain multiple elements. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#tenant_ids IapSettings#tenant_ids}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b87b25b9729ee9c43b3904fd3cfefe3e784170d035157f2648cb74d4b55e0f5)
@@ -745,7 +745,7 @@ class IapSettingsAccessSettingsGcipSettings:
         the same project share the same login page, though it could be overridden at the
         sub resource level.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#login_page_uri IapSettings#login_page_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#login_page_uri IapSettings#login_page_uri}
         '''
         result = self._values.get("login_page_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -760,7 +760,7 @@ class IapSettingsAccessSettingsGcipSettings:
         is used, tenantIds should only contain one single element, while for tenant flow,
         tenantIds can contain multiple elements.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#tenant_ids IapSettings#tenant_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#tenant_ids IapSettings#tenant_ids}
         '''
         result = self._values.get("tenant_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -871,8 +871,8 @@ class IapSettingsAccessSettingsOauthSettings:
         programmatic_clients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param login_hint: Domain hint to send as hd=? parameter in OAuth request flow. Enables redirect to primary IDP by skipping Google's login screen. (https://developers.google.com/identity/protocols/OpenIDConnect#hd-param) Note: IAP does not verify that the id token's hd claim matches this value since access behavior is managed by IAM policies. - loginHint setting is not a replacement for access control. Always enforce an appropriate access policy if you want to restrict access to users outside your domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#login_hint IapSettings#login_hint}
-        :param programmatic_clients: List of client ids allowed to use IAP programmatically. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#programmatic_clients IapSettings#programmatic_clients}
+        :param login_hint: Domain hint to send as hd=? parameter in OAuth request flow. Enables redirect to primary IDP by skipping Google's login screen. (https://developers.google.com/identity/protocols/OpenIDConnect#hd-param) Note: IAP does not verify that the id token's hd claim matches this value since access behavior is managed by IAM policies. - loginHint setting is not a replacement for access control. Always enforce an appropriate access policy if you want to restrict access to users outside your domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#login_hint IapSettings#login_hint}
+        :param programmatic_clients: List of client ids allowed to use IAP programmatically. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#programmatic_clients IapSettings#programmatic_clients}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__987d2655e902f556c5ac5416969e46869a8a5a35e78f630b5b055a5e01a45410)
@@ -896,7 +896,7 @@ class IapSettingsAccessSettingsOauthSettings:
 
         - loginHint setting is not a replacement for access control. Always enforce an appropriate access policy if you want to restrict access to users outside your domain.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#login_hint IapSettings#login_hint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#login_hint IapSettings#login_hint}
         '''
         result = self._values.get("login_hint")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -905,7 +905,7 @@ class IapSettingsAccessSettingsOauthSettings:
     def programmatic_clients(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of client ids allowed to use IAP programmatically.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#programmatic_clients IapSettings#programmatic_clients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#programmatic_clients IapSettings#programmatic_clients}
         '''
         result = self._values.get("programmatic_clients")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1028,8 +1028,8 @@ class IapSettingsAccessSettingsOutputReference(
         enable: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param domains: List of trusted domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#domains IapSettings#domains}
-        :param enable: Configuration for customers to opt in for the feature. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#enable IapSettings#enable}
+        :param domains: List of trusted domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#domains IapSettings#domains}
+        :param enable: Configuration for customers to opt in for the feature. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#enable IapSettings#enable}
         '''
         value = IapSettingsAccessSettingsAllowedDomainsSettings(
             domains=domains, enable=enable
@@ -1044,7 +1044,7 @@ class IapSettingsAccessSettingsOutputReference(
         allow_http_options: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allow_http_options: Configuration to allow HTTP OPTIONS calls to skip authorization. If undefined, IAP will not apply any special logic to OPTIONS requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#allow_http_options IapSettings#allow_http_options}
+        :param allow_http_options: Configuration to allow HTTP OPTIONS calls to skip authorization. If undefined, IAP will not apply any special logic to OPTIONS requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#allow_http_options IapSettings#allow_http_options}
         '''
         value = IapSettingsAccessSettingsCorsSettings(
             allow_http_options=allow_http_options
@@ -1060,8 +1060,8 @@ class IapSettingsAccessSettingsOutputReference(
         tenant_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param login_page_uri: Login page URI associated with the GCIP tenants. Typically, all resources within the same project share the same login page, though it could be overridden at the sub resource level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#login_page_uri IapSettings#login_page_uri}
-        :param tenant_ids: GCIP tenant ids that are linked to the IAP resource. tenantIds could be a string beginning with a number character to indicate authenticating with GCIP tenant flow, or in the format of _ to indicate authenticating with GCIP agent flow. If agent flow is used, tenantIds should only contain one single element, while for tenant flow, tenantIds can contain multiple elements. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#tenant_ids IapSettings#tenant_ids}
+        :param login_page_uri: Login page URI associated with the GCIP tenants. Typically, all resources within the same project share the same login page, though it could be overridden at the sub resource level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#login_page_uri IapSettings#login_page_uri}
+        :param tenant_ids: GCIP tenant ids that are linked to the IAP resource. tenantIds could be a string beginning with a number character to indicate authenticating with GCIP tenant flow, or in the format of _ to indicate authenticating with GCIP agent flow. If agent flow is used, tenantIds should only contain one single element, while for tenant flow, tenantIds can contain multiple elements. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#tenant_ids IapSettings#tenant_ids}
         '''
         value = IapSettingsAccessSettingsGcipSettings(
             login_page_uri=login_page_uri, tenant_ids=tenant_ids
@@ -1077,8 +1077,8 @@ class IapSettingsAccessSettingsOutputReference(
         programmatic_clients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param login_hint: Domain hint to send as hd=? parameter in OAuth request flow. Enables redirect to primary IDP by skipping Google's login screen. (https://developers.google.com/identity/protocols/OpenIDConnect#hd-param) Note: IAP does not verify that the id token's hd claim matches this value since access behavior is managed by IAM policies. - loginHint setting is not a replacement for access control. Always enforce an appropriate access policy if you want to restrict access to users outside your domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#login_hint IapSettings#login_hint}
-        :param programmatic_clients: List of client ids allowed to use IAP programmatically. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#programmatic_clients IapSettings#programmatic_clients}
+        :param login_hint: Domain hint to send as hd=? parameter in OAuth request flow. Enables redirect to primary IDP by skipping Google's login screen. (https://developers.google.com/identity/protocols/OpenIDConnect#hd-param) Note: IAP does not verify that the id token's hd claim matches this value since access behavior is managed by IAM policies. - loginHint setting is not a replacement for access control. Always enforce an appropriate access policy if you want to restrict access to users outside your domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#login_hint IapSettings#login_hint}
+        :param programmatic_clients: List of client ids allowed to use IAP programmatically. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#programmatic_clients IapSettings#programmatic_clients}
         '''
         value = IapSettingsAccessSettingsOauthSettings(
             login_hint=login_hint, programmatic_clients=programmatic_clients
@@ -1095,9 +1095,9 @@ class IapSettingsAccessSettingsOutputReference(
         policy_type: builtins.str,
     ) -> None:
         '''
-        :param max_age: Reauth session lifetime, how long before a user has to reauthenticate again. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#max_age IapSettings#max_age}
-        :param method: Reauth method requested. The possible values are:. - 'LOGIN': Prompts the user to log in again. - 'SECURE_KEY': User must use their secure key 2nd factor device. - 'ENROLLED_SECOND_FACTORS': User can use any enabled 2nd factor. Possible values: ["LOGIN", "SECURE_KEY", "ENROLLED_SECOND_FACTORS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#method IapSettings#method}
-        :param policy_type: How IAP determines the effective policy in cases of hierarchical policies. Policies are merged from higher in the hierarchy to lower in the hierarchy. The possible values are: - 'MINIMUM': This policy acts as a minimum to other policies, lower in the hierarchy. Effective policy may only be the same or stricter. - 'DEFAULT': This policy acts as a default if no other reauth policy is set. Possible values: ["MINIMUM", "DEFAULT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#policy_type IapSettings#policy_type}
+        :param max_age: Reauth session lifetime, how long before a user has to reauthenticate again. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#max_age IapSettings#max_age}
+        :param method: Reauth method requested. The possible values are:. - 'LOGIN': Prompts the user to log in again. - 'SECURE_KEY': User must use their secure key 2nd factor device. - 'ENROLLED_SECOND_FACTORS': User can use any enabled 2nd factor. Possible values: ["LOGIN", "SECURE_KEY", "ENROLLED_SECOND_FACTORS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#method IapSettings#method}
+        :param policy_type: How IAP determines the effective policy in cases of hierarchical policies. Policies are merged from higher in the hierarchy to lower in the hierarchy. The possible values are: - 'MINIMUM': This policy acts as a minimum to other policies, lower in the hierarchy. Effective policy may only be the same or stricter. - 'DEFAULT': This policy acts as a default if no other reauth policy is set. Possible values: ["MINIMUM", "DEFAULT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#policy_type IapSettings#policy_type}
         '''
         value = IapSettingsAccessSettingsReauthSettings(
             max_age=max_age, method=method, policy_type=policy_type
@@ -1113,8 +1113,8 @@ class IapSettingsAccessSettingsOutputReference(
         workforce_pools: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param oauth2: oauth2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#oauth2 IapSettings#oauth2}
-        :param workforce_pools: The workforce pool resources. Only one workforce pool is accepted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#workforce_pools IapSettings#workforce_pools}
+        :param oauth2: oauth2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#oauth2 IapSettings#oauth2}
+        :param workforce_pools: The workforce pool resources. Only one workforce pool is accepted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#workforce_pools IapSettings#workforce_pools}
         '''
         value = IapSettingsAccessSettingsWorkforceIdentitySettings(
             oauth2=oauth2, workforce_pools=workforce_pools
@@ -1276,9 +1276,9 @@ class IapSettingsAccessSettingsReauthSettings:
         policy_type: builtins.str,
     ) -> None:
         '''
-        :param max_age: Reauth session lifetime, how long before a user has to reauthenticate again. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#max_age IapSettings#max_age}
-        :param method: Reauth method requested. The possible values are:. - 'LOGIN': Prompts the user to log in again. - 'SECURE_KEY': User must use their secure key 2nd factor device. - 'ENROLLED_SECOND_FACTORS': User can use any enabled 2nd factor. Possible values: ["LOGIN", "SECURE_KEY", "ENROLLED_SECOND_FACTORS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#method IapSettings#method}
-        :param policy_type: How IAP determines the effective policy in cases of hierarchical policies. Policies are merged from higher in the hierarchy to lower in the hierarchy. The possible values are: - 'MINIMUM': This policy acts as a minimum to other policies, lower in the hierarchy. Effective policy may only be the same or stricter. - 'DEFAULT': This policy acts as a default if no other reauth policy is set. Possible values: ["MINIMUM", "DEFAULT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#policy_type IapSettings#policy_type}
+        :param max_age: Reauth session lifetime, how long before a user has to reauthenticate again. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#max_age IapSettings#max_age}
+        :param method: Reauth method requested. The possible values are:. - 'LOGIN': Prompts the user to log in again. - 'SECURE_KEY': User must use their secure key 2nd factor device. - 'ENROLLED_SECOND_FACTORS': User can use any enabled 2nd factor. Possible values: ["LOGIN", "SECURE_KEY", "ENROLLED_SECOND_FACTORS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#method IapSettings#method}
+        :param policy_type: How IAP determines the effective policy in cases of hierarchical policies. Policies are merged from higher in the hierarchy to lower in the hierarchy. The possible values are: - 'MINIMUM': This policy acts as a minimum to other policies, lower in the hierarchy. Effective policy may only be the same or stricter. - 'DEFAULT': This policy acts as a default if no other reauth policy is set. Possible values: ["MINIMUM", "DEFAULT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#policy_type IapSettings#policy_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__df42e802f4eb62dc1317756d18f57fef32f37c42640e7a4fbbe8db5ac9e3f594)
@@ -1298,7 +1298,7 @@ class IapSettingsAccessSettingsReauthSettings:
         A duration in seconds with up to nine fractional digits, ending with 's'.
         Example: "3.5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#max_age IapSettings#max_age}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#max_age IapSettings#max_age}
         '''
         result = self._values.get("max_age")
         assert result is not None, "Required property 'max_age' is missing"
@@ -1312,7 +1312,7 @@ class IapSettingsAccessSettingsReauthSettings:
         - 'SECURE_KEY': User must use their secure key 2nd factor device.
         - 'ENROLLED_SECOND_FACTORS': User can use any enabled 2nd factor. Possible values: ["LOGIN", "SECURE_KEY", "ENROLLED_SECOND_FACTORS"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#method IapSettings#method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#method IapSettings#method}
         '''
         result = self._values.get("method")
         assert result is not None, "Required property 'method' is missing"
@@ -1329,7 +1329,7 @@ class IapSettingsAccessSettingsReauthSettings:
           Effective policy may only be the same or stricter.
         - 'DEFAULT': This policy acts as a default if no other reauth policy is set. Possible values: ["MINIMUM", "DEFAULT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#policy_type IapSettings#policy_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#policy_type IapSettings#policy_type}
         '''
         result = self._values.get("policy_type")
         assert result is not None, "Required property 'policy_type' is missing"
@@ -1449,8 +1449,8 @@ class IapSettingsAccessSettingsWorkforceIdentitySettings:
         workforce_pools: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param oauth2: oauth2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#oauth2 IapSettings#oauth2}
-        :param workforce_pools: The workforce pool resources. Only one workforce pool is accepted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#workforce_pools IapSettings#workforce_pools}
+        :param oauth2: oauth2 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#oauth2 IapSettings#oauth2}
+        :param workforce_pools: The workforce pool resources. Only one workforce pool is accepted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#workforce_pools IapSettings#workforce_pools}
         '''
         if isinstance(oauth2, dict):
             oauth2 = IapSettingsAccessSettingsWorkforceIdentitySettingsOauth2(**oauth2)
@@ -1470,7 +1470,7 @@ class IapSettingsAccessSettingsWorkforceIdentitySettings:
     ) -> typing.Optional["IapSettingsAccessSettingsWorkforceIdentitySettingsOauth2"]:
         '''oauth2 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#oauth2 IapSettings#oauth2}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#oauth2 IapSettings#oauth2}
         '''
         result = self._values.get("oauth2")
         return typing.cast(typing.Optional["IapSettingsAccessSettingsWorkforceIdentitySettingsOauth2"], result)
@@ -1479,7 +1479,7 @@ class IapSettingsAccessSettingsWorkforceIdentitySettings:
     def workforce_pools(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The workforce pool resources. Only one workforce pool is accepted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#workforce_pools IapSettings#workforce_pools}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#workforce_pools IapSettings#workforce_pools}
         '''
         result = self._values.get("workforce_pools")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1509,8 +1509,8 @@ class IapSettingsAccessSettingsWorkforceIdentitySettingsOauth2:
         client_secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: The OAuth 2.0 client ID registered in the workforce identity federation OAuth 2.0 Server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#client_id IapSettings#client_id}
-        :param client_secret: Input only. The OAuth 2.0 client secret created while registering the client ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#client_secret IapSettings#client_secret}
+        :param client_id: The OAuth 2.0 client ID registered in the workforce identity federation OAuth 2.0 Server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#client_id IapSettings#client_id}
+        :param client_secret: Input only. The OAuth 2.0 client secret created while registering the client ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#client_secret IapSettings#client_secret}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9a3a57ce164d591eafd42efefdc6d7ca0ff8d9f73f50eb218e51a5044e913321)
@@ -1526,7 +1526,7 @@ class IapSettingsAccessSettingsWorkforceIdentitySettingsOauth2:
     def client_id(self) -> typing.Optional[builtins.str]:
         '''The OAuth 2.0 client ID registered in the workforce identity federation OAuth 2.0 Server.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#client_id IapSettings#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#client_id IapSettings#client_id}
         '''
         result = self._values.get("client_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1535,7 +1535,7 @@ class IapSettingsAccessSettingsWorkforceIdentitySettingsOauth2:
     def client_secret(self) -> typing.Optional[builtins.str]:
         '''Input only. The OAuth 2.0 client secret created while registering the client ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#client_secret IapSettings#client_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#client_secret IapSettings#client_secret}
         '''
         result = self._values.get("client_secret")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1665,8 +1665,8 @@ class IapSettingsAccessSettingsWorkforceIdentitySettingsOutputReference(
         client_secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: The OAuth 2.0 client ID registered in the workforce identity federation OAuth 2.0 Server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#client_id IapSettings#client_id}
-        :param client_secret: Input only. The OAuth 2.0 client secret created while registering the client ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#client_secret IapSettings#client_secret}
+        :param client_id: The OAuth 2.0 client ID registered in the workforce identity federation OAuth 2.0 Server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#client_id IapSettings#client_id}
+        :param client_secret: Input only. The OAuth 2.0 client secret created while registering the client ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#client_secret IapSettings#client_secret}
         '''
         value = IapSettingsAccessSettingsWorkforceIdentitySettingsOauth2(
             client_id=client_id, client_secret=client_secret
@@ -1751,10 +1751,10 @@ class IapSettingsApplicationSettings:
         csm_settings: typing.Optional[typing.Union["IapSettingsApplicationSettingsCsmSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param access_denied_page_settings: access_denied_page_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#access_denied_page_settings IapSettings#access_denied_page_settings}
-        :param attribute_propagation_settings: attribute_propagation_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#attribute_propagation_settings IapSettings#attribute_propagation_settings}
-        :param cookie_domain: The Domain value to set for cookies generated by IAP. This value is not validated by the API, but will be ignored at runtime if invalid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#cookie_domain IapSettings#cookie_domain}
-        :param csm_settings: csm_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#csm_settings IapSettings#csm_settings}
+        :param access_denied_page_settings: access_denied_page_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#access_denied_page_settings IapSettings#access_denied_page_settings}
+        :param attribute_propagation_settings: attribute_propagation_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#attribute_propagation_settings IapSettings#attribute_propagation_settings}
+        :param cookie_domain: The Domain value to set for cookies generated by IAP. This value is not validated by the API, but will be ignored at runtime if invalid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#cookie_domain IapSettings#cookie_domain}
+        :param csm_settings: csm_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#csm_settings IapSettings#csm_settings}
         '''
         if isinstance(access_denied_page_settings, dict):
             access_denied_page_settings = IapSettingsApplicationSettingsAccessDeniedPageSettings(**access_denied_page_settings)
@@ -1784,7 +1784,7 @@ class IapSettingsApplicationSettings:
     ) -> typing.Optional["IapSettingsApplicationSettingsAccessDeniedPageSettings"]:
         '''access_denied_page_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#access_denied_page_settings IapSettings#access_denied_page_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#access_denied_page_settings IapSettings#access_denied_page_settings}
         '''
         result = self._values.get("access_denied_page_settings")
         return typing.cast(typing.Optional["IapSettingsApplicationSettingsAccessDeniedPageSettings"], result)
@@ -1795,7 +1795,7 @@ class IapSettingsApplicationSettings:
     ) -> typing.Optional["IapSettingsApplicationSettingsAttributePropagationSettings"]:
         '''attribute_propagation_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#attribute_propagation_settings IapSettings#attribute_propagation_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#attribute_propagation_settings IapSettings#attribute_propagation_settings}
         '''
         result = self._values.get("attribute_propagation_settings")
         return typing.cast(typing.Optional["IapSettingsApplicationSettingsAttributePropagationSettings"], result)
@@ -1807,7 +1807,7 @@ class IapSettingsApplicationSettings:
         This value is not validated by the API,
         but will be ignored at runtime if invalid.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#cookie_domain IapSettings#cookie_domain}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#cookie_domain IapSettings#cookie_domain}
         '''
         result = self._values.get("cookie_domain")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1818,7 +1818,7 @@ class IapSettingsApplicationSettings:
     ) -> typing.Optional["IapSettingsApplicationSettingsCsmSettings"]:
         '''csm_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#csm_settings IapSettings#csm_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#csm_settings IapSettings#csm_settings}
         '''
         result = self._values.get("csm_settings")
         return typing.cast(typing.Optional["IapSettingsApplicationSettingsCsmSettings"], result)
@@ -1853,9 +1853,9 @@ class IapSettingsApplicationSettingsAccessDeniedPageSettings:
         remediation_token_generation_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param access_denied_page_uri: The URI to be redirected to when access is denied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#access_denied_page_uri IapSettings#access_denied_page_uri}
-        :param generate_troubleshooting_uri: Whether to generate a troubleshooting URL on access denied events to this application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#generate_troubleshooting_uri IapSettings#generate_troubleshooting_uri}
-        :param remediation_token_generation_enabled: Whether to generate remediation token on access denied events to this application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#remediation_token_generation_enabled IapSettings#remediation_token_generation_enabled}
+        :param access_denied_page_uri: The URI to be redirected to when access is denied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#access_denied_page_uri IapSettings#access_denied_page_uri}
+        :param generate_troubleshooting_uri: Whether to generate a troubleshooting URL on access denied events to this application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#generate_troubleshooting_uri IapSettings#generate_troubleshooting_uri}
+        :param remediation_token_generation_enabled: Whether to generate remediation token on access denied events to this application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#remediation_token_generation_enabled IapSettings#remediation_token_generation_enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f20cb873caac8df14e4bf6517f87569976bb16f027d2bdcdc425bc6ab7ad8f0d)
@@ -1874,7 +1874,7 @@ class IapSettingsApplicationSettingsAccessDeniedPageSettings:
     def access_denied_page_uri(self) -> typing.Optional[builtins.str]:
         '''The URI to be redirected to when access is denied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#access_denied_page_uri IapSettings#access_denied_page_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#access_denied_page_uri IapSettings#access_denied_page_uri}
         '''
         result = self._values.get("access_denied_page_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1885,7 +1885,7 @@ class IapSettingsApplicationSettingsAccessDeniedPageSettings:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to generate a troubleshooting URL on access denied events to this application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#generate_troubleshooting_uri IapSettings#generate_troubleshooting_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#generate_troubleshooting_uri IapSettings#generate_troubleshooting_uri}
         '''
         result = self._values.get("generate_troubleshooting_uri")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1896,7 +1896,7 @@ class IapSettingsApplicationSettingsAccessDeniedPageSettings:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to generate remediation token on access denied events to this application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#remediation_token_generation_enabled IapSettings#remediation_token_generation_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#remediation_token_generation_enabled IapSettings#remediation_token_generation_enabled}
         '''
         result = self._values.get("remediation_token_generation_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2046,9 +2046,9 @@ class IapSettingsApplicationSettingsAttributePropagationSettings:
         output_credentials: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param enable: Whether the provided attribute propagation settings should be evaluated on user requests. If set to true, attributes returned from the expression will be propagated in the set output credentials. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#enable IapSettings#enable}
-        :param expression: Raw string CEL expression. Must return a list of attributes. A maximum of 45 attributes can be selected. Expressions can select different attribute types from attributes: attributes.saml_attributes, attributes.iap_attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#expression IapSettings#expression}
-        :param output_credentials: Which output credentials attributes selected by the CEL expression should be propagated in. All attributes will be fully duplicated in each selected output credential. Possible values are: - 'HEADER': Propagate attributes in the headers with "x-goog-iap-attr-" prefix. - 'JWT': Propagate attributes in the JWT of the form: "additional_claims": { "my_attribute": ["value1", "value2"] } - 'RCTOKEN': Propagate attributes in the RCToken of the form: " additional_claims": { "my_attribute": ["value1", "value2"] } Possible values: ["HEADER", "JWT", "RCTOKEN"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#output_credentials IapSettings#output_credentials}
+        :param enable: Whether the provided attribute propagation settings should be evaluated on user requests. If set to true, attributes returned from the expression will be propagated in the set output credentials. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#enable IapSettings#enable}
+        :param expression: Raw string CEL expression. Must return a list of attributes. A maximum of 45 attributes can be selected. Expressions can select different attribute types from attributes: attributes.saml_attributes, attributes.iap_attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#expression IapSettings#expression}
+        :param output_credentials: Which output credentials attributes selected by the CEL expression should be propagated in. All attributes will be fully duplicated in each selected output credential. Possible values are: - 'HEADER': Propagate attributes in the headers with "x-goog-iap-attr-" prefix. - 'JWT': Propagate attributes in the JWT of the form: "additional_claims": { "my_attribute": ["value1", "value2"] } - 'RCTOKEN': Propagate attributes in the RCToken of the form: " additional_claims": { "my_attribute": ["value1", "value2"] } Possible values: ["HEADER", "JWT", "RCTOKEN"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#output_credentials IapSettings#output_credentials}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cd18ed1de0e7953e4b963cd3ad91d4f7f9b290339987c4e238034c94b4109910)
@@ -2071,7 +2071,7 @@ class IapSettingsApplicationSettingsAttributePropagationSettings:
 
         If set to true, attributes returned from the expression will be propagated in the set output credentials.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#enable IapSettings#enable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#enable IapSettings#enable}
         '''
         result = self._values.get("enable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2084,7 +2084,7 @@ class IapSettingsApplicationSettingsAttributePropagationSettings:
         be selected. Expressions can select different attribute types from attributes:
         attributes.saml_attributes, attributes.iap_attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#expression IapSettings#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#expression IapSettings#expression}
         '''
         result = self._values.get("expression")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2102,7 +2102,7 @@ class IapSettingsApplicationSettingsAttributePropagationSettings:
         - 'RCTOKEN': Propagate attributes in the RCToken of the form: "
           additional_claims": { "my_attribute": ["value1", "value2"] } Possible values: ["HEADER", "JWT", "RCTOKEN"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#output_credentials IapSettings#output_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#output_credentials IapSettings#output_credentials}
         '''
         result = self._values.get("output_credentials")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2233,7 +2233,7 @@ class IapSettingsApplicationSettingsAttributePropagationSettingsOutputReference(
 class IapSettingsApplicationSettingsCsmSettings:
     def __init__(self, *, rctoken_aud: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param rctoken_aud: Audience claim set in the generated RCToken. This value is not validated by IAP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#rctoken_aud IapSettings#rctoken_aud}
+        :param rctoken_aud: Audience claim set in the generated RCToken. This value is not validated by IAP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#rctoken_aud IapSettings#rctoken_aud}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__101fffd3952f523d4fd2632b750b9bf05045fa81733cd2f90592be900aae860a)
@@ -2246,7 +2246,7 @@ class IapSettingsApplicationSettingsCsmSettings:
     def rctoken_aud(self) -> typing.Optional[builtins.str]:
         '''Audience claim set in the generated RCToken. This value is not validated by IAP.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#rctoken_aud IapSettings#rctoken_aud}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#rctoken_aud IapSettings#rctoken_aud}
         '''
         result = self._values.get("rctoken_aud")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2351,9 +2351,9 @@ class IapSettingsApplicationSettingsOutputReference(
         remediation_token_generation_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param access_denied_page_uri: The URI to be redirected to when access is denied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#access_denied_page_uri IapSettings#access_denied_page_uri}
-        :param generate_troubleshooting_uri: Whether to generate a troubleshooting URL on access denied events to this application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#generate_troubleshooting_uri IapSettings#generate_troubleshooting_uri}
-        :param remediation_token_generation_enabled: Whether to generate remediation token on access denied events to this application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#remediation_token_generation_enabled IapSettings#remediation_token_generation_enabled}
+        :param access_denied_page_uri: The URI to be redirected to when access is denied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#access_denied_page_uri IapSettings#access_denied_page_uri}
+        :param generate_troubleshooting_uri: Whether to generate a troubleshooting URL on access denied events to this application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#generate_troubleshooting_uri IapSettings#generate_troubleshooting_uri}
+        :param remediation_token_generation_enabled: Whether to generate remediation token on access denied events to this application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#remediation_token_generation_enabled IapSettings#remediation_token_generation_enabled}
         '''
         value = IapSettingsApplicationSettingsAccessDeniedPageSettings(
             access_denied_page_uri=access_denied_page_uri,
@@ -2372,9 +2372,9 @@ class IapSettingsApplicationSettingsOutputReference(
         output_credentials: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param enable: Whether the provided attribute propagation settings should be evaluated on user requests. If set to true, attributes returned from the expression will be propagated in the set output credentials. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#enable IapSettings#enable}
-        :param expression: Raw string CEL expression. Must return a list of attributes. A maximum of 45 attributes can be selected. Expressions can select different attribute types from attributes: attributes.saml_attributes, attributes.iap_attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#expression IapSettings#expression}
-        :param output_credentials: Which output credentials attributes selected by the CEL expression should be propagated in. All attributes will be fully duplicated in each selected output credential. Possible values are: - 'HEADER': Propagate attributes in the headers with "x-goog-iap-attr-" prefix. - 'JWT': Propagate attributes in the JWT of the form: "additional_claims": { "my_attribute": ["value1", "value2"] } - 'RCTOKEN': Propagate attributes in the RCToken of the form: " additional_claims": { "my_attribute": ["value1", "value2"] } Possible values: ["HEADER", "JWT", "RCTOKEN"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#output_credentials IapSettings#output_credentials}
+        :param enable: Whether the provided attribute propagation settings should be evaluated on user requests. If set to true, attributes returned from the expression will be propagated in the set output credentials. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#enable IapSettings#enable}
+        :param expression: Raw string CEL expression. Must return a list of attributes. A maximum of 45 attributes can be selected. Expressions can select different attribute types from attributes: attributes.saml_attributes, attributes.iap_attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#expression IapSettings#expression}
+        :param output_credentials: Which output credentials attributes selected by the CEL expression should be propagated in. All attributes will be fully duplicated in each selected output credential. Possible values are: - 'HEADER': Propagate attributes in the headers with "x-goog-iap-attr-" prefix. - 'JWT': Propagate attributes in the JWT of the form: "additional_claims": { "my_attribute": ["value1", "value2"] } - 'RCTOKEN': Propagate attributes in the RCToken of the form: " additional_claims": { "my_attribute": ["value1", "value2"] } Possible values: ["HEADER", "JWT", "RCTOKEN"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#output_credentials IapSettings#output_credentials}
         '''
         value = IapSettingsApplicationSettingsAttributePropagationSettings(
             enable=enable, expression=expression, output_credentials=output_credentials
@@ -2389,7 +2389,7 @@ class IapSettingsApplicationSettingsOutputReference(
         rctoken_aud: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rctoken_aud: Audience claim set in the generated RCToken. This value is not validated by IAP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#rctoken_aud IapSettings#rctoken_aud}
+        :param rctoken_aud: Audience claim set in the generated RCToken. This value is not validated by IAP. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#rctoken_aud IapSettings#rctoken_aud}
         '''
         value = IapSettingsApplicationSettingsCsmSettings(rctoken_aud=rctoken_aud)
 
@@ -2527,11 +2527,11 @@ class IapSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The resource name of the IAP protected resource. Name can have below resources: - organizations/{organization_id} - folders/{folder_id} - projects/{project_id} - projects/{project_id}/iap_web - projects/{project_id}/iap_web/compute - projects/{project_id}/iap_web/compute-{region} - projects/{project_id}/iap_web/compute/services/{service_id} - projects/{project_id}/iap_web/compute-{region}/services/{service_id} - projects/{project_id}/iap_web/appengine-{app_id} - projects/{project_id}/iap_web/appengine-{app_id}/services/{service_id} - projects/{project_id}/iap_web/appengine-{app_id}/services/{service_id}/version/{version_id} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#name IapSettings#name}
-        :param access_settings: access_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#access_settings IapSettings#access_settings}
-        :param application_settings: application_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#application_settings IapSettings#application_settings}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#id IapSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#timeouts IapSettings#timeouts}
+        :param name: The resource name of the IAP protected resource. Name can have below resources: - organizations/{organization_id} - folders/{folder_id} - projects/{project_id} - projects/{project_id}/iap_web - projects/{project_id}/iap_web/compute - projects/{project_id}/iap_web/compute-{region} - projects/{project_id}/iap_web/compute/services/{service_id} - projects/{project_id}/iap_web/compute-{region}/services/{service_id} - projects/{project_id}/iap_web/appengine-{app_id} - projects/{project_id}/iap_web/appengine-{app_id}/services/{service_id} - projects/{project_id}/iap_web/appengine-{app_id}/services/{service_id}/version/{version_id} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#name IapSettings#name}
+        :param access_settings: access_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#access_settings IapSettings#access_settings}
+        :param application_settings: application_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#application_settings IapSettings#application_settings}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#id IapSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#timeouts IapSettings#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2663,7 +2663,7 @@ class IapSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - projects/{project_id}/iap_web/appengine-{app_id}/services/{service_id}
         - projects/{project_id}/iap_web/appengine-{app_id}/services/{service_id}/version/{version_id}
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#name IapSettings#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#name IapSettings#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -2673,7 +2673,7 @@ class IapSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def access_settings(self) -> typing.Optional[IapSettingsAccessSettings]:
         '''access_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#access_settings IapSettings#access_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#access_settings IapSettings#access_settings}
         '''
         result = self._values.get("access_settings")
         return typing.cast(typing.Optional[IapSettingsAccessSettings], result)
@@ -2682,14 +2682,14 @@ class IapSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def application_settings(self) -> typing.Optional[IapSettingsApplicationSettings]:
         '''application_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#application_settings IapSettings#application_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#application_settings IapSettings#application_settings}
         '''
         result = self._values.get("application_settings")
         return typing.cast(typing.Optional[IapSettingsApplicationSettings], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#id IapSettings#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#id IapSettings#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2701,7 +2701,7 @@ class IapSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["IapSettingsTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#timeouts IapSettings#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#timeouts IapSettings#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["IapSettingsTimeouts"], result)
@@ -2732,9 +2732,9 @@ class IapSettingsTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#create IapSettings#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#delete IapSettings#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#update IapSettings#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#create IapSettings#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#delete IapSettings#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#update IapSettings#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__08fd959703b62a99480bd93e1e5226d41a2fc64c037f6bb8283b09c46182138e)
@@ -2751,19 +2751,19 @@ class IapSettingsTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#create IapSettings#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#create IapSettings#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#delete IapSettings#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#delete IapSettings#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iap_settings#update IapSettings#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iap_settings#update IapSettings#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

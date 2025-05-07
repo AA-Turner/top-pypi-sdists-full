@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: deepeval
-Version: 2.8.2
+Version: 2.8.4
 Summary: The LLM Evaluation Framework
 Home-page: https://github.com/confident-ai/deepeval
 License: Apache-2.0
@@ -14,8 +14,6 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Requires-Dist: aiohttp
 Requires-Dist: anthropic (>=0.49.0,<0.50.0)
-Requires-Dist: black
-Requires-Dist: coverage
 Requires-Dist: google-genai (>=1.9.0,<2.0.0)
 Requires-Dist: grpcio (>=1.67.1,<2.0.0)
 Requires-Dist: nest_asyncio
@@ -38,7 +36,6 @@ Requires-Dist: setuptools
 Requires-Dist: tabulate (>=0.9.0,<0.10.0)
 Requires-Dist: tenacity (<=9.0.0)
 Requires-Dist: tqdm (>=4.66.1,<5.0.0)
-Requires-Dist: twine (==5.1.1)
 Requires-Dist: typer
 Requires-Dist: wheel
 Project-URL: Documentation, https://deepeval.com
@@ -334,7 +331,7 @@ The correct LLM evaluation lifecycle is only achievable with [the DeepEval platf
 5. Monitor & evaluate LLM responses in product to improve datasets with real-world data
 6. Repeat until perfection
 
-Everything on Confident AI, including how to use Confident is available [here](https://docs.confident-ai.com/confidnet-ai/confident-ai-introduction?utm_source=GitHub).
+Everything on Confident AI, including how to use Confident is available [here](https://documentation.confident-ai.com?utm_source=GitHub).
 
 To begin, login from the CLI:
 

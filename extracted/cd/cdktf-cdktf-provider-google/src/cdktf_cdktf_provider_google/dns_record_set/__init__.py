@@ -1,7 +1,7 @@
 r'''
 # `google_dns_record_set`
 
-Refer to the Terraform Registry for docs: [`google_dns_record_set`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set).
+Refer to the Terraform Registry for docs: [`google_dns_record_set`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DnsRecordSet(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dnsRecordSet.DnsRecordSet",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set google_dns_record_set}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set google_dns_record_set}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class DnsRecordSet(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set google_dns_record_set} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set google_dns_record_set} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param managed_zone: The name of the zone in which this record set will reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#managed_zone DnsRecordSet#managed_zone}
-        :param name: The DNS name this record set will apply to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#name DnsRecordSet#name}
-        :param type: The DNS record set type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#type DnsRecordSet#type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#id DnsRecordSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#project DnsRecordSet#project}
-        :param routing_policy: routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#routing_policy DnsRecordSet#routing_policy}
-        :param rrdatas: The string data for the records in this record set whose meaning depends on the DNS type. For TXT record, if the string data contains spaces, add surrounding " if you don't want your string to get split on spaces. To specify a single record value longer than 255 characters such as a TXT record for DKIM, add "" inside the Terraform configuration string (e.g. "first255characters""morecharacters"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#rrdatas DnsRecordSet#rrdatas}
-        :param ttl: The time-to-live of this record set (seconds). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#ttl DnsRecordSet#ttl}
+        :param managed_zone: The name of the zone in which this record set will reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#managed_zone DnsRecordSet#managed_zone}
+        :param name: The DNS name this record set will apply to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#name DnsRecordSet#name}
+        :param type: The DNS record set type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#type DnsRecordSet#type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#id DnsRecordSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#project DnsRecordSet#project}
+        :param routing_policy: routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#routing_policy DnsRecordSet#routing_policy}
+        :param rrdatas: The string data for the records in this record set whose meaning depends on the DNS type. For TXT record, if the string data contains spaces, add surrounding " if you don't want your string to get split on spaces. To specify a single record value longer than 255 characters such as a TXT record for DKIM, add "" inside the Terraform configuration string (e.g. "first255characters""morecharacters"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#rrdatas DnsRecordSet#rrdatas}
+        :param ttl: The time-to-live of this record set (seconds). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#ttl DnsRecordSet#ttl}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class DnsRecordSet(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DnsRecordSet to import.
-        :param import_from_id: The id of the existing DnsRecordSet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DnsRecordSet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DnsRecordSet to import is found.
         '''
         if __debug__:
@@ -146,11 +146,11 @@ class DnsRecordSet(
         wrr: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DnsRecordSetRoutingPolicyWrr", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param enable_geo_fencing: Specifies whether to enable fencing for geo queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#enable_geo_fencing DnsRecordSet#enable_geo_fencing}
-        :param geo: geo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#geo DnsRecordSet#geo}
-        :param health_check: Specifies the health check. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#health_check DnsRecordSet#health_check}
-        :param primary_backup: primary_backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#primary_backup DnsRecordSet#primary_backup}
-        :param wrr: wrr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#wrr DnsRecordSet#wrr}
+        :param enable_geo_fencing: Specifies whether to enable fencing for geo queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#enable_geo_fencing DnsRecordSet#enable_geo_fencing}
+        :param geo: geo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#geo DnsRecordSet#geo}
+        :param health_check: Specifies the health check. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#health_check DnsRecordSet#health_check}
+        :param primary_backup: primary_backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#primary_backup DnsRecordSet#primary_backup}
+        :param wrr: wrr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#wrr DnsRecordSet#wrr}
         '''
         value = DnsRecordSetRoutingPolicy(
             enable_geo_fencing=enable_geo_fencing,
@@ -374,14 +374,14 @@ class DnsRecordSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param managed_zone: The name of the zone in which this record set will reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#managed_zone DnsRecordSet#managed_zone}
-        :param name: The DNS name this record set will apply to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#name DnsRecordSet#name}
-        :param type: The DNS record set type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#type DnsRecordSet#type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#id DnsRecordSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#project DnsRecordSet#project}
-        :param routing_policy: routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#routing_policy DnsRecordSet#routing_policy}
-        :param rrdatas: The string data for the records in this record set whose meaning depends on the DNS type. For TXT record, if the string data contains spaces, add surrounding " if you don't want your string to get split on spaces. To specify a single record value longer than 255 characters such as a TXT record for DKIM, add "" inside the Terraform configuration string (e.g. "first255characters""morecharacters"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#rrdatas DnsRecordSet#rrdatas}
-        :param ttl: The time-to-live of this record set (seconds). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#ttl DnsRecordSet#ttl}
+        :param managed_zone: The name of the zone in which this record set will reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#managed_zone DnsRecordSet#managed_zone}
+        :param name: The DNS name this record set will apply to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#name DnsRecordSet#name}
+        :param type: The DNS record set type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#type DnsRecordSet#type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#id DnsRecordSet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#project DnsRecordSet#project}
+        :param routing_policy: routing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#routing_policy DnsRecordSet#routing_policy}
+        :param rrdatas: The string data for the records in this record set whose meaning depends on the DNS type. For TXT record, if the string data contains spaces, add surrounding " if you don't want your string to get split on spaces. To specify a single record value longer than 255 characters such as a TXT record for DKIM, add "" inside the Terraform configuration string (e.g. "first255characters""morecharacters"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#rrdatas DnsRecordSet#rrdatas}
+        :param ttl: The time-to-live of this record set (seconds). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#ttl DnsRecordSet#ttl}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -502,7 +502,7 @@ class DnsRecordSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def managed_zone(self) -> builtins.str:
         '''The name of the zone in which this record set will reside.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#managed_zone DnsRecordSet#managed_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#managed_zone DnsRecordSet#managed_zone}
         '''
         result = self._values.get("managed_zone")
         assert result is not None, "Required property 'managed_zone' is missing"
@@ -512,7 +512,7 @@ class DnsRecordSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The DNS name this record set will apply to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#name DnsRecordSet#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#name DnsRecordSet#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -522,7 +522,7 @@ class DnsRecordSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def type(self) -> builtins.str:
         '''The DNS record set type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#type DnsRecordSet#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#type DnsRecordSet#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -530,7 +530,7 @@ class DnsRecordSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#id DnsRecordSet#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#id DnsRecordSet#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -544,7 +544,7 @@ class DnsRecordSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#project DnsRecordSet#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#project DnsRecordSet#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -553,7 +553,7 @@ class DnsRecordSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def routing_policy(self) -> typing.Optional["DnsRecordSetRoutingPolicy"]:
         '''routing_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#routing_policy DnsRecordSet#routing_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#routing_policy DnsRecordSet#routing_policy}
         '''
         result = self._values.get("routing_policy")
         return typing.cast(typing.Optional["DnsRecordSetRoutingPolicy"], result)
@@ -564,7 +564,7 @@ class DnsRecordSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For TXT record, if the string data contains spaces, add surrounding " if you don't want your string to get split on spaces. To specify a single record value longer than 255 characters such as a TXT record for DKIM, add "" inside the Terraform configuration string (e.g. "first255characters""morecharacters").
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#rrdatas DnsRecordSet#rrdatas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#rrdatas DnsRecordSet#rrdatas}
         '''
         result = self._values.get("rrdatas")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -573,7 +573,7 @@ class DnsRecordSetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ttl(self) -> typing.Optional[jsii.Number]:
         '''The time-to-live of this record set (seconds).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#ttl DnsRecordSet#ttl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#ttl DnsRecordSet#ttl}
         '''
         result = self._values.get("ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -612,11 +612,11 @@ class DnsRecordSetRoutingPolicy:
         wrr: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DnsRecordSetRoutingPolicyWrr", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param enable_geo_fencing: Specifies whether to enable fencing for geo queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#enable_geo_fencing DnsRecordSet#enable_geo_fencing}
-        :param geo: geo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#geo DnsRecordSet#geo}
-        :param health_check: Specifies the health check. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#health_check DnsRecordSet#health_check}
-        :param primary_backup: primary_backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#primary_backup DnsRecordSet#primary_backup}
-        :param wrr: wrr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#wrr DnsRecordSet#wrr}
+        :param enable_geo_fencing: Specifies whether to enable fencing for geo queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#enable_geo_fencing DnsRecordSet#enable_geo_fencing}
+        :param geo: geo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#geo DnsRecordSet#geo}
+        :param health_check: Specifies the health check. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#health_check DnsRecordSet#health_check}
+        :param primary_backup: primary_backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#primary_backup DnsRecordSet#primary_backup}
+        :param wrr: wrr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#wrr DnsRecordSet#wrr}
         '''
         if isinstance(primary_backup, dict):
             primary_backup = DnsRecordSetRoutingPolicyPrimaryBackup(**primary_backup)
@@ -645,7 +645,7 @@ class DnsRecordSetRoutingPolicy:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Specifies whether to enable fencing for geo queries.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#enable_geo_fencing DnsRecordSet#enable_geo_fencing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#enable_geo_fencing DnsRecordSet#enable_geo_fencing}
         '''
         result = self._values.get("enable_geo_fencing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -656,7 +656,7 @@ class DnsRecordSetRoutingPolicy:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsRecordSetRoutingPolicyGeo"]]]:
         '''geo block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#geo DnsRecordSet#geo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#geo DnsRecordSet#geo}
         '''
         result = self._values.get("geo")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsRecordSetRoutingPolicyGeo"]]], result)
@@ -665,7 +665,7 @@ class DnsRecordSetRoutingPolicy:
     def health_check(self) -> typing.Optional[builtins.str]:
         '''Specifies the health check.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#health_check DnsRecordSet#health_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#health_check DnsRecordSet#health_check}
         '''
         result = self._values.get("health_check")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -676,7 +676,7 @@ class DnsRecordSetRoutingPolicy:
     ) -> typing.Optional["DnsRecordSetRoutingPolicyPrimaryBackup"]:
         '''primary_backup block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#primary_backup DnsRecordSet#primary_backup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#primary_backup DnsRecordSet#primary_backup}
         '''
         result = self._values.get("primary_backup")
         return typing.cast(typing.Optional["DnsRecordSetRoutingPolicyPrimaryBackup"], result)
@@ -687,7 +687,7 @@ class DnsRecordSetRoutingPolicy:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsRecordSetRoutingPolicyWrr"]]]:
         '''wrr block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#wrr DnsRecordSet#wrr}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#wrr DnsRecordSet#wrr}
         '''
         result = self._values.get("wrr")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsRecordSetRoutingPolicyWrr"]]], result)
@@ -722,9 +722,9 @@ class DnsRecordSetRoutingPolicyGeo:
         rrdatas: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param location: The location name defined in Google Cloud. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#location DnsRecordSet#location}
-        :param health_checked_targets: health_checked_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#health_checked_targets DnsRecordSet#health_checked_targets}
-        :param rrdatas: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#rrdatas DnsRecordSet#rrdatas}.
+        :param location: The location name defined in Google Cloud. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#location DnsRecordSet#location}
+        :param health_checked_targets: health_checked_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#health_checked_targets DnsRecordSet#health_checked_targets}
+        :param rrdatas: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#rrdatas DnsRecordSet#rrdatas}.
         '''
         if isinstance(health_checked_targets, dict):
             health_checked_targets = DnsRecordSetRoutingPolicyGeoHealthCheckedTargets(**health_checked_targets)
@@ -745,7 +745,7 @@ class DnsRecordSetRoutingPolicyGeo:
     def location(self) -> builtins.str:
         '''The location name defined in Google Cloud.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#location DnsRecordSet#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#location DnsRecordSet#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -757,14 +757,14 @@ class DnsRecordSetRoutingPolicyGeo:
     ) -> typing.Optional["DnsRecordSetRoutingPolicyGeoHealthCheckedTargets"]:
         '''health_checked_targets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#health_checked_targets DnsRecordSet#health_checked_targets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#health_checked_targets DnsRecordSet#health_checked_targets}
         '''
         result = self._values.get("health_checked_targets")
         return typing.cast(typing.Optional["DnsRecordSetRoutingPolicyGeoHealthCheckedTargets"], result)
 
     @builtins.property
     def rrdatas(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#rrdatas DnsRecordSet#rrdatas}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#rrdatas DnsRecordSet#rrdatas}.'''
         result = self._values.get("rrdatas")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -796,8 +796,8 @@ class DnsRecordSetRoutingPolicyGeoHealthCheckedTargets:
         internal_load_balancers: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DnsRecordSetRoutingPolicyGeoHealthCheckedTargetsInternalLoadBalancers", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param external_endpoints: The Internet IP addresses to be health checked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
-        :param internal_load_balancers: internal_load_balancers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
+        :param external_endpoints: The Internet IP addresses to be health checked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
+        :param internal_load_balancers: internal_load_balancers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c27151c6a1da6d067c1e7127f245274e783144931c1bd277aad8bbb49d45084)
@@ -813,7 +813,7 @@ class DnsRecordSetRoutingPolicyGeoHealthCheckedTargets:
     def external_endpoints(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The Internet IP addresses to be health checked.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
         '''
         result = self._values.get("external_endpoints")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -824,7 +824,7 @@ class DnsRecordSetRoutingPolicyGeoHealthCheckedTargets:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsRecordSetRoutingPolicyGeoHealthCheckedTargetsInternalLoadBalancers"]]]:
         '''internal_load_balancers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
         '''
         result = self._values.get("internal_load_balancers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsRecordSetRoutingPolicyGeoHealthCheckedTargetsInternalLoadBalancers"]]], result)
@@ -867,13 +867,13 @@ class DnsRecordSetRoutingPolicyGeoHealthCheckedTargetsInternalLoadBalancers:
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ip_address: The frontend IP address of the load balancer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#ip_address DnsRecordSet#ip_address}
-        :param ip_protocol: The configured IP protocol of the load balancer. This value is case-sensitive. Possible values: ["tcp", "udp"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#ip_protocol DnsRecordSet#ip_protocol}
-        :param network_url: The fully qualified url of the network in which the load balancer belongs. This should be formatted like ``https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#network_url DnsRecordSet#network_url}
-        :param port: The configured port of the load balancer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#port DnsRecordSet#port}
-        :param project: The ID of the project in which the load balancer belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#project DnsRecordSet#project}
-        :param load_balancer_type: The type of load balancer. This value is case-sensitive. Possible values: ["regionalL4ilb", "regionalL7ilb", "globalL7ilb"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#load_balancer_type DnsRecordSet#load_balancer_type}
-        :param region: The region of the load balancer. Only needed for regional load balancers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#region DnsRecordSet#region}
+        :param ip_address: The frontend IP address of the load balancer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#ip_address DnsRecordSet#ip_address}
+        :param ip_protocol: The configured IP protocol of the load balancer. This value is case-sensitive. Possible values: ["tcp", "udp"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#ip_protocol DnsRecordSet#ip_protocol}
+        :param network_url: The fully qualified url of the network in which the load balancer belongs. This should be formatted like ``https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#network_url DnsRecordSet#network_url}
+        :param port: The configured port of the load balancer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#port DnsRecordSet#port}
+        :param project: The ID of the project in which the load balancer belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#project DnsRecordSet#project}
+        :param load_balancer_type: The type of load balancer. This value is case-sensitive. Possible values: ["regionalL4ilb", "regionalL7ilb", "globalL7ilb"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#load_balancer_type DnsRecordSet#load_balancer_type}
+        :param region: The region of the load balancer. Only needed for regional load balancers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#region DnsRecordSet#region}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f018ef8cf4c295e895ff632dfbedb97f8826556a7ebf56ecfadd9dd2670eec4e)
@@ -900,7 +900,7 @@ class DnsRecordSetRoutingPolicyGeoHealthCheckedTargetsInternalLoadBalancers:
     def ip_address(self) -> builtins.str:
         '''The frontend IP address of the load balancer.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#ip_address DnsRecordSet#ip_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#ip_address DnsRecordSet#ip_address}
         '''
         result = self._values.get("ip_address")
         assert result is not None, "Required property 'ip_address' is missing"
@@ -910,7 +910,7 @@ class DnsRecordSetRoutingPolicyGeoHealthCheckedTargetsInternalLoadBalancers:
     def ip_protocol(self) -> builtins.str:
         '''The configured IP protocol of the load balancer. This value is case-sensitive. Possible values: ["tcp", "udp"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#ip_protocol DnsRecordSet#ip_protocol}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#ip_protocol DnsRecordSet#ip_protocol}
         '''
         result = self._values.get("ip_protocol")
         assert result is not None, "Required property 'ip_protocol' is missing"
@@ -920,7 +920,7 @@ class DnsRecordSetRoutingPolicyGeoHealthCheckedTargetsInternalLoadBalancers:
     def network_url(self) -> builtins.str:
         '''The fully qualified url of the network in which the load balancer belongs. This should be formatted like ``https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#network_url DnsRecordSet#network_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#network_url DnsRecordSet#network_url}
         '''
         result = self._values.get("network_url")
         assert result is not None, "Required property 'network_url' is missing"
@@ -930,7 +930,7 @@ class DnsRecordSetRoutingPolicyGeoHealthCheckedTargetsInternalLoadBalancers:
     def port(self) -> builtins.str:
         '''The configured port of the load balancer.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#port DnsRecordSet#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#port DnsRecordSet#port}
         '''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
@@ -940,7 +940,7 @@ class DnsRecordSetRoutingPolicyGeoHealthCheckedTargetsInternalLoadBalancers:
     def project(self) -> builtins.str:
         '''The ID of the project in which the load balancer belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#project DnsRecordSet#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#project DnsRecordSet#project}
         '''
         result = self._values.get("project")
         assert result is not None, "Required property 'project' is missing"
@@ -950,7 +950,7 @@ class DnsRecordSetRoutingPolicyGeoHealthCheckedTargetsInternalLoadBalancers:
     def load_balancer_type(self) -> typing.Optional[builtins.str]:
         '''The type of load balancer. This value is case-sensitive. Possible values: ["regionalL4ilb", "regionalL7ilb", "globalL7ilb"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#load_balancer_type DnsRecordSet#load_balancer_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#load_balancer_type DnsRecordSet#load_balancer_type}
         '''
         result = self._values.get("load_balancer_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -959,7 +959,7 @@ class DnsRecordSetRoutingPolicyGeoHealthCheckedTargetsInternalLoadBalancers:
     def region(self) -> typing.Optional[builtins.str]:
         '''The region of the load balancer. Only needed for regional load balancers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#region DnsRecordSet#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#region DnsRecordSet#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1454,8 +1454,8 @@ class DnsRecordSetRoutingPolicyGeoOutputReference(
         internal_load_balancers: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DnsRecordSetRoutingPolicyGeoHealthCheckedTargetsInternalLoadBalancers, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param external_endpoints: The Internet IP addresses to be health checked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
-        :param internal_load_balancers: internal_load_balancers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
+        :param external_endpoints: The Internet IP addresses to be health checked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
+        :param internal_load_balancers: internal_load_balancers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
         '''
         value = DnsRecordSetRoutingPolicyGeoHealthCheckedTargets(
             external_endpoints=external_endpoints,
@@ -1581,10 +1581,10 @@ class DnsRecordSetRoutingPolicyOutputReference(
         trickle_ratio: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param backup_geo: backup_geo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#backup_geo DnsRecordSet#backup_geo}
-        :param primary: primary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#primary DnsRecordSet#primary}
-        :param enable_geo_fencing_for_backups: Specifies whether to enable fencing for backup geo queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#enable_geo_fencing_for_backups DnsRecordSet#enable_geo_fencing_for_backups}
-        :param trickle_ratio: Specifies the percentage of traffic to send to the backup targets even when the primary targets are healthy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#trickle_ratio DnsRecordSet#trickle_ratio}
+        :param backup_geo: backup_geo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#backup_geo DnsRecordSet#backup_geo}
+        :param primary: primary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#primary DnsRecordSet#primary}
+        :param enable_geo_fencing_for_backups: Specifies whether to enable fencing for backup geo queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#enable_geo_fencing_for_backups DnsRecordSet#enable_geo_fencing_for_backups}
+        :param trickle_ratio: Specifies the percentage of traffic to send to the backup targets even when the primary targets are healthy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#trickle_ratio DnsRecordSet#trickle_ratio}
         '''
         value = DnsRecordSetRoutingPolicyPrimaryBackup(
             backup_geo=backup_geo,
@@ -1738,10 +1738,10 @@ class DnsRecordSetRoutingPolicyPrimaryBackup:
         trickle_ratio: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param backup_geo: backup_geo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#backup_geo DnsRecordSet#backup_geo}
-        :param primary: primary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#primary DnsRecordSet#primary}
-        :param enable_geo_fencing_for_backups: Specifies whether to enable fencing for backup geo queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#enable_geo_fencing_for_backups DnsRecordSet#enable_geo_fencing_for_backups}
-        :param trickle_ratio: Specifies the percentage of traffic to send to the backup targets even when the primary targets are healthy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#trickle_ratio DnsRecordSet#trickle_ratio}
+        :param backup_geo: backup_geo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#backup_geo DnsRecordSet#backup_geo}
+        :param primary: primary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#primary DnsRecordSet#primary}
+        :param enable_geo_fencing_for_backups: Specifies whether to enable fencing for backup geo queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#enable_geo_fencing_for_backups DnsRecordSet#enable_geo_fencing_for_backups}
+        :param trickle_ratio: Specifies the percentage of traffic to send to the backup targets even when the primary targets are healthy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#trickle_ratio DnsRecordSet#trickle_ratio}
         '''
         if isinstance(primary, dict):
             primary = DnsRecordSetRoutingPolicyPrimaryBackupPrimary(**primary)
@@ -1766,7 +1766,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackup:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsRecordSetRoutingPolicyPrimaryBackupBackupGeo"]]:
         '''backup_geo block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#backup_geo DnsRecordSet#backup_geo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#backup_geo DnsRecordSet#backup_geo}
         '''
         result = self._values.get("backup_geo")
         assert result is not None, "Required property 'backup_geo' is missing"
@@ -1776,7 +1776,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackup:
     def primary(self) -> "DnsRecordSetRoutingPolicyPrimaryBackupPrimary":
         '''primary block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#primary DnsRecordSet#primary}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#primary DnsRecordSet#primary}
         '''
         result = self._values.get("primary")
         assert result is not None, "Required property 'primary' is missing"
@@ -1788,7 +1788,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackup:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Specifies whether to enable fencing for backup geo queries.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#enable_geo_fencing_for_backups DnsRecordSet#enable_geo_fencing_for_backups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#enable_geo_fencing_for_backups DnsRecordSet#enable_geo_fencing_for_backups}
         '''
         result = self._values.get("enable_geo_fencing_for_backups")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1797,7 +1797,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackup:
     def trickle_ratio(self) -> typing.Optional[jsii.Number]:
         '''Specifies the percentage of traffic to send to the backup targets even when the primary targets are healthy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#trickle_ratio DnsRecordSet#trickle_ratio}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#trickle_ratio DnsRecordSet#trickle_ratio}
         '''
         result = self._values.get("trickle_ratio")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1832,9 +1832,9 @@ class DnsRecordSetRoutingPolicyPrimaryBackupBackupGeo:
         rrdatas: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param location: The location name defined in Google Cloud. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#location DnsRecordSet#location}
-        :param health_checked_targets: health_checked_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#health_checked_targets DnsRecordSet#health_checked_targets}
-        :param rrdatas: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#rrdatas DnsRecordSet#rrdatas}.
+        :param location: The location name defined in Google Cloud. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#location DnsRecordSet#location}
+        :param health_checked_targets: health_checked_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#health_checked_targets DnsRecordSet#health_checked_targets}
+        :param rrdatas: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#rrdatas DnsRecordSet#rrdatas}.
         '''
         if isinstance(health_checked_targets, dict):
             health_checked_targets = DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoHealthCheckedTargets(**health_checked_targets)
@@ -1855,7 +1855,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackupBackupGeo:
     def location(self) -> builtins.str:
         '''The location name defined in Google Cloud.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#location DnsRecordSet#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#location DnsRecordSet#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1867,14 +1867,14 @@ class DnsRecordSetRoutingPolicyPrimaryBackupBackupGeo:
     ) -> typing.Optional["DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoHealthCheckedTargets"]:
         '''health_checked_targets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#health_checked_targets DnsRecordSet#health_checked_targets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#health_checked_targets DnsRecordSet#health_checked_targets}
         '''
         result = self._values.get("health_checked_targets")
         return typing.cast(typing.Optional["DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoHealthCheckedTargets"], result)
 
     @builtins.property
     def rrdatas(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#rrdatas DnsRecordSet#rrdatas}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#rrdatas DnsRecordSet#rrdatas}.'''
         result = self._values.get("rrdatas")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1906,8 +1906,8 @@ class DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoHealthCheckedTargets:
         internal_load_balancers: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoHealthCheckedTargetsInternalLoadBalancers", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param external_endpoints: The Internet IP addresses to be health checked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
-        :param internal_load_balancers: internal_load_balancers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
+        :param external_endpoints: The Internet IP addresses to be health checked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
+        :param internal_load_balancers: internal_load_balancers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5f5e59b5ba540d8fd616d342b38c932487a0bf1c3089c18ac55475389304d3ab)
@@ -1923,7 +1923,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoHealthCheckedTargets:
     def external_endpoints(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The Internet IP addresses to be health checked.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
         '''
         result = self._values.get("external_endpoints")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1934,7 +1934,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoHealthCheckedTargets:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoHealthCheckedTargetsInternalLoadBalancers"]]]:
         '''internal_load_balancers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
         '''
         result = self._values.get("internal_load_balancers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoHealthCheckedTargetsInternalLoadBalancers"]]], result)
@@ -1977,13 +1977,13 @@ class DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoHealthCheckedTargetsInterna
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ip_address: The frontend IP address of the load balancer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#ip_address DnsRecordSet#ip_address}
-        :param ip_protocol: The configured IP protocol of the load balancer. This value is case-sensitive. Possible values: ["tcp", "udp"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#ip_protocol DnsRecordSet#ip_protocol}
-        :param network_url: The fully qualified url of the network in which the load balancer belongs. This should be formatted like ``https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#network_url DnsRecordSet#network_url}
-        :param port: The configured port of the load balancer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#port DnsRecordSet#port}
-        :param project: The ID of the project in which the load balancer belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#project DnsRecordSet#project}
-        :param load_balancer_type: The type of load balancer. This value is case-sensitive. Possible values: ["regionalL4ilb", "regionalL7ilb", "globalL7ilb"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#load_balancer_type DnsRecordSet#load_balancer_type}
-        :param region: The region of the load balancer. Only needed for regional load balancers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#region DnsRecordSet#region}
+        :param ip_address: The frontend IP address of the load balancer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#ip_address DnsRecordSet#ip_address}
+        :param ip_protocol: The configured IP protocol of the load balancer. This value is case-sensitive. Possible values: ["tcp", "udp"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#ip_protocol DnsRecordSet#ip_protocol}
+        :param network_url: The fully qualified url of the network in which the load balancer belongs. This should be formatted like ``https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#network_url DnsRecordSet#network_url}
+        :param port: The configured port of the load balancer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#port DnsRecordSet#port}
+        :param project: The ID of the project in which the load balancer belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#project DnsRecordSet#project}
+        :param load_balancer_type: The type of load balancer. This value is case-sensitive. Possible values: ["regionalL4ilb", "regionalL7ilb", "globalL7ilb"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#load_balancer_type DnsRecordSet#load_balancer_type}
+        :param region: The region of the load balancer. Only needed for regional load balancers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#region DnsRecordSet#region}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4e9f707a825ca7a1ed76b25d016af3e39165a1b6514dcfba679e95af76d5ef02)
@@ -2010,7 +2010,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoHealthCheckedTargetsInterna
     def ip_address(self) -> builtins.str:
         '''The frontend IP address of the load balancer.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#ip_address DnsRecordSet#ip_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#ip_address DnsRecordSet#ip_address}
         '''
         result = self._values.get("ip_address")
         assert result is not None, "Required property 'ip_address' is missing"
@@ -2020,7 +2020,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoHealthCheckedTargetsInterna
     def ip_protocol(self) -> builtins.str:
         '''The configured IP protocol of the load balancer. This value is case-sensitive. Possible values: ["tcp", "udp"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#ip_protocol DnsRecordSet#ip_protocol}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#ip_protocol DnsRecordSet#ip_protocol}
         '''
         result = self._values.get("ip_protocol")
         assert result is not None, "Required property 'ip_protocol' is missing"
@@ -2030,7 +2030,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoHealthCheckedTargetsInterna
     def network_url(self) -> builtins.str:
         '''The fully qualified url of the network in which the load balancer belongs. This should be formatted like ``https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#network_url DnsRecordSet#network_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#network_url DnsRecordSet#network_url}
         '''
         result = self._values.get("network_url")
         assert result is not None, "Required property 'network_url' is missing"
@@ -2040,7 +2040,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoHealthCheckedTargetsInterna
     def port(self) -> builtins.str:
         '''The configured port of the load balancer.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#port DnsRecordSet#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#port DnsRecordSet#port}
         '''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
@@ -2050,7 +2050,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoHealthCheckedTargetsInterna
     def project(self) -> builtins.str:
         '''The ID of the project in which the load balancer belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#project DnsRecordSet#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#project DnsRecordSet#project}
         '''
         result = self._values.get("project")
         assert result is not None, "Required property 'project' is missing"
@@ -2060,7 +2060,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoHealthCheckedTargetsInterna
     def load_balancer_type(self) -> typing.Optional[builtins.str]:
         '''The type of load balancer. This value is case-sensitive. Possible values: ["regionalL4ilb", "regionalL7ilb", "globalL7ilb"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#load_balancer_type DnsRecordSet#load_balancer_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#load_balancer_type DnsRecordSet#load_balancer_type}
         '''
         result = self._values.get("load_balancer_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2069,7 +2069,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoHealthCheckedTargetsInterna
     def region(self) -> typing.Optional[builtins.str]:
         '''The region of the load balancer. Only needed for regional load balancers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#region DnsRecordSet#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#region DnsRecordSet#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2567,8 +2567,8 @@ class DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoOutputReference(
         internal_load_balancers: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoHealthCheckedTargetsInternalLoadBalancers, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param external_endpoints: The Internet IP addresses to be health checked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
-        :param internal_load_balancers: internal_load_balancers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
+        :param external_endpoints: The Internet IP addresses to be health checked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
+        :param internal_load_balancers: internal_load_balancers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
         '''
         value = DnsRecordSetRoutingPolicyPrimaryBackupBackupGeoHealthCheckedTargets(
             external_endpoints=external_endpoints,
@@ -2692,8 +2692,8 @@ class DnsRecordSetRoutingPolicyPrimaryBackupOutputReference(
         internal_load_balancers: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DnsRecordSetRoutingPolicyPrimaryBackupPrimaryInternalLoadBalancers", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param external_endpoints: The Internet IP addresses to be health checked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
-        :param internal_load_balancers: internal_load_balancers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
+        :param external_endpoints: The Internet IP addresses to be health checked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
+        :param internal_load_balancers: internal_load_balancers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
         '''
         value = DnsRecordSetRoutingPolicyPrimaryBackupPrimary(
             external_endpoints=external_endpoints,
@@ -2807,8 +2807,8 @@ class DnsRecordSetRoutingPolicyPrimaryBackupPrimary:
         internal_load_balancers: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DnsRecordSetRoutingPolicyPrimaryBackupPrimaryInternalLoadBalancers", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param external_endpoints: The Internet IP addresses to be health checked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
-        :param internal_load_balancers: internal_load_balancers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
+        :param external_endpoints: The Internet IP addresses to be health checked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
+        :param internal_load_balancers: internal_load_balancers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bd427925c6907b1bc75cc9983a428093611aee986ed133e1bfa608ca56246ed0)
@@ -2824,7 +2824,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackupPrimary:
     def external_endpoints(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The Internet IP addresses to be health checked.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
         '''
         result = self._values.get("external_endpoints")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2835,7 +2835,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackupPrimary:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsRecordSetRoutingPolicyPrimaryBackupPrimaryInternalLoadBalancers"]]]:
         '''internal_load_balancers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
         '''
         result = self._values.get("internal_load_balancers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsRecordSetRoutingPolicyPrimaryBackupPrimaryInternalLoadBalancers"]]], result)
@@ -2878,13 +2878,13 @@ class DnsRecordSetRoutingPolicyPrimaryBackupPrimaryInternalLoadBalancers:
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ip_address: The frontend IP address of the load balancer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#ip_address DnsRecordSet#ip_address}
-        :param ip_protocol: The configured IP protocol of the load balancer. This value is case-sensitive. Possible values: ["tcp", "udp"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#ip_protocol DnsRecordSet#ip_protocol}
-        :param network_url: The fully qualified url of the network in which the load balancer belongs. This should be formatted like ``https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#network_url DnsRecordSet#network_url}
-        :param port: The configured port of the load balancer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#port DnsRecordSet#port}
-        :param project: The ID of the project in which the load balancer belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#project DnsRecordSet#project}
-        :param load_balancer_type: The type of load balancer. This value is case-sensitive. Possible values: ["regionalL4ilb", "regionalL7ilb", "globalL7ilb"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#load_balancer_type DnsRecordSet#load_balancer_type}
-        :param region: The region of the load balancer. Only needed for regional load balancers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#region DnsRecordSet#region}
+        :param ip_address: The frontend IP address of the load balancer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#ip_address DnsRecordSet#ip_address}
+        :param ip_protocol: The configured IP protocol of the load balancer. This value is case-sensitive. Possible values: ["tcp", "udp"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#ip_protocol DnsRecordSet#ip_protocol}
+        :param network_url: The fully qualified url of the network in which the load balancer belongs. This should be formatted like ``https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#network_url DnsRecordSet#network_url}
+        :param port: The configured port of the load balancer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#port DnsRecordSet#port}
+        :param project: The ID of the project in which the load balancer belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#project DnsRecordSet#project}
+        :param load_balancer_type: The type of load balancer. This value is case-sensitive. Possible values: ["regionalL4ilb", "regionalL7ilb", "globalL7ilb"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#load_balancer_type DnsRecordSet#load_balancer_type}
+        :param region: The region of the load balancer. Only needed for regional load balancers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#region DnsRecordSet#region}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__37cc893deb4aab23148afa5fa081ab7869f48de5bb1e8bac744f5013fe89bfcc)
@@ -2911,7 +2911,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackupPrimaryInternalLoadBalancers:
     def ip_address(self) -> builtins.str:
         '''The frontend IP address of the load balancer.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#ip_address DnsRecordSet#ip_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#ip_address DnsRecordSet#ip_address}
         '''
         result = self._values.get("ip_address")
         assert result is not None, "Required property 'ip_address' is missing"
@@ -2921,7 +2921,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackupPrimaryInternalLoadBalancers:
     def ip_protocol(self) -> builtins.str:
         '''The configured IP protocol of the load balancer. This value is case-sensitive. Possible values: ["tcp", "udp"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#ip_protocol DnsRecordSet#ip_protocol}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#ip_protocol DnsRecordSet#ip_protocol}
         '''
         result = self._values.get("ip_protocol")
         assert result is not None, "Required property 'ip_protocol' is missing"
@@ -2931,7 +2931,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackupPrimaryInternalLoadBalancers:
     def network_url(self) -> builtins.str:
         '''The fully qualified url of the network in which the load balancer belongs. This should be formatted like ``https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#network_url DnsRecordSet#network_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#network_url DnsRecordSet#network_url}
         '''
         result = self._values.get("network_url")
         assert result is not None, "Required property 'network_url' is missing"
@@ -2941,7 +2941,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackupPrimaryInternalLoadBalancers:
     def port(self) -> builtins.str:
         '''The configured port of the load balancer.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#port DnsRecordSet#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#port DnsRecordSet#port}
         '''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
@@ -2951,7 +2951,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackupPrimaryInternalLoadBalancers:
     def project(self) -> builtins.str:
         '''The ID of the project in which the load balancer belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#project DnsRecordSet#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#project DnsRecordSet#project}
         '''
         result = self._values.get("project")
         assert result is not None, "Required property 'project' is missing"
@@ -2961,7 +2961,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackupPrimaryInternalLoadBalancers:
     def load_balancer_type(self) -> typing.Optional[builtins.str]:
         '''The type of load balancer. This value is case-sensitive. Possible values: ["regionalL4ilb", "regionalL7ilb", "globalL7ilb"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#load_balancer_type DnsRecordSet#load_balancer_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#load_balancer_type DnsRecordSet#load_balancer_type}
         '''
         result = self._values.get("load_balancer_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2970,7 +2970,7 @@ class DnsRecordSetRoutingPolicyPrimaryBackupPrimaryInternalLoadBalancers:
     def region(self) -> typing.Optional[builtins.str]:
         '''The region of the load balancer. Only needed for regional load balancers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#region DnsRecordSet#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#region DnsRecordSet#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3359,9 +3359,9 @@ class DnsRecordSetRoutingPolicyWrr:
         rrdatas: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param weight: The ratio of traffic routed to the target. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#weight DnsRecordSet#weight}
-        :param health_checked_targets: health_checked_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#health_checked_targets DnsRecordSet#health_checked_targets}
-        :param rrdatas: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#rrdatas DnsRecordSet#rrdatas}.
+        :param weight: The ratio of traffic routed to the target. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#weight DnsRecordSet#weight}
+        :param health_checked_targets: health_checked_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#health_checked_targets DnsRecordSet#health_checked_targets}
+        :param rrdatas: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#rrdatas DnsRecordSet#rrdatas}.
         '''
         if isinstance(health_checked_targets, dict):
             health_checked_targets = DnsRecordSetRoutingPolicyWrrHealthCheckedTargets(**health_checked_targets)
@@ -3382,7 +3382,7 @@ class DnsRecordSetRoutingPolicyWrr:
     def weight(self) -> jsii.Number:
         '''The ratio of traffic routed to the target.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#weight DnsRecordSet#weight}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#weight DnsRecordSet#weight}
         '''
         result = self._values.get("weight")
         assert result is not None, "Required property 'weight' is missing"
@@ -3394,14 +3394,14 @@ class DnsRecordSetRoutingPolicyWrr:
     ) -> typing.Optional["DnsRecordSetRoutingPolicyWrrHealthCheckedTargets"]:
         '''health_checked_targets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#health_checked_targets DnsRecordSet#health_checked_targets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#health_checked_targets DnsRecordSet#health_checked_targets}
         '''
         result = self._values.get("health_checked_targets")
         return typing.cast(typing.Optional["DnsRecordSetRoutingPolicyWrrHealthCheckedTargets"], result)
 
     @builtins.property
     def rrdatas(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#rrdatas DnsRecordSet#rrdatas}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#rrdatas DnsRecordSet#rrdatas}.'''
         result = self._values.get("rrdatas")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3433,8 +3433,8 @@ class DnsRecordSetRoutingPolicyWrrHealthCheckedTargets:
         internal_load_balancers: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DnsRecordSetRoutingPolicyWrrHealthCheckedTargetsInternalLoadBalancers", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param external_endpoints: The Internet IP addresses to be health checked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
-        :param internal_load_balancers: internal_load_balancers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
+        :param external_endpoints: The Internet IP addresses to be health checked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
+        :param internal_load_balancers: internal_load_balancers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__73c0a912130c7d1900085cf03419fae3e121f71b2bc6bd3d70f1ef18b1df84bd)
@@ -3450,7 +3450,7 @@ class DnsRecordSetRoutingPolicyWrrHealthCheckedTargets:
     def external_endpoints(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The Internet IP addresses to be health checked.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
         '''
         result = self._values.get("external_endpoints")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3461,7 +3461,7 @@ class DnsRecordSetRoutingPolicyWrrHealthCheckedTargets:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsRecordSetRoutingPolicyWrrHealthCheckedTargetsInternalLoadBalancers"]]]:
         '''internal_load_balancers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
         '''
         result = self._values.get("internal_load_balancers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DnsRecordSetRoutingPolicyWrrHealthCheckedTargetsInternalLoadBalancers"]]], result)
@@ -3504,13 +3504,13 @@ class DnsRecordSetRoutingPolicyWrrHealthCheckedTargetsInternalLoadBalancers:
         region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ip_address: The frontend IP address of the load balancer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#ip_address DnsRecordSet#ip_address}
-        :param ip_protocol: The configured IP protocol of the load balancer. This value is case-sensitive. Possible values: ["tcp", "udp"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#ip_protocol DnsRecordSet#ip_protocol}
-        :param network_url: The fully qualified url of the network in which the load balancer belongs. This should be formatted like ``https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#network_url DnsRecordSet#network_url}
-        :param port: The configured port of the load balancer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#port DnsRecordSet#port}
-        :param project: The ID of the project in which the load balancer belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#project DnsRecordSet#project}
-        :param load_balancer_type: The type of load balancer. This value is case-sensitive. Possible values: ["regionalL4ilb", "regionalL7ilb", "globalL7ilb"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#load_balancer_type DnsRecordSet#load_balancer_type}
-        :param region: The region of the load balancer. Only needed for regional load balancers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#region DnsRecordSet#region}
+        :param ip_address: The frontend IP address of the load balancer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#ip_address DnsRecordSet#ip_address}
+        :param ip_protocol: The configured IP protocol of the load balancer. This value is case-sensitive. Possible values: ["tcp", "udp"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#ip_protocol DnsRecordSet#ip_protocol}
+        :param network_url: The fully qualified url of the network in which the load balancer belongs. This should be formatted like ``https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#network_url DnsRecordSet#network_url}
+        :param port: The configured port of the load balancer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#port DnsRecordSet#port}
+        :param project: The ID of the project in which the load balancer belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#project DnsRecordSet#project}
+        :param load_balancer_type: The type of load balancer. This value is case-sensitive. Possible values: ["regionalL4ilb", "regionalL7ilb", "globalL7ilb"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#load_balancer_type DnsRecordSet#load_balancer_type}
+        :param region: The region of the load balancer. Only needed for regional load balancers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#region DnsRecordSet#region}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__61496f9cfffbf035c86b80e2cc4fa1687c991c20d9727ec506fbf2a72ae14c8e)
@@ -3537,7 +3537,7 @@ class DnsRecordSetRoutingPolicyWrrHealthCheckedTargetsInternalLoadBalancers:
     def ip_address(self) -> builtins.str:
         '''The frontend IP address of the load balancer.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#ip_address DnsRecordSet#ip_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#ip_address DnsRecordSet#ip_address}
         '''
         result = self._values.get("ip_address")
         assert result is not None, "Required property 'ip_address' is missing"
@@ -3547,7 +3547,7 @@ class DnsRecordSetRoutingPolicyWrrHealthCheckedTargetsInternalLoadBalancers:
     def ip_protocol(self) -> builtins.str:
         '''The configured IP protocol of the load balancer. This value is case-sensitive. Possible values: ["tcp", "udp"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#ip_protocol DnsRecordSet#ip_protocol}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#ip_protocol DnsRecordSet#ip_protocol}
         '''
         result = self._values.get("ip_protocol")
         assert result is not None, "Required property 'ip_protocol' is missing"
@@ -3557,7 +3557,7 @@ class DnsRecordSetRoutingPolicyWrrHealthCheckedTargetsInternalLoadBalancers:
     def network_url(self) -> builtins.str:
         '''The fully qualified url of the network in which the load balancer belongs. This should be formatted like ``https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#network_url DnsRecordSet#network_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#network_url DnsRecordSet#network_url}
         '''
         result = self._values.get("network_url")
         assert result is not None, "Required property 'network_url' is missing"
@@ -3567,7 +3567,7 @@ class DnsRecordSetRoutingPolicyWrrHealthCheckedTargetsInternalLoadBalancers:
     def port(self) -> builtins.str:
         '''The configured port of the load balancer.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#port DnsRecordSet#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#port DnsRecordSet#port}
         '''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
@@ -3577,7 +3577,7 @@ class DnsRecordSetRoutingPolicyWrrHealthCheckedTargetsInternalLoadBalancers:
     def project(self) -> builtins.str:
         '''The ID of the project in which the load balancer belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#project DnsRecordSet#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#project DnsRecordSet#project}
         '''
         result = self._values.get("project")
         assert result is not None, "Required property 'project' is missing"
@@ -3587,7 +3587,7 @@ class DnsRecordSetRoutingPolicyWrrHealthCheckedTargetsInternalLoadBalancers:
     def load_balancer_type(self) -> typing.Optional[builtins.str]:
         '''The type of load balancer. This value is case-sensitive. Possible values: ["regionalL4ilb", "regionalL7ilb", "globalL7ilb"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#load_balancer_type DnsRecordSet#load_balancer_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#load_balancer_type DnsRecordSet#load_balancer_type}
         '''
         result = self._values.get("load_balancer_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3596,7 +3596,7 @@ class DnsRecordSetRoutingPolicyWrrHealthCheckedTargetsInternalLoadBalancers:
     def region(self) -> typing.Optional[builtins.str]:
         '''The region of the load balancer. Only needed for regional load balancers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#region DnsRecordSet#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#region DnsRecordSet#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4091,8 +4091,8 @@ class DnsRecordSetRoutingPolicyWrrOutputReference(
         internal_load_balancers: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DnsRecordSetRoutingPolicyWrrHealthCheckedTargetsInternalLoadBalancers, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param external_endpoints: The Internet IP addresses to be health checked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
-        :param internal_load_balancers: internal_load_balancers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
+        :param external_endpoints: The Internet IP addresses to be health checked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#external_endpoints DnsRecordSet#external_endpoints}
+        :param internal_load_balancers: internal_load_balancers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dns_record_set#internal_load_balancers DnsRecordSet#internal_load_balancers}
         '''
         value = DnsRecordSetRoutingPolicyWrrHealthCheckedTargets(
             external_endpoints=external_endpoints,

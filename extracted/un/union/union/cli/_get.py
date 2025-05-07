@@ -10,6 +10,7 @@ from rich.table import Table
 from union._config import _DEFAULT_DOMAIN, _DEFAULT_PROJECT_BYOC
 from union.internal.common.list_pb2 import ListRequest
 from union.internal.identity.app_payload_pb2 import ListAppsRequest
+from union.internal.secret.definition_pb2 import SecretType
 from union.internal.secret.payload_pb2 import ListSecretsRequest
 from union.remote import UnionRemote
 
@@ -48,13 +49,18 @@ def secret(
 
     if secrets:
         table = Table()
-        for name in ["name", "project", "domain"]:
+        for name in ["name", "project", "domain", "type"]:
             table.add_column(name, justify="right")
 
         for secret in secrets:
             project = secret.id.project or "-"
             domain = secret.id.domain or "-"
-            table.add_row(secret.id.name, project, domain)
+            table.add_row(
+                secret.id.name,
+                project,
+                domain,
+                SecretType.Name(secret.secret_metadata.type).replace("SECRET_TYPE_", ""),
+            )
 
         console = Console()
         console.print(table)

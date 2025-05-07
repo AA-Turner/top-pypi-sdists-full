@@ -1,7 +1,7 @@
 r'''
 # `google_os_config_patch_deployment`
 
-Refer to the Terraform Registry for docs: [`google_os_config_patch_deployment`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment).
+Refer to the Terraform Registry for docs: [`google_os_config_patch_deployment`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OsConfigPatchDeployment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.osConfigPatchDeployment.OsConfigPatchDeployment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment google_os_config_patch_deployment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment google_os_config_patch_deployment}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class OsConfigPatchDeployment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment google_os_config_patch_deployment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment google_os_config_patch_deployment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_filter: instance_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#instance_filter OsConfigPatchDeployment#instance_filter}
-        :param patch_deployment_id: A name for the patch deployment in the project. When creating a name the following rules apply: - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#patch_deployment_id OsConfigPatchDeployment#patch_deployment_id}
-        :param description: Description of the patch deployment. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#description OsConfigPatchDeployment#description}
-        :param duration: Duration of the patch. After the duration ends, the patch times out. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#duration OsConfigPatchDeployment#duration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#id OsConfigPatchDeployment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param one_time_schedule: one_time_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#one_time_schedule OsConfigPatchDeployment#one_time_schedule}
-        :param patch_config: patch_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#patch_config OsConfigPatchDeployment#patch_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#project OsConfigPatchDeployment#project}.
-        :param recurring_schedule: recurring_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#recurring_schedule OsConfigPatchDeployment#recurring_schedule}
-        :param rollout: rollout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#rollout OsConfigPatchDeployment#rollout}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#timeouts OsConfigPatchDeployment#timeouts}
+        :param instance_filter: instance_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#instance_filter OsConfigPatchDeployment#instance_filter}
+        :param patch_deployment_id: A name for the patch deployment in the project. When creating a name the following rules apply: - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#patch_deployment_id OsConfigPatchDeployment#patch_deployment_id}
+        :param description: Description of the patch deployment. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#description OsConfigPatchDeployment#description}
+        :param duration: Duration of the patch. After the duration ends, the patch times out. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#duration OsConfigPatchDeployment#duration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#id OsConfigPatchDeployment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param one_time_schedule: one_time_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#one_time_schedule OsConfigPatchDeployment#one_time_schedule}
+        :param patch_config: patch_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#patch_config OsConfigPatchDeployment#patch_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#project OsConfigPatchDeployment#project}.
+        :param recurring_schedule: recurring_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#recurring_schedule OsConfigPatchDeployment#recurring_schedule}
+        :param rollout: rollout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#rollout OsConfigPatchDeployment#rollout}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#timeouts OsConfigPatchDeployment#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class OsConfigPatchDeployment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OsConfigPatchDeployment to import.
-        :param import_from_id: The id of the existing OsConfigPatchDeployment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OsConfigPatchDeployment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OsConfigPatchDeployment to import is found.
         '''
         if __debug__:
@@ -155,11 +155,11 @@ class OsConfigPatchDeployment(
         zones: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param all: Target all VM instances in the project. If true, no other criteria is permitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#all OsConfigPatchDeployment#all}
-        :param group_labels: group_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#group_labels OsConfigPatchDeployment#group_labels}
-        :param instance_name_prefixes: Targets VMs whose name starts with one of these prefixes. Similar to labels, this is another way to group VMs when targeting configs, for example prefix="prod-". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#instance_name_prefixes OsConfigPatchDeployment#instance_name_prefixes}
-        :param instances: Targets any of the VM instances specified. Instances are specified by their URI in the 'form zones/{{zone}}/instances/{{instance_name}}', 'projects/{{project_id}}/zones/{{zone}}/instances/{{instance_name}}', or 'https://www.googleapis.com/compute/v1/projects/{{project_id}}/zones/{{zone}}/instances/{{instance_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#instances OsConfigPatchDeployment#instances}
-        :param zones: Targets VM instances in ANY of these zones. Leave empty to target VM instances in any zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#zones OsConfigPatchDeployment#zones}
+        :param all: Target all VM instances in the project. If true, no other criteria is permitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#all OsConfigPatchDeployment#all}
+        :param group_labels: group_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#group_labels OsConfigPatchDeployment#group_labels}
+        :param instance_name_prefixes: Targets VMs whose name starts with one of these prefixes. Similar to labels, this is another way to group VMs when targeting configs, for example prefix="prod-". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#instance_name_prefixes OsConfigPatchDeployment#instance_name_prefixes}
+        :param instances: Targets any of the VM instances specified. Instances are specified by their URI in the 'form zones/{{zone}}/instances/{{instance_name}}', 'projects/{{project_id}}/zones/{{zone}}/instances/{{instance_name}}', or 'https://www.googleapis.com/compute/v1/projects/{{project_id}}/zones/{{zone}}/instances/{{instance_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#instances OsConfigPatchDeployment#instances}
+        :param zones: Targets VM instances in ANY of these zones. Leave empty to target VM instances in any zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#zones OsConfigPatchDeployment#zones}
         '''
         value = OsConfigPatchDeploymentInstanceFilter(
             all=all,
@@ -174,7 +174,7 @@ class OsConfigPatchDeployment(
     @jsii.member(jsii_name="putOneTimeSchedule")
     def put_one_time_schedule(self, *, execute_time: builtins.str) -> None:
         '''
-        :param execute_time: The desired patch job execution time. A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#execute_time OsConfigPatchDeployment#execute_time}
+        :param execute_time: The desired patch job execution time. A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#execute_time OsConfigPatchDeployment#execute_time}
         '''
         value = OsConfigPatchDeploymentOneTimeSchedule(execute_time=execute_time)
 
@@ -195,15 +195,15 @@ class OsConfigPatchDeployment(
         zypper: typing.Optional[typing.Union["OsConfigPatchDeploymentPatchConfigZypper", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#apt OsConfigPatchDeployment#apt}
-        :param goo: goo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#goo OsConfigPatchDeployment#goo}
-        :param mig_instances_allowed: Allows the patch job to run on Managed instance groups (MIGs). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#mig_instances_allowed OsConfigPatchDeployment#mig_instances_allowed}
-        :param post_step: post_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#post_step OsConfigPatchDeployment#post_step}
-        :param pre_step: pre_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#pre_step OsConfigPatchDeployment#pre_step}
-        :param reboot_config: Post-patch reboot settings. Possible values: ["DEFAULT", "ALWAYS", "NEVER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#reboot_config OsConfigPatchDeployment#reboot_config}
-        :param windows_update: windows_update block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#windows_update OsConfigPatchDeployment#windows_update}
-        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#yum OsConfigPatchDeployment#yum}
-        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#zypper OsConfigPatchDeployment#zypper}
+        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#apt OsConfigPatchDeployment#apt}
+        :param goo: goo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#goo OsConfigPatchDeployment#goo}
+        :param mig_instances_allowed: Allows the patch job to run on Managed instance groups (MIGs). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#mig_instances_allowed OsConfigPatchDeployment#mig_instances_allowed}
+        :param post_step: post_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#post_step OsConfigPatchDeployment#post_step}
+        :param pre_step: pre_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#pre_step OsConfigPatchDeployment#pre_step}
+        :param reboot_config: Post-patch reboot settings. Possible values: ["DEFAULT", "ALWAYS", "NEVER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#reboot_config OsConfigPatchDeployment#reboot_config}
+        :param windows_update: windows_update block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#windows_update OsConfigPatchDeployment#windows_update}
+        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#yum OsConfigPatchDeployment#yum}
+        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#zypper OsConfigPatchDeployment#zypper}
         '''
         value = OsConfigPatchDeploymentPatchConfig(
             apt=apt,
@@ -231,12 +231,12 @@ class OsConfigPatchDeployment(
         weekly: typing.Optional[typing.Union["OsConfigPatchDeploymentRecurringScheduleWeekly", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param time_of_day: time_of_day block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#time_of_day OsConfigPatchDeployment#time_of_day}
-        :param time_zone: time_zone block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#time_zone OsConfigPatchDeployment#time_zone}
-        :param end_time: The end time at which a recurring patch deployment schedule is no longer active. A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#end_time OsConfigPatchDeployment#end_time}
-        :param monthly: monthly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#monthly OsConfigPatchDeployment#monthly}
-        :param start_time: The time that the recurring schedule becomes effective. Defaults to createTime of the patch deployment. A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#start_time OsConfigPatchDeployment#start_time}
-        :param weekly: weekly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#weekly OsConfigPatchDeployment#weekly}
+        :param time_of_day: time_of_day block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#time_of_day OsConfigPatchDeployment#time_of_day}
+        :param time_zone: time_zone block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#time_zone OsConfigPatchDeployment#time_zone}
+        :param end_time: The end time at which a recurring patch deployment schedule is no longer active. A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#end_time OsConfigPatchDeployment#end_time}
+        :param monthly: monthly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#monthly OsConfigPatchDeployment#monthly}
+        :param start_time: The time that the recurring schedule becomes effective. Defaults to createTime of the patch deployment. A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#start_time OsConfigPatchDeployment#start_time}
+        :param weekly: weekly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#weekly OsConfigPatchDeployment#weekly}
         '''
         value = OsConfigPatchDeploymentRecurringSchedule(
             time_of_day=time_of_day,
@@ -257,8 +257,8 @@ class OsConfigPatchDeployment(
         mode: builtins.str,
     ) -> None:
         '''
-        :param disruption_budget: disruption_budget block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#disruption_budget OsConfigPatchDeployment#disruption_budget}
-        :param mode: Mode of the patch rollout. Possible values: ["ZONE_BY_ZONE", "CONCURRENT_ZONES"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#mode OsConfigPatchDeployment#mode}
+        :param disruption_budget: disruption_budget block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#disruption_budget OsConfigPatchDeployment#disruption_budget}
+        :param mode: Mode of the patch rollout. Possible values: ["ZONE_BY_ZONE", "CONCURRENT_ZONES"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#mode OsConfigPatchDeployment#mode}
         '''
         value = OsConfigPatchDeploymentRollout(
             disruption_budget=disruption_budget, mode=mode
@@ -274,8 +274,8 @@ class OsConfigPatchDeployment(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#create OsConfigPatchDeployment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#delete OsConfigPatchDeployment#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#create OsConfigPatchDeployment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#delete OsConfigPatchDeployment#delete}.
         '''
         value = OsConfigPatchDeploymentTimeouts(create=create, delete=delete)
 
@@ -565,17 +565,17 @@ class OsConfigPatchDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_filter: instance_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#instance_filter OsConfigPatchDeployment#instance_filter}
-        :param patch_deployment_id: A name for the patch deployment in the project. When creating a name the following rules apply: - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#patch_deployment_id OsConfigPatchDeployment#patch_deployment_id}
-        :param description: Description of the patch deployment. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#description OsConfigPatchDeployment#description}
-        :param duration: Duration of the patch. After the duration ends, the patch times out. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#duration OsConfigPatchDeployment#duration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#id OsConfigPatchDeployment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param one_time_schedule: one_time_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#one_time_schedule OsConfigPatchDeployment#one_time_schedule}
-        :param patch_config: patch_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#patch_config OsConfigPatchDeployment#patch_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#project OsConfigPatchDeployment#project}.
-        :param recurring_schedule: recurring_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#recurring_schedule OsConfigPatchDeployment#recurring_schedule}
-        :param rollout: rollout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#rollout OsConfigPatchDeployment#rollout}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#timeouts OsConfigPatchDeployment#timeouts}
+        :param instance_filter: instance_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#instance_filter OsConfigPatchDeployment#instance_filter}
+        :param patch_deployment_id: A name for the patch deployment in the project. When creating a name the following rules apply: - Must contain only lowercase letters, numbers, and hyphens. - Must start with a letter. - Must be between 1-63 characters. - Must end with a number or a letter. - Must be unique within the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#patch_deployment_id OsConfigPatchDeployment#patch_deployment_id}
+        :param description: Description of the patch deployment. Length of the description is limited to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#description OsConfigPatchDeployment#description}
+        :param duration: Duration of the patch. After the duration ends, the patch times out. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#duration OsConfigPatchDeployment#duration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#id OsConfigPatchDeployment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param one_time_schedule: one_time_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#one_time_schedule OsConfigPatchDeployment#one_time_schedule}
+        :param patch_config: patch_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#patch_config OsConfigPatchDeployment#patch_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#project OsConfigPatchDeployment#project}.
+        :param recurring_schedule: recurring_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#recurring_schedule OsConfigPatchDeployment#recurring_schedule}
+        :param rollout: rollout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#rollout OsConfigPatchDeployment#rollout}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#timeouts OsConfigPatchDeployment#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -716,7 +716,7 @@ class OsConfigPatchDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance_filter(self) -> "OsConfigPatchDeploymentInstanceFilter":
         '''instance_filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#instance_filter OsConfigPatchDeployment#instance_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#instance_filter OsConfigPatchDeployment#instance_filter}
         '''
         result = self._values.get("instance_filter")
         assert result is not None, "Required property 'instance_filter' is missing"
@@ -734,7 +734,7 @@ class OsConfigPatchDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - Must end with a number or a letter.
         - Must be unique within the project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#patch_deployment_id OsConfigPatchDeployment#patch_deployment_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#patch_deployment_id OsConfigPatchDeployment#patch_deployment_id}
         '''
         result = self._values.get("patch_deployment_id")
         assert result is not None, "Required property 'patch_deployment_id' is missing"
@@ -744,7 +744,7 @@ class OsConfigPatchDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the patch deployment. Length of the description is limited to 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#description OsConfigPatchDeployment#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#description OsConfigPatchDeployment#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -756,14 +756,14 @@ class OsConfigPatchDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         After the duration ends, the patch times out.
         A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s"
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#duration OsConfigPatchDeployment#duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#duration OsConfigPatchDeployment#duration}
         '''
         result = self._values.get("duration")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#id OsConfigPatchDeployment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#id OsConfigPatchDeployment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -777,7 +777,7 @@ class OsConfigPatchDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["OsConfigPatchDeploymentOneTimeSchedule"]:
         '''one_time_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#one_time_schedule OsConfigPatchDeployment#one_time_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#one_time_schedule OsConfigPatchDeployment#one_time_schedule}
         '''
         result = self._values.get("one_time_schedule")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentOneTimeSchedule"], result)
@@ -786,14 +786,14 @@ class OsConfigPatchDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def patch_config(self) -> typing.Optional["OsConfigPatchDeploymentPatchConfig"]:
         '''patch_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#patch_config OsConfigPatchDeployment#patch_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#patch_config OsConfigPatchDeployment#patch_config}
         '''
         result = self._values.get("patch_config")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentPatchConfig"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#project OsConfigPatchDeployment#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#project OsConfigPatchDeployment#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -803,7 +803,7 @@ class OsConfigPatchDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["OsConfigPatchDeploymentRecurringSchedule"]:
         '''recurring_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#recurring_schedule OsConfigPatchDeployment#recurring_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#recurring_schedule OsConfigPatchDeployment#recurring_schedule}
         '''
         result = self._values.get("recurring_schedule")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentRecurringSchedule"], result)
@@ -812,7 +812,7 @@ class OsConfigPatchDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def rollout(self) -> typing.Optional["OsConfigPatchDeploymentRollout"]:
         '''rollout block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#rollout OsConfigPatchDeployment#rollout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#rollout OsConfigPatchDeployment#rollout}
         '''
         result = self._values.get("rollout")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentRollout"], result)
@@ -821,7 +821,7 @@ class OsConfigPatchDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["OsConfigPatchDeploymentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#timeouts OsConfigPatchDeployment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#timeouts OsConfigPatchDeployment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentTimeouts"], result)
@@ -860,11 +860,11 @@ class OsConfigPatchDeploymentInstanceFilter:
         zones: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param all: Target all VM instances in the project. If true, no other criteria is permitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#all OsConfigPatchDeployment#all}
-        :param group_labels: group_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#group_labels OsConfigPatchDeployment#group_labels}
-        :param instance_name_prefixes: Targets VMs whose name starts with one of these prefixes. Similar to labels, this is another way to group VMs when targeting configs, for example prefix="prod-". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#instance_name_prefixes OsConfigPatchDeployment#instance_name_prefixes}
-        :param instances: Targets any of the VM instances specified. Instances are specified by their URI in the 'form zones/{{zone}}/instances/{{instance_name}}', 'projects/{{project_id}}/zones/{{zone}}/instances/{{instance_name}}', or 'https://www.googleapis.com/compute/v1/projects/{{project_id}}/zones/{{zone}}/instances/{{instance_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#instances OsConfigPatchDeployment#instances}
-        :param zones: Targets VM instances in ANY of these zones. Leave empty to target VM instances in any zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#zones OsConfigPatchDeployment#zones}
+        :param all: Target all VM instances in the project. If true, no other criteria is permitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#all OsConfigPatchDeployment#all}
+        :param group_labels: group_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#group_labels OsConfigPatchDeployment#group_labels}
+        :param instance_name_prefixes: Targets VMs whose name starts with one of these prefixes. Similar to labels, this is another way to group VMs when targeting configs, for example prefix="prod-". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#instance_name_prefixes OsConfigPatchDeployment#instance_name_prefixes}
+        :param instances: Targets any of the VM instances specified. Instances are specified by their URI in the 'form zones/{{zone}}/instances/{{instance_name}}', 'projects/{{project_id}}/zones/{{zone}}/instances/{{instance_name}}', or 'https://www.googleapis.com/compute/v1/projects/{{project_id}}/zones/{{zone}}/instances/{{instance_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#instances OsConfigPatchDeployment#instances}
+        :param zones: Targets VM instances in ANY of these zones. Leave empty to target VM instances in any zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#zones OsConfigPatchDeployment#zones}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__643761843ed240dce48982d376cdd4eb89781c7e0d2bc366f5b9770032bd6d32)
@@ -891,7 +891,7 @@ class OsConfigPatchDeploymentInstanceFilter:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Target all VM instances in the project. If true, no other criteria is permitted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#all OsConfigPatchDeployment#all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#all OsConfigPatchDeployment#all}
         '''
         result = self._values.get("all")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -902,7 +902,7 @@ class OsConfigPatchDeploymentInstanceFilter:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigPatchDeploymentInstanceFilterGroupLabels"]]]:
         '''group_labels block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#group_labels OsConfigPatchDeployment#group_labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#group_labels OsConfigPatchDeployment#group_labels}
         '''
         result = self._values.get("group_labels")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OsConfigPatchDeploymentInstanceFilterGroupLabels"]]], result)
@@ -914,7 +914,7 @@ class OsConfigPatchDeploymentInstanceFilter:
         Similar to labels, this is another way to group
         VMs when targeting configs, for example prefix="prod-".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#instance_name_prefixes OsConfigPatchDeployment#instance_name_prefixes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#instance_name_prefixes OsConfigPatchDeployment#instance_name_prefixes}
         '''
         result = self._values.get("instance_name_prefixes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -923,7 +923,7 @@ class OsConfigPatchDeploymentInstanceFilter:
     def instances(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Targets any of the VM instances specified. Instances are specified by their URI in the 'form zones/{{zone}}/instances/{{instance_name}}', 'projects/{{project_id}}/zones/{{zone}}/instances/{{instance_name}}', or 'https://www.googleapis.com/compute/v1/projects/{{project_id}}/zones/{{zone}}/instances/{{instance_name}}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#instances OsConfigPatchDeployment#instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#instances OsConfigPatchDeployment#instances}
         '''
         result = self._values.get("instances")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -932,7 +932,7 @@ class OsConfigPatchDeploymentInstanceFilter:
     def zones(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Targets VM instances in ANY of these zones. Leave empty to target VM instances in any zone.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#zones OsConfigPatchDeployment#zones}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#zones OsConfigPatchDeployment#zones}
         '''
         result = self._values.get("zones")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -957,7 +957,7 @@ class OsConfigPatchDeploymentInstanceFilter:
 class OsConfigPatchDeploymentInstanceFilterGroupLabels:
     def __init__(self, *, labels: typing.Mapping[builtins.str, builtins.str]) -> None:
         '''
-        :param labels: Compute Engine instance labels that must be present for a VM instance to be targeted by this filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#labels OsConfigPatchDeployment#labels}
+        :param labels: Compute Engine instance labels that must be present for a VM instance to be targeted by this filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#labels OsConfigPatchDeployment#labels}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__72a1d228bda81d279106aef70d2e69ccb5bac2105841dbb3d5241a2ea5579939)
@@ -970,7 +970,7 @@ class OsConfigPatchDeploymentInstanceFilterGroupLabels:
     def labels(self) -> typing.Mapping[builtins.str, builtins.str]:
         '''Compute Engine instance labels that must be present for a VM instance to be targeted by this filter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#labels OsConfigPatchDeployment#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#labels OsConfigPatchDeployment#labels}
         '''
         result = self._values.get("labels")
         assert result is not None, "Required property 'labels' is missing"
@@ -1308,7 +1308,7 @@ class OsConfigPatchDeploymentInstanceFilterOutputReference(
 class OsConfigPatchDeploymentOneTimeSchedule:
     def __init__(self, *, execute_time: builtins.str) -> None:
         '''
-        :param execute_time: The desired patch job execution time. A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#execute_time OsConfigPatchDeployment#execute_time}
+        :param execute_time: The desired patch job execution time. A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#execute_time OsConfigPatchDeployment#execute_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e9dbe85b65c0d561045f6a544540ed306de4feae8d20a70a336202f18fea9c1d)
@@ -1321,7 +1321,7 @@ class OsConfigPatchDeploymentOneTimeSchedule:
     def execute_time(self) -> builtins.str:
         '''The desired patch job execution time. A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#execute_time OsConfigPatchDeployment#execute_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#execute_time OsConfigPatchDeployment#execute_time}
         '''
         result = self._values.get("execute_time")
         assert result is not None, "Required property 'execute_time' is missing"
@@ -1422,15 +1422,15 @@ class OsConfigPatchDeploymentPatchConfig:
         zypper: typing.Optional[typing.Union["OsConfigPatchDeploymentPatchConfigZypper", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#apt OsConfigPatchDeployment#apt}
-        :param goo: goo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#goo OsConfigPatchDeployment#goo}
-        :param mig_instances_allowed: Allows the patch job to run on Managed instance groups (MIGs). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#mig_instances_allowed OsConfigPatchDeployment#mig_instances_allowed}
-        :param post_step: post_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#post_step OsConfigPatchDeployment#post_step}
-        :param pre_step: pre_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#pre_step OsConfigPatchDeployment#pre_step}
-        :param reboot_config: Post-patch reboot settings. Possible values: ["DEFAULT", "ALWAYS", "NEVER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#reboot_config OsConfigPatchDeployment#reboot_config}
-        :param windows_update: windows_update block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#windows_update OsConfigPatchDeployment#windows_update}
-        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#yum OsConfigPatchDeployment#yum}
-        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#zypper OsConfigPatchDeployment#zypper}
+        :param apt: apt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#apt OsConfigPatchDeployment#apt}
+        :param goo: goo block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#goo OsConfigPatchDeployment#goo}
+        :param mig_instances_allowed: Allows the patch job to run on Managed instance groups (MIGs). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#mig_instances_allowed OsConfigPatchDeployment#mig_instances_allowed}
+        :param post_step: post_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#post_step OsConfigPatchDeployment#post_step}
+        :param pre_step: pre_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#pre_step OsConfigPatchDeployment#pre_step}
+        :param reboot_config: Post-patch reboot settings. Possible values: ["DEFAULT", "ALWAYS", "NEVER"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#reboot_config OsConfigPatchDeployment#reboot_config}
+        :param windows_update: windows_update block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#windows_update OsConfigPatchDeployment#windows_update}
+        :param yum: yum block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#yum OsConfigPatchDeployment#yum}
+        :param zypper: zypper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#zypper OsConfigPatchDeployment#zypper}
         '''
         if isinstance(apt, dict):
             apt = OsConfigPatchDeploymentPatchConfigApt(**apt)
@@ -1481,7 +1481,7 @@ class OsConfigPatchDeploymentPatchConfig:
     def apt(self) -> typing.Optional["OsConfigPatchDeploymentPatchConfigApt"]:
         '''apt block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#apt OsConfigPatchDeployment#apt}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#apt OsConfigPatchDeployment#apt}
         '''
         result = self._values.get("apt")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentPatchConfigApt"], result)
@@ -1490,7 +1490,7 @@ class OsConfigPatchDeploymentPatchConfig:
     def goo(self) -> typing.Optional["OsConfigPatchDeploymentPatchConfigGoo"]:
         '''goo block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#goo OsConfigPatchDeployment#goo}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#goo OsConfigPatchDeployment#goo}
         '''
         result = self._values.get("goo")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentPatchConfigGoo"], result)
@@ -1501,7 +1501,7 @@ class OsConfigPatchDeploymentPatchConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Allows the patch job to run on Managed instance groups (MIGs).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#mig_instances_allowed OsConfigPatchDeployment#mig_instances_allowed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#mig_instances_allowed OsConfigPatchDeployment#mig_instances_allowed}
         '''
         result = self._values.get("mig_instances_allowed")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1512,7 +1512,7 @@ class OsConfigPatchDeploymentPatchConfig:
     ) -> typing.Optional["OsConfigPatchDeploymentPatchConfigPostStep"]:
         '''post_step block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#post_step OsConfigPatchDeployment#post_step}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#post_step OsConfigPatchDeployment#post_step}
         '''
         result = self._values.get("post_step")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentPatchConfigPostStep"], result)
@@ -1521,7 +1521,7 @@ class OsConfigPatchDeploymentPatchConfig:
     def pre_step(self) -> typing.Optional["OsConfigPatchDeploymentPatchConfigPreStep"]:
         '''pre_step block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#pre_step OsConfigPatchDeployment#pre_step}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#pre_step OsConfigPatchDeployment#pre_step}
         '''
         result = self._values.get("pre_step")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentPatchConfigPreStep"], result)
@@ -1530,7 +1530,7 @@ class OsConfigPatchDeploymentPatchConfig:
     def reboot_config(self) -> typing.Optional[builtins.str]:
         '''Post-patch reboot settings. Possible values: ["DEFAULT", "ALWAYS", "NEVER"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#reboot_config OsConfigPatchDeployment#reboot_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#reboot_config OsConfigPatchDeployment#reboot_config}
         '''
         result = self._values.get("reboot_config")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1541,7 +1541,7 @@ class OsConfigPatchDeploymentPatchConfig:
     ) -> typing.Optional["OsConfigPatchDeploymentPatchConfigWindowsUpdate"]:
         '''windows_update block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#windows_update OsConfigPatchDeployment#windows_update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#windows_update OsConfigPatchDeployment#windows_update}
         '''
         result = self._values.get("windows_update")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentPatchConfigWindowsUpdate"], result)
@@ -1550,7 +1550,7 @@ class OsConfigPatchDeploymentPatchConfig:
     def yum(self) -> typing.Optional["OsConfigPatchDeploymentPatchConfigYum"]:
         '''yum block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#yum OsConfigPatchDeployment#yum}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#yum OsConfigPatchDeployment#yum}
         '''
         result = self._values.get("yum")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentPatchConfigYum"], result)
@@ -1559,7 +1559,7 @@ class OsConfigPatchDeploymentPatchConfig:
     def zypper(self) -> typing.Optional["OsConfigPatchDeploymentPatchConfigZypper"]:
         '''zypper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#zypper OsConfigPatchDeployment#zypper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#zypper OsConfigPatchDeployment#zypper}
         '''
         result = self._values.get("zypper")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentPatchConfigZypper"], result)
@@ -1594,9 +1594,9 @@ class OsConfigPatchDeploymentPatchConfigApt:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param excludes: List of packages to exclude from update. These packages will be excluded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
-        :param exclusive_packages: An exclusive list of packages to be updated. These are the only packages that will be updated. If these packages are not installed, they will be ignored. This field cannot be specified with any other patch configuration fields. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#exclusive_packages OsConfigPatchDeployment#exclusive_packages}
-        :param type: By changing the type to DIST, the patching is performed using apt-get dist-upgrade instead. Possible values: ["DIST", "UPGRADE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#type OsConfigPatchDeployment#type}
+        :param excludes: List of packages to exclude from update. These packages will be excluded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
+        :param exclusive_packages: An exclusive list of packages to be updated. These are the only packages that will be updated. If these packages are not installed, they will be ignored. This field cannot be specified with any other patch configuration fields. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#exclusive_packages OsConfigPatchDeployment#exclusive_packages}
+        :param type: By changing the type to DIST, the patching is performed using apt-get dist-upgrade instead. Possible values: ["DIST", "UPGRADE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#type OsConfigPatchDeployment#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__11255c0d071c1b7cd27fd0938b2106edda776a3cbb23c96f884b7f9540c9158e)
@@ -1615,7 +1615,7 @@ class OsConfigPatchDeploymentPatchConfigApt:
     def excludes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of packages to exclude from update. These packages will be excluded.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
         '''
         result = self._values.get("excludes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1628,7 +1628,7 @@ class OsConfigPatchDeploymentPatchConfigApt:
         If these packages are not installed, they will be ignored. This field cannot be specified with
         any other patch configuration fields.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#exclusive_packages OsConfigPatchDeployment#exclusive_packages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#exclusive_packages OsConfigPatchDeployment#exclusive_packages}
         '''
         result = self._values.get("exclusive_packages")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1637,7 +1637,7 @@ class OsConfigPatchDeploymentPatchConfigApt:
     def type(self) -> typing.Optional[builtins.str]:
         '''By changing the type to DIST, the patching is performed using apt-get dist-upgrade instead. Possible values: ["DIST", "UPGRADE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#type OsConfigPatchDeployment#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#type OsConfigPatchDeployment#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1765,7 +1765,7 @@ class OsConfigPatchDeploymentPatchConfigGoo:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: goo update settings. Use this setting to override the default goo patch rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#enabled OsConfigPatchDeployment#enabled}
+        :param enabled: goo update settings. Use this setting to override the default goo patch rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#enabled OsConfigPatchDeployment#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9321de7c7730696f9408f19bfa409b27d9de3d644c2e6f9156606a7458fa7d9f)
@@ -1778,7 +1778,7 @@ class OsConfigPatchDeploymentPatchConfigGoo:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''goo update settings. Use this setting to override the default goo patch rules.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#enabled OsConfigPatchDeployment#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#enabled OsConfigPatchDeployment#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -1883,9 +1883,9 @@ class OsConfigPatchDeploymentPatchConfigOutputReference(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param excludes: List of packages to exclude from update. These packages will be excluded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
-        :param exclusive_packages: An exclusive list of packages to be updated. These are the only packages that will be updated. If these packages are not installed, they will be ignored. This field cannot be specified with any other patch configuration fields. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#exclusive_packages OsConfigPatchDeployment#exclusive_packages}
-        :param type: By changing the type to DIST, the patching is performed using apt-get dist-upgrade instead. Possible values: ["DIST", "UPGRADE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#type OsConfigPatchDeployment#type}
+        :param excludes: List of packages to exclude from update. These packages will be excluded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
+        :param exclusive_packages: An exclusive list of packages to be updated. These are the only packages that will be updated. If these packages are not installed, they will be ignored. This field cannot be specified with any other patch configuration fields. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#exclusive_packages OsConfigPatchDeployment#exclusive_packages}
+        :param type: By changing the type to DIST, the patching is performed using apt-get dist-upgrade instead. Possible values: ["DIST", "UPGRADE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#type OsConfigPatchDeployment#type}
         '''
         value = OsConfigPatchDeploymentPatchConfigApt(
             excludes=excludes, exclusive_packages=exclusive_packages, type=type
@@ -1900,7 +1900,7 @@ class OsConfigPatchDeploymentPatchConfigOutputReference(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: goo update settings. Use this setting to override the default goo patch rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#enabled OsConfigPatchDeployment#enabled}
+        :param enabled: goo update settings. Use this setting to override the default goo patch rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#enabled OsConfigPatchDeployment#enabled}
         '''
         value = OsConfigPatchDeploymentPatchConfigGoo(enabled=enabled)
 
@@ -1914,8 +1914,8 @@ class OsConfigPatchDeploymentPatchConfigOutputReference(
         windows_exec_step_config: typing.Optional[typing.Union["OsConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param linux_exec_step_config: linux_exec_step_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#linux_exec_step_config OsConfigPatchDeployment#linux_exec_step_config}
-        :param windows_exec_step_config: windows_exec_step_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#windows_exec_step_config OsConfigPatchDeployment#windows_exec_step_config}
+        :param linux_exec_step_config: linux_exec_step_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#linux_exec_step_config OsConfigPatchDeployment#linux_exec_step_config}
+        :param windows_exec_step_config: windows_exec_step_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#windows_exec_step_config OsConfigPatchDeployment#windows_exec_step_config}
         '''
         value = OsConfigPatchDeploymentPatchConfigPostStep(
             linux_exec_step_config=linux_exec_step_config,
@@ -1932,8 +1932,8 @@ class OsConfigPatchDeploymentPatchConfigOutputReference(
         windows_exec_step_config: typing.Optional[typing.Union["OsConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param linux_exec_step_config: linux_exec_step_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#linux_exec_step_config OsConfigPatchDeployment#linux_exec_step_config}
-        :param windows_exec_step_config: windows_exec_step_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#windows_exec_step_config OsConfigPatchDeployment#windows_exec_step_config}
+        :param linux_exec_step_config: linux_exec_step_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#linux_exec_step_config OsConfigPatchDeployment#linux_exec_step_config}
+        :param windows_exec_step_config: windows_exec_step_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#windows_exec_step_config OsConfigPatchDeployment#windows_exec_step_config}
         '''
         value = OsConfigPatchDeploymentPatchConfigPreStep(
             linux_exec_step_config=linux_exec_step_config,
@@ -1951,9 +1951,9 @@ class OsConfigPatchDeploymentPatchConfigOutputReference(
         exclusive_patches: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param classifications: Only apply updates of these windows update classifications. If empty, all updates are applied. Possible values: ["CRITICAL", "SECURITY", "DEFINITION", "DRIVER", "FEATURE_PACK", "SERVICE_PACK", "TOOL", "UPDATE_ROLLUP", "UPDATE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#classifications OsConfigPatchDeployment#classifications}
-        :param excludes: List of KBs to exclude from update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
-        :param exclusive_patches: An exclusive list of kbs to be updated. These are the only patches that will be updated. This field must not be used with other patch configurations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#exclusive_patches OsConfigPatchDeployment#exclusive_patches}
+        :param classifications: Only apply updates of these windows update classifications. If empty, all updates are applied. Possible values: ["CRITICAL", "SECURITY", "DEFINITION", "DRIVER", "FEATURE_PACK", "SERVICE_PACK", "TOOL", "UPDATE_ROLLUP", "UPDATE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#classifications OsConfigPatchDeployment#classifications}
+        :param excludes: List of KBs to exclude from update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
+        :param exclusive_patches: An exclusive list of kbs to be updated. These are the only patches that will be updated. This field must not be used with other patch configurations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#exclusive_patches OsConfigPatchDeployment#exclusive_patches}
         '''
         value = OsConfigPatchDeploymentPatchConfigWindowsUpdate(
             classifications=classifications,
@@ -1973,10 +1973,10 @@ class OsConfigPatchDeploymentPatchConfigOutputReference(
         security: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param excludes: List of packages to exclude from update. These packages will be excluded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
-        :param exclusive_packages: An exclusive list of packages to be updated. These are the only packages that will be updated. If these packages are not installed, they will be ignored. This field cannot be specified with any other patch configuration fields. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#exclusive_packages OsConfigPatchDeployment#exclusive_packages}
-        :param minimal: Will cause patch to run yum update-minimal instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#minimal OsConfigPatchDeployment#minimal}
-        :param security: Adds the --security flag to yum update. Not supported on all platforms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#security OsConfigPatchDeployment#security}
+        :param excludes: List of packages to exclude from update. These packages will be excluded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
+        :param exclusive_packages: An exclusive list of packages to be updated. These are the only packages that will be updated. If these packages are not installed, they will be ignored. This field cannot be specified with any other patch configuration fields. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#exclusive_packages OsConfigPatchDeployment#exclusive_packages}
+        :param minimal: Will cause patch to run yum update-minimal instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#minimal OsConfigPatchDeployment#minimal}
+        :param security: Adds the --security flag to yum update. Not supported on all platforms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#security OsConfigPatchDeployment#security}
         '''
         value = OsConfigPatchDeploymentPatchConfigYum(
             excludes=excludes,
@@ -1999,12 +1999,12 @@ class OsConfigPatchDeploymentPatchConfigOutputReference(
         with_update: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param categories: Install only patches with these categories. Common categories include security, recommended, and feature. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#categories OsConfigPatchDeployment#categories}
-        :param excludes: List of packages to exclude from update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
-        :param exclusive_patches: An exclusive list of patches to be updated. These are the only patches that will be installed using 'zypper patch patch:' command. This field must not be used with any other patch configuration fields. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#exclusive_patches OsConfigPatchDeployment#exclusive_patches}
-        :param severities: Install only patches with these severities. Common severities include critical, important, moderate, and low. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#severities OsConfigPatchDeployment#severities}
-        :param with_optional: Adds the --with-optional flag to zypper patch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#with_optional OsConfigPatchDeployment#with_optional}
-        :param with_update: Adds the --with-update flag, to zypper patch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#with_update OsConfigPatchDeployment#with_update}
+        :param categories: Install only patches with these categories. Common categories include security, recommended, and feature. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#categories OsConfigPatchDeployment#categories}
+        :param excludes: List of packages to exclude from update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
+        :param exclusive_patches: An exclusive list of patches to be updated. These are the only patches that will be installed using 'zypper patch patch:' command. This field must not be used with any other patch configuration fields. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#exclusive_patches OsConfigPatchDeployment#exclusive_patches}
+        :param severities: Install only patches with these severities. Common severities include critical, important, moderate, and low. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#severities OsConfigPatchDeployment#severities}
+        :param with_optional: Adds the --with-optional flag to zypper patch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#with_optional OsConfigPatchDeployment#with_optional}
+        :param with_update: Adds the --with-update flag, to zypper patch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#with_update OsConfigPatchDeployment#with_update}
         '''
         value = OsConfigPatchDeploymentPatchConfigZypper(
             categories=categories,
@@ -2206,8 +2206,8 @@ class OsConfigPatchDeploymentPatchConfigPostStep:
         windows_exec_step_config: typing.Optional[typing.Union["OsConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param linux_exec_step_config: linux_exec_step_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#linux_exec_step_config OsConfigPatchDeployment#linux_exec_step_config}
-        :param windows_exec_step_config: windows_exec_step_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#windows_exec_step_config OsConfigPatchDeployment#windows_exec_step_config}
+        :param linux_exec_step_config: linux_exec_step_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#linux_exec_step_config OsConfigPatchDeployment#linux_exec_step_config}
+        :param windows_exec_step_config: windows_exec_step_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#windows_exec_step_config OsConfigPatchDeployment#windows_exec_step_config}
         '''
         if isinstance(linux_exec_step_config, dict):
             linux_exec_step_config = OsConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfig(**linux_exec_step_config)
@@ -2229,7 +2229,7 @@ class OsConfigPatchDeploymentPatchConfigPostStep:
     ) -> typing.Optional["OsConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfig"]:
         '''linux_exec_step_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#linux_exec_step_config OsConfigPatchDeployment#linux_exec_step_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#linux_exec_step_config OsConfigPatchDeployment#linux_exec_step_config}
         '''
         result = self._values.get("linux_exec_step_config")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfig"], result)
@@ -2240,7 +2240,7 @@ class OsConfigPatchDeploymentPatchConfigPostStep:
     ) -> typing.Optional["OsConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfig"]:
         '''windows_exec_step_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#windows_exec_step_config OsConfigPatchDeployment#windows_exec_step_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#windows_exec_step_config OsConfigPatchDeployment#windows_exec_step_config}
         '''
         result = self._values.get("windows_exec_step_config")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfig"], result)
@@ -2277,10 +2277,10 @@ class OsConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfig:
         local_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_success_codes: Defaults to [0]. A list of possible return values that the execution can return to indicate a success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
-        :param gcs_object: gcs_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
-        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script will be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
-        :param local_path: An absolute path to the executable on the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
+        :param allowed_success_codes: Defaults to [0]. A list of possible return values that the execution can return to indicate a success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
+        :param gcs_object: gcs_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
+        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script will be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
+        :param local_path: An absolute path to the executable on the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
         '''
         if isinstance(gcs_object, dict):
             gcs_object = OsConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfigGcsObject(**gcs_object)
@@ -2304,7 +2304,7 @@ class OsConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfig:
     def allowed_success_codes(self) -> typing.Optional[typing.List[jsii.Number]]:
         '''Defaults to [0]. A list of possible return values that the execution can return to indicate a success.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
         '''
         result = self._values.get("allowed_success_codes")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -2315,7 +2315,7 @@ class OsConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfig:
     ) -> typing.Optional["OsConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfigGcsObject"]:
         '''gcs_object block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
         '''
         result = self._values.get("gcs_object")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfigGcsObject"], result)
@@ -2327,7 +2327,7 @@ class OsConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfig:
         If no interpreter is specified the script will
         be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
         '''
         result = self._values.get("interpreter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2336,7 +2336,7 @@ class OsConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfig:
     def local_path(self) -> typing.Optional[builtins.str]:
         '''An absolute path to the executable on the VM.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
         '''
         result = self._values.get("local_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2371,9 +2371,9 @@ class OsConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfigGcsObject:
         object: builtins.str,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
-        :param generation_number: Generation number of the Cloud Storage object. This is used to ensure that the ExecStep specified by this PatchJob does not change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
+        :param generation_number: Generation number of the Cloud Storage object. This is used to ensure that the ExecStep specified by this PatchJob does not change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f096eb0b609678712f2533f34918805a49fbe4813398724bf16947585cf509cc)
@@ -2390,7 +2390,7 @@ class OsConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfigGcsObject:
     def bucket(self) -> builtins.str:
         '''Bucket of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -2402,7 +2402,7 @@ class OsConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfigGcsObject:
 
         This is used to ensure that the ExecStep specified by this PatchJob does not change.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
         '''
         result = self._values.get("generation_number")
         assert result is not None, "Required property 'generation_number' is missing"
@@ -2412,7 +2412,7 @@ class OsConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfigGcsObject:
     def object(self) -> builtins.str:
         '''Name of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
         '''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
@@ -2548,9 +2548,9 @@ class OsConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfigOutputReferen
         object: builtins.str,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
-        :param generation_number: Generation number of the Cloud Storage object. This is used to ensure that the ExecStep specified by this PatchJob does not change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
+        :param generation_number: Generation number of the Cloud Storage object. This is used to ensure that the ExecStep specified by this PatchJob does not change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
         '''
         value = OsConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfigGcsObject(
             bucket=bucket, generation_number=generation_number, object=object
@@ -2687,10 +2687,10 @@ class OsConfigPatchDeploymentPatchConfigPostStepOutputReference(
         local_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_success_codes: Defaults to [0]. A list of possible return values that the execution can return to indicate a success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
-        :param gcs_object: gcs_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
-        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script will be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
-        :param local_path: An absolute path to the executable on the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
+        :param allowed_success_codes: Defaults to [0]. A list of possible return values that the execution can return to indicate a success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
+        :param gcs_object: gcs_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
+        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script will be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
+        :param local_path: An absolute path to the executable on the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
         '''
         value = OsConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfig(
             allowed_success_codes=allowed_success_codes,
@@ -2711,10 +2711,10 @@ class OsConfigPatchDeploymentPatchConfigPostStepOutputReference(
         local_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_success_codes: Defaults to [0]. A list of possible return values that the execution can return to indicate a success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
-        :param gcs_object: gcs_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
-        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script will be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
-        :param local_path: An absolute path to the executable on the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
+        :param allowed_success_codes: Defaults to [0]. A list of possible return values that the execution can return to indicate a success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
+        :param gcs_object: gcs_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
+        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script will be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
+        :param local_path: An absolute path to the executable on the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
         '''
         value = OsConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfig(
             allowed_success_codes=allowed_success_codes,
@@ -2799,10 +2799,10 @@ class OsConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfig:
         local_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_success_codes: Defaults to [0]. A list of possible return values that the execution can return to indicate a success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
-        :param gcs_object: gcs_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
-        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script will be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
-        :param local_path: An absolute path to the executable on the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
+        :param allowed_success_codes: Defaults to [0]. A list of possible return values that the execution can return to indicate a success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
+        :param gcs_object: gcs_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
+        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script will be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
+        :param local_path: An absolute path to the executable on the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
         '''
         if isinstance(gcs_object, dict):
             gcs_object = OsConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfigGcsObject(**gcs_object)
@@ -2826,7 +2826,7 @@ class OsConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfig:
     def allowed_success_codes(self) -> typing.Optional[typing.List[jsii.Number]]:
         '''Defaults to [0]. A list of possible return values that the execution can return to indicate a success.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
         '''
         result = self._values.get("allowed_success_codes")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -2837,7 +2837,7 @@ class OsConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfig:
     ) -> typing.Optional["OsConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfigGcsObject"]:
         '''gcs_object block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
         '''
         result = self._values.get("gcs_object")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfigGcsObject"], result)
@@ -2849,7 +2849,7 @@ class OsConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfig:
         If no interpreter is specified the script will
         be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
         '''
         result = self._values.get("interpreter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2858,7 +2858,7 @@ class OsConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfig:
     def local_path(self) -> typing.Optional[builtins.str]:
         '''An absolute path to the executable on the VM.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
         '''
         result = self._values.get("local_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2893,9 +2893,9 @@ class OsConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfigGcsObject:
         object: builtins.str,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
-        :param generation_number: Generation number of the Cloud Storage object. This is used to ensure that the ExecStep specified by this PatchJob does not change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
+        :param generation_number: Generation number of the Cloud Storage object. This is used to ensure that the ExecStep specified by this PatchJob does not change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ca05eba3f92d223cc80e96e1bde2222b17e31dec5b022565124174ecb9b0f22d)
@@ -2912,7 +2912,7 @@ class OsConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfigGcsObject:
     def bucket(self) -> builtins.str:
         '''Bucket of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -2924,7 +2924,7 @@ class OsConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfigGcsObject:
 
         This is used to ensure that the ExecStep specified by this PatchJob does not change.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
         '''
         result = self._values.get("generation_number")
         assert result is not None, "Required property 'generation_number' is missing"
@@ -2934,7 +2934,7 @@ class OsConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfigGcsObject:
     def object(self) -> builtins.str:
         '''Name of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
         '''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
@@ -3070,9 +3070,9 @@ class OsConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfigOutputRefer
         object: builtins.str,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
-        :param generation_number: Generation number of the Cloud Storage object. This is used to ensure that the ExecStep specified by this PatchJob does not change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
+        :param generation_number: Generation number of the Cloud Storage object. This is used to ensure that the ExecStep specified by this PatchJob does not change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
         '''
         value = OsConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfigGcsObject(
             bucket=bucket, generation_number=generation_number, object=object
@@ -3195,8 +3195,8 @@ class OsConfigPatchDeploymentPatchConfigPreStep:
         windows_exec_step_config: typing.Optional[typing.Union["OsConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param linux_exec_step_config: linux_exec_step_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#linux_exec_step_config OsConfigPatchDeployment#linux_exec_step_config}
-        :param windows_exec_step_config: windows_exec_step_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#windows_exec_step_config OsConfigPatchDeployment#windows_exec_step_config}
+        :param linux_exec_step_config: linux_exec_step_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#linux_exec_step_config OsConfigPatchDeployment#linux_exec_step_config}
+        :param windows_exec_step_config: windows_exec_step_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#windows_exec_step_config OsConfigPatchDeployment#windows_exec_step_config}
         '''
         if isinstance(linux_exec_step_config, dict):
             linux_exec_step_config = OsConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfig(**linux_exec_step_config)
@@ -3218,7 +3218,7 @@ class OsConfigPatchDeploymentPatchConfigPreStep:
     ) -> typing.Optional["OsConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfig"]:
         '''linux_exec_step_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#linux_exec_step_config OsConfigPatchDeployment#linux_exec_step_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#linux_exec_step_config OsConfigPatchDeployment#linux_exec_step_config}
         '''
         result = self._values.get("linux_exec_step_config")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfig"], result)
@@ -3229,7 +3229,7 @@ class OsConfigPatchDeploymentPatchConfigPreStep:
     ) -> typing.Optional["OsConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfig"]:
         '''windows_exec_step_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#windows_exec_step_config OsConfigPatchDeployment#windows_exec_step_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#windows_exec_step_config OsConfigPatchDeployment#windows_exec_step_config}
         '''
         result = self._values.get("windows_exec_step_config")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfig"], result)
@@ -3266,10 +3266,10 @@ class OsConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfig:
         local_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_success_codes: Defaults to [0]. A list of possible return values that the execution can return to indicate a success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
-        :param gcs_object: gcs_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
-        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script will be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
-        :param local_path: An absolute path to the executable on the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
+        :param allowed_success_codes: Defaults to [0]. A list of possible return values that the execution can return to indicate a success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
+        :param gcs_object: gcs_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
+        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script will be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
+        :param local_path: An absolute path to the executable on the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
         '''
         if isinstance(gcs_object, dict):
             gcs_object = OsConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfigGcsObject(**gcs_object)
@@ -3293,7 +3293,7 @@ class OsConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfig:
     def allowed_success_codes(self) -> typing.Optional[typing.List[jsii.Number]]:
         '''Defaults to [0]. A list of possible return values that the execution can return to indicate a success.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
         '''
         result = self._values.get("allowed_success_codes")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -3304,7 +3304,7 @@ class OsConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfig:
     ) -> typing.Optional["OsConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfigGcsObject"]:
         '''gcs_object block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
         '''
         result = self._values.get("gcs_object")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfigGcsObject"], result)
@@ -3316,7 +3316,7 @@ class OsConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfig:
         If no interpreter is specified the script will
         be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
         '''
         result = self._values.get("interpreter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3325,7 +3325,7 @@ class OsConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfig:
     def local_path(self) -> typing.Optional[builtins.str]:
         '''An absolute path to the executable on the VM.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
         '''
         result = self._values.get("local_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3360,9 +3360,9 @@ class OsConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfigGcsObject:
         object: builtins.str,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
-        :param generation_number: Generation number of the Cloud Storage object. This is used to ensure that the ExecStep specified by this PatchJob does not change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
+        :param generation_number: Generation number of the Cloud Storage object. This is used to ensure that the ExecStep specified by this PatchJob does not change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9a0917744929797d205a183dfa9915d742d094bb312f84980b53e89d67762885)
@@ -3379,7 +3379,7 @@ class OsConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfigGcsObject:
     def bucket(self) -> builtins.str:
         '''Bucket of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -3391,7 +3391,7 @@ class OsConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfigGcsObject:
 
         This is used to ensure that the ExecStep specified by this PatchJob does not change.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
         '''
         result = self._values.get("generation_number")
         assert result is not None, "Required property 'generation_number' is missing"
@@ -3401,7 +3401,7 @@ class OsConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfigGcsObject:
     def object(self) -> builtins.str:
         '''Name of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
         '''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
@@ -3537,9 +3537,9 @@ class OsConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfigOutputReferenc
         object: builtins.str,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
-        :param generation_number: Generation number of the Cloud Storage object. This is used to ensure that the ExecStep specified by this PatchJob does not change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
+        :param generation_number: Generation number of the Cloud Storage object. This is used to ensure that the ExecStep specified by this PatchJob does not change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
         '''
         value = OsConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfigGcsObject(
             bucket=bucket, generation_number=generation_number, object=object
@@ -3676,10 +3676,10 @@ class OsConfigPatchDeploymentPatchConfigPreStepOutputReference(
         local_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_success_codes: Defaults to [0]. A list of possible return values that the execution can return to indicate a success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
-        :param gcs_object: gcs_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
-        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script will be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
-        :param local_path: An absolute path to the executable on the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
+        :param allowed_success_codes: Defaults to [0]. A list of possible return values that the execution can return to indicate a success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
+        :param gcs_object: gcs_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
+        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script will be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
+        :param local_path: An absolute path to the executable on the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
         '''
         value = OsConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfig(
             allowed_success_codes=allowed_success_codes,
@@ -3700,10 +3700,10 @@ class OsConfigPatchDeploymentPatchConfigPreStepOutputReference(
         local_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_success_codes: Defaults to [0]. A list of possible return values that the execution can return to indicate a success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
-        :param gcs_object: gcs_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
-        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script will be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
-        :param local_path: An absolute path to the executable on the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
+        :param allowed_success_codes: Defaults to [0]. A list of possible return values that the execution can return to indicate a success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
+        :param gcs_object: gcs_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
+        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script will be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
+        :param local_path: An absolute path to the executable on the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
         '''
         value = OsConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfig(
             allowed_success_codes=allowed_success_codes,
@@ -3788,10 +3788,10 @@ class OsConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfig:
         local_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_success_codes: Defaults to [0]. A list of possible return values that the execution can return to indicate a success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
-        :param gcs_object: gcs_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
-        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script will be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
-        :param local_path: An absolute path to the executable on the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
+        :param allowed_success_codes: Defaults to [0]. A list of possible return values that the execution can return to indicate a success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
+        :param gcs_object: gcs_object block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
+        :param interpreter: The script interpreter to use to run the script. If no interpreter is specified the script will be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
+        :param local_path: An absolute path to the executable on the VM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
         '''
         if isinstance(gcs_object, dict):
             gcs_object = OsConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfigGcsObject(**gcs_object)
@@ -3815,7 +3815,7 @@ class OsConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfig:
     def allowed_success_codes(self) -> typing.Optional[typing.List[jsii.Number]]:
         '''Defaults to [0]. A list of possible return values that the execution can return to indicate a success.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#allowed_success_codes OsConfigPatchDeployment#allowed_success_codes}
         '''
         result = self._values.get("allowed_success_codes")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -3826,7 +3826,7 @@ class OsConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfig:
     ) -> typing.Optional["OsConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfigGcsObject"]:
         '''gcs_object block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#gcs_object OsConfigPatchDeployment#gcs_object}
         '''
         result = self._values.get("gcs_object")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfigGcsObject"], result)
@@ -3838,7 +3838,7 @@ class OsConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfig:
         If no interpreter is specified the script will
         be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#interpreter OsConfigPatchDeployment#interpreter}
         '''
         result = self._values.get("interpreter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3847,7 +3847,7 @@ class OsConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfig:
     def local_path(self) -> typing.Optional[builtins.str]:
         '''An absolute path to the executable on the VM.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#local_path OsConfigPatchDeployment#local_path}
         '''
         result = self._values.get("local_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3882,9 +3882,9 @@ class OsConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfigGcsObject:
         object: builtins.str,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
-        :param generation_number: Generation number of the Cloud Storage object. This is used to ensure that the ExecStep specified by this PatchJob does not change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
+        :param generation_number: Generation number of the Cloud Storage object. This is used to ensure that the ExecStep specified by this PatchJob does not change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eeb3321bcc0e01bcda266f1f28564684ded295ba56c0b807178b14b4ab1a2571)
@@ -3901,7 +3901,7 @@ class OsConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfigGcsObject:
     def bucket(self) -> builtins.str:
         '''Bucket of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -3913,7 +3913,7 @@ class OsConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfigGcsObject:
 
         This is used to ensure that the ExecStep specified by this PatchJob does not change.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
         '''
         result = self._values.get("generation_number")
         assert result is not None, "Required property 'generation_number' is missing"
@@ -3923,7 +3923,7 @@ class OsConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfigGcsObject:
     def object(self) -> builtins.str:
         '''Name of the Cloud Storage object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
         '''
         result = self._values.get("object")
         assert result is not None, "Required property 'object' is missing"
@@ -4059,9 +4059,9 @@ class OsConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfigOutputRefere
         object: builtins.str,
     ) -> None:
         '''
-        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
-        :param generation_number: Generation number of the Cloud Storage object. This is used to ensure that the ExecStep specified by this PatchJob does not change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
-        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
+        :param bucket: Bucket of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#bucket OsConfigPatchDeployment#bucket}
+        :param generation_number: Generation number of the Cloud Storage object. This is used to ensure that the ExecStep specified by this PatchJob does not change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#generation_number OsConfigPatchDeployment#generation_number}
+        :param object: Name of the Cloud Storage object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#object OsConfigPatchDeployment#object}
         '''
         value = OsConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfigGcsObject(
             bucket=bucket, generation_number=generation_number, object=object
@@ -4186,9 +4186,9 @@ class OsConfigPatchDeploymentPatchConfigWindowsUpdate:
         exclusive_patches: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param classifications: Only apply updates of these windows update classifications. If empty, all updates are applied. Possible values: ["CRITICAL", "SECURITY", "DEFINITION", "DRIVER", "FEATURE_PACK", "SERVICE_PACK", "TOOL", "UPDATE_ROLLUP", "UPDATE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#classifications OsConfigPatchDeployment#classifications}
-        :param excludes: List of KBs to exclude from update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
-        :param exclusive_patches: An exclusive list of kbs to be updated. These are the only patches that will be updated. This field must not be used with other patch configurations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#exclusive_patches OsConfigPatchDeployment#exclusive_patches}
+        :param classifications: Only apply updates of these windows update classifications. If empty, all updates are applied. Possible values: ["CRITICAL", "SECURITY", "DEFINITION", "DRIVER", "FEATURE_PACK", "SERVICE_PACK", "TOOL", "UPDATE_ROLLUP", "UPDATE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#classifications OsConfigPatchDeployment#classifications}
+        :param excludes: List of KBs to exclude from update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
+        :param exclusive_patches: An exclusive list of kbs to be updated. These are the only patches that will be updated. This field must not be used with other patch configurations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#exclusive_patches OsConfigPatchDeployment#exclusive_patches}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c8df8d3945accab44bfb2f6e2b014fb0d993f09c43a15870431f001d7118e88f)
@@ -4209,7 +4209,7 @@ class OsConfigPatchDeploymentPatchConfigWindowsUpdate:
 
         If empty, all updates are applied. Possible values: ["CRITICAL", "SECURITY", "DEFINITION", "DRIVER", "FEATURE_PACK", "SERVICE_PACK", "TOOL", "UPDATE_ROLLUP", "UPDATE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#classifications OsConfigPatchDeployment#classifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#classifications OsConfigPatchDeployment#classifications}
         '''
         result = self._values.get("classifications")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4218,7 +4218,7 @@ class OsConfigPatchDeploymentPatchConfigWindowsUpdate:
     def excludes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of KBs to exclude from update.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
         '''
         result = self._values.get("excludes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4230,7 +4230,7 @@ class OsConfigPatchDeploymentPatchConfigWindowsUpdate:
         These are the only patches that will be updated.
         This field must not be used with other patch configurations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#exclusive_patches OsConfigPatchDeployment#exclusive_patches}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#exclusive_patches OsConfigPatchDeployment#exclusive_patches}
         '''
         result = self._values.get("exclusive_patches")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4368,10 +4368,10 @@ class OsConfigPatchDeploymentPatchConfigYum:
         security: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param excludes: List of packages to exclude from update. These packages will be excluded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
-        :param exclusive_packages: An exclusive list of packages to be updated. These are the only packages that will be updated. If these packages are not installed, they will be ignored. This field cannot be specified with any other patch configuration fields. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#exclusive_packages OsConfigPatchDeployment#exclusive_packages}
-        :param minimal: Will cause patch to run yum update-minimal instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#minimal OsConfigPatchDeployment#minimal}
-        :param security: Adds the --security flag to yum update. Not supported on all platforms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#security OsConfigPatchDeployment#security}
+        :param excludes: List of packages to exclude from update. These packages will be excluded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
+        :param exclusive_packages: An exclusive list of packages to be updated. These are the only packages that will be updated. If these packages are not installed, they will be ignored. This field cannot be specified with any other patch configuration fields. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#exclusive_packages OsConfigPatchDeployment#exclusive_packages}
+        :param minimal: Will cause patch to run yum update-minimal instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#minimal OsConfigPatchDeployment#minimal}
+        :param security: Adds the --security flag to yum update. Not supported on all platforms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#security OsConfigPatchDeployment#security}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__80bb0ee099a30cf96b61b289378fab5117a915efb02f411a59f25520433be49c)
@@ -4393,7 +4393,7 @@ class OsConfigPatchDeploymentPatchConfigYum:
     def excludes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of packages to exclude from update. These packages will be excluded.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
         '''
         result = self._values.get("excludes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4406,7 +4406,7 @@ class OsConfigPatchDeploymentPatchConfigYum:
         If these packages are not installed, they will be ignored. This field cannot be specified with
         any other patch configuration fields.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#exclusive_packages OsConfigPatchDeployment#exclusive_packages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#exclusive_packages OsConfigPatchDeployment#exclusive_packages}
         '''
         result = self._values.get("exclusive_packages")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4417,7 +4417,7 @@ class OsConfigPatchDeploymentPatchConfigYum:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Will cause patch to run yum update-minimal instead.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#minimal OsConfigPatchDeployment#minimal}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#minimal OsConfigPatchDeployment#minimal}
         '''
         result = self._values.get("minimal")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4428,7 +4428,7 @@ class OsConfigPatchDeploymentPatchConfigYum:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Adds the --security flag to yum update. Not supported on all platforms.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#security OsConfigPatchDeployment#security}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#security OsConfigPatchDeployment#security}
         '''
         result = self._values.get("security")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4599,12 +4599,12 @@ class OsConfigPatchDeploymentPatchConfigZypper:
         with_update: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param categories: Install only patches with these categories. Common categories include security, recommended, and feature. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#categories OsConfigPatchDeployment#categories}
-        :param excludes: List of packages to exclude from update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
-        :param exclusive_patches: An exclusive list of patches to be updated. These are the only patches that will be installed using 'zypper patch patch:' command. This field must not be used with any other patch configuration fields. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#exclusive_patches OsConfigPatchDeployment#exclusive_patches}
-        :param severities: Install only patches with these severities. Common severities include critical, important, moderate, and low. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#severities OsConfigPatchDeployment#severities}
-        :param with_optional: Adds the --with-optional flag to zypper patch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#with_optional OsConfigPatchDeployment#with_optional}
-        :param with_update: Adds the --with-update flag, to zypper patch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#with_update OsConfigPatchDeployment#with_update}
+        :param categories: Install only patches with these categories. Common categories include security, recommended, and feature. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#categories OsConfigPatchDeployment#categories}
+        :param excludes: List of packages to exclude from update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
+        :param exclusive_patches: An exclusive list of patches to be updated. These are the only patches that will be installed using 'zypper patch patch:' command. This field must not be used with any other patch configuration fields. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#exclusive_patches OsConfigPatchDeployment#exclusive_patches}
+        :param severities: Install only patches with these severities. Common severities include critical, important, moderate, and low. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#severities OsConfigPatchDeployment#severities}
+        :param with_optional: Adds the --with-optional flag to zypper patch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#with_optional OsConfigPatchDeployment#with_optional}
+        :param with_update: Adds the --with-update flag, to zypper patch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#with_update OsConfigPatchDeployment#with_update}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c8a92e1e3ed254f0af63c4bf7739783129b4fa8dec1082b754f4e2b3e478b91a)
@@ -4632,7 +4632,7 @@ class OsConfigPatchDeploymentPatchConfigZypper:
     def categories(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Install only patches with these categories. Common categories include security, recommended, and feature.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#categories OsConfigPatchDeployment#categories}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#categories OsConfigPatchDeployment#categories}
         '''
         result = self._values.get("categories")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4641,7 +4641,7 @@ class OsConfigPatchDeploymentPatchConfigZypper:
     def excludes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of packages to exclude from update.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#excludes OsConfigPatchDeployment#excludes}
         '''
         result = self._values.get("excludes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4653,7 +4653,7 @@ class OsConfigPatchDeploymentPatchConfigZypper:
         These are the only patches that will be installed using 'zypper patch patch:' command.
         This field must not be used with any other patch configuration fields.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#exclusive_patches OsConfigPatchDeployment#exclusive_patches}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#exclusive_patches OsConfigPatchDeployment#exclusive_patches}
         '''
         result = self._values.get("exclusive_patches")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4662,7 +4662,7 @@ class OsConfigPatchDeploymentPatchConfigZypper:
     def severities(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Install only patches with these severities. Common severities include critical, important, moderate, and low.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#severities OsConfigPatchDeployment#severities}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#severities OsConfigPatchDeployment#severities}
         '''
         result = self._values.get("severities")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4673,7 +4673,7 @@ class OsConfigPatchDeploymentPatchConfigZypper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Adds the --with-optional flag to zypper patch.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#with_optional OsConfigPatchDeployment#with_optional}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#with_optional OsConfigPatchDeployment#with_optional}
         '''
         result = self._values.get("with_optional")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4684,7 +4684,7 @@ class OsConfigPatchDeploymentPatchConfigZypper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Adds the --with-update flag, to zypper patch.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#with_update OsConfigPatchDeployment#with_update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#with_update OsConfigPatchDeployment#with_update}
         '''
         result = self._values.get("with_update")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4899,12 +4899,12 @@ class OsConfigPatchDeploymentRecurringSchedule:
         weekly: typing.Optional[typing.Union["OsConfigPatchDeploymentRecurringScheduleWeekly", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param time_of_day: time_of_day block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#time_of_day OsConfigPatchDeployment#time_of_day}
-        :param time_zone: time_zone block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#time_zone OsConfigPatchDeployment#time_zone}
-        :param end_time: The end time at which a recurring patch deployment schedule is no longer active. A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#end_time OsConfigPatchDeployment#end_time}
-        :param monthly: monthly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#monthly OsConfigPatchDeployment#monthly}
-        :param start_time: The time that the recurring schedule becomes effective. Defaults to createTime of the patch deployment. A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#start_time OsConfigPatchDeployment#start_time}
-        :param weekly: weekly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#weekly OsConfigPatchDeployment#weekly}
+        :param time_of_day: time_of_day block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#time_of_day OsConfigPatchDeployment#time_of_day}
+        :param time_zone: time_zone block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#time_zone OsConfigPatchDeployment#time_zone}
+        :param end_time: The end time at which a recurring patch deployment schedule is no longer active. A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#end_time OsConfigPatchDeployment#end_time}
+        :param monthly: monthly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#monthly OsConfigPatchDeployment#monthly}
+        :param start_time: The time that the recurring schedule becomes effective. Defaults to createTime of the patch deployment. A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#start_time OsConfigPatchDeployment#start_time}
+        :param weekly: weekly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#weekly OsConfigPatchDeployment#weekly}
         '''
         if isinstance(time_of_day, dict):
             time_of_day = OsConfigPatchDeploymentRecurringScheduleTimeOfDay(**time_of_day)
@@ -4939,7 +4939,7 @@ class OsConfigPatchDeploymentRecurringSchedule:
     def time_of_day(self) -> "OsConfigPatchDeploymentRecurringScheduleTimeOfDay":
         '''time_of_day block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#time_of_day OsConfigPatchDeployment#time_of_day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#time_of_day OsConfigPatchDeployment#time_of_day}
         '''
         result = self._values.get("time_of_day")
         assert result is not None, "Required property 'time_of_day' is missing"
@@ -4949,7 +4949,7 @@ class OsConfigPatchDeploymentRecurringSchedule:
     def time_zone(self) -> "OsConfigPatchDeploymentRecurringScheduleTimeZone":
         '''time_zone block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#time_zone OsConfigPatchDeployment#time_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#time_zone OsConfigPatchDeployment#time_zone}
         '''
         result = self._values.get("time_zone")
         assert result is not None, "Required property 'time_zone' is missing"
@@ -4961,7 +4961,7 @@ class OsConfigPatchDeploymentRecurringSchedule:
 
         A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#end_time OsConfigPatchDeployment#end_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#end_time OsConfigPatchDeployment#end_time}
         '''
         result = self._values.get("end_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4972,7 +4972,7 @@ class OsConfigPatchDeploymentRecurringSchedule:
     ) -> typing.Optional["OsConfigPatchDeploymentRecurringScheduleMonthly"]:
         '''monthly block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#monthly OsConfigPatchDeployment#monthly}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#monthly OsConfigPatchDeployment#monthly}
         '''
         result = self._values.get("monthly")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentRecurringScheduleMonthly"], result)
@@ -4984,7 +4984,7 @@ class OsConfigPatchDeploymentRecurringSchedule:
         Defaults to createTime of the patch deployment.
         A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#start_time OsConfigPatchDeployment#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#start_time OsConfigPatchDeployment#start_time}
         '''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4995,7 +4995,7 @@ class OsConfigPatchDeploymentRecurringSchedule:
     ) -> typing.Optional["OsConfigPatchDeploymentRecurringScheduleWeekly"]:
         '''weekly block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#weekly OsConfigPatchDeployment#weekly}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#weekly OsConfigPatchDeployment#weekly}
         '''
         result = self._values.get("weekly")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentRecurringScheduleWeekly"], result)
@@ -5025,8 +5025,8 @@ class OsConfigPatchDeploymentRecurringScheduleMonthly:
         week_day_of_month: typing.Optional[typing.Union["OsConfigPatchDeploymentRecurringScheduleMonthlyWeekDayOfMonth", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param month_day: One day of the month. 1-31 indicates the 1st to the 31st day. -1 indicates the last day of the month. Months without the target day will be skipped. For example, a schedule to run "every month on the 31st" will not run in February, April, June, etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#month_day OsConfigPatchDeployment#month_day}
-        :param week_day_of_month: week_day_of_month block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#week_day_of_month OsConfigPatchDeployment#week_day_of_month}
+        :param month_day: One day of the month. 1-31 indicates the 1st to the 31st day. -1 indicates the last day of the month. Months without the target day will be skipped. For example, a schedule to run "every month on the 31st" will not run in February, April, June, etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#month_day OsConfigPatchDeployment#month_day}
+        :param week_day_of_month: week_day_of_month block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#week_day_of_month OsConfigPatchDeployment#week_day_of_month}
         '''
         if isinstance(week_day_of_month, dict):
             week_day_of_month = OsConfigPatchDeploymentRecurringScheduleMonthlyWeekDayOfMonth(**week_day_of_month)
@@ -5048,7 +5048,7 @@ class OsConfigPatchDeploymentRecurringScheduleMonthly:
         Months without the target day will be skipped. For example, a schedule to run "every month on the 31st"
         will not run in February, April, June, etc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#month_day OsConfigPatchDeployment#month_day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#month_day OsConfigPatchDeployment#month_day}
         '''
         result = self._values.get("month_day")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5059,7 +5059,7 @@ class OsConfigPatchDeploymentRecurringScheduleMonthly:
     ) -> typing.Optional["OsConfigPatchDeploymentRecurringScheduleMonthlyWeekDayOfMonth"]:
         '''week_day_of_month block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#week_day_of_month OsConfigPatchDeployment#week_day_of_month}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#week_day_of_month OsConfigPatchDeployment#week_day_of_month}
         '''
         result = self._values.get("week_day_of_month")
         return typing.cast(typing.Optional["OsConfigPatchDeploymentRecurringScheduleMonthlyWeekDayOfMonth"], result)
@@ -5105,9 +5105,9 @@ class OsConfigPatchDeploymentRecurringScheduleMonthlyOutputReference(
         day_offset: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param day_of_week: A day of the week. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#day_of_week OsConfigPatchDeployment#day_of_week}
-        :param week_ordinal: Week number in a month. 1-4 indicates the 1st to 4th week of the month. -1 indicates the last week of the month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#week_ordinal OsConfigPatchDeployment#week_ordinal}
-        :param day_offset: Represents the number of days before or after the given week day of month that the patch deployment is scheduled for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#day_offset OsConfigPatchDeployment#day_offset}
+        :param day_of_week: A day of the week. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#day_of_week OsConfigPatchDeployment#day_of_week}
+        :param week_ordinal: Week number in a month. 1-4 indicates the 1st to 4th week of the month. -1 indicates the last week of the month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#week_ordinal OsConfigPatchDeployment#week_ordinal}
+        :param day_offset: Represents the number of days before or after the given week day of month that the patch deployment is scheduled for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#day_offset OsConfigPatchDeployment#day_offset}
         '''
         value = OsConfigPatchDeploymentRecurringScheduleMonthlyWeekDayOfMonth(
             day_of_week=day_of_week, week_ordinal=week_ordinal, day_offset=day_offset
@@ -5190,9 +5190,9 @@ class OsConfigPatchDeploymentRecurringScheduleMonthlyWeekDayOfMonth:
         day_offset: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param day_of_week: A day of the week. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#day_of_week OsConfigPatchDeployment#day_of_week}
-        :param week_ordinal: Week number in a month. 1-4 indicates the 1st to 4th week of the month. -1 indicates the last week of the month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#week_ordinal OsConfigPatchDeployment#week_ordinal}
-        :param day_offset: Represents the number of days before or after the given week day of month that the patch deployment is scheduled for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#day_offset OsConfigPatchDeployment#day_offset}
+        :param day_of_week: A day of the week. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#day_of_week OsConfigPatchDeployment#day_of_week}
+        :param week_ordinal: Week number in a month. 1-4 indicates the 1st to 4th week of the month. -1 indicates the last week of the month. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#week_ordinal OsConfigPatchDeployment#week_ordinal}
+        :param day_offset: Represents the number of days before or after the given week day of month that the patch deployment is scheduled for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#day_offset OsConfigPatchDeployment#day_offset}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c0800e3ff81f9f33896c5fe23d5a04ea8f510c3d954891b13620cf656a73d54d)
@@ -5210,7 +5210,7 @@ class OsConfigPatchDeploymentRecurringScheduleMonthlyWeekDayOfMonth:
     def day_of_week(self) -> builtins.str:
         '''A day of the week. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#day_of_week OsConfigPatchDeployment#day_of_week}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#day_of_week OsConfigPatchDeployment#day_of_week}
         '''
         result = self._values.get("day_of_week")
         assert result is not None, "Required property 'day_of_week' is missing"
@@ -5222,7 +5222,7 @@ class OsConfigPatchDeploymentRecurringScheduleMonthlyWeekDayOfMonth:
 
         1-4 indicates the 1st to 4th week of the month. -1 indicates the last week of the month.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#week_ordinal OsConfigPatchDeployment#week_ordinal}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#week_ordinal OsConfigPatchDeployment#week_ordinal}
         '''
         result = self._values.get("week_ordinal")
         assert result is not None, "Required property 'week_ordinal' is missing"
@@ -5232,7 +5232,7 @@ class OsConfigPatchDeploymentRecurringScheduleMonthlyWeekDayOfMonth:
     def day_offset(self) -> typing.Optional[jsii.Number]:
         '''Represents the number of days before or after the given week day of month that the patch deployment is scheduled for.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#day_offset OsConfigPatchDeployment#day_offset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#day_offset OsConfigPatchDeployment#day_offset}
         '''
         result = self._values.get("day_offset")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5370,8 +5370,8 @@ class OsConfigPatchDeploymentRecurringScheduleOutputReference(
         week_day_of_month: typing.Optional[typing.Union[OsConfigPatchDeploymentRecurringScheduleMonthlyWeekDayOfMonth, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param month_day: One day of the month. 1-31 indicates the 1st to the 31st day. -1 indicates the last day of the month. Months without the target day will be skipped. For example, a schedule to run "every month on the 31st" will not run in February, April, June, etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#month_day OsConfigPatchDeployment#month_day}
-        :param week_day_of_month: week_day_of_month block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#week_day_of_month OsConfigPatchDeployment#week_day_of_month}
+        :param month_day: One day of the month. 1-31 indicates the 1st to the 31st day. -1 indicates the last day of the month. Months without the target day will be skipped. For example, a schedule to run "every month on the 31st" will not run in February, April, June, etc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#month_day OsConfigPatchDeployment#month_day}
+        :param week_day_of_month: week_day_of_month block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#week_day_of_month OsConfigPatchDeployment#week_day_of_month}
         '''
         value = OsConfigPatchDeploymentRecurringScheduleMonthly(
             month_day=month_day, week_day_of_month=week_day_of_month
@@ -5389,10 +5389,10 @@ class OsConfigPatchDeploymentRecurringScheduleOutputReference(
         seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#hours OsConfigPatchDeployment#hours}
-        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#minutes OsConfigPatchDeployment#minutes}
-        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#nanos OsConfigPatchDeployment#nanos}
-        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. An API may allow the value 60 if it allows leap-seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#seconds OsConfigPatchDeployment#seconds}
+        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#hours OsConfigPatchDeployment#hours}
+        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#minutes OsConfigPatchDeployment#minutes}
+        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#nanos OsConfigPatchDeployment#nanos}
+        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. An API may allow the value 60 if it allows leap-seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#seconds OsConfigPatchDeployment#seconds}
         '''
         value = OsConfigPatchDeploymentRecurringScheduleTimeOfDay(
             hours=hours, minutes=minutes, nanos=nanos, seconds=seconds
@@ -5408,8 +5408,8 @@ class OsConfigPatchDeploymentRecurringScheduleOutputReference(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: IANA Time Zone Database time zone, e.g. "America/New_York". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#id OsConfigPatchDeployment#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param version: IANA Time Zone Database version number, e.g. "2019a". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#version OsConfigPatchDeployment#version}
+        :param id: IANA Time Zone Database time zone, e.g. "America/New_York". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#id OsConfigPatchDeployment#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param version: IANA Time Zone Database version number, e.g. "2019a". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#version OsConfigPatchDeployment#version}
         '''
         value = OsConfigPatchDeploymentRecurringScheduleTimeZone(
             id=id, version=version
@@ -5420,7 +5420,7 @@ class OsConfigPatchDeploymentRecurringScheduleOutputReference(
     @jsii.member(jsii_name="putWeekly")
     def put_weekly(self, *, day_of_week: builtins.str) -> None:
         '''
-        :param day_of_week: IANA Time Zone Database time zone, e.g. "America/New_York". Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#day_of_week OsConfigPatchDeployment#day_of_week}
+        :param day_of_week: IANA Time Zone Database time zone, e.g. "America/New_York". Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#day_of_week OsConfigPatchDeployment#day_of_week}
         '''
         value = OsConfigPatchDeploymentRecurringScheduleWeekly(day_of_week=day_of_week)
 
@@ -5576,10 +5576,10 @@ class OsConfigPatchDeploymentRecurringScheduleTimeOfDay:
         seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#hours OsConfigPatchDeployment#hours}
-        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#minutes OsConfigPatchDeployment#minutes}
-        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#nanos OsConfigPatchDeployment#nanos}
-        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. An API may allow the value 60 if it allows leap-seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#seconds OsConfigPatchDeployment#seconds}
+        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#hours OsConfigPatchDeployment#hours}
+        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#minutes OsConfigPatchDeployment#minutes}
+        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#nanos OsConfigPatchDeployment#nanos}
+        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. An API may allow the value 60 if it allows leap-seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#seconds OsConfigPatchDeployment#seconds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1fe7e8e156e8d5c4af56684d3f1bd35b0ee787ce5c6b9529f79b09d8b39976e3)
@@ -5604,7 +5604,7 @@ class OsConfigPatchDeploymentRecurringScheduleTimeOfDay:
         Should be from 0 to 23.
         An API may choose to allow the value "24:00:00" for scenarios like business closing time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#hours OsConfigPatchDeployment#hours}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#hours OsConfigPatchDeployment#hours}
         '''
         result = self._values.get("hours")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5613,7 +5613,7 @@ class OsConfigPatchDeploymentRecurringScheduleTimeOfDay:
     def minutes(self) -> typing.Optional[jsii.Number]:
         '''Minutes of hour of day. Must be from 0 to 59.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#minutes OsConfigPatchDeployment#minutes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#minutes OsConfigPatchDeployment#minutes}
         '''
         result = self._values.get("minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5622,7 +5622,7 @@ class OsConfigPatchDeploymentRecurringScheduleTimeOfDay:
     def nanos(self) -> typing.Optional[jsii.Number]:
         '''Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#nanos OsConfigPatchDeployment#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#nanos OsConfigPatchDeployment#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5633,7 +5633,7 @@ class OsConfigPatchDeploymentRecurringScheduleTimeOfDay:
 
         Must normally be from 0 to 59. An API may allow the value 60 if it allows leap-seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#seconds OsConfigPatchDeployment#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#seconds OsConfigPatchDeployment#seconds}
         '''
         result = self._values.get("seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5785,8 +5785,8 @@ class OsConfigPatchDeploymentRecurringScheduleTimeZone:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: IANA Time Zone Database time zone, e.g. "America/New_York". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#id OsConfigPatchDeployment#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param version: IANA Time Zone Database version number, e.g. "2019a". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#version OsConfigPatchDeployment#version}
+        :param id: IANA Time Zone Database time zone, e.g. "America/New_York". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#id OsConfigPatchDeployment#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param version: IANA Time Zone Database version number, e.g. "2019a". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#version OsConfigPatchDeployment#version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1ce6145a19c78ddc31bca64182264c34fa02ce3a3aa7e8fe1e7165577fb404bd)
@@ -5802,7 +5802,7 @@ class OsConfigPatchDeploymentRecurringScheduleTimeZone:
     def id(self) -> builtins.str:
         '''IANA Time Zone Database time zone, e.g. "America/New_York".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#id OsConfigPatchDeployment#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#id OsConfigPatchDeployment#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -5815,7 +5815,7 @@ class OsConfigPatchDeploymentRecurringScheduleTimeZone:
     def version(self) -> typing.Optional[builtins.str]:
         '''IANA Time Zone Database version number, e.g. "2019a".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#version OsConfigPatchDeployment#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#version OsConfigPatchDeployment#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5916,7 +5916,7 @@ class OsConfigPatchDeploymentRecurringScheduleTimeZoneOutputReference(
 class OsConfigPatchDeploymentRecurringScheduleWeekly:
     def __init__(self, *, day_of_week: builtins.str) -> None:
         '''
-        :param day_of_week: IANA Time Zone Database time zone, e.g. "America/New_York". Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#day_of_week OsConfigPatchDeployment#day_of_week}
+        :param day_of_week: IANA Time Zone Database time zone, e.g. "America/New_York". Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#day_of_week OsConfigPatchDeployment#day_of_week}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b8d486747a9f9b9bf976db94116eb08c6911655101b746e0278a0cdb3700dfb9)
@@ -5929,7 +5929,7 @@ class OsConfigPatchDeploymentRecurringScheduleWeekly:
     def day_of_week(self) -> builtins.str:
         '''IANA Time Zone Database time zone, e.g. "America/New_York". Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#day_of_week OsConfigPatchDeployment#day_of_week}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#day_of_week OsConfigPatchDeployment#day_of_week}
         '''
         result = self._values.get("day_of_week")
         assert result is not None, "Required property 'day_of_week' is missing"
@@ -6015,8 +6015,8 @@ class OsConfigPatchDeploymentRollout:
         mode: builtins.str,
     ) -> None:
         '''
-        :param disruption_budget: disruption_budget block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#disruption_budget OsConfigPatchDeployment#disruption_budget}
-        :param mode: Mode of the patch rollout. Possible values: ["ZONE_BY_ZONE", "CONCURRENT_ZONES"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#mode OsConfigPatchDeployment#mode}
+        :param disruption_budget: disruption_budget block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#disruption_budget OsConfigPatchDeployment#disruption_budget}
+        :param mode: Mode of the patch rollout. Possible values: ["ZONE_BY_ZONE", "CONCURRENT_ZONES"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#mode OsConfigPatchDeployment#mode}
         '''
         if isinstance(disruption_budget, dict):
             disruption_budget = OsConfigPatchDeploymentRolloutDisruptionBudget(**disruption_budget)
@@ -6033,7 +6033,7 @@ class OsConfigPatchDeploymentRollout:
     def disruption_budget(self) -> "OsConfigPatchDeploymentRolloutDisruptionBudget":
         '''disruption_budget block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#disruption_budget OsConfigPatchDeployment#disruption_budget}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#disruption_budget OsConfigPatchDeployment#disruption_budget}
         '''
         result = self._values.get("disruption_budget")
         assert result is not None, "Required property 'disruption_budget' is missing"
@@ -6043,7 +6043,7 @@ class OsConfigPatchDeploymentRollout:
     def mode(self) -> builtins.str:
         '''Mode of the patch rollout. Possible values: ["ZONE_BY_ZONE", "CONCURRENT_ZONES"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#mode OsConfigPatchDeployment#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#mode OsConfigPatchDeployment#mode}
         '''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
@@ -6074,8 +6074,8 @@ class OsConfigPatchDeploymentRolloutDisruptionBudget:
         percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fixed: Specifies a fixed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#fixed OsConfigPatchDeployment#fixed}
-        :param percentage: Specifies the relative value defined as a percentage, which will be multiplied by a reference value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#percentage OsConfigPatchDeployment#percentage}
+        :param fixed: Specifies a fixed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#fixed OsConfigPatchDeployment#fixed}
+        :param percentage: Specifies the relative value defined as a percentage, which will be multiplied by a reference value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#percentage OsConfigPatchDeployment#percentage}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b886dcc4ec44777c744b11e56fb0c3aaa0a169810942fe1c6f6dfd45a580f45)
@@ -6091,7 +6091,7 @@ class OsConfigPatchDeploymentRolloutDisruptionBudget:
     def fixed(self) -> typing.Optional[jsii.Number]:
         '''Specifies a fixed value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#fixed OsConfigPatchDeployment#fixed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#fixed OsConfigPatchDeployment#fixed}
         '''
         result = self._values.get("fixed")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6100,7 +6100,7 @@ class OsConfigPatchDeploymentRolloutDisruptionBudget:
     def percentage(self) -> typing.Optional[jsii.Number]:
         '''Specifies the relative value defined as a percentage, which will be multiplied by a reference value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#percentage OsConfigPatchDeployment#percentage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#percentage OsConfigPatchDeployment#percentage}
         '''
         result = self._values.get("percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6225,8 +6225,8 @@ class OsConfigPatchDeploymentRolloutOutputReference(
         percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fixed: Specifies a fixed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#fixed OsConfigPatchDeployment#fixed}
-        :param percentage: Specifies the relative value defined as a percentage, which will be multiplied by a reference value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#percentage OsConfigPatchDeployment#percentage}
+        :param fixed: Specifies a fixed value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#fixed OsConfigPatchDeployment#fixed}
+        :param percentage: Specifies the relative value defined as a percentage, which will be multiplied by a reference value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#percentage OsConfigPatchDeployment#percentage}
         '''
         value = OsConfigPatchDeploymentRolloutDisruptionBudget(
             fixed=fixed, percentage=percentage
@@ -6294,8 +6294,8 @@ class OsConfigPatchDeploymentTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#create OsConfigPatchDeployment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#delete OsConfigPatchDeployment#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#create OsConfigPatchDeployment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#delete OsConfigPatchDeployment#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d27a2fe66b40fbf92e64f89974a40019c480a0afae2179bdda025dac0e69fd47)
@@ -6309,13 +6309,13 @@ class OsConfigPatchDeploymentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#create OsConfigPatchDeployment#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#create OsConfigPatchDeployment#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/os_config_patch_deployment#delete OsConfigPatchDeployment#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/os_config_patch_deployment#delete OsConfigPatchDeployment#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

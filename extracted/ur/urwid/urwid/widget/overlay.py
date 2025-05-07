@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import typing
 import warnings
+from collections.abc import MutableSequence
 
 from urwid.canvas import CanvasOverlay, CompositeCanvas
 from urwid.split_repr import remove_defaults
@@ -28,7 +29,7 @@ from .padding import calculate_left_right_padding
 from .widget import Widget, WidgetError, WidgetWarning
 
 if typing.TYPE_CHECKING:
-    from collections.abc import Iterator, MutableSequence, Sequence
+    from collections.abc import Iterator, Sequence
 
     from typing_extensions import Literal
 
@@ -582,15 +583,6 @@ class Overlay(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin, ty
         """
         return self.top_w
 
-    def _get_focus(self) -> TopWidget:
-        warnings.warn(
-            f"method `{self.__class__.__name__}._get_focus` is deprecated, "
-            f"please use `{self.__class__.__name__}.focus` property",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        return self.top_w
-
     @property
     def focus_position(self) -> Literal[1]:
         """
@@ -605,30 +597,6 @@ class Overlay(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin, ty
 
         position -- index of child widget to be made focus
         """
-        if position != 1:
-            raise IndexError(f"Overlay widget focus_position currently must always be set to 1, not {position}")
-
-    def _get_focus_position(self) -> int | None:
-        warnings.warn(
-            f"method `{self.__class__.__name__}._get_focus_position` is deprecated, "
-            f"please use `{self.__class__.__name__}.focus_position` property",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        return 1
-
-    def _set_focus_position(self, position: int) -> None:
-        """
-        Set the widget in focus.
-
-        position -- index of child widget to be made focus
-        """
-        warnings.warn(
-            f"method `{self.__class__.__name__}._set_focus_position` is deprecated, "
-            f"please use `{self.__class__.__name__}.focus_position` property",
-            DeprecationWarning,
-            stacklevel=3,
-        )
         if position != 1:
             raise IndexError(f"Overlay widget focus_position currently must always be set to 1, not {position}")
 
@@ -658,14 +626,13 @@ class Overlay(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin, ty
 
         # noinspection PyMethodParameters
         class OverlayContents(
-            typing.MutableSequence[
-                typing.Tuple[
+            MutableSequence[
+                tuple[
                     typing.Union[TopWidget, BottomWidget],
                     OverlayOptions,
                 ]
             ]
         ):
-
             # pylint: disable=no-self-argument
             def __len__(inner_self) -> int:
                 return 2

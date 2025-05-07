@@ -1,7 +1,7 @@
 r'''
 # `google_network_connectivity_internal_range`
 
-Refer to the Terraform Registry for docs: [`google_network_connectivity_internal_range`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range).
+Refer to the Terraform Registry for docs: [`google_network_connectivity_internal_range`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetworkConnectivityInternalRange(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.networkConnectivityInternalRange.NetworkConnectivityInternalRange",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range google_network_connectivity_internal_range}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range google_network_connectivity_internal_range}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class NetworkConnectivityInternalRange(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range google_network_connectivity_internal_range} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range google_network_connectivity_internal_range} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the policy based route. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#name NetworkConnectivityInternalRange#name}
-        :param network: Fully-qualified URL of the network that this route applies to, for example: projects/my-project/global/networks/my-network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#network NetworkConnectivityInternalRange#network}
-        :param peering: The type of peering set for this internal range. Possible values: ["FOR_SELF", "FOR_PEER", "NOT_SHARED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#peering NetworkConnectivityInternalRange#peering}
-        :param usage: The type of usage set for this InternalRange. Possible values: ["FOR_VPC", "EXTERNAL_TO_VPC", "FOR_MIGRATION"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#usage NetworkConnectivityInternalRange#usage}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#description NetworkConnectivityInternalRange#description}
-        :param exclude_cidr_ranges: Optional. List of IP CIDR ranges to be excluded. Resulting reserved Internal Range will not overlap with any CIDR blocks mentioned in this list. Only IPv4 CIDR ranges are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#exclude_cidr_ranges NetworkConnectivityInternalRange#exclude_cidr_ranges}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#id NetworkConnectivityInternalRange#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip_cidr_range: The IP range that this internal range defines. NOTE: IPv6 ranges are limited to usage=EXTERNAL_TO_VPC and peering=FOR_SELF NOTE: For IPv6 Ranges this field is compulsory, i.e. the address range must be specified explicitly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#ip_cidr_range NetworkConnectivityInternalRange#ip_cidr_range}
-        :param labels: User-defined labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#labels NetworkConnectivityInternalRange#labels}
-        :param migration: migration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#migration NetworkConnectivityInternalRange#migration}
-        :param overlaps: Optional. Types of resources that are allowed to overlap with the current internal range. Possible values: ["OVERLAP_ROUTE_RANGE", "OVERLAP_EXISTING_SUBNET_RANGE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#overlaps NetworkConnectivityInternalRange#overlaps}
-        :param prefix_length: An alternate to ipCidrRange. Can be set when trying to create a reservation that automatically finds a free range of the given size. If both ipCidrRange and prefixLength are set, there is an error if the range sizes do not match. Can also be used during updates to change the range size. NOTE: For IPv6 this field only works if ip_cidr_range is set as well, and both fields must match. In other words, with IPv6 this field only works as a redundant parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#prefix_length NetworkConnectivityInternalRange#prefix_length}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#project NetworkConnectivityInternalRange#project}.
-        :param target_cidr_range: Optional. Can be set to narrow down or pick a different address space while searching for a free range. If not set, defaults to the "10.0.0.0/8" address space. This can be used to search in other rfc-1918 address spaces like "172.16.0.0/12" and "192.168.0.0/16" or non-rfc-1918 address spaces used in the VPC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#target_cidr_range NetworkConnectivityInternalRange#target_cidr_range}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#timeouts NetworkConnectivityInternalRange#timeouts}
+        :param name: The name of the policy based route. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#name NetworkConnectivityInternalRange#name}
+        :param network: Fully-qualified URL of the network that this route applies to, for example: projects/my-project/global/networks/my-network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#network NetworkConnectivityInternalRange#network}
+        :param peering: The type of peering set for this internal range. Possible values: ["FOR_SELF", "FOR_PEER", "NOT_SHARED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#peering NetworkConnectivityInternalRange#peering}
+        :param usage: The type of usage set for this InternalRange. Possible values: ["FOR_VPC", "EXTERNAL_TO_VPC", "FOR_MIGRATION"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#usage NetworkConnectivityInternalRange#usage}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#description NetworkConnectivityInternalRange#description}
+        :param exclude_cidr_ranges: Optional. List of IP CIDR ranges to be excluded. Resulting reserved Internal Range will not overlap with any CIDR blocks mentioned in this list. Only IPv4 CIDR ranges are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#exclude_cidr_ranges NetworkConnectivityInternalRange#exclude_cidr_ranges}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#id NetworkConnectivityInternalRange#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip_cidr_range: The IP range that this internal range defines. NOTE: IPv6 ranges are limited to usage=EXTERNAL_TO_VPC and peering=FOR_SELF NOTE: For IPv6 Ranges this field is compulsory, i.e. the address range must be specified explicitly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#ip_cidr_range NetworkConnectivityInternalRange#ip_cidr_range}
+        :param labels: User-defined labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#labels NetworkConnectivityInternalRange#labels}
+        :param migration: migration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#migration NetworkConnectivityInternalRange#migration}
+        :param overlaps: Optional. Types of resources that are allowed to overlap with the current internal range. Possible values: ["OVERLAP_ROUTE_RANGE", "OVERLAP_EXISTING_SUBNET_RANGE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#overlaps NetworkConnectivityInternalRange#overlaps}
+        :param prefix_length: An alternate to ipCidrRange. Can be set when trying to create a reservation that automatically finds a free range of the given size. If both ipCidrRange and prefixLength are set, there is an error if the range sizes do not match. Can also be used during updates to change the range size. NOTE: For IPv6 this field only works if ip_cidr_range is set as well, and both fields must match. In other words, with IPv6 this field only works as a redundant parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#prefix_length NetworkConnectivityInternalRange#prefix_length}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#project NetworkConnectivityInternalRange#project}.
+        :param target_cidr_range: Optional. Can be set to narrow down or pick a different address space while searching for a free range. If not set, defaults to the "10.0.0.0/8" address space. This can be used to search in other rfc-1918 address spaces like "172.16.0.0/12" and "192.168.0.0/16" or non-rfc-1918 address spaces used in the VPC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#target_cidr_range NetworkConnectivityInternalRange#target_cidr_range}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#timeouts NetworkConnectivityInternalRange#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class NetworkConnectivityInternalRange(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetworkConnectivityInternalRange to import.
-        :param import_from_id: The id of the existing NetworkConnectivityInternalRange that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetworkConnectivityInternalRange that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetworkConnectivityInternalRange to import is found.
         '''
         if __debug__:
@@ -159,8 +159,8 @@ class NetworkConnectivityInternalRange(
     @jsii.member(jsii_name="putMigration")
     def put_migration(self, *, source: builtins.str, target: builtins.str) -> None:
         '''
-        :param source: Resource path as an URI of the source resource, for example a subnet. The project for the source resource should match the project for the InternalRange. An example /projects/{project}/regions/{region}/subnetworks/{subnet} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#source NetworkConnectivityInternalRange#source}
-        :param target: Resource path of the target resource. The target project can be different, as in the cases when migrating to peer networks. The resource may not exist yet. For example /projects/{project}/regions/{region}/subnetworks/{subnet} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#target NetworkConnectivityInternalRange#target}
+        :param source: Resource path as an URI of the source resource, for example a subnet. The project for the source resource should match the project for the InternalRange. An example /projects/{project}/regions/{region}/subnetworks/{subnet} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#source NetworkConnectivityInternalRange#source}
+        :param target: Resource path of the target resource. The target project can be different, as in the cases when migrating to peer networks. The resource may not exist yet. For example /projects/{project}/regions/{region}/subnetworks/{subnet} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#target NetworkConnectivityInternalRange#target}
         '''
         value = NetworkConnectivityInternalRangeMigration(source=source, target=target)
 
@@ -175,9 +175,9 @@ class NetworkConnectivityInternalRange(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#create NetworkConnectivityInternalRange#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#delete NetworkConnectivityInternalRange#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#update NetworkConnectivityInternalRange#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#create NetworkConnectivityInternalRange#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#delete NetworkConnectivityInternalRange#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#update NetworkConnectivityInternalRange#update}.
         '''
         value = NetworkConnectivityInternalRangeTimeouts(
             create=create, delete=delete, update=update
@@ -568,21 +568,21 @@ class NetworkConnectivityInternalRangeConfig(_cdktf_9a9027ec.TerraformMetaArgume
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the policy based route. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#name NetworkConnectivityInternalRange#name}
-        :param network: Fully-qualified URL of the network that this route applies to, for example: projects/my-project/global/networks/my-network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#network NetworkConnectivityInternalRange#network}
-        :param peering: The type of peering set for this internal range. Possible values: ["FOR_SELF", "FOR_PEER", "NOT_SHARED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#peering NetworkConnectivityInternalRange#peering}
-        :param usage: The type of usage set for this InternalRange. Possible values: ["FOR_VPC", "EXTERNAL_TO_VPC", "FOR_MIGRATION"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#usage NetworkConnectivityInternalRange#usage}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#description NetworkConnectivityInternalRange#description}
-        :param exclude_cidr_ranges: Optional. List of IP CIDR ranges to be excluded. Resulting reserved Internal Range will not overlap with any CIDR blocks mentioned in this list. Only IPv4 CIDR ranges are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#exclude_cidr_ranges NetworkConnectivityInternalRange#exclude_cidr_ranges}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#id NetworkConnectivityInternalRange#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip_cidr_range: The IP range that this internal range defines. NOTE: IPv6 ranges are limited to usage=EXTERNAL_TO_VPC and peering=FOR_SELF NOTE: For IPv6 Ranges this field is compulsory, i.e. the address range must be specified explicitly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#ip_cidr_range NetworkConnectivityInternalRange#ip_cidr_range}
-        :param labels: User-defined labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#labels NetworkConnectivityInternalRange#labels}
-        :param migration: migration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#migration NetworkConnectivityInternalRange#migration}
-        :param overlaps: Optional. Types of resources that are allowed to overlap with the current internal range. Possible values: ["OVERLAP_ROUTE_RANGE", "OVERLAP_EXISTING_SUBNET_RANGE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#overlaps NetworkConnectivityInternalRange#overlaps}
-        :param prefix_length: An alternate to ipCidrRange. Can be set when trying to create a reservation that automatically finds a free range of the given size. If both ipCidrRange and prefixLength are set, there is an error if the range sizes do not match. Can also be used during updates to change the range size. NOTE: For IPv6 this field only works if ip_cidr_range is set as well, and both fields must match. In other words, with IPv6 this field only works as a redundant parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#prefix_length NetworkConnectivityInternalRange#prefix_length}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#project NetworkConnectivityInternalRange#project}.
-        :param target_cidr_range: Optional. Can be set to narrow down or pick a different address space while searching for a free range. If not set, defaults to the "10.0.0.0/8" address space. This can be used to search in other rfc-1918 address spaces like "172.16.0.0/12" and "192.168.0.0/16" or non-rfc-1918 address spaces used in the VPC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#target_cidr_range NetworkConnectivityInternalRange#target_cidr_range}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#timeouts NetworkConnectivityInternalRange#timeouts}
+        :param name: The name of the policy based route. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#name NetworkConnectivityInternalRange#name}
+        :param network: Fully-qualified URL of the network that this route applies to, for example: projects/my-project/global/networks/my-network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#network NetworkConnectivityInternalRange#network}
+        :param peering: The type of peering set for this internal range. Possible values: ["FOR_SELF", "FOR_PEER", "NOT_SHARED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#peering NetworkConnectivityInternalRange#peering}
+        :param usage: The type of usage set for this InternalRange. Possible values: ["FOR_VPC", "EXTERNAL_TO_VPC", "FOR_MIGRATION"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#usage NetworkConnectivityInternalRange#usage}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#description NetworkConnectivityInternalRange#description}
+        :param exclude_cidr_ranges: Optional. List of IP CIDR ranges to be excluded. Resulting reserved Internal Range will not overlap with any CIDR blocks mentioned in this list. Only IPv4 CIDR ranges are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#exclude_cidr_ranges NetworkConnectivityInternalRange#exclude_cidr_ranges}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#id NetworkConnectivityInternalRange#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip_cidr_range: The IP range that this internal range defines. NOTE: IPv6 ranges are limited to usage=EXTERNAL_TO_VPC and peering=FOR_SELF NOTE: For IPv6 Ranges this field is compulsory, i.e. the address range must be specified explicitly. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#ip_cidr_range NetworkConnectivityInternalRange#ip_cidr_range}
+        :param labels: User-defined labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#labels NetworkConnectivityInternalRange#labels}
+        :param migration: migration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#migration NetworkConnectivityInternalRange#migration}
+        :param overlaps: Optional. Types of resources that are allowed to overlap with the current internal range. Possible values: ["OVERLAP_ROUTE_RANGE", "OVERLAP_EXISTING_SUBNET_RANGE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#overlaps NetworkConnectivityInternalRange#overlaps}
+        :param prefix_length: An alternate to ipCidrRange. Can be set when trying to create a reservation that automatically finds a free range of the given size. If both ipCidrRange and prefixLength are set, there is an error if the range sizes do not match. Can also be used during updates to change the range size. NOTE: For IPv6 this field only works if ip_cidr_range is set as well, and both fields must match. In other words, with IPv6 this field only works as a redundant parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#prefix_length NetworkConnectivityInternalRange#prefix_length}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#project NetworkConnectivityInternalRange#project}.
+        :param target_cidr_range: Optional. Can be set to narrow down or pick a different address space while searching for a free range. If not set, defaults to the "10.0.0.0/8" address space. This can be used to search in other rfc-1918 address spaces like "172.16.0.0/12" and "192.168.0.0/16" or non-rfc-1918 address spaces used in the VPC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#target_cidr_range NetworkConnectivityInternalRange#target_cidr_range}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#timeouts NetworkConnectivityInternalRange#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -725,7 +725,7 @@ class NetworkConnectivityInternalRangeConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def name(self) -> builtins.str:
         '''The name of the policy based route.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#name NetworkConnectivityInternalRange#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#name NetworkConnectivityInternalRange#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -735,7 +735,7 @@ class NetworkConnectivityInternalRangeConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def network(self) -> builtins.str:
         '''Fully-qualified URL of the network that this route applies to, for example: projects/my-project/global/networks/my-network.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#network NetworkConnectivityInternalRange#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#network NetworkConnectivityInternalRange#network}
         '''
         result = self._values.get("network")
         assert result is not None, "Required property 'network' is missing"
@@ -745,7 +745,7 @@ class NetworkConnectivityInternalRangeConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def peering(self) -> builtins.str:
         '''The type of peering set for this internal range. Possible values: ["FOR_SELF", "FOR_PEER", "NOT_SHARED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#peering NetworkConnectivityInternalRange#peering}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#peering NetworkConnectivityInternalRange#peering}
         '''
         result = self._values.get("peering")
         assert result is not None, "Required property 'peering' is missing"
@@ -755,7 +755,7 @@ class NetworkConnectivityInternalRangeConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def usage(self) -> builtins.str:
         '''The type of usage set for this InternalRange. Possible values: ["FOR_VPC", "EXTERNAL_TO_VPC", "FOR_MIGRATION"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#usage NetworkConnectivityInternalRange#usage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#usage NetworkConnectivityInternalRange#usage}
         '''
         result = self._values.get("usage")
         assert result is not None, "Required property 'usage' is missing"
@@ -765,7 +765,7 @@ class NetworkConnectivityInternalRangeConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#description NetworkConnectivityInternalRange#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#description NetworkConnectivityInternalRange#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -777,14 +777,14 @@ class NetworkConnectivityInternalRangeConfig(_cdktf_9a9027ec.TerraformMetaArgume
         List of IP CIDR ranges to be excluded. Resulting reserved Internal Range will not overlap with any CIDR blocks mentioned in this list.
         Only IPv4 CIDR ranges are supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#exclude_cidr_ranges NetworkConnectivityInternalRange#exclude_cidr_ranges}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#exclude_cidr_ranges NetworkConnectivityInternalRange#exclude_cidr_ranges}
         '''
         result = self._values.get("exclude_cidr_ranges")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#id NetworkConnectivityInternalRange#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#id NetworkConnectivityInternalRange#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -799,7 +799,7 @@ class NetworkConnectivityInternalRangeConfig(_cdktf_9a9027ec.TerraformMetaArgume
         NOTE: IPv6 ranges are limited to usage=EXTERNAL_TO_VPC and peering=FOR_SELF
         NOTE: For IPv6 Ranges this field is compulsory, i.e. the address range must be specified explicitly.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#ip_cidr_range NetworkConnectivityInternalRange#ip_cidr_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#ip_cidr_range NetworkConnectivityInternalRange#ip_cidr_range}
         '''
         result = self._values.get("ip_cidr_range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -811,7 +811,7 @@ class NetworkConnectivityInternalRangeConfig(_cdktf_9a9027ec.TerraformMetaArgume
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#labels NetworkConnectivityInternalRange#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#labels NetworkConnectivityInternalRange#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -820,7 +820,7 @@ class NetworkConnectivityInternalRangeConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def migration(self) -> typing.Optional["NetworkConnectivityInternalRangeMigration"]:
         '''migration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#migration NetworkConnectivityInternalRange#migration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#migration NetworkConnectivityInternalRange#migration}
         '''
         result = self._values.get("migration")
         return typing.cast(typing.Optional["NetworkConnectivityInternalRangeMigration"], result)
@@ -829,7 +829,7 @@ class NetworkConnectivityInternalRangeConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def overlaps(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Optional. Types of resources that are allowed to overlap with the current internal range. Possible values: ["OVERLAP_ROUTE_RANGE", "OVERLAP_EXISTING_SUBNET_RANGE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#overlaps NetworkConnectivityInternalRange#overlaps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#overlaps NetworkConnectivityInternalRange#overlaps}
         '''
         result = self._values.get("overlaps")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -843,14 +843,14 @@ class NetworkConnectivityInternalRangeConfig(_cdktf_9a9027ec.TerraformMetaArgume
         NOTE: For IPv6 this field only works if ip_cidr_range is set as well, and both fields must match. In other words, with IPv6 this field only works as
         a redundant parameter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#prefix_length NetworkConnectivityInternalRange#prefix_length}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#prefix_length NetworkConnectivityInternalRange#prefix_length}
         '''
         result = self._values.get("prefix_length")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#project NetworkConnectivityInternalRange#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#project NetworkConnectivityInternalRange#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -861,7 +861,7 @@ class NetworkConnectivityInternalRangeConfig(_cdktf_9a9027ec.TerraformMetaArgume
         Can be set to narrow down or pick a different address space while searching for a free range.
         If not set, defaults to the "10.0.0.0/8" address space. This can be used to search in other rfc-1918 address spaces like "172.16.0.0/12" and "192.168.0.0/16" or non-rfc-1918 address spaces used in the VPC.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#target_cidr_range NetworkConnectivityInternalRange#target_cidr_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#target_cidr_range NetworkConnectivityInternalRange#target_cidr_range}
         '''
         result = self._values.get("target_cidr_range")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -870,7 +870,7 @@ class NetworkConnectivityInternalRangeConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def timeouts(self) -> typing.Optional["NetworkConnectivityInternalRangeTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#timeouts NetworkConnectivityInternalRange#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#timeouts NetworkConnectivityInternalRange#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NetworkConnectivityInternalRangeTimeouts"], result)
@@ -895,8 +895,8 @@ class NetworkConnectivityInternalRangeConfig(_cdktf_9a9027ec.TerraformMetaArgume
 class NetworkConnectivityInternalRangeMigration:
     def __init__(self, *, source: builtins.str, target: builtins.str) -> None:
         '''
-        :param source: Resource path as an URI of the source resource, for example a subnet. The project for the source resource should match the project for the InternalRange. An example /projects/{project}/regions/{region}/subnetworks/{subnet} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#source NetworkConnectivityInternalRange#source}
-        :param target: Resource path of the target resource. The target project can be different, as in the cases when migrating to peer networks. The resource may not exist yet. For example /projects/{project}/regions/{region}/subnetworks/{subnet} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#target NetworkConnectivityInternalRange#target}
+        :param source: Resource path as an URI of the source resource, for example a subnet. The project for the source resource should match the project for the InternalRange. An example /projects/{project}/regions/{region}/subnetworks/{subnet} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#source NetworkConnectivityInternalRange#source}
+        :param target: Resource path of the target resource. The target project can be different, as in the cases when migrating to peer networks. The resource may not exist yet. For example /projects/{project}/regions/{region}/subnetworks/{subnet} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#target NetworkConnectivityInternalRange#target}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f68257f94f5c2f108ca81a550889a9b3e076abea44dfbde2be7aed222afe885)
@@ -915,7 +915,7 @@ class NetworkConnectivityInternalRangeMigration:
         InternalRange.
         An example /projects/{project}/regions/{region}/subnetworks/{subnet}
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#source NetworkConnectivityInternalRange#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#source NetworkConnectivityInternalRange#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -930,7 +930,7 @@ class NetworkConnectivityInternalRangeMigration:
         may not exist yet.
         For example /projects/{project}/regions/{region}/subnetworks/{subnet}
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#target NetworkConnectivityInternalRange#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#target NetworkConnectivityInternalRange#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -1034,9 +1034,9 @@ class NetworkConnectivityInternalRangeTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#create NetworkConnectivityInternalRange#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#delete NetworkConnectivityInternalRange#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#update NetworkConnectivityInternalRange#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#create NetworkConnectivityInternalRange#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#delete NetworkConnectivityInternalRange#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#update NetworkConnectivityInternalRange#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__98a596a05ba25bb034c3d3b4cf3ec04061f647fc119fd31d2e5faf9cbbfa8a1b)
@@ -1053,19 +1053,19 @@ class NetworkConnectivityInternalRangeTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#create NetworkConnectivityInternalRange#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#create NetworkConnectivityInternalRange#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#delete NetworkConnectivityInternalRange#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#delete NetworkConnectivityInternalRange#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_connectivity_internal_range#update NetworkConnectivityInternalRange#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_connectivity_internal_range#update NetworkConnectivityInternalRange#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

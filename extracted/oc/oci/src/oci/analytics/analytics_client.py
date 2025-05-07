@@ -160,7 +160,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/change_analytics_instance_compartment.py.html>`__ to see an example of how to use change_analytics_instance_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/change_analytics_instance_compartment.py.html>`__ to see an example of how to use change_analytics_instance_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['analyticsInstanceId']
@@ -280,7 +280,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/change_analytics_instance_network_endpoint.py.html>`__ to see an example of how to use change_analytics_instance_network_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/change_analytics_instance_network_endpoint.py.html>`__ to see an example of how to use change_analytics_instance_network_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['analyticsInstanceId']
@@ -392,7 +392,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/create_analytics_instance.py.html>`__ to see an example of how to use create_analytics_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/create_analytics_instance.py.html>`__ to see an example of how to use create_analytics_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -495,7 +495,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/create_private_access_channel.py.html>`__ to see an example of how to use create_private_access_channel API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/create_private_access_channel.py.html>`__ to see an example of how to use create_private_access_channel API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['analyticsInstanceId']
@@ -608,7 +608,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/create_vanity_url.py.html>`__ to see an example of how to use create_vanity_url API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/create_vanity_url.py.html>`__ to see an example of how to use create_vanity_url API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['analyticsInstanceId']
@@ -723,7 +723,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/delete_analytics_instance.py.html>`__ to see an example of how to use delete_analytics_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/delete_analytics_instance.py.html>`__ to see an example of how to use delete_analytics_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['analyticsInstanceId']
@@ -840,7 +840,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/delete_private_access_channel.py.html>`__ to see an example of how to use delete_private_access_channel API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/delete_private_access_channel.py.html>`__ to see an example of how to use delete_private_access_channel API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privateAccessChannelKey', 'analyticsInstanceId']
@@ -958,7 +958,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/delete_vanity_url.py.html>`__ to see an example of how to use delete_vanity_url API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/delete_vanity_url.py.html>`__ to see an example of how to use delete_vanity_url API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['analyticsInstanceId', 'vanityUrlKey']
@@ -1066,7 +1066,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/delete_work_request.py.html>`__ to see an example of how to use delete_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/delete_work_request.py.html>`__ to see an example of how to use delete_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1163,7 +1163,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/get_analytics_instance.py.html>`__ to see an example of how to use get_analytics_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/get_analytics_instance.py.html>`__ to see an example of how to use get_analytics_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['analyticsInstanceId']
@@ -1265,7 +1265,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/get_private_access_channel.py.html>`__ to see an example of how to use get_private_access_channel API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/get_private_access_channel.py.html>`__ to see an example of how to use get_private_access_channel API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privateAccessChannelKey', 'analyticsInstanceId']
@@ -1365,7 +1365,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1512,7 +1512,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/list_analytics_instances.py.html>`__ to see an example of how to use list_analytics_instances API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/list_analytics_instances.py.html>`__ to see an example of how to use list_analytics_instances API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1673,7 +1673,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1798,7 +1798,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1946,7 +1946,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2099,7 +2099,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/scale_analytics_instance.py.html>`__ to see an example of how to use scale_analytics_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/scale_analytics_instance.py.html>`__ to see an example of how to use scale_analytics_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['analyticsInstanceId']
@@ -2218,7 +2218,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/set_feature_bundle.py.html>`__ to see an example of how to use set_feature_bundle API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/set_feature_bundle.py.html>`__ to see an example of how to use set_feature_bundle API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['analyticsInstanceId']
@@ -2337,7 +2337,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/set_kms_key.py.html>`__ to see an example of how to use set_kms_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/set_kms_key.py.html>`__ to see an example of how to use set_kms_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['analyticsInstanceId']
@@ -2454,7 +2454,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/start_analytics_instance.py.html>`__ to see an example of how to use start_analytics_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/start_analytics_instance.py.html>`__ to see an example of how to use start_analytics_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['analyticsInstanceId']
@@ -2569,7 +2569,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/stop_analytics_instance.py.html>`__ to see an example of how to use stop_analytics_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/stop_analytics_instance.py.html>`__ to see an example of how to use stop_analytics_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['analyticsInstanceId']
@@ -2681,7 +2681,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/update_analytics_instance.py.html>`__ to see an example of how to use update_analytics_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/update_analytics_instance.py.html>`__ to see an example of how to use update_analytics_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['analyticsInstanceId']
@@ -2800,7 +2800,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/update_private_access_channel.py.html>`__ to see an example of how to use update_private_access_channel API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/update_private_access_channel.py.html>`__ to see an example of how to use update_private_access_channel API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privateAccessChannelKey', 'analyticsInstanceId']
@@ -2923,7 +2923,7 @@ class AnalyticsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/analytics/update_vanity_url.py.html>`__ to see an example of how to use update_vanity_url API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/analytics/update_vanity_url.py.html>`__ to see an example of how to use update_vanity_url API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['analyticsInstanceId', 'vanityUrlKey']

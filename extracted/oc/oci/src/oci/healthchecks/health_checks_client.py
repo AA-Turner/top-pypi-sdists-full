@@ -164,7 +164,7 @@ class HealthChecksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/healthchecks/change_http_monitor_compartment.py.html>`__ to see an example of how to use change_http_monitor_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/healthchecks/change_http_monitor_compartment.py.html>`__ to see an example of how to use change_http_monitor_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitorId']
@@ -284,7 +284,7 @@ class HealthChecksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/healthchecks/change_ping_monitor_compartment.py.html>`__ to see an example of how to use change_ping_monitor_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/healthchecks/change_ping_monitor_compartment.py.html>`__ to see an example of how to use change_ping_monitor_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitorId']
@@ -396,7 +396,7 @@ class HealthChecksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/healthchecks/create_http_monitor.py.html>`__ to see an example of how to use create_http_monitor API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/healthchecks/create_http_monitor.py.html>`__ to see an example of how to use create_http_monitor API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -489,7 +489,7 @@ class HealthChecksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/healthchecks/create_on_demand_http_probe.py.html>`__ to see an example of how to use create_on_demand_http_probe API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/healthchecks/create_on_demand_http_probe.py.html>`__ to see an example of how to use create_on_demand_http_probe API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -579,7 +579,7 @@ class HealthChecksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/healthchecks/create_on_demand_ping_probe.py.html>`__ to see an example of how to use create_on_demand_ping_probe API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/healthchecks/create_on_demand_ping_probe.py.html>`__ to see an example of how to use create_on_demand_ping_probe API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -676,7 +676,7 @@ class HealthChecksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/healthchecks/create_ping_monitor.py.html>`__ to see an example of how to use create_ping_monitor API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/healthchecks/create_ping_monitor.py.html>`__ to see an example of how to use create_ping_monitor API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -773,7 +773,7 @@ class HealthChecksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/healthchecks/delete_http_monitor.py.html>`__ to see an example of how to use delete_http_monitor API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/healthchecks/delete_http_monitor.py.html>`__ to see an example of how to use delete_http_monitor API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitorId']
@@ -877,7 +877,7 @@ class HealthChecksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/healthchecks/delete_ping_monitor.py.html>`__ to see an example of how to use delete_ping_monitor API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/healthchecks/delete_ping_monitor.py.html>`__ to see an example of how to use delete_ping_monitor API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitorId']
@@ -980,7 +980,7 @@ class HealthChecksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/healthchecks/get_http_monitor.py.html>`__ to see an example of how to use get_http_monitor API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/healthchecks/get_http_monitor.py.html>`__ to see an example of how to use get_http_monitor API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitorId']
@@ -1085,7 +1085,7 @@ class HealthChecksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/healthchecks/get_ping_monitor.py.html>`__ to see an example of how to use get_ping_monitor API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/healthchecks/get_ping_monitor.py.html>`__ to see an example of how to use get_ping_monitor API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitorId']
@@ -1204,7 +1204,7 @@ class HealthChecksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/healthchecks/list_health_checks_vantage_points.py.html>`__ to see an example of how to use list_health_checks_vantage_points API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/healthchecks/list_health_checks_vantage_points.py.html>`__ to see an example of how to use list_health_checks_vantage_points API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1344,7 +1344,7 @@ class HealthChecksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/healthchecks/list_http_monitors.py.html>`__ to see an example of how to use list_http_monitors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/healthchecks/list_http_monitors.py.html>`__ to see an example of how to use list_http_monitors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1485,7 +1485,7 @@ class HealthChecksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/healthchecks/list_http_probe_results.py.html>`__ to see an example of how to use list_http_probe_results API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/healthchecks/list_http_probe_results.py.html>`__ to see an example of how to use list_http_probe_results API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['probeConfigurationId']
@@ -1633,7 +1633,7 @@ class HealthChecksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/healthchecks/list_ping_monitors.py.html>`__ to see an example of how to use list_ping_monitors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/healthchecks/list_ping_monitors.py.html>`__ to see an example of how to use list_ping_monitors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1778,7 +1778,7 @@ class HealthChecksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/healthchecks/list_ping_probe_results.py.html>`__ to see an example of how to use list_ping_probe_results API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/healthchecks/list_ping_probe_results.py.html>`__ to see an example of how to use list_ping_probe_results API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['probeConfigurationId']
@@ -1911,7 +1911,7 @@ class HealthChecksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/healthchecks/update_http_monitor.py.html>`__ to see an example of how to use update_http_monitor API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/healthchecks/update_http_monitor.py.html>`__ to see an example of how to use update_http_monitor API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitorId']
@@ -2023,7 +2023,7 @@ class HealthChecksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/healthchecks/update_ping_monitor.py.html>`__ to see an example of how to use update_ping_monitor API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/healthchecks/update_ping_monitor.py.html>`__ to see an example of how to use update_ping_monitor API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitorId']

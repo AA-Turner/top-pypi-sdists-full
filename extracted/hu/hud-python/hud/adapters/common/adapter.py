@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 import numpy as np
 from PIL import Image
@@ -11,7 +11,7 @@ from .types import CLA
 if TYPE_CHECKING:
     from typing_extensions import TypeIs
 
-ImageType = np.ndarray[Any, Any] | Image.Image | str | None
+ImageType: TypeAlias = np.ndarray[Any, Any] | Image.Image | str | None
 
 
 def _is_numpy_array(observation: Any) -> TypeIs[np.ndarray]:
@@ -164,5 +164,5 @@ class Adapter:
     def adapt_list(self, actions: list[Any]) -> list[CLA]:
         if not isinstance(actions, list):
             raise ValueError("Please provide a list of actions")
-        
+
         return [self.adapt(action) for action in actions]

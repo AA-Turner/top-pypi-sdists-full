@@ -41,7 +41,7 @@ WrappedWidget = typing.TypeVar("WrappedWidget")
 LOGGER = logging.getLogger(__name__)
 
 
-class WidgetMeta(MetaSuper, signals.MetaSignals):
+class WidgetMeta(signals.MetaSignals, MetaSuper):
     """
     Bases: :class:`MetaSuper`, :class:`MetaSignals`
 
@@ -105,8 +105,8 @@ def cache_widget_render(cls):
     @functools.wraps(fn)
     def cached_render(self, size, focus=False):
         focus = focus and not ignore_focus
-        canv = CanvasCache.fetch(self, cls, size, focus)
-        if canv:
+
+        if canv := CanvasCache.fetch(self, cls, size, focus):
             return canv
 
         canv = fn(self, size, focus=focus)
@@ -174,8 +174,8 @@ def cache_widget_rows(cls):
     @functools.wraps(fn)
     def cached_rows(self, size: tuple[int], focus: bool = False) -> int:
         focus = focus and not ignore_focus
-        canv = CanvasCache.fetch(self, cls, size, focus)
-        if canv:
+
+        if canv := CanvasCache.fetch(self, cls, size, focus):
             return canv.rows()
 
         return fn(self, size, focus)
@@ -565,131 +565,14 @@ class Widget(metaclass=WidgetMeta):
         raise NotImplementedError
 
 
-class FlowWidget(Widget):
-    """
-    Deprecated.  Inherit from Widget and add:
-
-        _sizing = frozenset(['flow'])
-
-    at the top of your class definition instead.
-
-    Base class of widgets that determine their rows from the number of
-    columns available.
-    """
-
-    _sizing = frozenset([Sizing.FLOW])
-
-    def __init__(self, *args, **kwargs):
-        warnings.warn(
-            """
-            FlowWidget is deprecated. Inherit from Widget and add:
-
-                _sizing = frozenset(['flow'])
-
-            at the top of your class definition instead.""",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        super().__init__()
-
-    def rows(self, size: tuple[int], focus: bool = False) -> int:
-        """
-        All flow widgets must implement this function.
-        """
-        raise NotImplementedError()
-
-    def render(self, size: tuple[int], focus: bool = False) -> Canvas:  # type: ignore[override]
-        """
-        All widgets must implement this function.
-        """
-        raise NotImplementedError()
-
-
-class BoxWidget(Widget):
-    """
-    Deprecated.  Inherit from Widget and add:
-
-        _sizing = frozenset(['box'])
-        _selectable = True
-
-    at the top of your class definition instead.
-
-    Base class of width and height constrained widgets such as
-    the top level widget attached to the display object
-    """
-
-    _selectable = True
-    _sizing = frozenset([Sizing.BOX])
-
-    def __init__(self, *args, **kwargs):
-        warnings.warn(
-            """
-            BoxWidget is deprecated. Inherit from Widget and add:
-
-                _sizing = frozenset(['box'])
-                _selectable = True
-
-            at the top of your class definition instead.""",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        super().__init__()
-
-    def render(self, size: tuple[int, int], focus: bool = False) -> Canvas:  # type: ignore[override]
-        """
-        All widgets must implement this function.
-        """
-        raise NotImplementedError()
-
-
 def fixed_size(size: tuple[()]) -> None:
     """
     raise ValueError if size != ().
 
     Used by FixedWidgets to test size parameter.
     """
-    if size != ():
+    if size:
         raise ValueError(f"FixedWidget takes only () for size.passed: {size!r}")
-
-
-class FixedWidget(Widget):
-    """
-    Deprecated.  Inherit from Widget and add:
-
-        _sizing = frozenset(['fixed'])
-
-    at the top of your class definition instead.
-
-    Base class of widgets that know their width and height and
-    cannot be resized
-    """
-
-    _sizing = frozenset([Sizing.FIXED])
-
-    def __init__(self, *args, **kwargs):
-        warnings.warn(
-            """
-            FixedWidget is deprecated. Inherit from Widget and add:
-
-                _sizing = frozenset(['fixed'])
-
-            at the top of your class definition instead.""",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        super().__init__()
-
-    def render(self, size: tuple[()], focus: bool = False) -> Canvas:  # type: ignore[override]
-        """
-        All widgets must implement this function.
-        """
-        raise NotImplementedError()
-
-    def pack(self, size: tuple[()] = (), focus: bool = False) -> tuple[int, int]:  # type: ignore[override]
-        """
-        All fixed widgets must implement this function.
-        """
-        raise NotImplementedError()
 
 
 def delegate_to_widget_mixin(attribute_name: str) -> type[Widget]:
@@ -827,7 +710,7 @@ class WidgetWrap(delegate_to_widget_mixin("_wrapped_widget"), typing.Generic[Wra
         False
         """
         warnings.warn(
-            "_set_w is deprecated. Please use 'WidgetWrap._w' property directly",
+            "_set_w is deprecated. Please use 'WidgetWrap._w' property directly. API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
         )

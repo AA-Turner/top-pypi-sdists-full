@@ -1,7 +1,7 @@
 r'''
 # `google_kms_ekm_connection_iam_member`
 
-Refer to the Terraform Registry for docs: [`google_kms_ekm_connection_iam_member`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member).
+Refer to the Terraform Registry for docs: [`google_kms_ekm_connection_iam_member`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class KmsEkmConnectionIamMember(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.kmsEkmConnectionIamMember.KmsEkmConnectionIamMember",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member google_kms_ekm_connection_iam_member}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member google_kms_ekm_connection_iam_member}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class KmsEkmConnectionIamMember(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member google_kms_ekm_connection_iam_member} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member google_kms_ekm_connection_iam_member} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#member KmsEkmConnectionIamMember#member}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#name KmsEkmConnectionIamMember#name}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#role KmsEkmConnectionIamMember#role}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#condition KmsEkmConnectionIamMember#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#id KmsEkmConnectionIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#location KmsEkmConnectionIamMember#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#project KmsEkmConnectionIamMember#project}.
+        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#member KmsEkmConnectionIamMember#member}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#name KmsEkmConnectionIamMember#name}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#role KmsEkmConnectionIamMember#role}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#condition KmsEkmConnectionIamMember#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#id KmsEkmConnectionIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#location KmsEkmConnectionIamMember#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#project KmsEkmConnectionIamMember#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class KmsEkmConnectionIamMember(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the KmsEkmConnectionIamMember to import.
-        :param import_from_id: The id of the existing KmsEkmConnectionIamMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing KmsEkmConnectionIamMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the KmsEkmConnectionIamMember to import is found.
         '''
         if __debug__:
@@ -141,9 +141,9 @@ class KmsEkmConnectionIamMember(
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#expression KmsEkmConnectionIamMember#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#title KmsEkmConnectionIamMember#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#description KmsEkmConnectionIamMember#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#expression KmsEkmConnectionIamMember#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#title KmsEkmConnectionIamMember#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#description KmsEkmConnectionIamMember#description}.
         '''
         value = KmsEkmConnectionIamMemberCondition(
             expression=expression, title=title, description=description
@@ -316,9 +316,9 @@ class KmsEkmConnectionIamMemberCondition:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#expression KmsEkmConnectionIamMember#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#title KmsEkmConnectionIamMember#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#description KmsEkmConnectionIamMember#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#expression KmsEkmConnectionIamMember#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#title KmsEkmConnectionIamMember#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#description KmsEkmConnectionIamMember#description}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dba4f4d843c3d1198c49f0241cc41cd2f90aec259de300f95d998c88a1b33676)
@@ -334,21 +334,21 @@ class KmsEkmConnectionIamMemberCondition:
 
     @builtins.property
     def expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#expression KmsEkmConnectionIamMember#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#expression KmsEkmConnectionIamMember#expression}.'''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#title KmsEkmConnectionIamMember#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#title KmsEkmConnectionIamMember#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#description KmsEkmConnectionIamMember#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#description KmsEkmConnectionIamMember#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -502,13 +502,13 @@ class KmsEkmConnectionIamMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#member KmsEkmConnectionIamMember#member}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#name KmsEkmConnectionIamMember#name}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#role KmsEkmConnectionIamMember#role}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#condition KmsEkmConnectionIamMember#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#id KmsEkmConnectionIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#location KmsEkmConnectionIamMember#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#project KmsEkmConnectionIamMember#project}.
+        :param member: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#member KmsEkmConnectionIamMember#member}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#name KmsEkmConnectionIamMember#name}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#role KmsEkmConnectionIamMember#role}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#condition KmsEkmConnectionIamMember#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#id KmsEkmConnectionIamMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#location KmsEkmConnectionIamMember#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#project KmsEkmConnectionIamMember#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -624,21 +624,21 @@ class KmsEkmConnectionIamMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def member(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#member KmsEkmConnectionIamMember#member}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#member KmsEkmConnectionIamMember#member}.'''
         result = self._values.get("member")
         assert result is not None, "Required property 'member' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#name KmsEkmConnectionIamMember#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#name KmsEkmConnectionIamMember#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#role KmsEkmConnectionIamMember#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#role KmsEkmConnectionIamMember#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
@@ -647,14 +647,14 @@ class KmsEkmConnectionIamMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def condition(self) -> typing.Optional[KmsEkmConnectionIamMemberCondition]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#condition KmsEkmConnectionIamMember#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#condition KmsEkmConnectionIamMember#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[KmsEkmConnectionIamMemberCondition], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#id KmsEkmConnectionIamMember#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#id KmsEkmConnectionIamMember#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -664,13 +664,13 @@ class KmsEkmConnectionIamMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#location KmsEkmConnectionIamMember#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#location KmsEkmConnectionIamMember#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection_iam_member#project KmsEkmConnectionIamMember#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection_iam_member#project KmsEkmConnectionIamMember#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

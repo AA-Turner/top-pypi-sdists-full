@@ -1,7 +1,7 @@
 r'''
 # `data_google_notebooks_runtime_iam_policy`
 
-Refer to the Terraform Registry for docs: [`data_google_notebooks_runtime_iam_policy`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/notebooks_runtime_iam_policy).
+Refer to the Terraform Registry for docs: [`data_google_notebooks_runtime_iam_policy`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/notebooks_runtime_iam_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleNotebooksRuntimeIamPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleNotebooksRuntimeIamPolicy.DataGoogleNotebooksRuntimeIamPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/notebooks_runtime_iam_policy google_notebooks_runtime_iam_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/notebooks_runtime_iam_policy google_notebooks_runtime_iam_policy}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataGoogleNotebooksRuntimeIamPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/notebooks_runtime_iam_policy google_notebooks_runtime_iam_policy} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/notebooks_runtime_iam_policy google_notebooks_runtime_iam_policy} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param runtime_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/notebooks_runtime_iam_policy#runtime_name DataGoogleNotebooksRuntimeIamPolicy#runtime_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/notebooks_runtime_iam_policy#id DataGoogleNotebooksRuntimeIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/notebooks_runtime_iam_policy#location DataGoogleNotebooksRuntimeIamPolicy#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/notebooks_runtime_iam_policy#project DataGoogleNotebooksRuntimeIamPolicy#project}.
+        :param runtime_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/notebooks_runtime_iam_policy#runtime_name DataGoogleNotebooksRuntimeIamPolicy#runtime_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/notebooks_runtime_iam_policy#id DataGoogleNotebooksRuntimeIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/notebooks_runtime_iam_policy#location DataGoogleNotebooksRuntimeIamPolicy#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/notebooks_runtime_iam_policy#project DataGoogleNotebooksRuntimeIamPolicy#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataGoogleNotebooksRuntimeIamPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleNotebooksRuntimeIamPolicy to import.
-        :param import_from_id: The id of the existing DataGoogleNotebooksRuntimeIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/notebooks_runtime_iam_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleNotebooksRuntimeIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/notebooks_runtime_iam_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleNotebooksRuntimeIamPolicy to import is found.
         '''
         if __debug__:
@@ -268,10 +268,10 @@ class DataGoogleNotebooksRuntimeIamPolicyConfig(_cdktf_9a9027ec.TerraformMetaArg
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param runtime_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/notebooks_runtime_iam_policy#runtime_name DataGoogleNotebooksRuntimeIamPolicy#runtime_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/notebooks_runtime_iam_policy#id DataGoogleNotebooksRuntimeIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/notebooks_runtime_iam_policy#location DataGoogleNotebooksRuntimeIamPolicy#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/notebooks_runtime_iam_policy#project DataGoogleNotebooksRuntimeIamPolicy#project}.
+        :param runtime_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/notebooks_runtime_iam_policy#runtime_name DataGoogleNotebooksRuntimeIamPolicy#runtime_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/notebooks_runtime_iam_policy#id DataGoogleNotebooksRuntimeIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/notebooks_runtime_iam_policy#location DataGoogleNotebooksRuntimeIamPolicy#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/notebooks_runtime_iam_policy#project DataGoogleNotebooksRuntimeIamPolicy#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -378,14 +378,14 @@ class DataGoogleNotebooksRuntimeIamPolicyConfig(_cdktf_9a9027ec.TerraformMetaArg
 
     @builtins.property
     def runtime_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/notebooks_runtime_iam_policy#runtime_name DataGoogleNotebooksRuntimeIamPolicy#runtime_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/notebooks_runtime_iam_policy#runtime_name DataGoogleNotebooksRuntimeIamPolicy#runtime_name}.'''
         result = self._values.get("runtime_name")
         assert result is not None, "Required property 'runtime_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/notebooks_runtime_iam_policy#id DataGoogleNotebooksRuntimeIamPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/notebooks_runtime_iam_policy#id DataGoogleNotebooksRuntimeIamPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -395,13 +395,13 @@ class DataGoogleNotebooksRuntimeIamPolicyConfig(_cdktf_9a9027ec.TerraformMetaArg
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/notebooks_runtime_iam_policy#location DataGoogleNotebooksRuntimeIamPolicy#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/notebooks_runtime_iam_policy#location DataGoogleNotebooksRuntimeIamPolicy#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/notebooks_runtime_iam_policy#project DataGoogleNotebooksRuntimeIamPolicy#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/notebooks_runtime_iam_policy#project DataGoogleNotebooksRuntimeIamPolicy#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,4 +1,4 @@
-from typing import Optional, Callable
+from typing import Optional, Callable, List, Dict
 from pydantic import BaseModel
 
 from v2.nacos.common.constants import Constants
@@ -10,7 +10,7 @@ class RegisterInstanceParam(BaseModel):
     weight: float = 1.0
     enabled: bool = True
     healthy: bool = True
-    metadata: dict[str, str] = {}
+    metadata: Dict[str, str] = {}
     cluster_name: str = ''
     service_name: str
     group_name: str = Constants.DEFAULT_GROUP
@@ -20,7 +20,7 @@ class RegisterInstanceParam(BaseModel):
 class BatchRegisterInstanceParam(BaseModel):
     service_name: str
     group_name: str = Constants.DEFAULT_GROUP
-    instances: list[RegisterInstanceParam] = []
+    instances: List[RegisterInstanceParam] = []
 
 
 class DeregisterInstanceParam(BaseModel):
@@ -35,7 +35,7 @@ class DeregisterInstanceParam(BaseModel):
 class ListInstanceParam(BaseModel):
     service_name: str
     group_name: str = Constants.DEFAULT_GROUP
-    clusters: list[str] = []
+    clusters: List[str] = []
     subscribe: bool = True
     healthy_only: Optional[bool]
 
@@ -43,14 +43,14 @@ class ListInstanceParam(BaseModel):
 class SubscribeServiceParam(BaseModel):
     service_name: str
     group_name: str = Constants.DEFAULT_GROUP
-    clusters: list[str] = []
+    clusters: List[str] = []
     subscribe_callback: Optional[Callable] = None
 
 
 class GetServiceParam(BaseModel):
     service_name: str
     group_name: str = Constants.DEFAULT_GROUP
-    clusters: list[str] = []
+    clusters: List[str] = []
 
 
 class ListServiceParam(BaseModel):

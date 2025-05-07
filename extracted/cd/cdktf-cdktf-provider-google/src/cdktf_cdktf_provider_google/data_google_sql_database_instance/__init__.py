@@ -1,7 +1,7 @@
 r'''
 # `data_google_sql_database_instance`
 
-Refer to the Terraform Registry for docs: [`data_google_sql_database_instance`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/sql_database_instance).
+Refer to the Terraform Registry for docs: [`data_google_sql_database_instance`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/sql_database_instance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleSqlDatabaseInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleSqlDatabaseInstance.DataGoogleSqlDatabaseInstance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/sql_database_instance google_sql_database_instance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/sql_database_instance google_sql_database_instance}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataGoogleSqlDatabaseInstance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/sql_database_instance google_sql_database_instance} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/sql_database_instance google_sql_database_instance} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the instance. If the name is left blank, Terraform will randomly generate one when the instance is first created. This is done because after a name is used, it cannot be reused for up to one week. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/sql_database_instance#name DataGoogleSqlDatabaseInstance#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/sql_database_instance#id DataGoogleSqlDatabaseInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/sql_database_instance#project DataGoogleSqlDatabaseInstance#project}
+        :param name: The name of the instance. If the name is left blank, Terraform will randomly generate one when the instance is first created. This is done because after a name is used, it cannot be reused for up to one week. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/sql_database_instance#name DataGoogleSqlDatabaseInstance#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/sql_database_instance#id DataGoogleSqlDatabaseInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/sql_database_instance#project DataGoogleSqlDatabaseInstance#project}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataGoogleSqlDatabaseInstance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleSqlDatabaseInstance to import.
-        :param import_from_id: The id of the existing DataGoogleSqlDatabaseInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/sql_database_instance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleSqlDatabaseInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/sql_database_instance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleSqlDatabaseInstance to import is found.
         '''
         if __debug__:
@@ -532,9 +532,9 @@ class DataGoogleSqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the instance. If the name is left blank, Terraform will randomly generate one when the instance is first created. This is done because after a name is used, it cannot be reused for up to one week. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/sql_database_instance#name DataGoogleSqlDatabaseInstance#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/sql_database_instance#id DataGoogleSqlDatabaseInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/sql_database_instance#project DataGoogleSqlDatabaseInstance#project}
+        :param name: The name of the instance. If the name is left blank, Terraform will randomly generate one when the instance is first created. This is done because after a name is used, it cannot be reused for up to one week. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/sql_database_instance#name DataGoogleSqlDatabaseInstance#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/sql_database_instance#id DataGoogleSqlDatabaseInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/sql_database_instance#project DataGoogleSqlDatabaseInstance#project}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -642,7 +642,7 @@ class DataGoogleSqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
         If the name is left blank, Terraform will randomly generate one when the instance is first created. This is done because after a name is used, it cannot be reused for up to one week.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/sql_database_instance#name DataGoogleSqlDatabaseInstance#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/sql_database_instance#name DataGoogleSqlDatabaseInstance#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -650,7 +650,7 @@ class DataGoogleSqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/sql_database_instance#id DataGoogleSqlDatabaseInstance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/sql_database_instance#id DataGoogleSqlDatabaseInstance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -664,7 +664,7 @@ class DataGoogleSqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
         If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/sql_database_instance#project DataGoogleSqlDatabaseInstance#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/sql_database_instance#project DataGoogleSqlDatabaseInstance#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2301,6 +2301,310 @@ class DataGoogleSqlDatabaseInstanceSettingsBackupConfigurationOutputReference(
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2430d53d8f0bf85edff72c58f85b277ce1d2ba904652fe55a7eb88da8ec6b408)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.dataGoogleSqlDatabaseInstance.DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfig",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfig:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.dataGoogleSqlDatabaseInstance.DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigFlags",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigFlags:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigFlags(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigFlagsList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleSqlDatabaseInstance.DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigFlagsList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cbf1e15cfe97c58da3c2ddb9ee64442a30ba5419f12272487be114e1eb93f489)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigFlagsOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d590e8000f5ece80cad5086ddbe13eca590678516560b6f94353f055a1ef0f4c)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigFlagsOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d2461b6315414c61d2c383ced90895707c646bb97997506735ede20b10c88dae)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e6590775662d75ca513c6c73ae1960aeb41428ba969474e37763c54cee56ead3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8338b7d699d5666814c2ff174e34c20cef4a7718bfc26d36e9e7c3c20147a266)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigFlagsOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleSqlDatabaseInstance.DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigFlagsOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__68650a167cb6c1527b4721886d5f6a14e67e086d55ced0aff941426d5d6149cf)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigFlags]:
+        return typing.cast(typing.Optional[DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigFlags], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigFlags],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eeb5df3653d32e8d30f66218380c12fca78a075055a62a6a26f46917216f1770)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleSqlDatabaseInstance.DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__caf8932f8232f375835851e01d9d135a34337a46b84661098f11952411447817)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__226bc32116abd6f7eafb37c4bfd3618d2bebc84963896adccc2bea37a5a00727)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e69f5089c706013a2eaf26862ecb5dfe392cb688debc0f9375082e95cb1c086a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d6762c740af19b5aaf806954ade3d7dad1011ffa4f6b23a037becfabbd2293a6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__309204caf154f29298658b3e5319429a7c3b1e569ad2791ee68231181cbaf4f2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleSqlDatabaseInstance.DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__080a4059c131a45fe415751bfe8ccbbde3389ee5238ad92fbb532711d066d8ed)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionPoolingEnabled")
+    def connection_pooling_enabled(self) -> _cdktf_9a9027ec.IResolvable:
+        return typing.cast(_cdktf_9a9027ec.IResolvable, jsii.get(self, "connectionPoolingEnabled"))
+
+    @builtins.property
+    @jsii.member(jsii_name="flags")
+    def flags(
+        self,
+    ) -> DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigFlagsList:
+        return typing.cast(DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigFlagsList, jsii.get(self, "flags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfig]:
+        return typing.cast(typing.Optional[DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfig], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfig],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__70baacd20fc0589c60f3d8cbcacdd099bcee7543e2595e0c762890c0a74125d0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
@@ -4037,6 +4341,13 @@ class DataGoogleSqlDatabaseInstanceSettingsOutputReference(
         return typing.cast(builtins.str, jsii.get(self, "collation"))
 
     @builtins.property
+    @jsii.member(jsii_name="connectionPoolConfig")
+    def connection_pool_config(
+        self,
+    ) -> DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigList:
+        return typing.cast(DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigList, jsii.get(self, "connectionPoolConfig"))
+
+    @builtins.property
     @jsii.member(jsii_name="connectorEnforcement")
     def connector_enforcement(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "connectorEnforcement"))
@@ -4552,6 +4863,12 @@ __all__ = [
     "DataGoogleSqlDatabaseInstanceSettingsBackupConfigurationBackupRetentionSettingsOutputReference",
     "DataGoogleSqlDatabaseInstanceSettingsBackupConfigurationList",
     "DataGoogleSqlDatabaseInstanceSettingsBackupConfigurationOutputReference",
+    "DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfig",
+    "DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigFlags",
+    "DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigFlagsList",
+    "DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigFlagsOutputReference",
+    "DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigList",
+    "DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigOutputReference",
     "DataGoogleSqlDatabaseInstanceSettingsDataCacheConfig",
     "DataGoogleSqlDatabaseInstanceSettingsDataCacheConfigList",
     "DataGoogleSqlDatabaseInstanceSettingsDataCacheConfigOutputReference",
@@ -5168,6 +5485,100 @@ def _typecheckingstub__699840260b06a2e35f982da6cea2514ed2b4101e62c4a4cc2134d5b74
 
 def _typecheckingstub__2430d53d8f0bf85edff72c58f85b277ce1d2ba904652fe55a7eb88da8ec6b408(
     value: typing.Optional[DataGoogleSqlDatabaseInstanceSettingsBackupConfiguration],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cbf1e15cfe97c58da3c2ddb9ee64442a30ba5419f12272487be114e1eb93f489(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d590e8000f5ece80cad5086ddbe13eca590678516560b6f94353f055a1ef0f4c(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d2461b6315414c61d2c383ced90895707c646bb97997506735ede20b10c88dae(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e6590775662d75ca513c6c73ae1960aeb41428ba969474e37763c54cee56ead3(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8338b7d699d5666814c2ff174e34c20cef4a7718bfc26d36e9e7c3c20147a266(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__68650a167cb6c1527b4721886d5f6a14e67e086d55ced0aff941426d5d6149cf(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eeb5df3653d32e8d30f66218380c12fca78a075055a62a6a26f46917216f1770(
+    value: typing.Optional[DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfigFlags],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__caf8932f8232f375835851e01d9d135a34337a46b84661098f11952411447817(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__226bc32116abd6f7eafb37c4bfd3618d2bebc84963896adccc2bea37a5a00727(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e69f5089c706013a2eaf26862ecb5dfe392cb688debc0f9375082e95cb1c086a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d6762c740af19b5aaf806954ade3d7dad1011ffa4f6b23a037becfabbd2293a6(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__309204caf154f29298658b3e5319429a7c3b1e569ad2791ee68231181cbaf4f2(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__080a4059c131a45fe415751bfe8ccbbde3389ee5238ad92fbb532711d066d8ed(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70baacd20fc0589c60f3d8cbcacdd099bcee7543e2595e0c762890c0a74125d0(
+    value: typing.Optional[DataGoogleSqlDatabaseInstanceSettingsConnectionPoolConfig],
 ) -> None:
     """Type checking stubs"""
     pass

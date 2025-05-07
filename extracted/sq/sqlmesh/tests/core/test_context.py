@@ -775,7 +775,7 @@ def test_janitor(sushi_context, mocker: MockerFixture) -> None:
     adapter_mock.dialect = "duckdb"
     state_sync_mock = mocker.MagicMock()
 
-    state_sync_mock.delete_expired_environments.return_value = [
+    state_sync_mock.get_expired_environments.return_value = [
         Environment(
             name="test_environment",
             suffix_target=EnvironmentSuffixTarget.TABLE,
@@ -798,6 +798,8 @@ def test_janitor(sushi_context, mocker: MockerFixture) -> None:
 
     sushi_context._engine_adapters = {sushi_context.config.default_gateway: adapter_mock}
     sushi_context._state_sync = state_sync_mock
+    state_sync_mock.get_expired_snapshots.return_value = []
+
     sushi_context._run_janitor()
     # Assert that the schemas are dropped just twice for the schema based environment
     # Make sure that external model schemas/tables are not dropped
@@ -1288,25 +1290,30 @@ def test_rendered_diff():
 
     plan = ctx.plan("dev", auto_apply=True, no_prompts=True, diff_rendered=True)
 
-    assert '''@@ -4,13 +4,13 @@
-
- CREATE TABLE IF NOT EXISTS "foo" AS
- (
-   SELECT
--    FALSE OR TRUE
-+    TRUE
- )
- SELECT
--  6 AS "_col_0"
-+  7 AS "_col_0"
- CREATE TABLE IF NOT EXISTS "foo2" AS
- (
-   SELECT
--    TRUE AND FALSE
-+    TRUE
- )
--DROP VIEW "test"
-+DROP VIEW IF EXISTS "test"''' in plan.context_diff.text_diff('"test"')
+    assert plan.context_diff.text_diff('"test"') == (
+        "--- \n\n"
+        "+++ \n\n"
+        "@@ -4,15 +4,15 @@\n\n"
+        ' CREATE TABLE IF NOT EXISTS "foo" AS\n'
+        " (\n"
+        "   SELECT\n"
+        "-    FALSE OR TRUE\n"
+        "+    TRUE\n"
+        " )\n"
+        " SELECT\n"
+        '-  6 AS "_col_0"\n'
+        '+  7 AS "_col_0"\n'
+        ' CREATE TABLE IF NOT EXISTS "foo2" AS\n'
+        " (\n"
+        "   SELECT\n"
+        "-    TRUE AND FALSE\n"
+        "+    TRUE\n"
+        " )\n"
+        " ON_VIRTUAL_UPDATE_BEGIN;\n"
+        '-DROP VIEW "test";\n'
+        '+DROP VIEW IF EXISTS "test";\n'
+        " ON_VIRTUAL_UPDATE_END;"
+    )
 
 
 def test_plan_enable_preview_default(sushi_context: Context, sushi_dbt_context: Context):
@@ -1410,6 +1417,7 @@ def test_environment_statements(tmp_path: pathlib.Path):
         after_all=[
             "@grant_schema_usage()",
             "@grant_usage_role(@schemas, 'admin')",
+            "@grant_select_privileges()",
         ],
     )
 
@@ -1426,6 +1434,21 @@ SELECT 1 AS col_a;
         tmp_path,
         pathlib.Path(models_dir, "db", "test_after_model.sql"),
         expression,
+    )
+
+    create_temp_file(
+        tmp_path,
+        pathlib.Path(macros_dir, "grant_select_privileges.py"),
+        """
+from sqlmesh.core.macros import macro
+@macro()
+def grant_select_privileges(evaluator):
+    if evaluator.this_env and evaluator.views:
+        return [
+            f"GRANT SELECT ON VIEW {view_name} /* sqlglot.meta replace=false */ TO ROLE admin_role;"
+            for view_name in evaluator.views
+        ]
+""",
     )
 
     create_temp_file(
@@ -1477,6 +1500,7 @@ def grant_usage_role(evaluator, schemas, role):
 
     assert isinstance(python_env["grant_schema_usage"], Executable)
     assert isinstance(python_env["grant_usage_role"], Executable)
+    assert isinstance(python_env["grant_select_privileges"], Executable)
 
     before_all_rendered = render_statements(
         statements=before_all,
@@ -1495,13 +1519,16 @@ def grant_usage_role(evaluator, schemas, role):
         python_env=python_env,
         snapshots=snapshots,
         environment_naming_info=EnvironmentNamingInfo(name="prod"),
-        runtime_stage=RuntimeStage.BEFORE_ALL,
+        runtime_stage=RuntimeStage.AFTER_ALL,
     )
 
-    assert after_all_rendered == [
-        "GRANT USAGE ON SCHEMA db TO user_role",
-        'GRANT USAGE ON SCHEMA "db" TO "admin"',
-    ]
+    assert sorted(after_all_rendered) == sorted(
+        [
+            "GRANT USAGE ON SCHEMA db TO user_role",
+            'GRANT USAGE ON SCHEMA "db" TO "admin"',
+            "GRANT SELECT ON VIEW memory.db.test_after_model /* sqlglot.meta replace=false */ TO ROLE admin_role",
+        ]
+    )
 
     after_all_rendered_dev = render_statements(
         statements=after_all,
@@ -1509,13 +1536,16 @@ def grant_usage_role(evaluator, schemas, role):
         python_env=python_env,
         snapshots=snapshots,
         environment_naming_info=EnvironmentNamingInfo(name="dev"),
-        runtime_stage=RuntimeStage.BEFORE_ALL,
+        runtime_stage=RuntimeStage.AFTER_ALL,
     )
 
-    assert after_all_rendered_dev == [
-        "GRANT USAGE ON SCHEMA db__dev TO user_role",
-        'GRANT USAGE ON SCHEMA "db__dev" TO "admin"',
-    ]
+    assert sorted(after_all_rendered_dev) == sorted(
+        [
+            "GRANT USAGE ON SCHEMA db__dev TO user_role",
+            'GRANT USAGE ON SCHEMA "db__dev" TO "admin"',
+            "GRANT SELECT ON VIEW memory.db__dev.test_after_model /* sqlglot.meta replace=false */ TO ROLE admin_role",
+        ]
+    )
 
 
 def test_plan_environment_statements(tmp_path: pathlib.Path):

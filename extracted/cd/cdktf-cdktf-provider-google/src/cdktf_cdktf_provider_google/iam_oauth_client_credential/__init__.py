@@ -1,7 +1,7 @@
 r'''
 # `google_iam_oauth_client_credential`
 
-Refer to the Terraform Registry for docs: [`google_iam_oauth_client_credential`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential).
+Refer to the Terraform Registry for docs: [`google_iam_oauth_client_credential`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IamOauthClientCredential(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.iamOauthClientCredential.IamOauthClientCredential",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential google_iam_oauth_client_credential}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential google_iam_oauth_client_credential}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class IamOauthClientCredential(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential google_iam_oauth_client_credential} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential google_iam_oauth_client_credential} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#location IamOauthClientCredential#location}
-        :param oauthclient: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#oauthclient IamOauthClientCredential#oauthclient}
-        :param oauth_client_credential_id: Required. The ID to use for the OauthClientCredential, which becomes the final component of the resource name. This value should be 4-32 characters, and may contain the characters [a-z0-9-]. The prefix 'gcp-' is reserved for use by Google, and may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#oauth_client_credential_id IamOauthClientCredential#oauth_client_credential_id}
-        :param disabled: Whether the OauthClientCredential is disabled. You cannot use a disabled OauthClientCredential. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#disabled IamOauthClientCredential#disabled}
-        :param display_name: A user-specified display name of the OauthClientCredential. Cannot exceed 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#display_name IamOauthClientCredential#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#id IamOauthClientCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#project IamOauthClientCredential#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#timeouts IamOauthClientCredential#timeouts}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#location IamOauthClientCredential#location}
+        :param oauthclient: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#oauthclient IamOauthClientCredential#oauthclient}
+        :param oauth_client_credential_id: Required. The ID to use for the OauthClientCredential, which becomes the final component of the resource name. This value should be 4-32 characters, and may contain the characters [a-z0-9-]. The prefix 'gcp-' is reserved for use by Google, and may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#oauth_client_credential_id IamOauthClientCredential#oauth_client_credential_id}
+        :param disabled: Whether the OauthClientCredential is disabled. You cannot use a disabled OauthClientCredential. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#disabled IamOauthClientCredential#disabled}
+        :param display_name: A user-specified display name of the OauthClientCredential. Cannot exceed 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#display_name IamOauthClientCredential#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#id IamOauthClientCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#project IamOauthClientCredential#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#timeouts IamOauthClientCredential#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class IamOauthClientCredential(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IamOauthClientCredential to import.
-        :param import_from_id: The id of the existing IamOauthClientCredential that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IamOauthClientCredential that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IamOauthClientCredential to import is found.
         '''
         if __debug__:
@@ -144,9 +144,9 @@ class IamOauthClientCredential(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#create IamOauthClientCredential#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#delete IamOauthClientCredential#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#update IamOauthClientCredential#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#create IamOauthClientCredential#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#delete IamOauthClientCredential#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#update IamOauthClientCredential#update}.
         '''
         value = IamOauthClientCredentialTimeouts(
             create=create, delete=delete, update=update
@@ -383,14 +383,14 @@ class IamOauthClientCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#location IamOauthClientCredential#location}
-        :param oauthclient: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#oauthclient IamOauthClientCredential#oauthclient}
-        :param oauth_client_credential_id: Required. The ID to use for the OauthClientCredential, which becomes the final component of the resource name. This value should be 4-32 characters, and may contain the characters [a-z0-9-]. The prefix 'gcp-' is reserved for use by Google, and may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#oauth_client_credential_id IamOauthClientCredential#oauth_client_credential_id}
-        :param disabled: Whether the OauthClientCredential is disabled. You cannot use a disabled OauthClientCredential. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#disabled IamOauthClientCredential#disabled}
-        :param display_name: A user-specified display name of the OauthClientCredential. Cannot exceed 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#display_name IamOauthClientCredential#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#id IamOauthClientCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#project IamOauthClientCredential#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#timeouts IamOauthClientCredential#timeouts}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#location IamOauthClientCredential#location}
+        :param oauthclient: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#oauthclient IamOauthClientCredential#oauthclient}
+        :param oauth_client_credential_id: Required. The ID to use for the OauthClientCredential, which becomes the final component of the resource name. This value should be 4-32 characters, and may contain the characters [a-z0-9-]. The prefix 'gcp-' is reserved for use by Google, and may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#oauth_client_credential_id IamOauthClientCredential#oauth_client_credential_id}
+        :param disabled: Whether the OauthClientCredential is disabled. You cannot use a disabled OauthClientCredential. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#disabled IamOauthClientCredential#disabled}
+        :param display_name: A user-specified display name of the OauthClientCredential. Cannot exceed 32 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#display_name IamOauthClientCredential#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#id IamOauthClientCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#project IamOauthClientCredential#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#timeouts IamOauthClientCredential#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -511,7 +511,7 @@ class IamOauthClientCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#location IamOauthClientCredential#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#location IamOauthClientCredential#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -521,7 +521,7 @@ class IamOauthClientCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def oauthclient(self) -> builtins.str:
         '''Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#oauthclient IamOauthClientCredential#oauthclient}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#oauthclient IamOauthClientCredential#oauthclient}
         '''
         result = self._values.get("oauthclient")
         assert result is not None, "Required property 'oauthclient' is missing"
@@ -536,7 +536,7 @@ class IamOauthClientCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         and may contain the characters [a-z0-9-]. The prefix 'gcp-' is
         reserved for use by Google, and may not be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#oauth_client_credential_id IamOauthClientCredential#oauth_client_credential_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#oauth_client_credential_id IamOauthClientCredential#oauth_client_credential_id}
         '''
         result = self._values.get("oauth_client_credential_id")
         assert result is not None, "Required property 'oauth_client_credential_id' is missing"
@@ -548,7 +548,7 @@ class IamOauthClientCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the OauthClientCredential is disabled. You cannot use a disabled OauthClientCredential.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#disabled IamOauthClientCredential#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#disabled IamOauthClientCredential#disabled}
         '''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -559,14 +559,14 @@ class IamOauthClientCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Cannot exceed 32 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#display_name IamOauthClientCredential#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#display_name IamOauthClientCredential#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#id IamOauthClientCredential#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#id IamOauthClientCredential#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -576,7 +576,7 @@ class IamOauthClientCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#project IamOauthClientCredential#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#project IamOauthClientCredential#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -584,7 +584,7 @@ class IamOauthClientCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["IamOauthClientCredentialTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#timeouts IamOauthClientCredential#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#timeouts IamOauthClientCredential#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["IamOauthClientCredentialTimeouts"], result)
@@ -615,9 +615,9 @@ class IamOauthClientCredentialTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#create IamOauthClientCredential#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#delete IamOauthClientCredential#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#update IamOauthClientCredential#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#create IamOauthClientCredential#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#delete IamOauthClientCredential#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#update IamOauthClientCredential#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__abf8afd9efb46dccaf9aa712156d4be913d06f3cdbd6071f7fa87a2e2a9eb287)
@@ -634,19 +634,19 @@ class IamOauthClientCredentialTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#create IamOauthClientCredential#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#create IamOauthClientCredential#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#delete IamOauthClientCredential#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#delete IamOauthClientCredential#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_oauth_client_credential#update IamOauthClientCredential#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_oauth_client_credential#update IamOauthClientCredential#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

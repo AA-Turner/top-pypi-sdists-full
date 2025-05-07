@@ -1,7 +1,7 @@
 r'''
 # `google_network_security_client_tls_policy`
 
-Refer to the Terraform Registry for docs: [`google_network_security_client_tls_policy`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy).
+Refer to the Terraform Registry for docs: [`google_network_security_client_tls_policy`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetworkSecurityClientTlsPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.networkSecurityClientTlsPolicy.NetworkSecurityClientTlsPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy google_network_security_client_tls_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy google_network_security_client_tls_policy}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class NetworkSecurityClientTlsPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy google_network_security_client_tls_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy google_network_security_client_tls_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the ClientTlsPolicy resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#name NetworkSecurityClientTlsPolicy#name}
-        :param client_certificate: client_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#client_certificate NetworkSecurityClientTlsPolicy#client_certificate}
-        :param description: A free-text description of the resource. Max length 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#description NetworkSecurityClientTlsPolicy#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#id NetworkSecurityClientTlsPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Set of label tags associated with the ClientTlsPolicy resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#labels NetworkSecurityClientTlsPolicy#labels}
-        :param location: The location of the client tls policy. The default value is 'global'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#location NetworkSecurityClientTlsPolicy#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#project NetworkSecurityClientTlsPolicy#project}.
-        :param server_validation_ca: server_validation_ca block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#server_validation_ca NetworkSecurityClientTlsPolicy#server_validation_ca}
-        :param sni: Server Name Indication string to present to the server during TLS handshake. E.g: "secure.example.com". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#sni NetworkSecurityClientTlsPolicy#sni}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#timeouts NetworkSecurityClientTlsPolicy#timeouts}
+        :param name: Name of the ClientTlsPolicy resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#name NetworkSecurityClientTlsPolicy#name}
+        :param client_certificate: client_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#client_certificate NetworkSecurityClientTlsPolicy#client_certificate}
+        :param description: A free-text description of the resource. Max length 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#description NetworkSecurityClientTlsPolicy#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#id NetworkSecurityClientTlsPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Set of label tags associated with the ClientTlsPolicy resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#labels NetworkSecurityClientTlsPolicy#labels}
+        :param location: The location of the client tls policy. The default value is 'global'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#location NetworkSecurityClientTlsPolicy#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#project NetworkSecurityClientTlsPolicy#project}.
+        :param server_validation_ca: server_validation_ca block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#server_validation_ca NetworkSecurityClientTlsPolicy#server_validation_ca}
+        :param sni: Server Name Indication string to present to the server during TLS handshake. E.g: "secure.example.com". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#sni NetworkSecurityClientTlsPolicy#sni}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#timeouts NetworkSecurityClientTlsPolicy#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class NetworkSecurityClientTlsPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetworkSecurityClientTlsPolicy to import.
-        :param import_from_id: The id of the existing NetworkSecurityClientTlsPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetworkSecurityClientTlsPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetworkSecurityClientTlsPolicy to import is found.
         '''
         if __debug__:
@@ -149,8 +149,8 @@ class NetworkSecurityClientTlsPolicy(
         grpc_endpoint: typing.Optional[typing.Union["NetworkSecurityClientTlsPolicyClientCertificateGrpcEndpoint", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param certificate_provider_instance: certificate_provider_instance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#certificate_provider_instance NetworkSecurityClientTlsPolicy#certificate_provider_instance}
-        :param grpc_endpoint: grpc_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#grpc_endpoint NetworkSecurityClientTlsPolicy#grpc_endpoint}
+        :param certificate_provider_instance: certificate_provider_instance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#certificate_provider_instance NetworkSecurityClientTlsPolicy#certificate_provider_instance}
+        :param grpc_endpoint: grpc_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#grpc_endpoint NetworkSecurityClientTlsPolicy#grpc_endpoint}
         '''
         value = NetworkSecurityClientTlsPolicyClientCertificate(
             certificate_provider_instance=certificate_provider_instance,
@@ -181,9 +181,9 @@ class NetworkSecurityClientTlsPolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#create NetworkSecurityClientTlsPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#delete NetworkSecurityClientTlsPolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#update NetworkSecurityClientTlsPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#create NetworkSecurityClientTlsPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#delete NetworkSecurityClientTlsPolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#update NetworkSecurityClientTlsPolicy#update}.
         '''
         value = NetworkSecurityClientTlsPolicyTimeouts(
             create=create, delete=delete, update=update
@@ -438,8 +438,8 @@ class NetworkSecurityClientTlsPolicyClientCertificate:
         grpc_endpoint: typing.Optional[typing.Union["NetworkSecurityClientTlsPolicyClientCertificateGrpcEndpoint", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param certificate_provider_instance: certificate_provider_instance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#certificate_provider_instance NetworkSecurityClientTlsPolicy#certificate_provider_instance}
-        :param grpc_endpoint: grpc_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#grpc_endpoint NetworkSecurityClientTlsPolicy#grpc_endpoint}
+        :param certificate_provider_instance: certificate_provider_instance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#certificate_provider_instance NetworkSecurityClientTlsPolicy#certificate_provider_instance}
+        :param grpc_endpoint: grpc_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#grpc_endpoint NetworkSecurityClientTlsPolicy#grpc_endpoint}
         '''
         if isinstance(certificate_provider_instance, dict):
             certificate_provider_instance = NetworkSecurityClientTlsPolicyClientCertificateCertificateProviderInstance(**certificate_provider_instance)
@@ -461,7 +461,7 @@ class NetworkSecurityClientTlsPolicyClientCertificate:
     ) -> typing.Optional["NetworkSecurityClientTlsPolicyClientCertificateCertificateProviderInstance"]:
         '''certificate_provider_instance block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#certificate_provider_instance NetworkSecurityClientTlsPolicy#certificate_provider_instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#certificate_provider_instance NetworkSecurityClientTlsPolicy#certificate_provider_instance}
         '''
         result = self._values.get("certificate_provider_instance")
         return typing.cast(typing.Optional["NetworkSecurityClientTlsPolicyClientCertificateCertificateProviderInstance"], result)
@@ -472,7 +472,7 @@ class NetworkSecurityClientTlsPolicyClientCertificate:
     ) -> typing.Optional["NetworkSecurityClientTlsPolicyClientCertificateGrpcEndpoint"]:
         '''grpc_endpoint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#grpc_endpoint NetworkSecurityClientTlsPolicy#grpc_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#grpc_endpoint NetworkSecurityClientTlsPolicy#grpc_endpoint}
         '''
         result = self._values.get("grpc_endpoint")
         return typing.cast(typing.Optional["NetworkSecurityClientTlsPolicyClientCertificateGrpcEndpoint"], result)
@@ -497,7 +497,7 @@ class NetworkSecurityClientTlsPolicyClientCertificate:
 class NetworkSecurityClientTlsPolicyClientCertificateCertificateProviderInstance:
     def __init__(self, *, plugin_instance: builtins.str) -> None:
         '''
-        :param plugin_instance: Plugin instance name, used to locate and load CertificateProvider instance configuration. Set to "google_cloud_private_spiffe" to use Certificate Authority Service certificate provider instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#plugin_instance NetworkSecurityClientTlsPolicy#plugin_instance}
+        :param plugin_instance: Plugin instance name, used to locate and load CertificateProvider instance configuration. Set to "google_cloud_private_spiffe" to use Certificate Authority Service certificate provider instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#plugin_instance NetworkSecurityClientTlsPolicy#plugin_instance}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__97f23c2fe70a2902ee2c6220de2783d599599cec2e6e18d4270821dfd5db17b2)
@@ -512,7 +512,7 @@ class NetworkSecurityClientTlsPolicyClientCertificateCertificateProviderInstance
 
         Set to "google_cloud_private_spiffe" to use Certificate Authority Service certificate provider instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#plugin_instance NetworkSecurityClientTlsPolicy#plugin_instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#plugin_instance NetworkSecurityClientTlsPolicy#plugin_instance}
         '''
         result = self._values.get("plugin_instance")
         assert result is not None, "Required property 'plugin_instance' is missing"
@@ -593,7 +593,7 @@ class NetworkSecurityClientTlsPolicyClientCertificateCertificateProviderInstance
 class NetworkSecurityClientTlsPolicyClientCertificateGrpcEndpoint:
     def __init__(self, *, target_uri: builtins.str) -> None:
         '''
-        :param target_uri: The target URI of the gRPC endpoint. Only UDS path is supported, and should start with "unix:". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#target_uri NetworkSecurityClientTlsPolicy#target_uri}
+        :param target_uri: The target URI of the gRPC endpoint. Only UDS path is supported, and should start with "unix:". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#target_uri NetworkSecurityClientTlsPolicy#target_uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e63d14b7e3e0e795053b589ee1d25ee832173e19b4797a2e34198aed0c9ec151)
@@ -606,7 +606,7 @@ class NetworkSecurityClientTlsPolicyClientCertificateGrpcEndpoint:
     def target_uri(self) -> builtins.str:
         '''The target URI of the gRPC endpoint. Only UDS path is supported, and should start with "unix:".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#target_uri NetworkSecurityClientTlsPolicy#target_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#target_uri NetworkSecurityClientTlsPolicy#target_uri}
         '''
         result = self._values.get("target_uri")
         assert result is not None, "Required property 'target_uri' is missing"
@@ -706,7 +706,7 @@ class NetworkSecurityClientTlsPolicyClientCertificateOutputReference(
         plugin_instance: builtins.str,
     ) -> None:
         '''
-        :param plugin_instance: Plugin instance name, used to locate and load CertificateProvider instance configuration. Set to "google_cloud_private_spiffe" to use Certificate Authority Service certificate provider instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#plugin_instance NetworkSecurityClientTlsPolicy#plugin_instance}
+        :param plugin_instance: Plugin instance name, used to locate and load CertificateProvider instance configuration. Set to "google_cloud_private_spiffe" to use Certificate Authority Service certificate provider instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#plugin_instance NetworkSecurityClientTlsPolicy#plugin_instance}
         '''
         value = NetworkSecurityClientTlsPolicyClientCertificateCertificateProviderInstance(
             plugin_instance=plugin_instance
@@ -717,7 +717,7 @@ class NetworkSecurityClientTlsPolicyClientCertificateOutputReference(
     @jsii.member(jsii_name="putGrpcEndpoint")
     def put_grpc_endpoint(self, *, target_uri: builtins.str) -> None:
         '''
-        :param target_uri: The target URI of the gRPC endpoint. Only UDS path is supported, and should start with "unix:". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#target_uri NetworkSecurityClientTlsPolicy#target_uri}
+        :param target_uri: The target URI of the gRPC endpoint. Only UDS path is supported, and should start with "unix:". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#target_uri NetworkSecurityClientTlsPolicy#target_uri}
         '''
         value = NetworkSecurityClientTlsPolicyClientCertificateGrpcEndpoint(
             target_uri=target_uri
@@ -832,16 +832,16 @@ class NetworkSecurityClientTlsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the ClientTlsPolicy resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#name NetworkSecurityClientTlsPolicy#name}
-        :param client_certificate: client_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#client_certificate NetworkSecurityClientTlsPolicy#client_certificate}
-        :param description: A free-text description of the resource. Max length 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#description NetworkSecurityClientTlsPolicy#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#id NetworkSecurityClientTlsPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Set of label tags associated with the ClientTlsPolicy resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#labels NetworkSecurityClientTlsPolicy#labels}
-        :param location: The location of the client tls policy. The default value is 'global'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#location NetworkSecurityClientTlsPolicy#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#project NetworkSecurityClientTlsPolicy#project}.
-        :param server_validation_ca: server_validation_ca block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#server_validation_ca NetworkSecurityClientTlsPolicy#server_validation_ca}
-        :param sni: Server Name Indication string to present to the server during TLS handshake. E.g: "secure.example.com". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#sni NetworkSecurityClientTlsPolicy#sni}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#timeouts NetworkSecurityClientTlsPolicy#timeouts}
+        :param name: Name of the ClientTlsPolicy resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#name NetworkSecurityClientTlsPolicy#name}
+        :param client_certificate: client_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#client_certificate NetworkSecurityClientTlsPolicy#client_certificate}
+        :param description: A free-text description of the resource. Max length 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#description NetworkSecurityClientTlsPolicy#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#id NetworkSecurityClientTlsPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Set of label tags associated with the ClientTlsPolicy resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#labels NetworkSecurityClientTlsPolicy#labels}
+        :param location: The location of the client tls policy. The default value is 'global'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#location NetworkSecurityClientTlsPolicy#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#project NetworkSecurityClientTlsPolicy#project}.
+        :param server_validation_ca: server_validation_ca block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#server_validation_ca NetworkSecurityClientTlsPolicy#server_validation_ca}
+        :param sni: Server Name Indication string to present to the server during TLS handshake. E.g: "secure.example.com". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#sni NetworkSecurityClientTlsPolicy#sni}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#timeouts NetworkSecurityClientTlsPolicy#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -972,7 +972,7 @@ class NetworkSecurityClientTlsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def name(self) -> builtins.str:
         '''Name of the ClientTlsPolicy resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#name NetworkSecurityClientTlsPolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#name NetworkSecurityClientTlsPolicy#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -984,7 +984,7 @@ class NetworkSecurityClientTlsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional[NetworkSecurityClientTlsPolicyClientCertificate]:
         '''client_certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#client_certificate NetworkSecurityClientTlsPolicy#client_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#client_certificate NetworkSecurityClientTlsPolicy#client_certificate}
         '''
         result = self._values.get("client_certificate")
         return typing.cast(typing.Optional[NetworkSecurityClientTlsPolicyClientCertificate], result)
@@ -993,14 +993,14 @@ class NetworkSecurityClientTlsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def description(self) -> typing.Optional[builtins.str]:
         '''A free-text description of the resource. Max length 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#description NetworkSecurityClientTlsPolicy#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#description NetworkSecurityClientTlsPolicy#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#id NetworkSecurityClientTlsPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#id NetworkSecurityClientTlsPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1015,7 +1015,7 @@ class NetworkSecurityClientTlsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgument
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#labels NetworkSecurityClientTlsPolicy#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#labels NetworkSecurityClientTlsPolicy#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1024,14 +1024,14 @@ class NetworkSecurityClientTlsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def location(self) -> typing.Optional[builtins.str]:
         '''The location of the client tls policy. The default value is 'global'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#location NetworkSecurityClientTlsPolicy#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#location NetworkSecurityClientTlsPolicy#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#project NetworkSecurityClientTlsPolicy#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#project NetworkSecurityClientTlsPolicy#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1041,7 +1041,7 @@ class NetworkSecurityClientTlsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityClientTlsPolicyServerValidationCa"]]]:
         '''server_validation_ca block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#server_validation_ca NetworkSecurityClientTlsPolicy#server_validation_ca}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#server_validation_ca NetworkSecurityClientTlsPolicy#server_validation_ca}
         '''
         result = self._values.get("server_validation_ca")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkSecurityClientTlsPolicyServerValidationCa"]]], result)
@@ -1050,7 +1050,7 @@ class NetworkSecurityClientTlsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def sni(self) -> typing.Optional[builtins.str]:
         '''Server Name Indication string to present to the server during TLS handshake. E.g: "secure.example.com".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#sni NetworkSecurityClientTlsPolicy#sni}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#sni NetworkSecurityClientTlsPolicy#sni}
         '''
         result = self._values.get("sni")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1059,7 +1059,7 @@ class NetworkSecurityClientTlsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def timeouts(self) -> typing.Optional["NetworkSecurityClientTlsPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#timeouts NetworkSecurityClientTlsPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#timeouts NetworkSecurityClientTlsPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NetworkSecurityClientTlsPolicyTimeouts"], result)
@@ -1092,8 +1092,8 @@ class NetworkSecurityClientTlsPolicyServerValidationCa:
         grpc_endpoint: typing.Optional[typing.Union["NetworkSecurityClientTlsPolicyServerValidationCaGrpcEndpoint", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param certificate_provider_instance: certificate_provider_instance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#certificate_provider_instance NetworkSecurityClientTlsPolicy#certificate_provider_instance}
-        :param grpc_endpoint: grpc_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#grpc_endpoint NetworkSecurityClientTlsPolicy#grpc_endpoint}
+        :param certificate_provider_instance: certificate_provider_instance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#certificate_provider_instance NetworkSecurityClientTlsPolicy#certificate_provider_instance}
+        :param grpc_endpoint: grpc_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#grpc_endpoint NetworkSecurityClientTlsPolicy#grpc_endpoint}
         '''
         if isinstance(certificate_provider_instance, dict):
             certificate_provider_instance = NetworkSecurityClientTlsPolicyServerValidationCaCertificateProviderInstance(**certificate_provider_instance)
@@ -1115,7 +1115,7 @@ class NetworkSecurityClientTlsPolicyServerValidationCa:
     ) -> typing.Optional["NetworkSecurityClientTlsPolicyServerValidationCaCertificateProviderInstance"]:
         '''certificate_provider_instance block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#certificate_provider_instance NetworkSecurityClientTlsPolicy#certificate_provider_instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#certificate_provider_instance NetworkSecurityClientTlsPolicy#certificate_provider_instance}
         '''
         result = self._values.get("certificate_provider_instance")
         return typing.cast(typing.Optional["NetworkSecurityClientTlsPolicyServerValidationCaCertificateProviderInstance"], result)
@@ -1126,7 +1126,7 @@ class NetworkSecurityClientTlsPolicyServerValidationCa:
     ) -> typing.Optional["NetworkSecurityClientTlsPolicyServerValidationCaGrpcEndpoint"]:
         '''grpc_endpoint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#grpc_endpoint NetworkSecurityClientTlsPolicy#grpc_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#grpc_endpoint NetworkSecurityClientTlsPolicy#grpc_endpoint}
         '''
         result = self._values.get("grpc_endpoint")
         return typing.cast(typing.Optional["NetworkSecurityClientTlsPolicyServerValidationCaGrpcEndpoint"], result)
@@ -1151,7 +1151,7 @@ class NetworkSecurityClientTlsPolicyServerValidationCa:
 class NetworkSecurityClientTlsPolicyServerValidationCaCertificateProviderInstance:
     def __init__(self, *, plugin_instance: builtins.str) -> None:
         '''
-        :param plugin_instance: Plugin instance name, used to locate and load CertificateProvider instance configuration. Set to "google_cloud_private_spiffe" to use Certificate Authority Service certificate provider instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#plugin_instance NetworkSecurityClientTlsPolicy#plugin_instance}
+        :param plugin_instance: Plugin instance name, used to locate and load CertificateProvider instance configuration. Set to "google_cloud_private_spiffe" to use Certificate Authority Service certificate provider instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#plugin_instance NetworkSecurityClientTlsPolicy#plugin_instance}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b02678dd2d4ec5c1bb0f206db5f4a6ec13982cfee0de7d717863b30046239042)
@@ -1166,7 +1166,7 @@ class NetworkSecurityClientTlsPolicyServerValidationCaCertificateProviderInstanc
 
         Set to "google_cloud_private_spiffe" to use Certificate Authority Service certificate provider instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#plugin_instance NetworkSecurityClientTlsPolicy#plugin_instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#plugin_instance NetworkSecurityClientTlsPolicy#plugin_instance}
         '''
         result = self._values.get("plugin_instance")
         assert result is not None, "Required property 'plugin_instance' is missing"
@@ -1247,7 +1247,7 @@ class NetworkSecurityClientTlsPolicyServerValidationCaCertificateProviderInstanc
 class NetworkSecurityClientTlsPolicyServerValidationCaGrpcEndpoint:
     def __init__(self, *, target_uri: builtins.str) -> None:
         '''
-        :param target_uri: The target URI of the gRPC endpoint. Only UDS path is supported, and should start with "unix:". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#target_uri NetworkSecurityClientTlsPolicy#target_uri}
+        :param target_uri: The target URI of the gRPC endpoint. Only UDS path is supported, and should start with "unix:". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#target_uri NetworkSecurityClientTlsPolicy#target_uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__110ddb92a8f8bca99a8084abd456ff91aab3ed7861b7c0b455622992dd28e51b)
@@ -1260,7 +1260,7 @@ class NetworkSecurityClientTlsPolicyServerValidationCaGrpcEndpoint:
     def target_uri(self) -> builtins.str:
         '''The target URI of the gRPC endpoint. Only UDS path is supported, and should start with "unix:".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#target_uri NetworkSecurityClientTlsPolicy#target_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#target_uri NetworkSecurityClientTlsPolicy#target_uri}
         '''
         result = self._values.get("target_uri")
         assert result is not None, "Required property 'target_uri' is missing"
@@ -1459,7 +1459,7 @@ class NetworkSecurityClientTlsPolicyServerValidationCaOutputReference(
         plugin_instance: builtins.str,
     ) -> None:
         '''
-        :param plugin_instance: Plugin instance name, used to locate and load CertificateProvider instance configuration. Set to "google_cloud_private_spiffe" to use Certificate Authority Service certificate provider instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#plugin_instance NetworkSecurityClientTlsPolicy#plugin_instance}
+        :param plugin_instance: Plugin instance name, used to locate and load CertificateProvider instance configuration. Set to "google_cloud_private_spiffe" to use Certificate Authority Service certificate provider instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#plugin_instance NetworkSecurityClientTlsPolicy#plugin_instance}
         '''
         value = NetworkSecurityClientTlsPolicyServerValidationCaCertificateProviderInstance(
             plugin_instance=plugin_instance
@@ -1470,7 +1470,7 @@ class NetworkSecurityClientTlsPolicyServerValidationCaOutputReference(
     @jsii.member(jsii_name="putGrpcEndpoint")
     def put_grpc_endpoint(self, *, target_uri: builtins.str) -> None:
         '''
-        :param target_uri: The target URI of the gRPC endpoint. Only UDS path is supported, and should start with "unix:". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#target_uri NetworkSecurityClientTlsPolicy#target_uri}
+        :param target_uri: The target URI of the gRPC endpoint. Only UDS path is supported, and should start with "unix:". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#target_uri NetworkSecurityClientTlsPolicy#target_uri}
         '''
         value = NetworkSecurityClientTlsPolicyServerValidationCaGrpcEndpoint(
             target_uri=target_uri
@@ -1546,9 +1546,9 @@ class NetworkSecurityClientTlsPolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#create NetworkSecurityClientTlsPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#delete NetworkSecurityClientTlsPolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#update NetworkSecurityClientTlsPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#create NetworkSecurityClientTlsPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#delete NetworkSecurityClientTlsPolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#update NetworkSecurityClientTlsPolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8ac0ea6a5451e1fe012443173dff257cf6056045f4e1358d749c2d1087591ab4)
@@ -1565,19 +1565,19 @@ class NetworkSecurityClientTlsPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#create NetworkSecurityClientTlsPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#create NetworkSecurityClientTlsPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#delete NetworkSecurityClientTlsPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#delete NetworkSecurityClientTlsPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/network_security_client_tls_policy#update NetworkSecurityClientTlsPolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/network_security_client_tls_policy#update NetworkSecurityClientTlsPolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyconfigurator
-Version: 0.4.18
+Version: 0.4.19
 Summary: A library for easy configuration
 Home-page: https://github.com/charsmith/configurator
 Author: Charles Smith, Jeff Magnusson

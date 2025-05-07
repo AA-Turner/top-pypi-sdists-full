@@ -58,7 +58,7 @@ vllm = [
     # Pin because of auth issue: https://github.com/developmentseed/obstore/issues/411
     "obstore==0.3.0",
     "pydantic==2.11.2",
-    "union-runtime==0.1.14",
+    "union-runtime==0.1.18",
 ]
 sglang = [
     "sglang[all]>=0.4.5",
@@ -68,7 +68,7 @@ sglang = [
     # Pin because of auth issue: https://github.com/developmentseed/obstore/issues/411
     "obstore==0.3.0",
     "pydantic==2.11.2",
-    "union-runtime==0.1.14",
+    "union-runtime==0.1.18",
 ]
 
 [tool.uv.sources]

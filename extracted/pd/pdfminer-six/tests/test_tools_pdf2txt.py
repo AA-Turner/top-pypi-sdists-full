@@ -2,6 +2,7 @@ import filecmp
 import os
 from shutil import rmtree
 from tempfile import mkdtemp
+from typing import List
 
 from tests.helpers import absolute_sample_path
 from tests.tempfilepath import TemporaryFilePath
@@ -74,6 +75,11 @@ class TestPdf2Txt:
         (https://github.com/pdfminer/pdfminer.six/issues/1059)."""
         run("contrib/issue-1059-cmap-decode.pdf")
 
+    def test_contrib_issue_1061_inline(self):
+        """Ensure that colour spaces are saved on the graphics stack
+        (https://github.com/pdfminer/pdfminer.six/issues/1061)"""
+        run("contrib/issue-1061-colour-space-stack.pdf")
+
     def test_contrib_issue_1062_inline(self):
         """Ensure that filters are accepted as indirect objects
         (https://github.com/pdfminer/pdfminer.six/issues/1062)"""
@@ -132,7 +138,7 @@ class TestPdf2Txt:
 
 class TestDumpImages:
     @staticmethod
-    def extract_images(input_file, *args):
+    def extract_images(input_file: str, *args: str) -> List[str]:
         output_dir = mkdtemp()
         with TemporaryFilePath() as output_file_name:
             commands = [
@@ -202,3 +208,10 @@ class TestDumpImages:
         image_files = self.extract_images(filepath)
         assert len(image_files) == 23
         assert all(x.endswith(".bmp") for x in image_files)
+
+    def test_contrib_issue_1057_tiff_predictor(self) -> None:
+        """Test for extracting tiff image"""
+        filepath = absolute_sample_path("contrib/issue-1057-tiff-predictor.pdf")
+        image_files = self.extract_images(filepath)
+        assert len(image_files) == 1
+        assert image_files[0].endswith(".bmp")

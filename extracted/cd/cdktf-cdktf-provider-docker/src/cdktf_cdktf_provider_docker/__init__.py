@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for kreuzwerker/docker provider version 3.4.0
+# CDKTF prebuilt bindings for kreuzwerker/docker provider version 3.5.0
 
-This repo builds and publishes the [Terraform docker provider](https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform docker provider](https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform docker provider version 1:
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform docker provider](https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0)
+* [Terraform docker provider](https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -133,6 +133,7 @@ __all__ = [
     "data_docker_network",
     "data_docker_plugin",
     "data_docker_registry_image",
+    "data_docker_registry_image_manifests",
     "image",
     "network",
     "plugin",
@@ -154,6 +155,7 @@ from . import data_docker_logs
 from . import data_docker_network
 from . import data_docker_plugin
 from . import data_docker_registry_image
+from . import data_docker_registry_image_manifests
 from . import image
 from . import network
 from . import plugin

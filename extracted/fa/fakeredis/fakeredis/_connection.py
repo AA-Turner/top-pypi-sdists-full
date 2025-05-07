@@ -1,11 +1,12 @@
 import inspect
 import queue
 import sys
+import time
 import uuid
 import warnings
 from typing import Tuple, Any, List, Optional, Set
 
-from ._server import FakeBaseConnectionMixin, FakeServer, VersionType
+from ._server import FakeBaseConnectionMixin, FakeServer, VersionType, ServerType
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -38,7 +39,7 @@ class FakeConnection(FakeBaseConnectionMixin, redis.Connection):
                 laddr="127.0.0.1:6379",
                 fd=8,
                 name="",
-                age=16,
+                _created=int(time.time()),
                 idle=0,
                 flags="N",
                 db=0,
@@ -119,7 +120,7 @@ class FakeRedisMixin:
         *args: Any,
         server: Optional[FakeServer] = None,
         version: VersionType = (7,),
-        server_type: str = "redis",
+        server_type: ServerType = "redis",
         lua_modules: Optional[Set[str]] = None,
         **kwargs: Any,
     ) -> None:

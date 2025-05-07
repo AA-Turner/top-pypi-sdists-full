@@ -402,6 +402,7 @@ def get_min_max_from_file(continue_path: str, n: int, _default_min_max: str) -> 
     return _default_min_max
 
 class ConfigLoader:
+    disable_previous_job_constraint: bool
     run_tests_that_fail_on_taurus: bool
     enforce_sequential_optimization: bool
     num_random_steps: int
@@ -510,7 +511,7 @@ class ConfigLoader:
         required_but_choice.add_argument('--parameter', action='append', nargs='+', help='Experiment parameters in the formats (options in round brackets are optional): <NAME> range <LOWER BOUND> <UPPER BOUND> (<INT, FLOAT>, log_scale: True/False, default: false>) -- OR -- <NAME> fixed <VALUE> -- OR -- <NAME> choice <Comma-separated list of values>', default=None)
         required_but_choice.add_argument('--continue_previous_job', help='Continue from a previous checkpoint, use run-dir as argument', type=str, default=None)
 
-        optional.add_argument('--experiment_constraints', action='append', nargs='+', help='Constraints for parameters. Example: x + y <= 2.0', type=str)
+        optional.add_argument('--experiment_constraints', action='append', nargs='+', help='Constraints for parameters. Example: x + y <= 2.0. Convert them to base64', type=str)
         optional.add_argument('--run_dir', help='Directory, in which runs should be saved. Default: runs', default='runs', type=str)
         optional.add_argument('--seed', help='Seed for random number generator', type=int)
         optional.add_argument('--decimalrounding', help='Number of decimal places for rounding', type=int, default=4)
@@ -535,6 +536,7 @@ class ConfigLoader:
         optional.add_argument('--checkout_to_latest_tested_version', help='Automatically checkout to latest version that was tested in the CI pipeline', action='store_true', default=False)
         optional.add_argument('--live_share', help='Automatically live-share the current optimization run automatically', action='store_true', default=False)
         optional.add_argument('--disable_tqdm', help='Disables the TQDM progress bar', action='store_true', default=False)
+        optional.add_argument('--disable_previous_job_constraint', help='For continued jobs: Disable getting the constraint of the previous job that is about to be continued', action='store_true', default=False)
         optional.add_argument('--workdir', help='Working directory', default='', type=str)
         optional.add_argument('--occ_type', help=f'Optimization-with-combined-criteria-type (valid types are {joined_valid_occ_types})', type=str, default='euclid')
         optional.add_argument('--result_names', nargs='+', default=[], help='Name of hyperparameters. Example --result_names result1=max result2=min result3. Default: RESULT=min')
@@ -4301,21 +4303,34 @@ def set_objectives() -> dict:
     return objectives
 
 @beartype
-def set_parameter_constraints(experiment_constraints: Optional[list], experiment_args: dict, experiment_parameters: list) -> dict:
+def set_parameter_constraints(experiment_constraints: Optional[list], experiment_args: dict, experiment_parameters: Union[dict, list]) -> dict:
     if experiment_constraints and len(experiment_constraints):
+        experiment_constraints = experiment_constraints[0]
+
         experiment_args["parameter_constraints"] = []
-        for _l in range(len(experiment_constraints)):
-            constraints_string = decode_if_base64(" ".join(experiment_constraints[_l]))
 
-            variables = [item['name'] for item in experiment_parameters]
+        if experiment_constraints:
+            for _l in range(len(experiment_constraints)):
+                constraints_string = decode_if_base64(" ".join(experiment_constraints[_l]))
 
-            equation = check_equation(variables, constraints_string)
+                constraints_string = constraints_string.rstrip("\n\r")
 
-            if equation:
-                experiment_args["parameter_constraints"].append(constraints_string)
-            else:
-                print_red(f"Experiment constraint '{constraints_string}' is invalid. Cannot continue.")
-                my_exit(19)
+                variables = [item['name'] for item in experiment_parameters]
+
+                equation = check_equation(variables, constraints_string)
+
+                if equation:
+                    experiment_args["parameter_constraints"].append(constraints_string)
+                else:
+                    print_red(f"Experiment constraint '{constraints_string}' is invalid. Cannot continue.")
+                    my_exit(19)
+
+                file_path = os.path.join(get_current_run_folder(), "state_files", "constraints")
+
+                os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+                with open(file_path, "a", encoding="utf-8") as f:
+                    f.write(constraints_string + "\n")
 
     return experiment_args
 
@@ -4439,6 +4454,9 @@ def get_experiment_parameters(_params: list) -> Tuple[AxClient, Union[list, dict
         else:
             print_red("Something went wrong with the ax_client")
             my_exit(9)
+
+        if experiment_constraints:
+            experiment_args = set_parameter_constraints(experiment_constraints, experiment_args, experiment_parameters["experiment"]["search_space"]["parameters"])
     else:
         objectives = set_objectives()
 
@@ -4551,28 +4569,34 @@ def parse_single_experiment_parameter_table(experiment_parameters: Union[list, d
 
 @beartype
 def print_parameter_constraints_table(experiment_args: dict) -> None:
-    if experiment_args is not None and "parameter_constraints" in experiment_args and len(experiment_args["parameter_constraints"]):
-        constraints = experiment_args["parameter_constraints"]
-        table = Table(header_style="bold")
-        columns = ["Constraints"]
-        for column in columns:
-            table.add_column(column)
-        for column in constraints:
-            table.add_row(column)
+    if not (experiment_args is not None and "parameter_constraints" in experiment_args and len(experiment_args["parameter_constraints"])):
+        return None
 
-        with console.capture() as capture:
-            console.print(table)
+    constraints = experiment_args["parameter_constraints"]
+    table = Table(header_style="bold")
+    columns = ["Constraints"]
 
-        table_str = capture.get()
+    for column in columns:
+        table.add_column(column)
 
+    for constraint in constraints:
+        table.add_row(constraint)
+
+    with console.capture() as capture:
         console.print(table)
 
-        fn = f"{get_current_run_folder()}/constraints.txt"
-        try:
-            with open(fn, mode="w", encoding="utf-8") as text_file:
-                text_file.write(table_str)
-        except Exception as e:
-            print_red(f"Error writing {fn}: {e}")
+    table_str = capture.get()
+
+    console.print(table)
+
+    fn = f"{get_current_run_folder()}/constraints.txt"
+    try:
+        with open(fn, mode="w", encoding="utf-8") as text_file:
+            text_file.write(table_str)
+    except Exception as e:
+        print_red(f"Error writing {fn}: {e}")
+
+    return None
 
 @beartype
 def print_result_names_overview_table() -> None:
@@ -4583,7 +4607,7 @@ def print_result_names_overview_table() -> None:
         return None
 
     if args.continue_previous_job is not None and args.result_names is not None:
-        print_yellow("--result_names will be ignored in continued jobs. Cannot change them afterwards.")
+        print_yellow("--result_names will be ignored in continued jobs. The result names from the previous job will be used.")
 
     if ax_client.experiment.optimization_config.is_moo_problem:
         config_objectives = ax_client.experiment.optimization_config.objective.objectives
@@ -7440,6 +7464,28 @@ def debug_vars_unused_by_python_for_linter() -> None:
     )
 
 @beartype
+def get_constraints() -> list:
+    constraints_list = []
+
+    if args.experiment_constraints:
+        constraints_list = args.experiment_constraints
+    elif args.continue_previous_job and not args.disable_previous_job_constraint and (args.experiment_constraints is None or not len(args.experiment_constraints)):
+        prev_job_constraint_file = os.path.join(args.continue_previous_job, "state_files", "constraints")
+        if os.path.exists(prev_job_constraint_file):
+            if os.path.exists(prev_job_constraint_file):
+                with open(prev_job_constraint_file, "r", encoding="utf-8") as f:
+                    constraints_list = [line.strip() for line in f if line.strip()]
+
+                    constraints_list = [
+                        base64.b64encode(constraint.encode("utf-8")).decode("utf-8")
+                        for constraint in constraints_list
+                    ]
+
+                    constraints_list = [constraints_list]
+
+    return constraints_list
+
+@beartype
 def main() -> None:
     global RESULT_CSV_FILE, ax_client, LOGFILE_DEBUG_GET_NEXT_TRIALS, random_steps
 
@@ -7533,7 +7579,7 @@ def main() -> None:
         ax_client, experiment_parameters, experiment_args, gpu_string, gpu_color = get_experiment_parameters([
             args.continue_previous_job,
             args.seed,
-            args.experiment_constraints,
+            get_constraints(),
             args.parameter,
             cli_params_experiment_parameters,
             experiment_parameters,

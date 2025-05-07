@@ -1,7 +1,7 @@
 r'''
 # `google_privateca_ca_pool`
 
-Refer to the Terraform Registry for docs: [`google_privateca_ca_pool`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool).
+Refer to the Terraform Registry for docs: [`google_privateca_ca_pool`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class PrivatecaCaPool(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.privatecaCaPool.PrivatecaCaPool",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool google_privateca_ca_pool}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool google_privateca_ca_pool}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class PrivatecaCaPool(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool google_privateca_ca_pool} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool google_privateca_ca_pool} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Location of the CaPool. A full list of valid locations can be found by running 'gcloud privateca locations list'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#location PrivatecaCaPool#location}
-        :param name: The name for this CaPool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#name PrivatecaCaPool#name}
-        :param tier: The Tier of this CaPool. Possible values: ["ENTERPRISE", "DEVOPS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#tier PrivatecaCaPool#tier}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#id PrivatecaCaPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param issuance_policy: issuance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#issuance_policy PrivatecaCaPool#issuance_policy}
-        :param labels: Labels with user-defined metadata. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#labels PrivatecaCaPool#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#project PrivatecaCaPool#project}.
-        :param publishing_options: publishing_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#publishing_options PrivatecaCaPool#publishing_options}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#timeouts PrivatecaCaPool#timeouts}
+        :param location: Location of the CaPool. A full list of valid locations can be found by running 'gcloud privateca locations list'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#location PrivatecaCaPool#location}
+        :param name: The name for this CaPool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#name PrivatecaCaPool#name}
+        :param tier: The Tier of this CaPool. Possible values: ["ENTERPRISE", "DEVOPS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#tier PrivatecaCaPool#tier}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#id PrivatecaCaPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param issuance_policy: issuance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#issuance_policy PrivatecaCaPool#issuance_policy}
+        :param labels: Labels with user-defined metadata. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#labels PrivatecaCaPool#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#project PrivatecaCaPool#project}.
+        :param publishing_options: publishing_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#publishing_options PrivatecaCaPool#publishing_options}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#timeouts PrivatecaCaPool#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class PrivatecaCaPool(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the PrivatecaCaPool to import.
-        :param import_from_id: The id of the existing PrivatecaCaPool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing PrivatecaCaPool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the PrivatecaCaPool to import is found.
         '''
         if __debug__:
@@ -150,12 +150,12 @@ class PrivatecaCaPool(
         maximum_lifetime: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_issuance_modes: allowed_issuance_modes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#allowed_issuance_modes PrivatecaCaPool#allowed_issuance_modes}
-        :param allowed_key_types: allowed_key_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#allowed_key_types PrivatecaCaPool#allowed_key_types}
-        :param backdate_duration: The duration to backdate all certificates issued from this CaPool. If not set, the certificates will be issued with a not_before_time of the issuance time (i.e. the current time). If set, the certificates will be issued with a not_before_time of the issuance time minus the backdate_duration. The not_after_time will be adjusted to preserve the requested lifetime. The backdate_duration must be less than or equal to 48 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#backdate_duration PrivatecaCaPool#backdate_duration}
-        :param baseline_values: baseline_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#baseline_values PrivatecaCaPool#baseline_values}
-        :param identity_constraints: identity_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#identity_constraints PrivatecaCaPool#identity_constraints}
-        :param maximum_lifetime: The maximum lifetime allowed for issued Certificates. Note that if the issuing CertificateAuthority expires before a Certificate's requested maximumLifetime, the effective lifetime will be explicitly truncated to match it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#maximum_lifetime PrivatecaCaPool#maximum_lifetime}
+        :param allowed_issuance_modes: allowed_issuance_modes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#allowed_issuance_modes PrivatecaCaPool#allowed_issuance_modes}
+        :param allowed_key_types: allowed_key_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#allowed_key_types PrivatecaCaPool#allowed_key_types}
+        :param backdate_duration: The duration to backdate all certificates issued from this CaPool. If not set, the certificates will be issued with a not_before_time of the issuance time (i.e. the current time). If set, the certificates will be issued with a not_before_time of the issuance time minus the backdate_duration. The not_after_time will be adjusted to preserve the requested lifetime. The backdate_duration must be less than or equal to 48 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#backdate_duration PrivatecaCaPool#backdate_duration}
+        :param baseline_values: baseline_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#baseline_values PrivatecaCaPool#baseline_values}
+        :param identity_constraints: identity_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#identity_constraints PrivatecaCaPool#identity_constraints}
+        :param maximum_lifetime: The maximum lifetime allowed for issued Certificates. Note that if the issuing CertificateAuthority expires before a Certificate's requested maximumLifetime, the effective lifetime will be explicitly truncated to match it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#maximum_lifetime PrivatecaCaPool#maximum_lifetime}
         '''
         value = PrivatecaCaPoolIssuancePolicy(
             allowed_issuance_modes=allowed_issuance_modes,
@@ -177,9 +177,9 @@ class PrivatecaCaPool(
         encoding_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param publish_ca_cert: When true, publishes each CertificateAuthority's CA certificate and includes its URL in the "Authority Information Access" X.509 extension in all issued Certificates. If this is false, the CA certificate will not be published and the corresponding X.509 extension will not be written in issued certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#publish_ca_cert PrivatecaCaPool#publish_ca_cert}
-        :param publish_crl: When true, publishes each CertificateAuthority's CRL and includes its URL in the "CRL Distribution Points" X.509 extension in all issued Certificates. If this is false, CRLs will not be published and the corresponding X.509 extension will not be written in issued certificates. CRLs will expire 7 days from their creation. However, we will rebuild daily. CRLs are also rebuilt shortly after a certificate is revoked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#publish_crl PrivatecaCaPool#publish_crl}
-        :param encoding_format: Specifies the encoding format of each CertificateAuthority's CA certificate and CRLs. If this is omitted, CA certificates and CRLs will be published in PEM. Possible values: ["PEM", "DER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#encoding_format PrivatecaCaPool#encoding_format}
+        :param publish_ca_cert: When true, publishes each CertificateAuthority's CA certificate and includes its URL in the "Authority Information Access" X.509 extension in all issued Certificates. If this is false, the CA certificate will not be published and the corresponding X.509 extension will not be written in issued certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#publish_ca_cert PrivatecaCaPool#publish_ca_cert}
+        :param publish_crl: When true, publishes each CertificateAuthority's CRL and includes its URL in the "CRL Distribution Points" X.509 extension in all issued Certificates. If this is false, CRLs will not be published and the corresponding X.509 extension will not be written in issued certificates. CRLs will expire 7 days from their creation. However, we will rebuild daily. CRLs are also rebuilt shortly after a certificate is revoked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#publish_crl PrivatecaCaPool#publish_crl}
+        :param encoding_format: Specifies the encoding format of each CertificateAuthority's CA certificate and CRLs. If this is omitted, CA certificates and CRLs will be published in PEM. Possible values: ["PEM", "DER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#encoding_format PrivatecaCaPool#encoding_format}
         '''
         value = PrivatecaCaPoolPublishingOptions(
             publish_ca_cert=publish_ca_cert,
@@ -198,9 +198,9 @@ class PrivatecaCaPool(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#create PrivatecaCaPool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#delete PrivatecaCaPool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#update PrivatecaCaPool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#create PrivatecaCaPool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#delete PrivatecaCaPool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#update PrivatecaCaPool#update}.
         '''
         value = PrivatecaCaPoolTimeouts(create=create, delete=delete, update=update)
 
@@ -443,15 +443,15 @@ class PrivatecaCaPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Location of the CaPool. A full list of valid locations can be found by running 'gcloud privateca locations list'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#location PrivatecaCaPool#location}
-        :param name: The name for this CaPool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#name PrivatecaCaPool#name}
-        :param tier: The Tier of this CaPool. Possible values: ["ENTERPRISE", "DEVOPS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#tier PrivatecaCaPool#tier}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#id PrivatecaCaPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param issuance_policy: issuance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#issuance_policy PrivatecaCaPool#issuance_policy}
-        :param labels: Labels with user-defined metadata. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#labels PrivatecaCaPool#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#project PrivatecaCaPool#project}.
-        :param publishing_options: publishing_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#publishing_options PrivatecaCaPool#publishing_options}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#timeouts PrivatecaCaPool#timeouts}
+        :param location: Location of the CaPool. A full list of valid locations can be found by running 'gcloud privateca locations list'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#location PrivatecaCaPool#location}
+        :param name: The name for this CaPool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#name PrivatecaCaPool#name}
+        :param tier: The Tier of this CaPool. Possible values: ["ENTERPRISE", "DEVOPS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#tier PrivatecaCaPool#tier}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#id PrivatecaCaPool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param issuance_policy: issuance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#issuance_policy PrivatecaCaPool#issuance_policy}
+        :param labels: Labels with user-defined metadata. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#labels PrivatecaCaPool#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#project PrivatecaCaPool#project}.
+        :param publishing_options: publishing_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#publishing_options PrivatecaCaPool#publishing_options}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#timeouts PrivatecaCaPool#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -579,7 +579,7 @@ class PrivatecaCaPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Location of the CaPool. A full list of valid locations can be found by running 'gcloud privateca locations list'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#location PrivatecaCaPool#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#location PrivatecaCaPool#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -589,7 +589,7 @@ class PrivatecaCaPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name for this CaPool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#name PrivatecaCaPool#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#name PrivatecaCaPool#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -599,7 +599,7 @@ class PrivatecaCaPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tier(self) -> builtins.str:
         '''The Tier of this CaPool. Possible values: ["ENTERPRISE", "DEVOPS"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#tier PrivatecaCaPool#tier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#tier PrivatecaCaPool#tier}
         '''
         result = self._values.get("tier")
         assert result is not None, "Required property 'tier' is missing"
@@ -607,7 +607,7 @@ class PrivatecaCaPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#id PrivatecaCaPool#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#id PrivatecaCaPool#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -619,7 +619,7 @@ class PrivatecaCaPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def issuance_policy(self) -> typing.Optional["PrivatecaCaPoolIssuancePolicy"]:
         '''issuance_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#issuance_policy PrivatecaCaPool#issuance_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#issuance_policy PrivatecaCaPool#issuance_policy}
         '''
         result = self._values.get("issuance_policy")
         return typing.cast(typing.Optional["PrivatecaCaPoolIssuancePolicy"], result)
@@ -634,14 +634,14 @@ class PrivatecaCaPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#labels PrivatecaCaPool#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#labels PrivatecaCaPool#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#project PrivatecaCaPool#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#project PrivatecaCaPool#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -649,7 +649,7 @@ class PrivatecaCaPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def publishing_options(self) -> typing.Optional["PrivatecaCaPoolPublishingOptions"]:
         '''publishing_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#publishing_options PrivatecaCaPool#publishing_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#publishing_options PrivatecaCaPool#publishing_options}
         '''
         result = self._values.get("publishing_options")
         return typing.cast(typing.Optional["PrivatecaCaPoolPublishingOptions"], result)
@@ -658,7 +658,7 @@ class PrivatecaCaPoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["PrivatecaCaPoolTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#timeouts PrivatecaCaPool#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#timeouts PrivatecaCaPool#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["PrivatecaCaPoolTimeouts"], result)
@@ -699,12 +699,12 @@ class PrivatecaCaPoolIssuancePolicy:
         maximum_lifetime: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_issuance_modes: allowed_issuance_modes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#allowed_issuance_modes PrivatecaCaPool#allowed_issuance_modes}
-        :param allowed_key_types: allowed_key_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#allowed_key_types PrivatecaCaPool#allowed_key_types}
-        :param backdate_duration: The duration to backdate all certificates issued from this CaPool. If not set, the certificates will be issued with a not_before_time of the issuance time (i.e. the current time). If set, the certificates will be issued with a not_before_time of the issuance time minus the backdate_duration. The not_after_time will be adjusted to preserve the requested lifetime. The backdate_duration must be less than or equal to 48 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#backdate_duration PrivatecaCaPool#backdate_duration}
-        :param baseline_values: baseline_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#baseline_values PrivatecaCaPool#baseline_values}
-        :param identity_constraints: identity_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#identity_constraints PrivatecaCaPool#identity_constraints}
-        :param maximum_lifetime: The maximum lifetime allowed for issued Certificates. Note that if the issuing CertificateAuthority expires before a Certificate's requested maximumLifetime, the effective lifetime will be explicitly truncated to match it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#maximum_lifetime PrivatecaCaPool#maximum_lifetime}
+        :param allowed_issuance_modes: allowed_issuance_modes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#allowed_issuance_modes PrivatecaCaPool#allowed_issuance_modes}
+        :param allowed_key_types: allowed_key_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#allowed_key_types PrivatecaCaPool#allowed_key_types}
+        :param backdate_duration: The duration to backdate all certificates issued from this CaPool. If not set, the certificates will be issued with a not_before_time of the issuance time (i.e. the current time). If set, the certificates will be issued with a not_before_time of the issuance time minus the backdate_duration. The not_after_time will be adjusted to preserve the requested lifetime. The backdate_duration must be less than or equal to 48 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#backdate_duration PrivatecaCaPool#backdate_duration}
+        :param baseline_values: baseline_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#baseline_values PrivatecaCaPool#baseline_values}
+        :param identity_constraints: identity_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#identity_constraints PrivatecaCaPool#identity_constraints}
+        :param maximum_lifetime: The maximum lifetime allowed for issued Certificates. Note that if the issuing CertificateAuthority expires before a Certificate's requested maximumLifetime, the effective lifetime will be explicitly truncated to match it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#maximum_lifetime PrivatecaCaPool#maximum_lifetime}
         '''
         if isinstance(allowed_issuance_modes, dict):
             allowed_issuance_modes = PrivatecaCaPoolIssuancePolicyAllowedIssuanceModes(**allowed_issuance_modes)
@@ -740,7 +740,7 @@ class PrivatecaCaPoolIssuancePolicy:
     ) -> typing.Optional["PrivatecaCaPoolIssuancePolicyAllowedIssuanceModes"]:
         '''allowed_issuance_modes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#allowed_issuance_modes PrivatecaCaPool#allowed_issuance_modes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#allowed_issuance_modes PrivatecaCaPool#allowed_issuance_modes}
         '''
         result = self._values.get("allowed_issuance_modes")
         return typing.cast(typing.Optional["PrivatecaCaPoolIssuancePolicyAllowedIssuanceModes"], result)
@@ -751,7 +751,7 @@ class PrivatecaCaPoolIssuancePolicy:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrivatecaCaPoolIssuancePolicyAllowedKeyTypes"]]]:
         '''allowed_key_types block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#allowed_key_types PrivatecaCaPool#allowed_key_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#allowed_key_types PrivatecaCaPool#allowed_key_types}
         '''
         result = self._values.get("allowed_key_types")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrivatecaCaPoolIssuancePolicyAllowedKeyTypes"]]], result)
@@ -766,7 +766,7 @@ class PrivatecaCaPoolIssuancePolicy:
         time minus the backdate_duration. The not_after_time will be adjusted to preserve the
         requested lifetime. The backdate_duration must be less than or equal to 48 hours.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#backdate_duration PrivatecaCaPool#backdate_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#backdate_duration PrivatecaCaPool#backdate_duration}
         '''
         result = self._values.get("backdate_duration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -777,7 +777,7 @@ class PrivatecaCaPoolIssuancePolicy:
     ) -> typing.Optional["PrivatecaCaPoolIssuancePolicyBaselineValues"]:
         '''baseline_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#baseline_values PrivatecaCaPool#baseline_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#baseline_values PrivatecaCaPool#baseline_values}
         '''
         result = self._values.get("baseline_values")
         return typing.cast(typing.Optional["PrivatecaCaPoolIssuancePolicyBaselineValues"], result)
@@ -788,7 +788,7 @@ class PrivatecaCaPoolIssuancePolicy:
     ) -> typing.Optional["PrivatecaCaPoolIssuancePolicyIdentityConstraints"]:
         '''identity_constraints block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#identity_constraints PrivatecaCaPool#identity_constraints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#identity_constraints PrivatecaCaPool#identity_constraints}
         '''
         result = self._values.get("identity_constraints")
         return typing.cast(typing.Optional["PrivatecaCaPoolIssuancePolicyIdentityConstraints"], result)
@@ -800,7 +800,7 @@ class PrivatecaCaPoolIssuancePolicy:
         Note that if the issuing CertificateAuthority
         expires before a Certificate's requested maximumLifetime, the effective lifetime will be explicitly truncated to match it.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#maximum_lifetime PrivatecaCaPool#maximum_lifetime}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#maximum_lifetime PrivatecaCaPool#maximum_lifetime}
         '''
         result = self._values.get("maximum_lifetime")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -833,8 +833,8 @@ class PrivatecaCaPoolIssuancePolicyAllowedIssuanceModes:
         allow_csr_based_issuance: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param allow_config_based_issuance: When true, allows callers to create Certificates by specifying a CertificateConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#allow_config_based_issuance PrivatecaCaPool#allow_config_based_issuance}
-        :param allow_csr_based_issuance: When true, allows callers to create Certificates by specifying a CSR. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#allow_csr_based_issuance PrivatecaCaPool#allow_csr_based_issuance}
+        :param allow_config_based_issuance: When true, allows callers to create Certificates by specifying a CertificateConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#allow_config_based_issuance PrivatecaCaPool#allow_config_based_issuance}
+        :param allow_csr_based_issuance: When true, allows callers to create Certificates by specifying a CSR. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#allow_csr_based_issuance PrivatecaCaPool#allow_csr_based_issuance}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14c2d7ef77fba497d5afc66c970e461f4e13ab5c60598011e01763ca4c5e4d34)
@@ -851,7 +851,7 @@ class PrivatecaCaPoolIssuancePolicyAllowedIssuanceModes:
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''When true, allows callers to create Certificates by specifying a CertificateConfig.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#allow_config_based_issuance PrivatecaCaPool#allow_config_based_issuance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#allow_config_based_issuance PrivatecaCaPool#allow_config_based_issuance}
         '''
         result = self._values.get("allow_config_based_issuance")
         assert result is not None, "Required property 'allow_config_based_issuance' is missing"
@@ -863,7 +863,7 @@ class PrivatecaCaPoolIssuancePolicyAllowedIssuanceModes:
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''When true, allows callers to create Certificates by specifying a CSR.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#allow_csr_based_issuance PrivatecaCaPool#allow_csr_based_issuance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#allow_csr_based_issuance PrivatecaCaPool#allow_csr_based_issuance}
         '''
         result = self._values.get("allow_csr_based_issuance")
         assert result is not None, "Required property 'allow_csr_based_issuance' is missing"
@@ -980,8 +980,8 @@ class PrivatecaCaPoolIssuancePolicyAllowedKeyTypes:
         rsa: typing.Optional[typing.Union["PrivatecaCaPoolIssuancePolicyAllowedKeyTypesRsa", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param elliptic_curve: elliptic_curve block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#elliptic_curve PrivatecaCaPool#elliptic_curve}
-        :param rsa: rsa block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#rsa PrivatecaCaPool#rsa}
+        :param elliptic_curve: elliptic_curve block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#elliptic_curve PrivatecaCaPool#elliptic_curve}
+        :param rsa: rsa block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#rsa PrivatecaCaPool#rsa}
         '''
         if isinstance(elliptic_curve, dict):
             elliptic_curve = PrivatecaCaPoolIssuancePolicyAllowedKeyTypesEllipticCurve(**elliptic_curve)
@@ -1003,7 +1003,7 @@ class PrivatecaCaPoolIssuancePolicyAllowedKeyTypes:
     ) -> typing.Optional["PrivatecaCaPoolIssuancePolicyAllowedKeyTypesEllipticCurve"]:
         '''elliptic_curve block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#elliptic_curve PrivatecaCaPool#elliptic_curve}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#elliptic_curve PrivatecaCaPool#elliptic_curve}
         '''
         result = self._values.get("elliptic_curve")
         return typing.cast(typing.Optional["PrivatecaCaPoolIssuancePolicyAllowedKeyTypesEllipticCurve"], result)
@@ -1012,7 +1012,7 @@ class PrivatecaCaPoolIssuancePolicyAllowedKeyTypes:
     def rsa(self) -> typing.Optional["PrivatecaCaPoolIssuancePolicyAllowedKeyTypesRsa"]:
         '''rsa block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#rsa PrivatecaCaPool#rsa}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#rsa PrivatecaCaPool#rsa}
         '''
         result = self._values.get("rsa")
         return typing.cast(typing.Optional["PrivatecaCaPoolIssuancePolicyAllowedKeyTypesRsa"], result)
@@ -1037,7 +1037,7 @@ class PrivatecaCaPoolIssuancePolicyAllowedKeyTypes:
 class PrivatecaCaPoolIssuancePolicyAllowedKeyTypesEllipticCurve:
     def __init__(self, *, signature_algorithm: builtins.str) -> None:
         '''
-        :param signature_algorithm: The algorithm used. Possible values: ["ECDSA_P256", "ECDSA_P384", "EDDSA_25519"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#signature_algorithm PrivatecaCaPool#signature_algorithm}
+        :param signature_algorithm: The algorithm used. Possible values: ["ECDSA_P256", "ECDSA_P384", "EDDSA_25519"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#signature_algorithm PrivatecaCaPool#signature_algorithm}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a3b7a5f9a80bf962a83840784d468311067a8f6695124f220a0524cf96679711)
@@ -1050,7 +1050,7 @@ class PrivatecaCaPoolIssuancePolicyAllowedKeyTypesEllipticCurve:
     def signature_algorithm(self) -> builtins.str:
         '''The algorithm used. Possible values: ["ECDSA_P256", "ECDSA_P384", "EDDSA_25519"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#signature_algorithm PrivatecaCaPool#signature_algorithm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#signature_algorithm PrivatecaCaPool#signature_algorithm}
         '''
         result = self._values.get("signature_algorithm")
         assert result is not None, "Required property 'signature_algorithm' is missing"
@@ -1245,7 +1245,7 @@ class PrivatecaCaPoolIssuancePolicyAllowedKeyTypesOutputReference(
     @jsii.member(jsii_name="putEllipticCurve")
     def put_elliptic_curve(self, *, signature_algorithm: builtins.str) -> None:
         '''
-        :param signature_algorithm: The algorithm used. Possible values: ["ECDSA_P256", "ECDSA_P384", "EDDSA_25519"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#signature_algorithm PrivatecaCaPool#signature_algorithm}
+        :param signature_algorithm: The algorithm used. Possible values: ["ECDSA_P256", "ECDSA_P384", "EDDSA_25519"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#signature_algorithm PrivatecaCaPool#signature_algorithm}
         '''
         value = PrivatecaCaPoolIssuancePolicyAllowedKeyTypesEllipticCurve(
             signature_algorithm=signature_algorithm
@@ -1261,8 +1261,8 @@ class PrivatecaCaPoolIssuancePolicyAllowedKeyTypesOutputReference(
         min_modulus_size: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_modulus_size: The maximum allowed RSA modulus size, in bits. If this is not set, or if set to zero, the service will not enforce an explicit upper bound on RSA modulus sizes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#max_modulus_size PrivatecaCaPool#max_modulus_size}
-        :param min_modulus_size: The minimum allowed RSA modulus size, in bits. If this is not set, or if set to zero, the service-level min RSA modulus size will continue to apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#min_modulus_size PrivatecaCaPool#min_modulus_size}
+        :param max_modulus_size: The maximum allowed RSA modulus size, in bits. If this is not set, or if set to zero, the service will not enforce an explicit upper bound on RSA modulus sizes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#max_modulus_size PrivatecaCaPool#max_modulus_size}
+        :param min_modulus_size: The minimum allowed RSA modulus size, in bits. If this is not set, or if set to zero, the service-level min RSA modulus size will continue to apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#min_modulus_size PrivatecaCaPool#min_modulus_size}
         '''
         value = PrivatecaCaPoolIssuancePolicyAllowedKeyTypesRsa(
             max_modulus_size=max_modulus_size, min_modulus_size=min_modulus_size
@@ -1338,8 +1338,8 @@ class PrivatecaCaPoolIssuancePolicyAllowedKeyTypesRsa:
         min_modulus_size: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_modulus_size: The maximum allowed RSA modulus size, in bits. If this is not set, or if set to zero, the service will not enforce an explicit upper bound on RSA modulus sizes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#max_modulus_size PrivatecaCaPool#max_modulus_size}
-        :param min_modulus_size: The minimum allowed RSA modulus size, in bits. If this is not set, or if set to zero, the service-level min RSA modulus size will continue to apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#min_modulus_size PrivatecaCaPool#min_modulus_size}
+        :param max_modulus_size: The maximum allowed RSA modulus size, in bits. If this is not set, or if set to zero, the service will not enforce an explicit upper bound on RSA modulus sizes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#max_modulus_size PrivatecaCaPool#max_modulus_size}
+        :param min_modulus_size: The minimum allowed RSA modulus size, in bits. If this is not set, or if set to zero, the service-level min RSA modulus size will continue to apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#min_modulus_size PrivatecaCaPool#min_modulus_size}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c04325f9ba0d2172dfebc86d266be57602fba64fe8c75004e1b94d0c9975e55c)
@@ -1358,7 +1358,7 @@ class PrivatecaCaPoolIssuancePolicyAllowedKeyTypesRsa:
         If this is not set, or if set to zero, the
         service will not enforce an explicit upper bound on RSA modulus sizes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#max_modulus_size PrivatecaCaPool#max_modulus_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#max_modulus_size PrivatecaCaPool#max_modulus_size}
         '''
         result = self._values.get("max_modulus_size")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1370,7 +1370,7 @@ class PrivatecaCaPoolIssuancePolicyAllowedKeyTypesRsa:
         If this is not set, or if set to zero, the
         service-level min RSA modulus size will continue to apply.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#min_modulus_size PrivatecaCaPool#min_modulus_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#min_modulus_size PrivatecaCaPool#min_modulus_size}
         '''
         result = self._values.get("min_modulus_size")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1491,12 +1491,12 @@ class PrivatecaCaPoolIssuancePolicyBaselineValues:
         policy_ids: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["PrivatecaCaPoolIssuancePolicyBaselineValuesPolicyIds", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param ca_options: ca_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#ca_options PrivatecaCaPool#ca_options}
-        :param key_usage: key_usage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#key_usage PrivatecaCaPool#key_usage}
-        :param additional_extensions: additional_extensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#additional_extensions PrivatecaCaPool#additional_extensions}
-        :param aia_ocsp_servers: Describes Online Certificate Status Protocol (OCSP) endpoint addresses that appear in the "Authority Information Access" extension in the certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#aia_ocsp_servers PrivatecaCaPool#aia_ocsp_servers}
-        :param name_constraints: name_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#name_constraints PrivatecaCaPool#name_constraints}
-        :param policy_ids: policy_ids block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#policy_ids PrivatecaCaPool#policy_ids}
+        :param ca_options: ca_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#ca_options PrivatecaCaPool#ca_options}
+        :param key_usage: key_usage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#key_usage PrivatecaCaPool#key_usage}
+        :param additional_extensions: additional_extensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#additional_extensions PrivatecaCaPool#additional_extensions}
+        :param aia_ocsp_servers: Describes Online Certificate Status Protocol (OCSP) endpoint addresses that appear in the "Authority Information Access" extension in the certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#aia_ocsp_servers PrivatecaCaPool#aia_ocsp_servers}
+        :param name_constraints: name_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#name_constraints PrivatecaCaPool#name_constraints}
+        :param policy_ids: policy_ids block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#policy_ids PrivatecaCaPool#policy_ids}
         '''
         if isinstance(ca_options, dict):
             ca_options = PrivatecaCaPoolIssuancePolicyBaselineValuesCaOptions(**ca_options)
@@ -1529,7 +1529,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValues:
     def ca_options(self) -> "PrivatecaCaPoolIssuancePolicyBaselineValuesCaOptions":
         '''ca_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#ca_options PrivatecaCaPool#ca_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#ca_options PrivatecaCaPool#ca_options}
         '''
         result = self._values.get("ca_options")
         assert result is not None, "Required property 'ca_options' is missing"
@@ -1539,7 +1539,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValues:
     def key_usage(self) -> "PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsage":
         '''key_usage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#key_usage PrivatecaCaPool#key_usage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#key_usage PrivatecaCaPool#key_usage}
         '''
         result = self._values.get("key_usage")
         assert result is not None, "Required property 'key_usage' is missing"
@@ -1551,7 +1551,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValues:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrivatecaCaPoolIssuancePolicyBaselineValuesAdditionalExtensions"]]]:
         '''additional_extensions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#additional_extensions PrivatecaCaPool#additional_extensions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#additional_extensions PrivatecaCaPool#additional_extensions}
         '''
         result = self._values.get("additional_extensions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrivatecaCaPoolIssuancePolicyBaselineValuesAdditionalExtensions"]]], result)
@@ -1560,7 +1560,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValues:
     def aia_ocsp_servers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Describes Online Certificate Status Protocol (OCSP) endpoint addresses that appear in the "Authority Information Access" extension in the certificate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#aia_ocsp_servers PrivatecaCaPool#aia_ocsp_servers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#aia_ocsp_servers PrivatecaCaPool#aia_ocsp_servers}
         '''
         result = self._values.get("aia_ocsp_servers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1571,7 +1571,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValues:
     ) -> typing.Optional["PrivatecaCaPoolIssuancePolicyBaselineValuesNameConstraints"]:
         '''name_constraints block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#name_constraints PrivatecaCaPool#name_constraints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#name_constraints PrivatecaCaPool#name_constraints}
         '''
         result = self._values.get("name_constraints")
         return typing.cast(typing.Optional["PrivatecaCaPoolIssuancePolicyBaselineValuesNameConstraints"], result)
@@ -1582,7 +1582,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValues:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrivatecaCaPoolIssuancePolicyBaselineValuesPolicyIds"]]]:
         '''policy_ids block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#policy_ids PrivatecaCaPool#policy_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#policy_ids PrivatecaCaPool#policy_ids}
         '''
         result = self._values.get("policy_ids")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrivatecaCaPoolIssuancePolicyBaselineValuesPolicyIds"]]], result)
@@ -1613,9 +1613,9 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesAdditionalExtensions:
         value: builtins.str,
     ) -> None:
         '''
-        :param critical: Indicates whether or not this extension is critical (i.e., if the client does not know how to handle this extension, the client should consider this to be an error). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#critical PrivatecaCaPool#critical}
-        :param object_id: object_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#object_id PrivatecaCaPool#object_id}
-        :param value: The value of this X.509 extension. A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#value PrivatecaCaPool#value}
+        :param critical: Indicates whether or not this extension is critical (i.e., if the client does not know how to handle this extension, the client should consider this to be an error). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#critical PrivatecaCaPool#critical}
+        :param object_id: object_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#object_id PrivatecaCaPool#object_id}
+        :param value: The value of this X.509 extension. A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#value PrivatecaCaPool#value}
         '''
         if isinstance(object_id, dict):
             object_id = PrivatecaCaPoolIssuancePolicyBaselineValuesAdditionalExtensionsObjectId(**object_id)
@@ -1634,7 +1634,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesAdditionalExtensions:
     def critical(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Indicates whether or not this extension is critical (i.e., if the client does not know how to handle this extension, the client should consider this to be an error).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#critical PrivatecaCaPool#critical}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#critical PrivatecaCaPool#critical}
         '''
         result = self._values.get("critical")
         assert result is not None, "Required property 'critical' is missing"
@@ -1646,7 +1646,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesAdditionalExtensions:
     ) -> "PrivatecaCaPoolIssuancePolicyBaselineValuesAdditionalExtensionsObjectId":
         '''object_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#object_id PrivatecaCaPool#object_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#object_id PrivatecaCaPool#object_id}
         '''
         result = self._values.get("object_id")
         assert result is not None, "Required property 'object_id' is missing"
@@ -1656,7 +1656,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesAdditionalExtensions:
     def value(self) -> builtins.str:
         '''The value of this X.509 extension. A base64-encoded string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#value PrivatecaCaPool#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#value PrivatecaCaPool#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -1775,7 +1775,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesAdditionalExtensionsList(
 class PrivatecaCaPoolIssuancePolicyBaselineValuesAdditionalExtensionsObjectId:
     def __init__(self, *, object_id_path: typing.Sequence[jsii.Number]) -> None:
         '''
-        :param object_id_path: An ObjectId specifies an object identifier (OID). These provide context and describe types in ASN.1 messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#object_id_path PrivatecaCaPool#object_id_path}
+        :param object_id_path: An ObjectId specifies an object identifier (OID). These provide context and describe types in ASN.1 messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#object_id_path PrivatecaCaPool#object_id_path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0d437e32b954ac5be4babec809a244dd34878bc4abac73dd3c8667f1a8962ce6)
@@ -1788,7 +1788,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesAdditionalExtensionsObjectId:
     def object_id_path(self) -> typing.List[jsii.Number]:
         '''An ObjectId specifies an object identifier (OID). These provide context and describe types in ASN.1 messages.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#object_id_path PrivatecaCaPool#object_id_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#object_id_path PrivatecaCaPool#object_id_path}
         '''
         result = self._values.get("object_id_path")
         assert result is not None, "Required property 'object_id_path' is missing"
@@ -1890,7 +1890,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesAdditionalExtensionsOutputRefer
     @jsii.member(jsii_name="putObjectId")
     def put_object_id(self, *, object_id_path: typing.Sequence[jsii.Number]) -> None:
         '''
-        :param object_id_path: An ObjectId specifies an object identifier (OID). These provide context and describe types in ASN.1 messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#object_id_path PrivatecaCaPool#object_id_path}
+        :param object_id_path: An ObjectId specifies an object identifier (OID). These provide context and describe types in ASN.1 messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#object_id_path PrivatecaCaPool#object_id_path}
         '''
         value = PrivatecaCaPoolIssuancePolicyBaselineValuesAdditionalExtensionsObjectId(
             object_id_path=object_id_path
@@ -1989,10 +1989,10 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesCaOptions:
         zero_max_issuer_path_length: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param is_ca: When true, the "CA" in Basic Constraints extension will be set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#is_ca PrivatecaCaPool#is_ca}
-        :param max_issuer_path_length: Refers to the "path length constraint" in Basic Constraints extension. For a CA certificate, this value describes the depth of subordinate CA certificates that are allowed. If this value is less than 0, the request will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#max_issuer_path_length PrivatecaCaPool#max_issuer_path_length}
-        :param non_ca: When true, the "CA" in Basic Constraints extension will be set to false. If both 'is_ca' and 'non_ca' are unset, the extension will be omitted from the CA certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#non_ca PrivatecaCaPool#non_ca}
-        :param zero_max_issuer_path_length: When true, the "path length constraint" in Basic Constraints extension will be set to 0. if both 'max_issuer_path_length' and 'zero_max_issuer_path_length' are unset, the max path length will be omitted from the CA certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#zero_max_issuer_path_length PrivatecaCaPool#zero_max_issuer_path_length}
+        :param is_ca: When true, the "CA" in Basic Constraints extension will be set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#is_ca PrivatecaCaPool#is_ca}
+        :param max_issuer_path_length: Refers to the "path length constraint" in Basic Constraints extension. For a CA certificate, this value describes the depth of subordinate CA certificates that are allowed. If this value is less than 0, the request will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#max_issuer_path_length PrivatecaCaPool#max_issuer_path_length}
+        :param non_ca: When true, the "CA" in Basic Constraints extension will be set to false. If both 'is_ca' and 'non_ca' are unset, the extension will be omitted from the CA certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#non_ca PrivatecaCaPool#non_ca}
+        :param zero_max_issuer_path_length: When true, the "path length constraint" in Basic Constraints extension will be set to 0. if both 'max_issuer_path_length' and 'zero_max_issuer_path_length' are unset, the max path length will be omitted from the CA certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#zero_max_issuer_path_length PrivatecaCaPool#zero_max_issuer_path_length}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6d720f20b2e23d63e789f4e593f924c9981f1ea4f267976273533320be3a13f2)
@@ -2016,7 +2016,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesCaOptions:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When true, the "CA" in Basic Constraints extension will be set to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#is_ca PrivatecaCaPool#is_ca}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#is_ca PrivatecaCaPool#is_ca}
         '''
         result = self._values.get("is_ca")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2028,7 +2028,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesCaOptions:
         For a CA certificate, this value describes the depth of
         subordinate CA certificates that are allowed. If this value is less than 0, the request will fail.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#max_issuer_path_length PrivatecaCaPool#max_issuer_path_length}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#max_issuer_path_length PrivatecaCaPool#max_issuer_path_length}
         '''
         result = self._values.get("max_issuer_path_length")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2041,7 +2041,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesCaOptions:
 
         If both 'is_ca' and 'non_ca' are unset, the extension will be omitted from the CA certificate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#non_ca PrivatecaCaPool#non_ca}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#non_ca PrivatecaCaPool#non_ca}
         '''
         result = self._values.get("non_ca")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2055,7 +2055,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesCaOptions:
         if both 'max_issuer_path_length' and 'zero_max_issuer_path_length' are unset,
         the max path length will be omitted from the CA certificate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#zero_max_issuer_path_length PrivatecaCaPool#zero_max_issuer_path_length}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#zero_max_issuer_path_length PrivatecaCaPool#zero_max_issuer_path_length}
         '''
         result = self._values.get("zero_max_issuer_path_length")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2229,9 +2229,9 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsage:
         unknown_extended_key_usages: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageUnknownExtendedKeyUsages", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param base_key_usage: base_key_usage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#base_key_usage PrivatecaCaPool#base_key_usage}
-        :param extended_key_usage: extended_key_usage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#extended_key_usage PrivatecaCaPool#extended_key_usage}
-        :param unknown_extended_key_usages: unknown_extended_key_usages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#unknown_extended_key_usages PrivatecaCaPool#unknown_extended_key_usages}
+        :param base_key_usage: base_key_usage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#base_key_usage PrivatecaCaPool#base_key_usage}
+        :param extended_key_usage: extended_key_usage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#extended_key_usage PrivatecaCaPool#extended_key_usage}
+        :param unknown_extended_key_usages: unknown_extended_key_usages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#unknown_extended_key_usages PrivatecaCaPool#unknown_extended_key_usages}
         '''
         if isinstance(base_key_usage, dict):
             base_key_usage = PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageBaseKeyUsage(**base_key_usage)
@@ -2255,7 +2255,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsage:
     ) -> "PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageBaseKeyUsage":
         '''base_key_usage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#base_key_usage PrivatecaCaPool#base_key_usage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#base_key_usage PrivatecaCaPool#base_key_usage}
         '''
         result = self._values.get("base_key_usage")
         assert result is not None, "Required property 'base_key_usage' is missing"
@@ -2267,7 +2267,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsage:
     ) -> "PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageExtendedKeyUsage":
         '''extended_key_usage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#extended_key_usage PrivatecaCaPool#extended_key_usage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#extended_key_usage PrivatecaCaPool#extended_key_usage}
         '''
         result = self._values.get("extended_key_usage")
         assert result is not None, "Required property 'extended_key_usage' is missing"
@@ -2279,7 +2279,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageUnknownExtendedKeyUsages"]]]:
         '''unknown_extended_key_usages block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#unknown_extended_key_usages PrivatecaCaPool#unknown_extended_key_usages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#unknown_extended_key_usages PrivatecaCaPool#unknown_extended_key_usages}
         '''
         result = self._values.get("unknown_extended_key_usages")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageUnknownExtendedKeyUsages"]]], result)
@@ -2326,15 +2326,15 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageBaseKeyUsage:
         key_encipherment: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param cert_sign: The key may be used to sign certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#cert_sign PrivatecaCaPool#cert_sign}
-        :param content_commitment: The key may be used for cryptographic commitments. Note that this may also be referred to as "non-repudiation". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#content_commitment PrivatecaCaPool#content_commitment}
-        :param crl_sign: The key may be used sign certificate revocation lists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#crl_sign PrivatecaCaPool#crl_sign}
-        :param data_encipherment: The key may be used to encipher data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#data_encipherment PrivatecaCaPool#data_encipherment}
-        :param decipher_only: The key may be used to decipher only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#decipher_only PrivatecaCaPool#decipher_only}
-        :param digital_signature: The key may be used for digital signatures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#digital_signature PrivatecaCaPool#digital_signature}
-        :param encipher_only: The key may be used to encipher only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#encipher_only PrivatecaCaPool#encipher_only}
-        :param key_agreement: The key may be used in a key agreement protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#key_agreement PrivatecaCaPool#key_agreement}
-        :param key_encipherment: The key may be used to encipher other keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#key_encipherment PrivatecaCaPool#key_encipherment}
+        :param cert_sign: The key may be used to sign certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#cert_sign PrivatecaCaPool#cert_sign}
+        :param content_commitment: The key may be used for cryptographic commitments. Note that this may also be referred to as "non-repudiation". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#content_commitment PrivatecaCaPool#content_commitment}
+        :param crl_sign: The key may be used sign certificate revocation lists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#crl_sign PrivatecaCaPool#crl_sign}
+        :param data_encipherment: The key may be used to encipher data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#data_encipherment PrivatecaCaPool#data_encipherment}
+        :param decipher_only: The key may be used to decipher only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#decipher_only PrivatecaCaPool#decipher_only}
+        :param digital_signature: The key may be used for digital signatures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#digital_signature PrivatecaCaPool#digital_signature}
+        :param encipher_only: The key may be used to encipher only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#encipher_only PrivatecaCaPool#encipher_only}
+        :param key_agreement: The key may be used in a key agreement protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#key_agreement PrivatecaCaPool#key_agreement}
+        :param key_encipherment: The key may be used to encipher other keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#key_encipherment PrivatecaCaPool#key_encipherment}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21d272d78e3036f98796c5d27a688a7dd8cd5bb1be520053f0ef700938a6f402)
@@ -2373,7 +2373,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageBaseKeyUsage:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''The key may be used to sign certificates.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#cert_sign PrivatecaCaPool#cert_sign}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#cert_sign PrivatecaCaPool#cert_sign}
         '''
         result = self._values.get("cert_sign")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2384,7 +2384,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageBaseKeyUsage:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''The key may be used for cryptographic commitments. Note that this may also be referred to as "non-repudiation".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#content_commitment PrivatecaCaPool#content_commitment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#content_commitment PrivatecaCaPool#content_commitment}
         '''
         result = self._values.get("content_commitment")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2395,7 +2395,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageBaseKeyUsage:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''The key may be used sign certificate revocation lists.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#crl_sign PrivatecaCaPool#crl_sign}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#crl_sign PrivatecaCaPool#crl_sign}
         '''
         result = self._values.get("crl_sign")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2406,7 +2406,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageBaseKeyUsage:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''The key may be used to encipher data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#data_encipherment PrivatecaCaPool#data_encipherment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#data_encipherment PrivatecaCaPool#data_encipherment}
         '''
         result = self._values.get("data_encipherment")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2417,7 +2417,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageBaseKeyUsage:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''The key may be used to decipher only.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#decipher_only PrivatecaCaPool#decipher_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#decipher_only PrivatecaCaPool#decipher_only}
         '''
         result = self._values.get("decipher_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2428,7 +2428,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageBaseKeyUsage:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''The key may be used for digital signatures.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#digital_signature PrivatecaCaPool#digital_signature}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#digital_signature PrivatecaCaPool#digital_signature}
         '''
         result = self._values.get("digital_signature")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2439,7 +2439,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageBaseKeyUsage:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''The key may be used to encipher only.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#encipher_only PrivatecaCaPool#encipher_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#encipher_only PrivatecaCaPool#encipher_only}
         '''
         result = self._values.get("encipher_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2450,7 +2450,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageBaseKeyUsage:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''The key may be used in a key agreement protocol.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#key_agreement PrivatecaCaPool#key_agreement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#key_agreement PrivatecaCaPool#key_agreement}
         '''
         result = self._values.get("key_agreement")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2461,7 +2461,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageBaseKeyUsage:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''The key may be used to encipher other keys.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#key_encipherment PrivatecaCaPool#key_encipherment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#key_encipherment PrivatecaCaPool#key_encipherment}
         '''
         result = self._values.get("key_encipherment")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2782,12 +2782,12 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageExtendedKeyUsage:
         time_stamping: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param client_auth: Corresponds to OID 1.3.6.1.5.5.7.3.2. Officially described as "TLS WWW client authentication", though regularly used for non-WWW TLS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#client_auth PrivatecaCaPool#client_auth}
-        :param code_signing: Corresponds to OID 1.3.6.1.5.5.7.3.3. Officially described as "Signing of downloadable executable code client authentication". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#code_signing PrivatecaCaPool#code_signing}
-        :param email_protection: Corresponds to OID 1.3.6.1.5.5.7.3.4. Officially described as "Email protection". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#email_protection PrivatecaCaPool#email_protection}
-        :param ocsp_signing: Corresponds to OID 1.3.6.1.5.5.7.3.9. Officially described as "Signing OCSP responses". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#ocsp_signing PrivatecaCaPool#ocsp_signing}
-        :param server_auth: Corresponds to OID 1.3.6.1.5.5.7.3.1. Officially described as "TLS WWW server authentication", though regularly used for non-WWW TLS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#server_auth PrivatecaCaPool#server_auth}
-        :param time_stamping: Corresponds to OID 1.3.6.1.5.5.7.3.8. Officially described as "Binding the hash of an object to a time". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#time_stamping PrivatecaCaPool#time_stamping}
+        :param client_auth: Corresponds to OID 1.3.6.1.5.5.7.3.2. Officially described as "TLS WWW client authentication", though regularly used for non-WWW TLS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#client_auth PrivatecaCaPool#client_auth}
+        :param code_signing: Corresponds to OID 1.3.6.1.5.5.7.3.3. Officially described as "Signing of downloadable executable code client authentication". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#code_signing PrivatecaCaPool#code_signing}
+        :param email_protection: Corresponds to OID 1.3.6.1.5.5.7.3.4. Officially described as "Email protection". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#email_protection PrivatecaCaPool#email_protection}
+        :param ocsp_signing: Corresponds to OID 1.3.6.1.5.5.7.3.9. Officially described as "Signing OCSP responses". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#ocsp_signing PrivatecaCaPool#ocsp_signing}
+        :param server_auth: Corresponds to OID 1.3.6.1.5.5.7.3.1. Officially described as "TLS WWW server authentication", though regularly used for non-WWW TLS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#server_auth PrivatecaCaPool#server_auth}
+        :param time_stamping: Corresponds to OID 1.3.6.1.5.5.7.3.8. Officially described as "Binding the hash of an object to a time". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#time_stamping PrivatecaCaPool#time_stamping}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dd9aa2f52ed6f03bb512ae801af7233ed7cc6904fdb8c270166a8c7874e61936)
@@ -2817,7 +2817,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageExtendedKeyUsage:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Corresponds to OID 1.3.6.1.5.5.7.3.2. Officially described as "TLS WWW client authentication", though regularly used for non-WWW TLS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#client_auth PrivatecaCaPool#client_auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#client_auth PrivatecaCaPool#client_auth}
         '''
         result = self._values.get("client_auth")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2828,7 +2828,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageExtendedKeyUsage:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Corresponds to OID 1.3.6.1.5.5.7.3.3. Officially described as "Signing of downloadable executable code client authentication".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#code_signing PrivatecaCaPool#code_signing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#code_signing PrivatecaCaPool#code_signing}
         '''
         result = self._values.get("code_signing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2839,7 +2839,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageExtendedKeyUsage:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Corresponds to OID 1.3.6.1.5.5.7.3.4. Officially described as "Email protection".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#email_protection PrivatecaCaPool#email_protection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#email_protection PrivatecaCaPool#email_protection}
         '''
         result = self._values.get("email_protection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2850,7 +2850,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageExtendedKeyUsage:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Corresponds to OID 1.3.6.1.5.5.7.3.9. Officially described as "Signing OCSP responses".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#ocsp_signing PrivatecaCaPool#ocsp_signing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#ocsp_signing PrivatecaCaPool#ocsp_signing}
         '''
         result = self._values.get("ocsp_signing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2861,7 +2861,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageExtendedKeyUsage:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Corresponds to OID 1.3.6.1.5.5.7.3.1. Officially described as "TLS WWW server authentication", though regularly used for non-WWW TLS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#server_auth PrivatecaCaPool#server_auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#server_auth PrivatecaCaPool#server_auth}
         '''
         result = self._values.get("server_auth")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2872,7 +2872,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageExtendedKeyUsage:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Corresponds to OID 1.3.6.1.5.5.7.3.8. Officially described as "Binding the hash of an object to a time".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#time_stamping PrivatecaCaPool#time_stamping}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#time_stamping PrivatecaCaPool#time_stamping}
         '''
         result = self._values.get("time_stamping")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3120,15 +3120,15 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageOutputReference(
         key_encipherment: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param cert_sign: The key may be used to sign certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#cert_sign PrivatecaCaPool#cert_sign}
-        :param content_commitment: The key may be used for cryptographic commitments. Note that this may also be referred to as "non-repudiation". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#content_commitment PrivatecaCaPool#content_commitment}
-        :param crl_sign: The key may be used sign certificate revocation lists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#crl_sign PrivatecaCaPool#crl_sign}
-        :param data_encipherment: The key may be used to encipher data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#data_encipherment PrivatecaCaPool#data_encipherment}
-        :param decipher_only: The key may be used to decipher only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#decipher_only PrivatecaCaPool#decipher_only}
-        :param digital_signature: The key may be used for digital signatures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#digital_signature PrivatecaCaPool#digital_signature}
-        :param encipher_only: The key may be used to encipher only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#encipher_only PrivatecaCaPool#encipher_only}
-        :param key_agreement: The key may be used in a key agreement protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#key_agreement PrivatecaCaPool#key_agreement}
-        :param key_encipherment: The key may be used to encipher other keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#key_encipherment PrivatecaCaPool#key_encipherment}
+        :param cert_sign: The key may be used to sign certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#cert_sign PrivatecaCaPool#cert_sign}
+        :param content_commitment: The key may be used for cryptographic commitments. Note that this may also be referred to as "non-repudiation". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#content_commitment PrivatecaCaPool#content_commitment}
+        :param crl_sign: The key may be used sign certificate revocation lists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#crl_sign PrivatecaCaPool#crl_sign}
+        :param data_encipherment: The key may be used to encipher data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#data_encipherment PrivatecaCaPool#data_encipherment}
+        :param decipher_only: The key may be used to decipher only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#decipher_only PrivatecaCaPool#decipher_only}
+        :param digital_signature: The key may be used for digital signatures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#digital_signature PrivatecaCaPool#digital_signature}
+        :param encipher_only: The key may be used to encipher only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#encipher_only PrivatecaCaPool#encipher_only}
+        :param key_agreement: The key may be used in a key agreement protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#key_agreement PrivatecaCaPool#key_agreement}
+        :param key_encipherment: The key may be used to encipher other keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#key_encipherment PrivatecaCaPool#key_encipherment}
         '''
         value = PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageBaseKeyUsage(
             cert_sign=cert_sign,
@@ -3156,12 +3156,12 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageOutputReference(
         time_stamping: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param client_auth: Corresponds to OID 1.3.6.1.5.5.7.3.2. Officially described as "TLS WWW client authentication", though regularly used for non-WWW TLS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#client_auth PrivatecaCaPool#client_auth}
-        :param code_signing: Corresponds to OID 1.3.6.1.5.5.7.3.3. Officially described as "Signing of downloadable executable code client authentication". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#code_signing PrivatecaCaPool#code_signing}
-        :param email_protection: Corresponds to OID 1.3.6.1.5.5.7.3.4. Officially described as "Email protection". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#email_protection PrivatecaCaPool#email_protection}
-        :param ocsp_signing: Corresponds to OID 1.3.6.1.5.5.7.3.9. Officially described as "Signing OCSP responses". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#ocsp_signing PrivatecaCaPool#ocsp_signing}
-        :param server_auth: Corresponds to OID 1.3.6.1.5.5.7.3.1. Officially described as "TLS WWW server authentication", though regularly used for non-WWW TLS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#server_auth PrivatecaCaPool#server_auth}
-        :param time_stamping: Corresponds to OID 1.3.6.1.5.5.7.3.8. Officially described as "Binding the hash of an object to a time". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#time_stamping PrivatecaCaPool#time_stamping}
+        :param client_auth: Corresponds to OID 1.3.6.1.5.5.7.3.2. Officially described as "TLS WWW client authentication", though regularly used for non-WWW TLS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#client_auth PrivatecaCaPool#client_auth}
+        :param code_signing: Corresponds to OID 1.3.6.1.5.5.7.3.3. Officially described as "Signing of downloadable executable code client authentication". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#code_signing PrivatecaCaPool#code_signing}
+        :param email_protection: Corresponds to OID 1.3.6.1.5.5.7.3.4. Officially described as "Email protection". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#email_protection PrivatecaCaPool#email_protection}
+        :param ocsp_signing: Corresponds to OID 1.3.6.1.5.5.7.3.9. Officially described as "Signing OCSP responses". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#ocsp_signing PrivatecaCaPool#ocsp_signing}
+        :param server_auth: Corresponds to OID 1.3.6.1.5.5.7.3.1. Officially described as "TLS WWW server authentication", though regularly used for non-WWW TLS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#server_auth PrivatecaCaPool#server_auth}
+        :param time_stamping: Corresponds to OID 1.3.6.1.5.5.7.3.8. Officially described as "Binding the hash of an object to a time". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#time_stamping PrivatecaCaPool#time_stamping}
         '''
         value = PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageExtendedKeyUsage(
             client_auth=client_auth,
@@ -3259,7 +3259,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageOutputReference(
 class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageUnknownExtendedKeyUsages:
     def __init__(self, *, object_id_path: typing.Sequence[jsii.Number]) -> None:
         '''
-        :param object_id_path: An ObjectId specifies an object identifier (OID). These provide context and describe types in ASN.1 messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#object_id_path PrivatecaCaPool#object_id_path}
+        :param object_id_path: An ObjectId specifies an object identifier (OID). These provide context and describe types in ASN.1 messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#object_id_path PrivatecaCaPool#object_id_path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__500f7d68c807fe6815b2925dda14e8203332c3ed14cb4f3f386ff8b23f77d4b2)
@@ -3272,7 +3272,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageUnknownExtendedKeyUsage
     def object_id_path(self) -> typing.List[jsii.Number]:
         '''An ObjectId specifies an object identifier (OID). These provide context and describe types in ASN.1 messages.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#object_id_path PrivatecaCaPool#object_id_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#object_id_path PrivatecaCaPool#object_id_path}
         '''
         result = self._values.get("object_id_path")
         assert result is not None, "Required property 'object_id_path' is missing"
@@ -3474,15 +3474,15 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesNameConstraints:
         permitted_uris: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param critical: Indicates whether or not the name constraints are marked critical. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#critical PrivatecaCaPool#critical}
-        :param excluded_dns_names: Contains excluded DNS names. Any DNS name that can be constructed by simply adding zero or more labels to the left-hand side of the name satisfies the name constraint. For example, 'example.com', 'www.example.com', 'www.sub.example.com' would satisfy 'example.com' while 'example1.com' does not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#excluded_dns_names PrivatecaCaPool#excluded_dns_names}
-        :param excluded_email_addresses: Contains the excluded email addresses. The value can be a particular email address, a hostname to indicate all email addresses on that host or a domain with a leading period (e.g. '.example.com') to indicate all email addresses in that domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#excluded_email_addresses PrivatecaCaPool#excluded_email_addresses}
-        :param excluded_ip_ranges: Contains the excluded IP ranges. For IPv4 addresses, the ranges are expressed using CIDR notation as specified in RFC 4632. For IPv6 addresses, the ranges are expressed in similar encoding as IPv4 addresses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#excluded_ip_ranges PrivatecaCaPool#excluded_ip_ranges}
-        :param excluded_uris: Contains the excluded URIs that apply to the host part of the name. The value can be a hostname or a domain with a leading period (like '.example.com') Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#excluded_uris PrivatecaCaPool#excluded_uris}
-        :param permitted_dns_names: Contains permitted DNS names. Any DNS name that can be constructed by simply adding zero or more labels to the left-hand side of the name satisfies the name constraint. For example, 'example.com', 'www.example.com', 'www.sub.example.com' would satisfy 'example.com' while 'example1.com' does not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#permitted_dns_names PrivatecaCaPool#permitted_dns_names}
-        :param permitted_email_addresses: Contains the permitted email addresses. The value can be a particular email address, a hostname to indicate all email addresses on that host or a domain with a leading period (e.g. '.example.com') to indicate all email addresses in that domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#permitted_email_addresses PrivatecaCaPool#permitted_email_addresses}
-        :param permitted_ip_ranges: Contains the permitted IP ranges. For IPv4 addresses, the ranges are expressed using CIDR notation as specified in RFC 4632. For IPv6 addresses, the ranges are expressed in similar encoding as IPv4 addresses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#permitted_ip_ranges PrivatecaCaPool#permitted_ip_ranges}
-        :param permitted_uris: Contains the permitted URIs that apply to the host part of the name. The value can be a hostname or a domain with a leading period (like '.example.com') Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#permitted_uris PrivatecaCaPool#permitted_uris}
+        :param critical: Indicates whether or not the name constraints are marked critical. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#critical PrivatecaCaPool#critical}
+        :param excluded_dns_names: Contains excluded DNS names. Any DNS name that can be constructed by simply adding zero or more labels to the left-hand side of the name satisfies the name constraint. For example, 'example.com', 'www.example.com', 'www.sub.example.com' would satisfy 'example.com' while 'example1.com' does not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#excluded_dns_names PrivatecaCaPool#excluded_dns_names}
+        :param excluded_email_addresses: Contains the excluded email addresses. The value can be a particular email address, a hostname to indicate all email addresses on that host or a domain with a leading period (e.g. '.example.com') to indicate all email addresses in that domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#excluded_email_addresses PrivatecaCaPool#excluded_email_addresses}
+        :param excluded_ip_ranges: Contains the excluded IP ranges. For IPv4 addresses, the ranges are expressed using CIDR notation as specified in RFC 4632. For IPv6 addresses, the ranges are expressed in similar encoding as IPv4 addresses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#excluded_ip_ranges PrivatecaCaPool#excluded_ip_ranges}
+        :param excluded_uris: Contains the excluded URIs that apply to the host part of the name. The value can be a hostname or a domain with a leading period (like '.example.com') Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#excluded_uris PrivatecaCaPool#excluded_uris}
+        :param permitted_dns_names: Contains permitted DNS names. Any DNS name that can be constructed by simply adding zero or more labels to the left-hand side of the name satisfies the name constraint. For example, 'example.com', 'www.example.com', 'www.sub.example.com' would satisfy 'example.com' while 'example1.com' does not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#permitted_dns_names PrivatecaCaPool#permitted_dns_names}
+        :param permitted_email_addresses: Contains the permitted email addresses. The value can be a particular email address, a hostname to indicate all email addresses on that host or a domain with a leading period (e.g. '.example.com') to indicate all email addresses in that domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#permitted_email_addresses PrivatecaCaPool#permitted_email_addresses}
+        :param permitted_ip_ranges: Contains the permitted IP ranges. For IPv4 addresses, the ranges are expressed using CIDR notation as specified in RFC 4632. For IPv6 addresses, the ranges are expressed in similar encoding as IPv4 addresses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#permitted_ip_ranges PrivatecaCaPool#permitted_ip_ranges}
+        :param permitted_uris: Contains the permitted URIs that apply to the host part of the name. The value can be a hostname or a domain with a leading period (like '.example.com') Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#permitted_uris PrivatecaCaPool#permitted_uris}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8289a5563e4508871934f6027d172e923a002b2dbb9d4444d63fcb5ae6456066)
@@ -3519,7 +3519,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesNameConstraints:
     def critical(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Indicates whether or not the name constraints are marked critical.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#critical PrivatecaCaPool#critical}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#critical PrivatecaCaPool#critical}
         '''
         result = self._values.get("critical")
         assert result is not None, "Required property 'critical' is missing"
@@ -3535,7 +3535,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesNameConstraints:
         For example, 'example.com', 'www.example.com', 'www.sub.example.com'
         would satisfy 'example.com' while 'example1.com' does not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#excluded_dns_names PrivatecaCaPool#excluded_dns_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#excluded_dns_names PrivatecaCaPool#excluded_dns_names}
         '''
         result = self._values.get("excluded_dns_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3549,7 +3549,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesNameConstraints:
         a domain with a leading period (e.g. '.example.com') to indicate
         all email addresses in that domain.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#excluded_email_addresses PrivatecaCaPool#excluded_email_addresses}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#excluded_email_addresses PrivatecaCaPool#excluded_email_addresses}
         '''
         result = self._values.get("excluded_email_addresses")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3563,7 +3563,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesNameConstraints:
         For IPv6 addresses, the ranges are expressed in similar encoding as IPv4
         addresses.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#excluded_ip_ranges PrivatecaCaPool#excluded_ip_ranges}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#excluded_ip_ranges PrivatecaCaPool#excluded_ip_ranges}
         '''
         result = self._values.get("excluded_ip_ranges")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3575,7 +3575,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesNameConstraints:
         The value can be a hostname or a domain with a
         leading period (like '.example.com')
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#excluded_uris PrivatecaCaPool#excluded_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#excluded_uris PrivatecaCaPool#excluded_uris}
         '''
         result = self._values.get("excluded_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3590,7 +3590,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesNameConstraints:
         For example, 'example.com', 'www.example.com', 'www.sub.example.com'
         would satisfy 'example.com' while 'example1.com' does not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#permitted_dns_names PrivatecaCaPool#permitted_dns_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#permitted_dns_names PrivatecaCaPool#permitted_dns_names}
         '''
         result = self._values.get("permitted_dns_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3604,7 +3604,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesNameConstraints:
         a domain with a leading period (e.g. '.example.com') to indicate
         all email addresses in that domain.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#permitted_email_addresses PrivatecaCaPool#permitted_email_addresses}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#permitted_email_addresses PrivatecaCaPool#permitted_email_addresses}
         '''
         result = self._values.get("permitted_email_addresses")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3618,7 +3618,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesNameConstraints:
         For IPv6 addresses, the ranges are expressed in similar encoding as IPv4
         addresses.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#permitted_ip_ranges PrivatecaCaPool#permitted_ip_ranges}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#permitted_ip_ranges PrivatecaCaPool#permitted_ip_ranges}
         '''
         result = self._values.get("permitted_ip_ranges")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3630,7 +3630,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesNameConstraints:
         The value can be a hostname or a domain with a
         leading period (like '.example.com')
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#permitted_uris PrivatecaCaPool#permitted_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#permitted_uris PrivatecaCaPool#permitted_uris}
         '''
         result = self._values.get("permitted_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3922,10 +3922,10 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesOutputReference(
         zero_max_issuer_path_length: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param is_ca: When true, the "CA" in Basic Constraints extension will be set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#is_ca PrivatecaCaPool#is_ca}
-        :param max_issuer_path_length: Refers to the "path length constraint" in Basic Constraints extension. For a CA certificate, this value describes the depth of subordinate CA certificates that are allowed. If this value is less than 0, the request will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#max_issuer_path_length PrivatecaCaPool#max_issuer_path_length}
-        :param non_ca: When true, the "CA" in Basic Constraints extension will be set to false. If both 'is_ca' and 'non_ca' are unset, the extension will be omitted from the CA certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#non_ca PrivatecaCaPool#non_ca}
-        :param zero_max_issuer_path_length: When true, the "path length constraint" in Basic Constraints extension will be set to 0. if both 'max_issuer_path_length' and 'zero_max_issuer_path_length' are unset, the max path length will be omitted from the CA certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#zero_max_issuer_path_length PrivatecaCaPool#zero_max_issuer_path_length}
+        :param is_ca: When true, the "CA" in Basic Constraints extension will be set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#is_ca PrivatecaCaPool#is_ca}
+        :param max_issuer_path_length: Refers to the "path length constraint" in Basic Constraints extension. For a CA certificate, this value describes the depth of subordinate CA certificates that are allowed. If this value is less than 0, the request will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#max_issuer_path_length PrivatecaCaPool#max_issuer_path_length}
+        :param non_ca: When true, the "CA" in Basic Constraints extension will be set to false. If both 'is_ca' and 'non_ca' are unset, the extension will be omitted from the CA certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#non_ca PrivatecaCaPool#non_ca}
+        :param zero_max_issuer_path_length: When true, the "path length constraint" in Basic Constraints extension will be set to 0. if both 'max_issuer_path_length' and 'zero_max_issuer_path_length' are unset, the max path length will be omitted from the CA certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#zero_max_issuer_path_length PrivatecaCaPool#zero_max_issuer_path_length}
         '''
         value = PrivatecaCaPoolIssuancePolicyBaselineValuesCaOptions(
             is_ca=is_ca,
@@ -3945,9 +3945,9 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesOutputReference(
         unknown_extended_key_usages: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsageUnknownExtendedKeyUsages, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param base_key_usage: base_key_usage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#base_key_usage PrivatecaCaPool#base_key_usage}
-        :param extended_key_usage: extended_key_usage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#extended_key_usage PrivatecaCaPool#extended_key_usage}
-        :param unknown_extended_key_usages: unknown_extended_key_usages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#unknown_extended_key_usages PrivatecaCaPool#unknown_extended_key_usages}
+        :param base_key_usage: base_key_usage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#base_key_usage PrivatecaCaPool#base_key_usage}
+        :param extended_key_usage: extended_key_usage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#extended_key_usage PrivatecaCaPool#extended_key_usage}
+        :param unknown_extended_key_usages: unknown_extended_key_usages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#unknown_extended_key_usages PrivatecaCaPool#unknown_extended_key_usages}
         '''
         value = PrivatecaCaPoolIssuancePolicyBaselineValuesKeyUsage(
             base_key_usage=base_key_usage,
@@ -3972,15 +3972,15 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesOutputReference(
         permitted_uris: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param critical: Indicates whether or not the name constraints are marked critical. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#critical PrivatecaCaPool#critical}
-        :param excluded_dns_names: Contains excluded DNS names. Any DNS name that can be constructed by simply adding zero or more labels to the left-hand side of the name satisfies the name constraint. For example, 'example.com', 'www.example.com', 'www.sub.example.com' would satisfy 'example.com' while 'example1.com' does not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#excluded_dns_names PrivatecaCaPool#excluded_dns_names}
-        :param excluded_email_addresses: Contains the excluded email addresses. The value can be a particular email address, a hostname to indicate all email addresses on that host or a domain with a leading period (e.g. '.example.com') to indicate all email addresses in that domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#excluded_email_addresses PrivatecaCaPool#excluded_email_addresses}
-        :param excluded_ip_ranges: Contains the excluded IP ranges. For IPv4 addresses, the ranges are expressed using CIDR notation as specified in RFC 4632. For IPv6 addresses, the ranges are expressed in similar encoding as IPv4 addresses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#excluded_ip_ranges PrivatecaCaPool#excluded_ip_ranges}
-        :param excluded_uris: Contains the excluded URIs that apply to the host part of the name. The value can be a hostname or a domain with a leading period (like '.example.com') Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#excluded_uris PrivatecaCaPool#excluded_uris}
-        :param permitted_dns_names: Contains permitted DNS names. Any DNS name that can be constructed by simply adding zero or more labels to the left-hand side of the name satisfies the name constraint. For example, 'example.com', 'www.example.com', 'www.sub.example.com' would satisfy 'example.com' while 'example1.com' does not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#permitted_dns_names PrivatecaCaPool#permitted_dns_names}
-        :param permitted_email_addresses: Contains the permitted email addresses. The value can be a particular email address, a hostname to indicate all email addresses on that host or a domain with a leading period (e.g. '.example.com') to indicate all email addresses in that domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#permitted_email_addresses PrivatecaCaPool#permitted_email_addresses}
-        :param permitted_ip_ranges: Contains the permitted IP ranges. For IPv4 addresses, the ranges are expressed using CIDR notation as specified in RFC 4632. For IPv6 addresses, the ranges are expressed in similar encoding as IPv4 addresses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#permitted_ip_ranges PrivatecaCaPool#permitted_ip_ranges}
-        :param permitted_uris: Contains the permitted URIs that apply to the host part of the name. The value can be a hostname or a domain with a leading period (like '.example.com') Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#permitted_uris PrivatecaCaPool#permitted_uris}
+        :param critical: Indicates whether or not the name constraints are marked critical. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#critical PrivatecaCaPool#critical}
+        :param excluded_dns_names: Contains excluded DNS names. Any DNS name that can be constructed by simply adding zero or more labels to the left-hand side of the name satisfies the name constraint. For example, 'example.com', 'www.example.com', 'www.sub.example.com' would satisfy 'example.com' while 'example1.com' does not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#excluded_dns_names PrivatecaCaPool#excluded_dns_names}
+        :param excluded_email_addresses: Contains the excluded email addresses. The value can be a particular email address, a hostname to indicate all email addresses on that host or a domain with a leading period (e.g. '.example.com') to indicate all email addresses in that domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#excluded_email_addresses PrivatecaCaPool#excluded_email_addresses}
+        :param excluded_ip_ranges: Contains the excluded IP ranges. For IPv4 addresses, the ranges are expressed using CIDR notation as specified in RFC 4632. For IPv6 addresses, the ranges are expressed in similar encoding as IPv4 addresses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#excluded_ip_ranges PrivatecaCaPool#excluded_ip_ranges}
+        :param excluded_uris: Contains the excluded URIs that apply to the host part of the name. The value can be a hostname or a domain with a leading period (like '.example.com') Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#excluded_uris PrivatecaCaPool#excluded_uris}
+        :param permitted_dns_names: Contains permitted DNS names. Any DNS name that can be constructed by simply adding zero or more labels to the left-hand side of the name satisfies the name constraint. For example, 'example.com', 'www.example.com', 'www.sub.example.com' would satisfy 'example.com' while 'example1.com' does not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#permitted_dns_names PrivatecaCaPool#permitted_dns_names}
+        :param permitted_email_addresses: Contains the permitted email addresses. The value can be a particular email address, a hostname to indicate all email addresses on that host or a domain with a leading period (e.g. '.example.com') to indicate all email addresses in that domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#permitted_email_addresses PrivatecaCaPool#permitted_email_addresses}
+        :param permitted_ip_ranges: Contains the permitted IP ranges. For IPv4 addresses, the ranges are expressed using CIDR notation as specified in RFC 4632. For IPv6 addresses, the ranges are expressed in similar encoding as IPv4 addresses. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#permitted_ip_ranges PrivatecaCaPool#permitted_ip_ranges}
+        :param permitted_uris: Contains the permitted URIs that apply to the host part of the name. The value can be a hostname or a domain with a leading period (like '.example.com') Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#permitted_uris PrivatecaCaPool#permitted_uris}
         '''
         value = PrivatecaCaPoolIssuancePolicyBaselineValuesNameConstraints(
             critical=critical,
@@ -4136,7 +4136,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesOutputReference(
 class PrivatecaCaPoolIssuancePolicyBaselineValuesPolicyIds:
     def __init__(self, *, object_id_path: typing.Sequence[jsii.Number]) -> None:
         '''
-        :param object_id_path: An ObjectId specifies an object identifier (OID). These provide context and describe types in ASN.1 messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#object_id_path PrivatecaCaPool#object_id_path}
+        :param object_id_path: An ObjectId specifies an object identifier (OID). These provide context and describe types in ASN.1 messages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#object_id_path PrivatecaCaPool#object_id_path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b8e19e56035105395e381632e61bf34bf55230f35ba3dcb811b928cebbe937e)
@@ -4149,7 +4149,7 @@ class PrivatecaCaPoolIssuancePolicyBaselineValuesPolicyIds:
     def object_id_path(self) -> typing.List[jsii.Number]:
         '''An ObjectId specifies an object identifier (OID). These provide context and describe types in ASN.1 messages.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#object_id_path PrivatecaCaPool#object_id_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#object_id_path PrivatecaCaPool#object_id_path}
         '''
         result = self._values.get("object_id_path")
         assert result is not None, "Required property 'object_id_path' is missing"
@@ -4339,9 +4339,9 @@ class PrivatecaCaPoolIssuancePolicyIdentityConstraints:
         cel_expression: typing.Optional[typing.Union["PrivatecaCaPoolIssuancePolicyIdentityConstraintsCelExpression", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_subject_alt_names_passthrough: If this is set, the SubjectAltNames extension may be copied from a certificate request into the signed certificate. Otherwise, the requested SubjectAltNames will be discarded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#allow_subject_alt_names_passthrough PrivatecaCaPool#allow_subject_alt_names_passthrough}
-        :param allow_subject_passthrough: If this is set, the Subject field may be copied from a certificate request into the signed certificate. Otherwise, the requested Subject will be discarded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#allow_subject_passthrough PrivatecaCaPool#allow_subject_passthrough}
-        :param cel_expression: cel_expression block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#cel_expression PrivatecaCaPool#cel_expression}
+        :param allow_subject_alt_names_passthrough: If this is set, the SubjectAltNames extension may be copied from a certificate request into the signed certificate. Otherwise, the requested SubjectAltNames will be discarded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#allow_subject_alt_names_passthrough PrivatecaCaPool#allow_subject_alt_names_passthrough}
+        :param allow_subject_passthrough: If this is set, the Subject field may be copied from a certificate request into the signed certificate. Otherwise, the requested Subject will be discarded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#allow_subject_passthrough PrivatecaCaPool#allow_subject_passthrough}
+        :param cel_expression: cel_expression block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#cel_expression PrivatecaCaPool#cel_expression}
         '''
         if isinstance(cel_expression, dict):
             cel_expression = PrivatecaCaPoolIssuancePolicyIdentityConstraintsCelExpression(**cel_expression)
@@ -4365,7 +4365,7 @@ class PrivatecaCaPoolIssuancePolicyIdentityConstraints:
 
         Otherwise, the requested SubjectAltNames will be discarded.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#allow_subject_alt_names_passthrough PrivatecaCaPool#allow_subject_alt_names_passthrough}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#allow_subject_alt_names_passthrough PrivatecaCaPool#allow_subject_alt_names_passthrough}
         '''
         result = self._values.get("allow_subject_alt_names_passthrough")
         assert result is not None, "Required property 'allow_subject_alt_names_passthrough' is missing"
@@ -4379,7 +4379,7 @@ class PrivatecaCaPoolIssuancePolicyIdentityConstraints:
 
         Otherwise, the requested Subject will be discarded.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#allow_subject_passthrough PrivatecaCaPool#allow_subject_passthrough}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#allow_subject_passthrough PrivatecaCaPool#allow_subject_passthrough}
         '''
         result = self._values.get("allow_subject_passthrough")
         assert result is not None, "Required property 'allow_subject_passthrough' is missing"
@@ -4391,7 +4391,7 @@ class PrivatecaCaPoolIssuancePolicyIdentityConstraints:
     ) -> typing.Optional["PrivatecaCaPoolIssuancePolicyIdentityConstraintsCelExpression"]:
         '''cel_expression block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#cel_expression PrivatecaCaPool#cel_expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#cel_expression PrivatecaCaPool#cel_expression}
         '''
         result = self._values.get("cel_expression")
         return typing.cast(typing.Optional["PrivatecaCaPoolIssuancePolicyIdentityConstraintsCelExpression"], result)
@@ -4428,10 +4428,10 @@ class PrivatecaCaPoolIssuancePolicyIdentityConstraintsCelExpression:
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#expression PrivatecaCaPool#expression}
-        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#description PrivatecaCaPool#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#location PrivatecaCaPool#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#title PrivatecaCaPool#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#expression PrivatecaCaPool#expression}
+        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#description PrivatecaCaPool#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#location PrivatecaCaPool#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#title PrivatecaCaPool#title}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bbe533a3c0150a326eef8f7e7d8fcf87b9d3d6959cbe3b8af569406064bc0dd2)
@@ -4453,7 +4453,7 @@ class PrivatecaCaPoolIssuancePolicyIdentityConstraintsCelExpression:
     def expression(self) -> builtins.str:
         '''Textual representation of an expression in Common Expression Language syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#expression PrivatecaCaPool#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#expression PrivatecaCaPool#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -4465,7 +4465,7 @@ class PrivatecaCaPoolIssuancePolicyIdentityConstraintsCelExpression:
 
         This is a longer text which describes the expression, e.g. when hovered over it in a UI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#description PrivatecaCaPool#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#description PrivatecaCaPool#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4474,7 +4474,7 @@ class PrivatecaCaPoolIssuancePolicyIdentityConstraintsCelExpression:
     def location(self) -> typing.Optional[builtins.str]:
         '''String indicating the location of the expression for error reporting, e.g. a file name and a position in the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#location PrivatecaCaPool#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#location PrivatecaCaPool#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4483,7 +4483,7 @@ class PrivatecaCaPoolIssuancePolicyIdentityConstraintsCelExpression:
     def title(self) -> typing.Optional[builtins.str]:
         '''Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#title PrivatecaCaPool#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#title PrivatecaCaPool#title}
         '''
         result = self._values.get("title")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4648,10 +4648,10 @@ class PrivatecaCaPoolIssuancePolicyIdentityConstraintsOutputReference(
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#expression PrivatecaCaPool#expression}
-        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#description PrivatecaCaPool#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#location PrivatecaCaPool#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#title PrivatecaCaPool#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#expression PrivatecaCaPool#expression}
+        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#description PrivatecaCaPool#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#location PrivatecaCaPool#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#title PrivatecaCaPool#title}
         '''
         value = PrivatecaCaPoolIssuancePolicyIdentityConstraintsCelExpression(
             expression=expression,
@@ -4774,8 +4774,8 @@ class PrivatecaCaPoolIssuancePolicyOutputReference(
         allow_csr_based_issuance: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param allow_config_based_issuance: When true, allows callers to create Certificates by specifying a CertificateConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#allow_config_based_issuance PrivatecaCaPool#allow_config_based_issuance}
-        :param allow_csr_based_issuance: When true, allows callers to create Certificates by specifying a CSR. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#allow_csr_based_issuance PrivatecaCaPool#allow_csr_based_issuance}
+        :param allow_config_based_issuance: When true, allows callers to create Certificates by specifying a CertificateConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#allow_config_based_issuance PrivatecaCaPool#allow_config_based_issuance}
+        :param allow_csr_based_issuance: When true, allows callers to create Certificates by specifying a CSR. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#allow_csr_based_issuance PrivatecaCaPool#allow_csr_based_issuance}
         '''
         value = PrivatecaCaPoolIssuancePolicyAllowedIssuanceModes(
             allow_config_based_issuance=allow_config_based_issuance,
@@ -4809,12 +4809,12 @@ class PrivatecaCaPoolIssuancePolicyOutputReference(
         policy_ids: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[PrivatecaCaPoolIssuancePolicyBaselineValuesPolicyIds, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param ca_options: ca_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#ca_options PrivatecaCaPool#ca_options}
-        :param key_usage: key_usage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#key_usage PrivatecaCaPool#key_usage}
-        :param additional_extensions: additional_extensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#additional_extensions PrivatecaCaPool#additional_extensions}
-        :param aia_ocsp_servers: Describes Online Certificate Status Protocol (OCSP) endpoint addresses that appear in the "Authority Information Access" extension in the certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#aia_ocsp_servers PrivatecaCaPool#aia_ocsp_servers}
-        :param name_constraints: name_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#name_constraints PrivatecaCaPool#name_constraints}
-        :param policy_ids: policy_ids block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#policy_ids PrivatecaCaPool#policy_ids}
+        :param ca_options: ca_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#ca_options PrivatecaCaPool#ca_options}
+        :param key_usage: key_usage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#key_usage PrivatecaCaPool#key_usage}
+        :param additional_extensions: additional_extensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#additional_extensions PrivatecaCaPool#additional_extensions}
+        :param aia_ocsp_servers: Describes Online Certificate Status Protocol (OCSP) endpoint addresses that appear in the "Authority Information Access" extension in the certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#aia_ocsp_servers PrivatecaCaPool#aia_ocsp_servers}
+        :param name_constraints: name_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#name_constraints PrivatecaCaPool#name_constraints}
+        :param policy_ids: policy_ids block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#policy_ids PrivatecaCaPool#policy_ids}
         '''
         value = PrivatecaCaPoolIssuancePolicyBaselineValues(
             ca_options=ca_options,
@@ -4836,9 +4836,9 @@ class PrivatecaCaPoolIssuancePolicyOutputReference(
         cel_expression: typing.Optional[typing.Union[PrivatecaCaPoolIssuancePolicyIdentityConstraintsCelExpression, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param allow_subject_alt_names_passthrough: If this is set, the SubjectAltNames extension may be copied from a certificate request into the signed certificate. Otherwise, the requested SubjectAltNames will be discarded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#allow_subject_alt_names_passthrough PrivatecaCaPool#allow_subject_alt_names_passthrough}
-        :param allow_subject_passthrough: If this is set, the Subject field may be copied from a certificate request into the signed certificate. Otherwise, the requested Subject will be discarded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#allow_subject_passthrough PrivatecaCaPool#allow_subject_passthrough}
-        :param cel_expression: cel_expression block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#cel_expression PrivatecaCaPool#cel_expression}
+        :param allow_subject_alt_names_passthrough: If this is set, the SubjectAltNames extension may be copied from a certificate request into the signed certificate. Otherwise, the requested SubjectAltNames will be discarded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#allow_subject_alt_names_passthrough PrivatecaCaPool#allow_subject_alt_names_passthrough}
+        :param allow_subject_passthrough: If this is set, the Subject field may be copied from a certificate request into the signed certificate. Otherwise, the requested Subject will be discarded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#allow_subject_passthrough PrivatecaCaPool#allow_subject_passthrough}
+        :param cel_expression: cel_expression block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#cel_expression PrivatecaCaPool#cel_expression}
         '''
         value = PrivatecaCaPoolIssuancePolicyIdentityConstraints(
             allow_subject_alt_names_passthrough=allow_subject_alt_names_passthrough,
@@ -4994,9 +4994,9 @@ class PrivatecaCaPoolPublishingOptions:
         encoding_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param publish_ca_cert: When true, publishes each CertificateAuthority's CA certificate and includes its URL in the "Authority Information Access" X.509 extension in all issued Certificates. If this is false, the CA certificate will not be published and the corresponding X.509 extension will not be written in issued certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#publish_ca_cert PrivatecaCaPool#publish_ca_cert}
-        :param publish_crl: When true, publishes each CertificateAuthority's CRL and includes its URL in the "CRL Distribution Points" X.509 extension in all issued Certificates. If this is false, CRLs will not be published and the corresponding X.509 extension will not be written in issued certificates. CRLs will expire 7 days from their creation. However, we will rebuild daily. CRLs are also rebuilt shortly after a certificate is revoked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#publish_crl PrivatecaCaPool#publish_crl}
-        :param encoding_format: Specifies the encoding format of each CertificateAuthority's CA certificate and CRLs. If this is omitted, CA certificates and CRLs will be published in PEM. Possible values: ["PEM", "DER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#encoding_format PrivatecaCaPool#encoding_format}
+        :param publish_ca_cert: When true, publishes each CertificateAuthority's CA certificate and includes its URL in the "Authority Information Access" X.509 extension in all issued Certificates. If this is false, the CA certificate will not be published and the corresponding X.509 extension will not be written in issued certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#publish_ca_cert PrivatecaCaPool#publish_ca_cert}
+        :param publish_crl: When true, publishes each CertificateAuthority's CRL and includes its URL in the "CRL Distribution Points" X.509 extension in all issued Certificates. If this is false, CRLs will not be published and the corresponding X.509 extension will not be written in issued certificates. CRLs will expire 7 days from their creation. However, we will rebuild daily. CRLs are also rebuilt shortly after a certificate is revoked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#publish_crl PrivatecaCaPool#publish_crl}
+        :param encoding_format: Specifies the encoding format of each CertificateAuthority's CA certificate and CRLs. If this is omitted, CA certificates and CRLs will be published in PEM. Possible values: ["PEM", "DER"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#encoding_format PrivatecaCaPool#encoding_format}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c11207cf5e72a126804e8296824f387eedcc285e9f6843c6ce94905a02324dc1)
@@ -5016,7 +5016,7 @@ class PrivatecaCaPoolPublishingOptions:
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''When true, publishes each CertificateAuthority's CA certificate and includes its URL in the "Authority Information Access" X.509 extension in all issued Certificates. If this is false, the CA certificate will not be published and the corresponding X.509 extension will not be written in issued certificates.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#publish_ca_cert PrivatecaCaPool#publish_ca_cert}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#publish_ca_cert PrivatecaCaPool#publish_ca_cert}
         '''
         result = self._values.get("publish_ca_cert")
         assert result is not None, "Required property 'publish_ca_cert' is missing"
@@ -5026,7 +5026,7 @@ class PrivatecaCaPoolPublishingOptions:
     def publish_crl(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''When true, publishes each CertificateAuthority's CRL and includes its URL in the "CRL Distribution Points" X.509 extension in all issued Certificates. If this is false, CRLs will not be published and the corresponding X.509 extension will not be written in issued certificates. CRLs will expire 7 days from their creation. However, we will rebuild daily. CRLs are also rebuilt shortly after a certificate is revoked.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#publish_crl PrivatecaCaPool#publish_crl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#publish_crl PrivatecaCaPool#publish_crl}
         '''
         result = self._values.get("publish_crl")
         assert result is not None, "Required property 'publish_crl' is missing"
@@ -5039,7 +5039,7 @@ class PrivatecaCaPoolPublishingOptions:
         If this is omitted, CA certificates and CRLs
         will be published in PEM. Possible values: ["PEM", "DER"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#encoding_format PrivatecaCaPool#encoding_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#encoding_format PrivatecaCaPool#encoding_format}
         '''
         result = self._values.get("encoding_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5173,9 +5173,9 @@ class PrivatecaCaPoolTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#create PrivatecaCaPool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#delete PrivatecaCaPool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#update PrivatecaCaPool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#create PrivatecaCaPool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#delete PrivatecaCaPool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#update PrivatecaCaPool#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2003a96404e3050b94153f2a73b706d29908fa0e7527b2081fc182765a8e140e)
@@ -5192,19 +5192,19 @@ class PrivatecaCaPoolTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#create PrivatecaCaPool#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#create PrivatecaCaPool#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#delete PrivatecaCaPool#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#delete PrivatecaCaPool#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/privateca_ca_pool#update PrivatecaCaPool#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/privateca_ca_pool#update PrivatecaCaPool#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

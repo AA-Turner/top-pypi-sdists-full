@@ -1,7 +1,7 @@
 r'''
 # `google_dataproc_batch`
 
-Refer to the Terraform Registry for docs: [`google_dataproc_batch`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch).
+Refer to the Terraform Registry for docs: [`google_dataproc_batch`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataprocBatch(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataprocBatch.DataprocBatch",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch google_dataproc_batch}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch google_dataproc_batch}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class DataprocBatch(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch google_dataproc_batch} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch google_dataproc_batch} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param batch_id: The ID to use for the batch, which will become the final component of the batch's resource name. This value must be 4-63 characters. Valid characters are /[a-z][0-9]-/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#batch_id DataprocBatch#batch_id}
-        :param environment_config: environment_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#environment_config DataprocBatch#environment_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#id DataprocBatch#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: The labels to associate with this batch. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#labels DataprocBatch#labels}
-        :param location: The location in which the batch will be created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#location DataprocBatch#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#project DataprocBatch#project}.
-        :param pyspark_batch: pyspark_batch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#pyspark_batch DataprocBatch#pyspark_batch}
-        :param runtime_config: runtime_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#runtime_config DataprocBatch#runtime_config}
-        :param spark_batch: spark_batch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#spark_batch DataprocBatch#spark_batch}
-        :param spark_r_batch: spark_r_batch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#spark_r_batch DataprocBatch#spark_r_batch}
-        :param spark_sql_batch: spark_sql_batch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#spark_sql_batch DataprocBatch#spark_sql_batch}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#timeouts DataprocBatch#timeouts}
+        :param batch_id: The ID to use for the batch, which will become the final component of the batch's resource name. This value must be 4-63 characters. Valid characters are /[a-z][0-9]-/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#batch_id DataprocBatch#batch_id}
+        :param environment_config: environment_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#environment_config DataprocBatch#environment_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#id DataprocBatch#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: The labels to associate with this batch. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#labels DataprocBatch#labels}
+        :param location: The location in which the batch will be created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#location DataprocBatch#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#project DataprocBatch#project}.
+        :param pyspark_batch: pyspark_batch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#pyspark_batch DataprocBatch#pyspark_batch}
+        :param runtime_config: runtime_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#runtime_config DataprocBatch#runtime_config}
+        :param spark_batch: spark_batch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#spark_batch DataprocBatch#spark_batch}
+        :param spark_r_batch: spark_r_batch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#spark_r_batch DataprocBatch#spark_r_batch}
+        :param spark_sql_batch: spark_sql_batch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#spark_sql_batch DataprocBatch#spark_sql_batch}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#timeouts DataprocBatch#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class DataprocBatch(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataprocBatch to import.
-        :param import_from_id: The id of the existing DataprocBatch that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataprocBatch that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataprocBatch to import is found.
         '''
         if __debug__:
@@ -155,8 +155,8 @@ class DataprocBatch(
         peripherals_config: typing.Optional[typing.Union["DataprocBatchEnvironmentConfigPeripheralsConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param execution_config: execution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#execution_config DataprocBatch#execution_config}
-        :param peripherals_config: peripherals_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#peripherals_config DataprocBatch#peripherals_config}
+        :param execution_config: execution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#execution_config DataprocBatch#execution_config}
+        :param peripherals_config: peripherals_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#peripherals_config DataprocBatch#peripherals_config}
         '''
         value = DataprocBatchEnvironmentConfig(
             execution_config=execution_config, peripherals_config=peripherals_config
@@ -176,12 +176,12 @@ class DataprocBatch(
         python_file_uris: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#archive_uris DataprocBatch#archive_uris}
-        :param args: The arguments to pass to the driver. Do not include arguments that can be set as batch properties, such as --conf, since a collision can occur that causes an incorrect batch submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#args DataprocBatch#args}
-        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#file_uris DataprocBatch#file_uris}
-        :param jar_file_uris: HCFS URIs of jar files to add to the classpath of the Spark driver and tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#jar_file_uris DataprocBatch#jar_file_uris}
-        :param main_python_file_uri: The HCFS URI of the main Python file to use as the Spark driver. Must be a .py file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#main_python_file_uri DataprocBatch#main_python_file_uri}
-        :param python_file_uris: HCFS file URIs of Python files to pass to the PySpark framework. Supported file types: .py, .egg, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#python_file_uris DataprocBatch#python_file_uris}
+        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#archive_uris DataprocBatch#archive_uris}
+        :param args: The arguments to pass to the driver. Do not include arguments that can be set as batch properties, such as --conf, since a collision can occur that causes an incorrect batch submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#args DataprocBatch#args}
+        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#file_uris DataprocBatch#file_uris}
+        :param jar_file_uris: HCFS URIs of jar files to add to the classpath of the Spark driver and tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#jar_file_uris DataprocBatch#jar_file_uris}
+        :param main_python_file_uri: The HCFS URI of the main Python file to use as the Spark driver. Must be a .py file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#main_python_file_uri DataprocBatch#main_python_file_uri}
+        :param python_file_uris: HCFS file URIs of Python files to pass to the PySpark framework. Supported file types: .py, .egg, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#python_file_uris DataprocBatch#python_file_uris}
         '''
         value = DataprocBatchPysparkBatch(
             archive_uris=archive_uris,
@@ -205,11 +205,11 @@ class DataprocBatch(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param autotuning_config: autotuning_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#autotuning_config DataprocBatch#autotuning_config}
-        :param cohort: Optional. Cohort identifier. Identifies families of the workloads having the same shape, e.g. daily ETL jobs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#cohort DataprocBatch#cohort}
-        :param container_image: Optional custom container image for the job runtime environment. If not specified, a default container image will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#container_image DataprocBatch#container_image}
-        :param properties: A mapping of property names to values, which are used to configure workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#properties DataprocBatch#properties}
-        :param version: Version of the batch runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#version DataprocBatch#version}
+        :param autotuning_config: autotuning_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#autotuning_config DataprocBatch#autotuning_config}
+        :param cohort: Optional. Cohort identifier. Identifies families of the workloads having the same shape, e.g. daily ETL jobs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#cohort DataprocBatch#cohort}
+        :param container_image: Optional custom container image for the job runtime environment. If not specified, a default container image will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#container_image DataprocBatch#container_image}
+        :param properties: A mapping of property names to values, which are used to configure workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#properties DataprocBatch#properties}
+        :param version: Version of the batch runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#version DataprocBatch#version}
         '''
         value = DataprocBatchRuntimeConfig(
             autotuning_config=autotuning_config,
@@ -233,12 +233,12 @@ class DataprocBatch(
         main_jar_file_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#archive_uris DataprocBatch#archive_uris}
-        :param args: The arguments to pass to the driver. Do not include arguments that can be set as batch properties, such as --conf, since a collision can occur that causes an incorrect batch submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#args DataprocBatch#args}
-        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#file_uris DataprocBatch#file_uris}
-        :param jar_file_uris: HCFS URIs of jar files to add to the classpath of the Spark driver and tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#jar_file_uris DataprocBatch#jar_file_uris}
-        :param main_class: The name of the driver main class. The jar file that contains the class must be in the classpath or specified in jarFileUris. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#main_class DataprocBatch#main_class}
-        :param main_jar_file_uri: The HCFS URI of the jar file that contains the main class. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#main_jar_file_uri DataprocBatch#main_jar_file_uri}
+        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#archive_uris DataprocBatch#archive_uris}
+        :param args: The arguments to pass to the driver. Do not include arguments that can be set as batch properties, such as --conf, since a collision can occur that causes an incorrect batch submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#args DataprocBatch#args}
+        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#file_uris DataprocBatch#file_uris}
+        :param jar_file_uris: HCFS URIs of jar files to add to the classpath of the Spark driver and tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#jar_file_uris DataprocBatch#jar_file_uris}
+        :param main_class: The name of the driver main class. The jar file that contains the class must be in the classpath or specified in jarFileUris. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#main_class DataprocBatch#main_class}
+        :param main_jar_file_uri: The HCFS URI of the jar file that contains the main class. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#main_jar_file_uri DataprocBatch#main_jar_file_uri}
         '''
         value = DataprocBatchSparkBatch(
             archive_uris=archive_uris,
@@ -261,10 +261,10 @@ class DataprocBatch(
         main_r_file_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#archive_uris DataprocBatch#archive_uris}
-        :param args: The arguments to pass to the driver. Do not include arguments that can be set as batch properties, such as --conf, since a collision can occur that causes an incorrect batch submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#args DataprocBatch#args}
-        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#file_uris DataprocBatch#file_uris}
-        :param main_r_file_uri: The HCFS URI of the main R file to use as the driver. Must be a .R or .r file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#main_r_file_uri DataprocBatch#main_r_file_uri}
+        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#archive_uris DataprocBatch#archive_uris}
+        :param args: The arguments to pass to the driver. Do not include arguments that can be set as batch properties, such as --conf, since a collision can occur that causes an incorrect batch submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#args DataprocBatch#args}
+        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#file_uris DataprocBatch#file_uris}
+        :param main_r_file_uri: The HCFS URI of the main R file to use as the driver. Must be a .R or .r file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#main_r_file_uri DataprocBatch#main_r_file_uri}
         '''
         value = DataprocBatchSparkRBatch(
             archive_uris=archive_uris,
@@ -284,9 +284,9 @@ class DataprocBatch(
         query_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param jar_file_uris: HCFS URIs of jar files to be added to the Spark CLASSPATH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#jar_file_uris DataprocBatch#jar_file_uris}
-        :param query_file_uri: The HCFS URI of the script that contains Spark SQL queries to execute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#query_file_uri DataprocBatch#query_file_uri}
-        :param query_variables: Mapping of query variable names to values (equivalent to the Spark SQL command: SET name="value";). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#query_variables DataprocBatch#query_variables}
+        :param jar_file_uris: HCFS URIs of jar files to be added to the Spark CLASSPATH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#jar_file_uris DataprocBatch#jar_file_uris}
+        :param query_file_uri: The HCFS URI of the script that contains Spark SQL queries to execute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#query_file_uri DataprocBatch#query_file_uri}
+        :param query_variables: Mapping of query variable names to values (equivalent to the Spark SQL command: SET name="value";). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#query_variables DataprocBatch#query_variables}
         '''
         value = DataprocBatchSparkSqlBatch(
             jar_file_uris=jar_file_uris,
@@ -305,9 +305,9 @@ class DataprocBatch(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#create DataprocBatch#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#delete DataprocBatch#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#update DataprocBatch#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#create DataprocBatch#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#delete DataprocBatch#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#update DataprocBatch#update}.
         '''
         value = DataprocBatchTimeouts(create=create, delete=delete, update=update)
 
@@ -653,18 +653,18 @@ class DataprocBatchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param batch_id: The ID to use for the batch, which will become the final component of the batch's resource name. This value must be 4-63 characters. Valid characters are /[a-z][0-9]-/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#batch_id DataprocBatch#batch_id}
-        :param environment_config: environment_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#environment_config DataprocBatch#environment_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#id DataprocBatch#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: The labels to associate with this batch. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#labels DataprocBatch#labels}
-        :param location: The location in which the batch will be created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#location DataprocBatch#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#project DataprocBatch#project}.
-        :param pyspark_batch: pyspark_batch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#pyspark_batch DataprocBatch#pyspark_batch}
-        :param runtime_config: runtime_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#runtime_config DataprocBatch#runtime_config}
-        :param spark_batch: spark_batch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#spark_batch DataprocBatch#spark_batch}
-        :param spark_r_batch: spark_r_batch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#spark_r_batch DataprocBatch#spark_r_batch}
-        :param spark_sql_batch: spark_sql_batch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#spark_sql_batch DataprocBatch#spark_sql_batch}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#timeouts DataprocBatch#timeouts}
+        :param batch_id: The ID to use for the batch, which will become the final component of the batch's resource name. This value must be 4-63 characters. Valid characters are /[a-z][0-9]-/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#batch_id DataprocBatch#batch_id}
+        :param environment_config: environment_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#environment_config DataprocBatch#environment_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#id DataprocBatch#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: The labels to associate with this batch. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#labels DataprocBatch#labels}
+        :param location: The location in which the batch will be created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#location DataprocBatch#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#project DataprocBatch#project}.
+        :param pyspark_batch: pyspark_batch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#pyspark_batch DataprocBatch#pyspark_batch}
+        :param runtime_config: runtime_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#runtime_config DataprocBatch#runtime_config}
+        :param spark_batch: spark_batch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#spark_batch DataprocBatch#spark_batch}
+        :param spark_r_batch: spark_r_batch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#spark_r_batch DataprocBatch#spark_r_batch}
+        :param spark_sql_batch: spark_sql_batch block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#spark_sql_batch DataprocBatch#spark_sql_batch}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#timeouts DataprocBatch#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -813,7 +813,7 @@ class DataprocBatchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This value must be 4-63 characters. Valid characters are /[a-z][0-9]-/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#batch_id DataprocBatch#batch_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#batch_id DataprocBatch#batch_id}
         '''
         result = self._values.get("batch_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -822,14 +822,14 @@ class DataprocBatchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def environment_config(self) -> typing.Optional["DataprocBatchEnvironmentConfig"]:
         '''environment_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#environment_config DataprocBatch#environment_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#environment_config DataprocBatch#environment_config}
         '''
         result = self._values.get("environment_config")
         return typing.cast(typing.Optional["DataprocBatchEnvironmentConfig"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#id DataprocBatch#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#id DataprocBatch#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -844,7 +844,7 @@ class DataprocBatchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#labels DataprocBatch#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#labels DataprocBatch#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -853,14 +853,14 @@ class DataprocBatchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> typing.Optional[builtins.str]:
         '''The location in which the batch will be created in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#location DataprocBatch#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#location DataprocBatch#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#project DataprocBatch#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#project DataprocBatch#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -868,7 +868,7 @@ class DataprocBatchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def pyspark_batch(self) -> typing.Optional["DataprocBatchPysparkBatch"]:
         '''pyspark_batch block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#pyspark_batch DataprocBatch#pyspark_batch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#pyspark_batch DataprocBatch#pyspark_batch}
         '''
         result = self._values.get("pyspark_batch")
         return typing.cast(typing.Optional["DataprocBatchPysparkBatch"], result)
@@ -877,7 +877,7 @@ class DataprocBatchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def runtime_config(self) -> typing.Optional["DataprocBatchRuntimeConfig"]:
         '''runtime_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#runtime_config DataprocBatch#runtime_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#runtime_config DataprocBatch#runtime_config}
         '''
         result = self._values.get("runtime_config")
         return typing.cast(typing.Optional["DataprocBatchRuntimeConfig"], result)
@@ -886,7 +886,7 @@ class DataprocBatchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def spark_batch(self) -> typing.Optional["DataprocBatchSparkBatch"]:
         '''spark_batch block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#spark_batch DataprocBatch#spark_batch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#spark_batch DataprocBatch#spark_batch}
         '''
         result = self._values.get("spark_batch")
         return typing.cast(typing.Optional["DataprocBatchSparkBatch"], result)
@@ -895,7 +895,7 @@ class DataprocBatchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def spark_r_batch(self) -> typing.Optional["DataprocBatchSparkRBatch"]:
         '''spark_r_batch block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#spark_r_batch DataprocBatch#spark_r_batch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#spark_r_batch DataprocBatch#spark_r_batch}
         '''
         result = self._values.get("spark_r_batch")
         return typing.cast(typing.Optional["DataprocBatchSparkRBatch"], result)
@@ -904,7 +904,7 @@ class DataprocBatchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def spark_sql_batch(self) -> typing.Optional["DataprocBatchSparkSqlBatch"]:
         '''spark_sql_batch block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#spark_sql_batch DataprocBatch#spark_sql_batch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#spark_sql_batch DataprocBatch#spark_sql_batch}
         '''
         result = self._values.get("spark_sql_batch")
         return typing.cast(typing.Optional["DataprocBatchSparkSqlBatch"], result)
@@ -913,7 +913,7 @@ class DataprocBatchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataprocBatchTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#timeouts DataprocBatch#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#timeouts DataprocBatch#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataprocBatchTimeouts"], result)
@@ -946,8 +946,8 @@ class DataprocBatchEnvironmentConfig:
         peripherals_config: typing.Optional[typing.Union["DataprocBatchEnvironmentConfigPeripheralsConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param execution_config: execution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#execution_config DataprocBatch#execution_config}
-        :param peripherals_config: peripherals_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#peripherals_config DataprocBatch#peripherals_config}
+        :param execution_config: execution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#execution_config DataprocBatch#execution_config}
+        :param peripherals_config: peripherals_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#peripherals_config DataprocBatch#peripherals_config}
         '''
         if isinstance(execution_config, dict):
             execution_config = DataprocBatchEnvironmentConfigExecutionConfig(**execution_config)
@@ -969,7 +969,7 @@ class DataprocBatchEnvironmentConfig:
     ) -> typing.Optional["DataprocBatchEnvironmentConfigExecutionConfig"]:
         '''execution_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#execution_config DataprocBatch#execution_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#execution_config DataprocBatch#execution_config}
         '''
         result = self._values.get("execution_config")
         return typing.cast(typing.Optional["DataprocBatchEnvironmentConfigExecutionConfig"], result)
@@ -980,7 +980,7 @@ class DataprocBatchEnvironmentConfig:
     ) -> typing.Optional["DataprocBatchEnvironmentConfigPeripheralsConfig"]:
         '''peripherals_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#peripherals_config DataprocBatch#peripherals_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#peripherals_config DataprocBatch#peripherals_config}
         '''
         result = self._values.get("peripherals_config")
         return typing.cast(typing.Optional["DataprocBatchEnvironmentConfigPeripheralsConfig"], result)
@@ -1023,13 +1023,13 @@ class DataprocBatchEnvironmentConfigExecutionConfig:
         ttl: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key: The Cloud KMS key to use for encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#kms_key DataprocBatch#kms_key}
-        :param network_tags: Tags used for network traffic control. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#network_tags DataprocBatch#network_tags}
-        :param network_uri: Network configuration for workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#network_uri DataprocBatch#network_uri}
-        :param service_account: Service account that used to execute workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#service_account DataprocBatch#service_account}
-        :param staging_bucket: A Cloud Storage bucket used to stage workload dependencies, config files, and store workload output and other ephemeral data, such as Spark history files. If you do not specify a staging bucket, Cloud Dataproc will determine a Cloud Storage location according to the region where your workload is running, and then create and manage project-level, per-location staging and temporary buckets. This field requires a Cloud Storage bucket name, not a gs://... URI to a Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#staging_bucket DataprocBatch#staging_bucket}
-        :param subnetwork_uri: Subnetwork configuration for workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#subnetwork_uri DataprocBatch#subnetwork_uri}
-        :param ttl: The duration after which the workload will be terminated. When the workload exceeds this duration, it will be unconditionally terminated without waiting for ongoing work to finish. If ttl is not specified for a batch workload, the workload will be allowed to run until it exits naturally (or run forever without exiting). If ttl is not specified for an interactive session, it defaults to 24 hours. If ttl is not specified for a batch that uses 2.1+ runtime version, it defaults to 4 hours. Minimum value is 10 minutes; maximum value is 14 days. If both ttl and idleTtl are specified (for an interactive session), the conditions are treated as OR conditions: the workload will be terminated when it has been idle for idleTtl or when ttl has been exceeded, whichever occurs first. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#ttl DataprocBatch#ttl}
+        :param kms_key: The Cloud KMS key to use for encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#kms_key DataprocBatch#kms_key}
+        :param network_tags: Tags used for network traffic control. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#network_tags DataprocBatch#network_tags}
+        :param network_uri: Network configuration for workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#network_uri DataprocBatch#network_uri}
+        :param service_account: Service account that used to execute workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#service_account DataprocBatch#service_account}
+        :param staging_bucket: A Cloud Storage bucket used to stage workload dependencies, config files, and store workload output and other ephemeral data, such as Spark history files. If you do not specify a staging bucket, Cloud Dataproc will determine a Cloud Storage location according to the region where your workload is running, and then create and manage project-level, per-location staging and temporary buckets. This field requires a Cloud Storage bucket name, not a gs://... URI to a Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#staging_bucket DataprocBatch#staging_bucket}
+        :param subnetwork_uri: Subnetwork configuration for workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#subnetwork_uri DataprocBatch#subnetwork_uri}
+        :param ttl: The duration after which the workload will be terminated. When the workload exceeds this duration, it will be unconditionally terminated without waiting for ongoing work to finish. If ttl is not specified for a batch workload, the workload will be allowed to run until it exits naturally (or run forever without exiting). If ttl is not specified for an interactive session, it defaults to 24 hours. If ttl is not specified for a batch that uses 2.1+ runtime version, it defaults to 4 hours. Minimum value is 10 minutes; maximum value is 14 days. If both ttl and idleTtl are specified (for an interactive session), the conditions are treated as OR conditions: the workload will be terminated when it has been idle for idleTtl or when ttl has been exceeded, whichever occurs first. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#ttl DataprocBatch#ttl}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b8a8fae405e7ec873f2e8dc4c8f521894610c2a4f4341df7d5e7ec99d99124e)
@@ -1060,7 +1060,7 @@ class DataprocBatchEnvironmentConfigExecutionConfig:
     def kms_key(self) -> typing.Optional[builtins.str]:
         '''The Cloud KMS key to use for encryption.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#kms_key DataprocBatch#kms_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#kms_key DataprocBatch#kms_key}
         '''
         result = self._values.get("kms_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1069,7 +1069,7 @@ class DataprocBatchEnvironmentConfigExecutionConfig:
     def network_tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Tags used for network traffic control.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#network_tags DataprocBatch#network_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#network_tags DataprocBatch#network_tags}
         '''
         result = self._values.get("network_tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1078,7 +1078,7 @@ class DataprocBatchEnvironmentConfigExecutionConfig:
     def network_uri(self) -> typing.Optional[builtins.str]:
         '''Network configuration for workload execution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#network_uri DataprocBatch#network_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#network_uri DataprocBatch#network_uri}
         '''
         result = self._values.get("network_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1087,7 +1087,7 @@ class DataprocBatchEnvironmentConfigExecutionConfig:
     def service_account(self) -> typing.Optional[builtins.str]:
         '''Service account that used to execute workload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#service_account DataprocBatch#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#service_account DataprocBatch#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1101,7 +1101,7 @@ class DataprocBatchEnvironmentConfigExecutionConfig:
         and then create and manage project-level, per-location staging and temporary buckets.
         This field requires a Cloud Storage bucket name, not a gs://... URI to a Cloud Storage bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#staging_bucket DataprocBatch#staging_bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#staging_bucket DataprocBatch#staging_bucket}
         '''
         result = self._values.get("staging_bucket")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1110,7 +1110,7 @@ class DataprocBatchEnvironmentConfigExecutionConfig:
     def subnetwork_uri(self) -> typing.Optional[builtins.str]:
         '''Subnetwork configuration for workload execution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#subnetwork_uri DataprocBatch#subnetwork_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#subnetwork_uri DataprocBatch#subnetwork_uri}
         '''
         result = self._values.get("subnetwork_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1127,7 +1127,7 @@ class DataprocBatchEnvironmentConfigExecutionConfig:
         the conditions are treated as OR conditions: the workload will be terminated when it has been idle for idleTtl or
         when ttl has been exceeded, whichever occurs first.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#ttl DataprocBatch#ttl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#ttl DataprocBatch#ttl}
         '''
         result = self._values.get("ttl")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1362,13 +1362,13 @@ class DataprocBatchEnvironmentConfigOutputReference(
         ttl: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key: The Cloud KMS key to use for encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#kms_key DataprocBatch#kms_key}
-        :param network_tags: Tags used for network traffic control. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#network_tags DataprocBatch#network_tags}
-        :param network_uri: Network configuration for workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#network_uri DataprocBatch#network_uri}
-        :param service_account: Service account that used to execute workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#service_account DataprocBatch#service_account}
-        :param staging_bucket: A Cloud Storage bucket used to stage workload dependencies, config files, and store workload output and other ephemeral data, such as Spark history files. If you do not specify a staging bucket, Cloud Dataproc will determine a Cloud Storage location according to the region where your workload is running, and then create and manage project-level, per-location staging and temporary buckets. This field requires a Cloud Storage bucket name, not a gs://... URI to a Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#staging_bucket DataprocBatch#staging_bucket}
-        :param subnetwork_uri: Subnetwork configuration for workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#subnetwork_uri DataprocBatch#subnetwork_uri}
-        :param ttl: The duration after which the workload will be terminated. When the workload exceeds this duration, it will be unconditionally terminated without waiting for ongoing work to finish. If ttl is not specified for a batch workload, the workload will be allowed to run until it exits naturally (or run forever without exiting). If ttl is not specified for an interactive session, it defaults to 24 hours. If ttl is not specified for a batch that uses 2.1+ runtime version, it defaults to 4 hours. Minimum value is 10 minutes; maximum value is 14 days. If both ttl and idleTtl are specified (for an interactive session), the conditions are treated as OR conditions: the workload will be terminated when it has been idle for idleTtl or when ttl has been exceeded, whichever occurs first. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#ttl DataprocBatch#ttl}
+        :param kms_key: The Cloud KMS key to use for encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#kms_key DataprocBatch#kms_key}
+        :param network_tags: Tags used for network traffic control. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#network_tags DataprocBatch#network_tags}
+        :param network_uri: Network configuration for workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#network_uri DataprocBatch#network_uri}
+        :param service_account: Service account that used to execute workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#service_account DataprocBatch#service_account}
+        :param staging_bucket: A Cloud Storage bucket used to stage workload dependencies, config files, and store workload output and other ephemeral data, such as Spark history files. If you do not specify a staging bucket, Cloud Dataproc will determine a Cloud Storage location according to the region where your workload is running, and then create and manage project-level, per-location staging and temporary buckets. This field requires a Cloud Storage bucket name, not a gs://... URI to a Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#staging_bucket DataprocBatch#staging_bucket}
+        :param subnetwork_uri: Subnetwork configuration for workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#subnetwork_uri DataprocBatch#subnetwork_uri}
+        :param ttl: The duration after which the workload will be terminated. When the workload exceeds this duration, it will be unconditionally terminated without waiting for ongoing work to finish. If ttl is not specified for a batch workload, the workload will be allowed to run until it exits naturally (or run forever without exiting). If ttl is not specified for an interactive session, it defaults to 24 hours. If ttl is not specified for a batch that uses 2.1+ runtime version, it defaults to 4 hours. Minimum value is 10 minutes; maximum value is 14 days. If both ttl and idleTtl are specified (for an interactive session), the conditions are treated as OR conditions: the workload will be terminated when it has been idle for idleTtl or when ttl has been exceeded, whichever occurs first. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#ttl DataprocBatch#ttl}
         '''
         value = DataprocBatchEnvironmentConfigExecutionConfig(
             kms_key=kms_key,
@@ -1390,8 +1390,8 @@ class DataprocBatchEnvironmentConfigOutputReference(
         spark_history_server_config: typing.Optional[typing.Union["DataprocBatchEnvironmentConfigPeripheralsConfigSparkHistoryServerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param metastore_service: Resource name of an existing Dataproc Metastore service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#metastore_service DataprocBatch#metastore_service}
-        :param spark_history_server_config: spark_history_server_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#spark_history_server_config DataprocBatch#spark_history_server_config}
+        :param metastore_service: Resource name of an existing Dataproc Metastore service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#metastore_service DataprocBatch#metastore_service}
+        :param spark_history_server_config: spark_history_server_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#spark_history_server_config DataprocBatch#spark_history_server_config}
         '''
         value = DataprocBatchEnvironmentConfigPeripheralsConfig(
             metastore_service=metastore_service,
@@ -1468,8 +1468,8 @@ class DataprocBatchEnvironmentConfigPeripheralsConfig:
         spark_history_server_config: typing.Optional[typing.Union["DataprocBatchEnvironmentConfigPeripheralsConfigSparkHistoryServerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param metastore_service: Resource name of an existing Dataproc Metastore service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#metastore_service DataprocBatch#metastore_service}
-        :param spark_history_server_config: spark_history_server_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#spark_history_server_config DataprocBatch#spark_history_server_config}
+        :param metastore_service: Resource name of an existing Dataproc Metastore service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#metastore_service DataprocBatch#metastore_service}
+        :param spark_history_server_config: spark_history_server_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#spark_history_server_config DataprocBatch#spark_history_server_config}
         '''
         if isinstance(spark_history_server_config, dict):
             spark_history_server_config = DataprocBatchEnvironmentConfigPeripheralsConfigSparkHistoryServerConfig(**spark_history_server_config)
@@ -1487,7 +1487,7 @@ class DataprocBatchEnvironmentConfigPeripheralsConfig:
     def metastore_service(self) -> typing.Optional[builtins.str]:
         '''Resource name of an existing Dataproc Metastore service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#metastore_service DataprocBatch#metastore_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#metastore_service DataprocBatch#metastore_service}
         '''
         result = self._values.get("metastore_service")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1498,7 +1498,7 @@ class DataprocBatchEnvironmentConfigPeripheralsConfig:
     ) -> typing.Optional["DataprocBatchEnvironmentConfigPeripheralsConfigSparkHistoryServerConfig"]:
         '''spark_history_server_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#spark_history_server_config DataprocBatch#spark_history_server_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#spark_history_server_config DataprocBatch#spark_history_server_config}
         '''
         result = self._values.get("spark_history_server_config")
         return typing.cast(typing.Optional["DataprocBatchEnvironmentConfigPeripheralsConfigSparkHistoryServerConfig"], result)
@@ -1542,7 +1542,7 @@ class DataprocBatchEnvironmentConfigPeripheralsConfigOutputReference(
         dataproc_cluster: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataproc_cluster: Resource name of an existing Dataproc Cluster to act as a Spark History Server for the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#dataproc_cluster DataprocBatch#dataproc_cluster}
+        :param dataproc_cluster: Resource name of an existing Dataproc Cluster to act as a Spark History Server for the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#dataproc_cluster DataprocBatch#dataproc_cluster}
         '''
         value = DataprocBatchEnvironmentConfigPeripheralsConfigSparkHistoryServerConfig(
             dataproc_cluster=dataproc_cluster
@@ -1619,7 +1619,7 @@ class DataprocBatchEnvironmentConfigPeripheralsConfigSparkHistoryServerConfig:
         dataproc_cluster: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataproc_cluster: Resource name of an existing Dataproc Cluster to act as a Spark History Server for the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#dataproc_cluster DataprocBatch#dataproc_cluster}
+        :param dataproc_cluster: Resource name of an existing Dataproc Cluster to act as a Spark History Server for the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#dataproc_cluster DataprocBatch#dataproc_cluster}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3c1d8793206a74b9ef918ed7e5a1df6179e82fdcf728151f6420d43aff780d65)
@@ -1632,7 +1632,7 @@ class DataprocBatchEnvironmentConfigPeripheralsConfigSparkHistoryServerConfig:
     def dataproc_cluster(self) -> typing.Optional[builtins.str]:
         '''Resource name of an existing Dataproc Cluster to act as a Spark History Server for the workload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#dataproc_cluster DataprocBatch#dataproc_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#dataproc_cluster DataprocBatch#dataproc_cluster}
         '''
         result = self._values.get("dataproc_cluster")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1732,12 +1732,12 @@ class DataprocBatchPysparkBatch:
         python_file_uris: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#archive_uris DataprocBatch#archive_uris}
-        :param args: The arguments to pass to the driver. Do not include arguments that can be set as batch properties, such as --conf, since a collision can occur that causes an incorrect batch submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#args DataprocBatch#args}
-        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#file_uris DataprocBatch#file_uris}
-        :param jar_file_uris: HCFS URIs of jar files to add to the classpath of the Spark driver and tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#jar_file_uris DataprocBatch#jar_file_uris}
-        :param main_python_file_uri: The HCFS URI of the main Python file to use as the Spark driver. Must be a .py file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#main_python_file_uri DataprocBatch#main_python_file_uri}
-        :param python_file_uris: HCFS file URIs of Python files to pass to the PySpark framework. Supported file types: .py, .egg, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#python_file_uris DataprocBatch#python_file_uris}
+        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#archive_uris DataprocBatch#archive_uris}
+        :param args: The arguments to pass to the driver. Do not include arguments that can be set as batch properties, such as --conf, since a collision can occur that causes an incorrect batch submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#args DataprocBatch#args}
+        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#file_uris DataprocBatch#file_uris}
+        :param jar_file_uris: HCFS URIs of jar files to add to the classpath of the Spark driver and tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#jar_file_uris DataprocBatch#jar_file_uris}
+        :param main_python_file_uri: The HCFS URI of the main Python file to use as the Spark driver. Must be a .py file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#main_python_file_uri DataprocBatch#main_python_file_uri}
+        :param python_file_uris: HCFS file URIs of Python files to pass to the PySpark framework. Supported file types: .py, .egg, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#python_file_uris DataprocBatch#python_file_uris}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ef14e04ce4a4b6819a6df6bb32aa091b128c1035e787f732bb6fd33c267c2262)
@@ -1767,7 +1767,7 @@ class DataprocBatchPysparkBatch:
 
         Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#archive_uris DataprocBatch#archive_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#archive_uris DataprocBatch#archive_uris}
         '''
         result = self._values.get("archive_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1779,7 +1779,7 @@ class DataprocBatchPysparkBatch:
         Do not include arguments that can be set as batch
         properties, such as --conf, since a collision can occur that causes an incorrect batch submission.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#args DataprocBatch#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#args DataprocBatch#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1788,7 +1788,7 @@ class DataprocBatchPysparkBatch:
     def file_uris(self) -> typing.Optional[typing.List[builtins.str]]:
         '''HCFS URIs of files to be placed in the working directory of each executor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#file_uris DataprocBatch#file_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#file_uris DataprocBatch#file_uris}
         '''
         result = self._values.get("file_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1797,7 +1797,7 @@ class DataprocBatchPysparkBatch:
     def jar_file_uris(self) -> typing.Optional[typing.List[builtins.str]]:
         '''HCFS URIs of jar files to add to the classpath of the Spark driver and tasks.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#jar_file_uris DataprocBatch#jar_file_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#jar_file_uris DataprocBatch#jar_file_uris}
         '''
         result = self._values.get("jar_file_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1806,7 +1806,7 @@ class DataprocBatchPysparkBatch:
     def main_python_file_uri(self) -> typing.Optional[builtins.str]:
         '''The HCFS URI of the main Python file to use as the Spark driver. Must be a .py file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#main_python_file_uri DataprocBatch#main_python_file_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#main_python_file_uri DataprocBatch#main_python_file_uri}
         '''
         result = self._values.get("main_python_file_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1815,7 +1815,7 @@ class DataprocBatchPysparkBatch:
     def python_file_uris(self) -> typing.Optional[typing.List[builtins.str]]:
         '''HCFS file URIs of Python files to pass to the PySpark framework. Supported file types: .py, .egg, and .zip.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#python_file_uris DataprocBatch#python_file_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#python_file_uris DataprocBatch#python_file_uris}
         '''
         result = self._values.get("python_file_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2013,11 +2013,11 @@ class DataprocBatchRuntimeConfig:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param autotuning_config: autotuning_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#autotuning_config DataprocBatch#autotuning_config}
-        :param cohort: Optional. Cohort identifier. Identifies families of the workloads having the same shape, e.g. daily ETL jobs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#cohort DataprocBatch#cohort}
-        :param container_image: Optional custom container image for the job runtime environment. If not specified, a default container image will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#container_image DataprocBatch#container_image}
-        :param properties: A mapping of property names to values, which are used to configure workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#properties DataprocBatch#properties}
-        :param version: Version of the batch runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#version DataprocBatch#version}
+        :param autotuning_config: autotuning_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#autotuning_config DataprocBatch#autotuning_config}
+        :param cohort: Optional. Cohort identifier. Identifies families of the workloads having the same shape, e.g. daily ETL jobs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#cohort DataprocBatch#cohort}
+        :param container_image: Optional custom container image for the job runtime environment. If not specified, a default container image will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#container_image DataprocBatch#container_image}
+        :param properties: A mapping of property names to values, which are used to configure workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#properties DataprocBatch#properties}
+        :param version: Version of the batch runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#version DataprocBatch#version}
         '''
         if isinstance(autotuning_config, dict):
             autotuning_config = DataprocBatchRuntimeConfigAutotuningConfig(**autotuning_config)
@@ -2046,7 +2046,7 @@ class DataprocBatchRuntimeConfig:
     ) -> typing.Optional["DataprocBatchRuntimeConfigAutotuningConfig"]:
         '''autotuning_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#autotuning_config DataprocBatch#autotuning_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#autotuning_config DataprocBatch#autotuning_config}
         '''
         result = self._values.get("autotuning_config")
         return typing.cast(typing.Optional["DataprocBatchRuntimeConfigAutotuningConfig"], result)
@@ -2055,7 +2055,7 @@ class DataprocBatchRuntimeConfig:
     def cohort(self) -> typing.Optional[builtins.str]:
         '''Optional. Cohort identifier. Identifies families of the workloads having the same shape, e.g. daily ETL jobs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#cohort DataprocBatch#cohort}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#cohort DataprocBatch#cohort}
         '''
         result = self._values.get("cohort")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2064,7 +2064,7 @@ class DataprocBatchRuntimeConfig:
     def container_image(self) -> typing.Optional[builtins.str]:
         '''Optional custom container image for the job runtime environment. If not specified, a default container image will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#container_image DataprocBatch#container_image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#container_image DataprocBatch#container_image}
         '''
         result = self._values.get("container_image")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2073,7 +2073,7 @@ class DataprocBatchRuntimeConfig:
     def properties(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A mapping of property names to values, which are used to configure workload execution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#properties DataprocBatch#properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#properties DataprocBatch#properties}
         '''
         result = self._values.get("properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2082,7 +2082,7 @@ class DataprocBatchRuntimeConfig:
     def version(self) -> typing.Optional[builtins.str]:
         '''Version of the batch runtime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#version DataprocBatch#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#version DataprocBatch#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2111,7 +2111,7 @@ class DataprocBatchRuntimeConfigAutotuningConfig:
         scenarios: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param scenarios: Optional. Scenarios for which tunings are applied. Possible values: ["SCALING", "BROADCAST_HASH_JOIN", "MEMORY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#scenarios DataprocBatch#scenarios}
+        :param scenarios: Optional. Scenarios for which tunings are applied. Possible values: ["SCALING", "BROADCAST_HASH_JOIN", "MEMORY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#scenarios DataprocBatch#scenarios}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f7e9a949bbddd324dcf55886f4b92a66bed3062c1e69fa3b3bc353ce6f7b97fa)
@@ -2124,7 +2124,7 @@ class DataprocBatchRuntimeConfigAutotuningConfig:
     def scenarios(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Optional. Scenarios for which tunings are applied. Possible values: ["SCALING", "BROADCAST_HASH_JOIN", "MEMORY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#scenarios DataprocBatch#scenarios}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#scenarios DataprocBatch#scenarios}
         '''
         result = self._values.get("scenarios")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2227,7 +2227,7 @@ class DataprocBatchRuntimeConfigOutputReference(
         scenarios: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param scenarios: Optional. Scenarios for which tunings are applied. Possible values: ["SCALING", "BROADCAST_HASH_JOIN", "MEMORY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#scenarios DataprocBatch#scenarios}
+        :param scenarios: Optional. Scenarios for which tunings are applied. Possible values: ["SCALING", "BROADCAST_HASH_JOIN", "MEMORY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#scenarios DataprocBatch#scenarios}
         '''
         value = DataprocBatchRuntimeConfigAutotuningConfig(scenarios=scenarios)
 
@@ -2875,12 +2875,12 @@ class DataprocBatchSparkBatch:
         main_jar_file_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#archive_uris DataprocBatch#archive_uris}
-        :param args: The arguments to pass to the driver. Do not include arguments that can be set as batch properties, such as --conf, since a collision can occur that causes an incorrect batch submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#args DataprocBatch#args}
-        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#file_uris DataprocBatch#file_uris}
-        :param jar_file_uris: HCFS URIs of jar files to add to the classpath of the Spark driver and tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#jar_file_uris DataprocBatch#jar_file_uris}
-        :param main_class: The name of the driver main class. The jar file that contains the class must be in the classpath or specified in jarFileUris. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#main_class DataprocBatch#main_class}
-        :param main_jar_file_uri: The HCFS URI of the jar file that contains the main class. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#main_jar_file_uri DataprocBatch#main_jar_file_uri}
+        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#archive_uris DataprocBatch#archive_uris}
+        :param args: The arguments to pass to the driver. Do not include arguments that can be set as batch properties, such as --conf, since a collision can occur that causes an incorrect batch submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#args DataprocBatch#args}
+        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#file_uris DataprocBatch#file_uris}
+        :param jar_file_uris: HCFS URIs of jar files to add to the classpath of the Spark driver and tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#jar_file_uris DataprocBatch#jar_file_uris}
+        :param main_class: The name of the driver main class. The jar file that contains the class must be in the classpath or specified in jarFileUris. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#main_class DataprocBatch#main_class}
+        :param main_jar_file_uri: The HCFS URI of the jar file that contains the main class. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#main_jar_file_uri DataprocBatch#main_jar_file_uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7c67d4e5ab4f9f13b02560b7dd676d4c03b33883aa4b6590e23b729f6a9126c5)
@@ -2910,7 +2910,7 @@ class DataprocBatchSparkBatch:
 
         Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#archive_uris DataprocBatch#archive_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#archive_uris DataprocBatch#archive_uris}
         '''
         result = self._values.get("archive_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2922,7 +2922,7 @@ class DataprocBatchSparkBatch:
         Do not include arguments that can be set as batch
         properties, such as --conf, since a collision can occur that causes an incorrect batch submission.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#args DataprocBatch#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#args DataprocBatch#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2931,7 +2931,7 @@ class DataprocBatchSparkBatch:
     def file_uris(self) -> typing.Optional[typing.List[builtins.str]]:
         '''HCFS URIs of files to be placed in the working directory of each executor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#file_uris DataprocBatch#file_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#file_uris DataprocBatch#file_uris}
         '''
         result = self._values.get("file_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2940,7 +2940,7 @@ class DataprocBatchSparkBatch:
     def jar_file_uris(self) -> typing.Optional[typing.List[builtins.str]]:
         '''HCFS URIs of jar files to add to the classpath of the Spark driver and tasks.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#jar_file_uris DataprocBatch#jar_file_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#jar_file_uris DataprocBatch#jar_file_uris}
         '''
         result = self._values.get("jar_file_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2952,7 +2952,7 @@ class DataprocBatchSparkBatch:
         The jar file that contains the class must be in the
         classpath or specified in jarFileUris.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#main_class DataprocBatch#main_class}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#main_class DataprocBatch#main_class}
         '''
         result = self._values.get("main_class")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2961,7 +2961,7 @@ class DataprocBatchSparkBatch:
     def main_jar_file_uri(self) -> typing.Optional[builtins.str]:
         '''The HCFS URI of the jar file that contains the main class.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#main_jar_file_uri DataprocBatch#main_jar_file_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#main_jar_file_uri DataprocBatch#main_jar_file_uri}
         '''
         result = self._values.get("main_jar_file_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3157,10 +3157,10 @@ class DataprocBatchSparkRBatch:
         main_r_file_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#archive_uris DataprocBatch#archive_uris}
-        :param args: The arguments to pass to the driver. Do not include arguments that can be set as batch properties, such as --conf, since a collision can occur that causes an incorrect batch submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#args DataprocBatch#args}
-        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#file_uris DataprocBatch#file_uris}
-        :param main_r_file_uri: The HCFS URI of the main R file to use as the driver. Must be a .R or .r file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#main_r_file_uri DataprocBatch#main_r_file_uri}
+        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#archive_uris DataprocBatch#archive_uris}
+        :param args: The arguments to pass to the driver. Do not include arguments that can be set as batch properties, such as --conf, since a collision can occur that causes an incorrect batch submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#args DataprocBatch#args}
+        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#file_uris DataprocBatch#file_uris}
+        :param main_r_file_uri: The HCFS URI of the main R file to use as the driver. Must be a .R or .r file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#main_r_file_uri DataprocBatch#main_r_file_uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a694fb2499ad62836030e5edf27855d85d91cf6d7b40e8d4a355ae29b791f292)
@@ -3184,7 +3184,7 @@ class DataprocBatchSparkRBatch:
 
         Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#archive_uris DataprocBatch#archive_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#archive_uris DataprocBatch#archive_uris}
         '''
         result = self._values.get("archive_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3196,7 +3196,7 @@ class DataprocBatchSparkRBatch:
         Do not include arguments that can be set as batch
         properties, such as --conf, since a collision can occur that causes an incorrect batch submission.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#args DataprocBatch#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#args DataprocBatch#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3205,7 +3205,7 @@ class DataprocBatchSparkRBatch:
     def file_uris(self) -> typing.Optional[typing.List[builtins.str]]:
         '''HCFS URIs of files to be placed in the working directory of each executor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#file_uris DataprocBatch#file_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#file_uris DataprocBatch#file_uris}
         '''
         result = self._values.get("file_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3216,7 +3216,7 @@ class DataprocBatchSparkRBatch:
 
         Must be a .R or .r file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#main_r_file_uri DataprocBatch#main_r_file_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#main_r_file_uri DataprocBatch#main_r_file_uri}
         '''
         result = self._values.get("main_r_file_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3368,9 +3368,9 @@ class DataprocBatchSparkSqlBatch:
         query_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param jar_file_uris: HCFS URIs of jar files to be added to the Spark CLASSPATH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#jar_file_uris DataprocBatch#jar_file_uris}
-        :param query_file_uri: The HCFS URI of the script that contains Spark SQL queries to execute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#query_file_uri DataprocBatch#query_file_uri}
-        :param query_variables: Mapping of query variable names to values (equivalent to the Spark SQL command: SET name="value";). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#query_variables DataprocBatch#query_variables}
+        :param jar_file_uris: HCFS URIs of jar files to be added to the Spark CLASSPATH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#jar_file_uris DataprocBatch#jar_file_uris}
+        :param query_file_uri: The HCFS URI of the script that contains Spark SQL queries to execute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#query_file_uri DataprocBatch#query_file_uri}
+        :param query_variables: Mapping of query variable names to values (equivalent to the Spark SQL command: SET name="value";). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#query_variables DataprocBatch#query_variables}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__73aa713a8568a0fd4a751546142a33cb0bc0ae5a7526724d9b4afdf33482e11e)
@@ -3389,7 +3389,7 @@ class DataprocBatchSparkSqlBatch:
     def jar_file_uris(self) -> typing.Optional[typing.List[builtins.str]]:
         '''HCFS URIs of jar files to be added to the Spark CLASSPATH.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#jar_file_uris DataprocBatch#jar_file_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#jar_file_uris DataprocBatch#jar_file_uris}
         '''
         result = self._values.get("jar_file_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3398,7 +3398,7 @@ class DataprocBatchSparkSqlBatch:
     def query_file_uri(self) -> typing.Optional[builtins.str]:
         '''The HCFS URI of the script that contains Spark SQL queries to execute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#query_file_uri DataprocBatch#query_file_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#query_file_uri DataprocBatch#query_file_uri}
         '''
         result = self._values.get("query_file_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3409,7 +3409,7 @@ class DataprocBatchSparkSqlBatch:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Mapping of query variable names to values (equivalent to the Spark SQL command: SET name="value";).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#query_variables DataprocBatch#query_variables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#query_variables DataprocBatch#query_variables}
         '''
         result = self._values.get("query_variables")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3692,9 +3692,9 @@ class DataprocBatchTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#create DataprocBatch#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#delete DataprocBatch#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#update DataprocBatch#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#create DataprocBatch#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#delete DataprocBatch#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#update DataprocBatch#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0e7b3137fafaebc0896b6ead65f2284bf10f2072270a20be657b53177b557065)
@@ -3711,19 +3711,19 @@ class DataprocBatchTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#create DataprocBatch#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#create DataprocBatch#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#delete DataprocBatch#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#delete DataprocBatch#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_batch#update DataprocBatch#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_batch#update DataprocBatch#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `google_clouddeploy_target`
 
-Refer to the Terraform Registry for docs: [`google_clouddeploy_target`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target).
+Refer to the Terraform Registry for docs: [`google_clouddeploy_target`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ClouddeployTarget(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.clouddeployTarget.ClouddeployTarget",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target google_clouddeploy_target}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target google_clouddeploy_target}.'''
 
     def __init__(
         self,
@@ -76,27 +76,27 @@ class ClouddeployTarget(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target google_clouddeploy_target} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target google_clouddeploy_target} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#location ClouddeployTarget#location}
-        :param name: Name of the ``Target``. Format is ``[a-z]([a-z0-9-]{0,61}[a-z0-9])?``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#name ClouddeployTarget#name}
-        :param annotations: Optional. User annotations. These attributes can only be set and used by the user, and not by Google Cloud Deploy. See https://google.aip.dev/128#annotations for more details such as format and size limitations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field ``effective_annotations`` for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#annotations ClouddeployTarget#annotations}
-        :param anthos_cluster: anthos_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#anthos_cluster ClouddeployTarget#anthos_cluster}
-        :param associated_entities: associated_entities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#associated_entities ClouddeployTarget#associated_entities}
-        :param custom_target: custom_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#custom_target ClouddeployTarget#custom_target}
-        :param deploy_parameters: Optional. The deploy parameters to use for this target. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#deploy_parameters ClouddeployTarget#deploy_parameters}
-        :param description: Optional. Description of the ``Target``. Max length is 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#description ClouddeployTarget#description}
-        :param execution_configs: execution_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#execution_configs ClouddeployTarget#execution_configs}
-        :param gke: gke block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#gke ClouddeployTarget#gke}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#id ClouddeployTarget#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Optional. Labels are attributes that can be set and used by both the user and by Google Cloud Deploy. Labels must meet the following constraints: * Keys and values can contain only lowercase letters, numeric characters, underscores, and dashes. * All characters must use UTF-8 encoding, and international characters are allowed. * Keys must start with a lowercase letter or international character. * Each resource is limited to a maximum of 64 labels. Both keys and values are additionally constrained to be <= 128 bytes. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field ``effective_labels`` for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#labels ClouddeployTarget#labels}
-        :param multi_target: multi_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#multi_target ClouddeployTarget#multi_target}
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#project ClouddeployTarget#project}
-        :param require_approval: Optional. Whether or not the ``Target`` requires approval. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#require_approval ClouddeployTarget#require_approval}
-        :param run: run block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#run ClouddeployTarget#run}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#timeouts ClouddeployTarget#timeouts}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#location ClouddeployTarget#location}
+        :param name: Name of the ``Target``. Format is ``[a-z]([a-z0-9-]{0,61}[a-z0-9])?``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#name ClouddeployTarget#name}
+        :param annotations: Optional. User annotations. These attributes can only be set and used by the user, and not by Google Cloud Deploy. See https://google.aip.dev/128#annotations for more details such as format and size limitations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field ``effective_annotations`` for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#annotations ClouddeployTarget#annotations}
+        :param anthos_cluster: anthos_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#anthos_cluster ClouddeployTarget#anthos_cluster}
+        :param associated_entities: associated_entities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#associated_entities ClouddeployTarget#associated_entities}
+        :param custom_target: custom_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#custom_target ClouddeployTarget#custom_target}
+        :param deploy_parameters: Optional. The deploy parameters to use for this target. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#deploy_parameters ClouddeployTarget#deploy_parameters}
+        :param description: Optional. Description of the ``Target``. Max length is 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#description ClouddeployTarget#description}
+        :param execution_configs: execution_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#execution_configs ClouddeployTarget#execution_configs}
+        :param gke: gke block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#gke ClouddeployTarget#gke}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#id ClouddeployTarget#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Optional. Labels are attributes that can be set and used by both the user and by Google Cloud Deploy. Labels must meet the following constraints: * Keys and values can contain only lowercase letters, numeric characters, underscores, and dashes. * All characters must use UTF-8 encoding, and international characters are allowed. * Keys must start with a lowercase letter or international character. * Each resource is limited to a maximum of 64 labels. Both keys and values are additionally constrained to be <= 128 bytes. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field ``effective_labels`` for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#labels ClouddeployTarget#labels}
+        :param multi_target: multi_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#multi_target ClouddeployTarget#multi_target}
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#project ClouddeployTarget#project}
+        :param require_approval: Optional. Whether or not the ``Target`` requires approval. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#require_approval ClouddeployTarget#require_approval}
+        :param run: run block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#run ClouddeployTarget#run}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#timeouts ClouddeployTarget#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -151,7 +151,7 @@ class ClouddeployTarget(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ClouddeployTarget to import.
-        :param import_from_id: The id of the existing ClouddeployTarget that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ClouddeployTarget that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ClouddeployTarget to import is found.
         '''
         if __debug__:
@@ -169,7 +169,7 @@ class ClouddeployTarget(
         membership: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param membership: Membership of the GKE Hub-registered cluster to which to apply the Skaffold configuration. Format is ``projects/{project}/locations/{location}/memberships/{membership_name}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#membership ClouddeployTarget#membership}
+        :param membership: Membership of the GKE Hub-registered cluster to which to apply the Skaffold configuration. Format is ``projects/{project}/locations/{location}/memberships/{membership_name}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#membership ClouddeployTarget#membership}
         '''
         value = ClouddeployTargetAnthosCluster(membership=membership)
 
@@ -191,7 +191,7 @@ class ClouddeployTarget(
     @jsii.member(jsii_name="putCustomTarget")
     def put_custom_target(self, *, custom_target_type: builtins.str) -> None:
         '''
-        :param custom_target_type: Required. The name of the CustomTargetType. Format must be ``projects/{project}/locations/{location}/customTargetTypes/{custom_target_type}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#custom_target_type ClouddeployTarget#custom_target_type}
+        :param custom_target_type: Required. The name of the CustomTargetType. Format must be ``projects/{project}/locations/{location}/customTargetTypes/{custom_target_type}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#custom_target_type ClouddeployTarget#custom_target_type}
         '''
         value = ClouddeployTargetCustomTarget(custom_target_type=custom_target_type)
 
@@ -220,10 +220,10 @@ class ClouddeployTarget(
         proxy_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cluster: Information specifying a GKE Cluster. Format is `projects/{project_id}/locations/{location_id}/clusters/{cluster_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#cluster ClouddeployTarget#cluster}
-        :param dns_endpoint: Optional. If set, the cluster will be accessed using the DNS endpoint. Note that both ``dns_endpoint`` and ``internal_ip`` cannot be set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#dns_endpoint ClouddeployTarget#dns_endpoint}
-        :param internal_ip: Optional. If true, ``cluster`` is accessed using the private IP address of the control plane endpoint. Otherwise, the default IP address of the control plane endpoint is used. The default IP address is the private IP address for clusters with private control-plane endpoints and the public IP address otherwise. Only specify this option when ``cluster`` is a `private GKE cluster <https://cloud.google.com/kubernetes-engine/docs/concepts/private-cluster-concept>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#internal_ip ClouddeployTarget#internal_ip}
-        :param proxy_url: Optional. If set, used to configure a `proxy <https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#proxy>`_ to the Kubernetes server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#proxy_url ClouddeployTarget#proxy_url}
+        :param cluster: Information specifying a GKE Cluster. Format is `projects/{project_id}/locations/{location_id}/clusters/{cluster_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#cluster ClouddeployTarget#cluster}
+        :param dns_endpoint: Optional. If set, the cluster will be accessed using the DNS endpoint. Note that both ``dns_endpoint`` and ``internal_ip`` cannot be set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#dns_endpoint ClouddeployTarget#dns_endpoint}
+        :param internal_ip: Optional. If true, ``cluster`` is accessed using the private IP address of the control plane endpoint. Otherwise, the default IP address of the control plane endpoint is used. The default IP address is the private IP address for clusters with private control-plane endpoints and the public IP address otherwise. Only specify this option when ``cluster`` is a `private GKE cluster <https://cloud.google.com/kubernetes-engine/docs/concepts/private-cluster-concept>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#internal_ip ClouddeployTarget#internal_ip}
+        :param proxy_url: Optional. If set, used to configure a `proxy <https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#proxy>`_ to the Kubernetes server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#proxy_url ClouddeployTarget#proxy_url}
         '''
         value = ClouddeployTargetGke(
             cluster=cluster,
@@ -237,7 +237,7 @@ class ClouddeployTarget(
     @jsii.member(jsii_name="putMultiTarget")
     def put_multi_target(self, *, target_ids: typing.Sequence[builtins.str]) -> None:
         '''
-        :param target_ids: Required. The target_ids of this multiTarget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#target_ids ClouddeployTarget#target_ids}
+        :param target_ids: Required. The target_ids of this multiTarget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#target_ids ClouddeployTarget#target_ids}
         '''
         value = ClouddeployTargetMultiTarget(target_ids=target_ids)
 
@@ -246,7 +246,7 @@ class ClouddeployTarget(
     @jsii.member(jsii_name="putRun")
     def put_run(self, *, location: builtins.str) -> None:
         '''
-        :param location: Required. The location where the Cloud Run Service should be located. Format is ``projects/{project}/locations/{location}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#location ClouddeployTarget#location}
+        :param location: Required. The location where the Cloud Run Service should be located. Format is ``projects/{project}/locations/{location}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#location ClouddeployTarget#location}
         '''
         value = ClouddeployTargetRun(location=location)
 
@@ -261,9 +261,9 @@ class ClouddeployTarget(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#create ClouddeployTarget#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#delete ClouddeployTarget#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#update ClouddeployTarget#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#create ClouddeployTarget#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#delete ClouddeployTarget#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#update ClouddeployTarget#update}.
         '''
         value = ClouddeployTargetTimeouts(create=create, delete=delete, update=update)
 
@@ -646,7 +646,7 @@ class ClouddeployTarget(
 class ClouddeployTargetAnthosCluster:
     def __init__(self, *, membership: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param membership: Membership of the GKE Hub-registered cluster to which to apply the Skaffold configuration. Format is ``projects/{project}/locations/{location}/memberships/{membership_name}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#membership ClouddeployTarget#membership}
+        :param membership: Membership of the GKE Hub-registered cluster to which to apply the Skaffold configuration. Format is ``projects/{project}/locations/{location}/memberships/{membership_name}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#membership ClouddeployTarget#membership}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0d5174e11b7c9291b623072a3255afa79ab2e5ac64cf64a2557b40ae8bb43b73)
@@ -659,7 +659,7 @@ class ClouddeployTargetAnthosCluster:
     def membership(self) -> typing.Optional[builtins.str]:
         '''Membership of the GKE Hub-registered cluster to which to apply the Skaffold configuration. Format is ``projects/{project}/locations/{location}/memberships/{membership_name}``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#membership ClouddeployTarget#membership}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#membership ClouddeployTarget#membership}
         '''
         result = self._values.get("membership")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -751,9 +751,9 @@ class ClouddeployTargetAssociatedEntities:
         gke_clusters: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ClouddeployTargetAssociatedEntitiesGkeClusters", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param entity_id: The name for the key in the map for which this object is mapped to in the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#entity_id ClouddeployTarget#entity_id}
-        :param anthos_clusters: anthos_clusters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#anthos_clusters ClouddeployTarget#anthos_clusters}
-        :param gke_clusters: gke_clusters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#gke_clusters ClouddeployTarget#gke_clusters}
+        :param entity_id: The name for the key in the map for which this object is mapped to in the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#entity_id ClouddeployTarget#entity_id}
+        :param anthos_clusters: anthos_clusters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#anthos_clusters ClouddeployTarget#anthos_clusters}
+        :param gke_clusters: gke_clusters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#gke_clusters ClouddeployTarget#gke_clusters}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6752143ddd9e2c0b275effc566588b2737a49de51bee61e1822f91c98d1b7f08)
@@ -772,7 +772,7 @@ class ClouddeployTargetAssociatedEntities:
     def entity_id(self) -> builtins.str:
         '''The name for the key in the map for which this object is mapped to in the API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#entity_id ClouddeployTarget#entity_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#entity_id ClouddeployTarget#entity_id}
         '''
         result = self._values.get("entity_id")
         assert result is not None, "Required property 'entity_id' is missing"
@@ -784,7 +784,7 @@ class ClouddeployTargetAssociatedEntities:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ClouddeployTargetAssociatedEntitiesAnthosClusters"]]]:
         '''anthos_clusters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#anthos_clusters ClouddeployTarget#anthos_clusters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#anthos_clusters ClouddeployTarget#anthos_clusters}
         '''
         result = self._values.get("anthos_clusters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ClouddeployTargetAssociatedEntitiesAnthosClusters"]]], result)
@@ -795,7 +795,7 @@ class ClouddeployTargetAssociatedEntities:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ClouddeployTargetAssociatedEntitiesGkeClusters"]]]:
         '''gke_clusters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#gke_clusters ClouddeployTarget#gke_clusters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#gke_clusters ClouddeployTarget#gke_clusters}
         '''
         result = self._values.get("gke_clusters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ClouddeployTargetAssociatedEntitiesGkeClusters"]]], result)
@@ -820,7 +820,7 @@ class ClouddeployTargetAssociatedEntities:
 class ClouddeployTargetAssociatedEntitiesAnthosClusters:
     def __init__(self, *, membership: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param membership: Optional. Membership of the GKE Hub-registered cluster to which to apply the Skaffold configuration. Format is ``projects/{project}/locations/{location}/memberships/{membership_name}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#membership ClouddeployTarget#membership}
+        :param membership: Optional. Membership of the GKE Hub-registered cluster to which to apply the Skaffold configuration. Format is ``projects/{project}/locations/{location}/memberships/{membership_name}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#membership ClouddeployTarget#membership}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1ae446c436f417873a91f6ee3d04ee11a3c0cd7413cdd68efd7e0397ac5fd2bf)
@@ -833,7 +833,7 @@ class ClouddeployTargetAssociatedEntitiesAnthosClusters:
     def membership(self) -> typing.Optional[builtins.str]:
         '''Optional. Membership of the GKE Hub-registered cluster to which to apply the Skaffold configuration. Format is ``projects/{project}/locations/{location}/memberships/{membership_name}``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#membership ClouddeployTarget#membership}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#membership ClouddeployTarget#membership}
         '''
         result = self._values.get("membership")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1026,9 +1026,9 @@ class ClouddeployTargetAssociatedEntitiesGkeClusters:
         proxy_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cluster: Optional. Information specifying a GKE Cluster. Format is ``projects/{project_id}/locations/{location_id}/clusters/{cluster_id}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#cluster ClouddeployTarget#cluster}
-        :param internal_ip: Optional. If true, ``cluster`` is accessed using the private IP address of the control plane endpoint. Otherwise, the default IP address of the control plane endpoint is used. The default IP address is the private IP address for clusters with private control-plane endpoints and the public IP address otherwise. Only specify this option when ``cluster`` is a `private GKE cluster <https://cloud.google.com/kubernetes-engine/docs/concepts/private-cluster-concept>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#internal_ip ClouddeployTarget#internal_ip}
-        :param proxy_url: Optional. If set, used to configure a `proxy <https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#proxy>`_ to the Kubernetes server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#proxy_url ClouddeployTarget#proxy_url}
+        :param cluster: Optional. Information specifying a GKE Cluster. Format is ``projects/{project_id}/locations/{location_id}/clusters/{cluster_id}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#cluster ClouddeployTarget#cluster}
+        :param internal_ip: Optional. If true, ``cluster`` is accessed using the private IP address of the control plane endpoint. Otherwise, the default IP address of the control plane endpoint is used. The default IP address is the private IP address for clusters with private control-plane endpoints and the public IP address otherwise. Only specify this option when ``cluster`` is a `private GKE cluster <https://cloud.google.com/kubernetes-engine/docs/concepts/private-cluster-concept>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#internal_ip ClouddeployTarget#internal_ip}
+        :param proxy_url: Optional. If set, used to configure a `proxy <https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#proxy>`_ to the Kubernetes server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#proxy_url ClouddeployTarget#proxy_url}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__edf07d60ca5078cc394e094cae14c9cff0908c065ecc33fe26441c93606bb26f)
@@ -1047,7 +1047,7 @@ class ClouddeployTargetAssociatedEntitiesGkeClusters:
     def cluster(self) -> typing.Optional[builtins.str]:
         '''Optional. Information specifying a GKE Cluster. Format is ``projects/{project_id}/locations/{location_id}/clusters/{cluster_id}``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#cluster ClouddeployTarget#cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#cluster ClouddeployTarget#cluster}
         '''
         result = self._values.get("cluster")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1060,7 +1060,7 @@ class ClouddeployTargetAssociatedEntitiesGkeClusters:
 
         If true, ``cluster`` is accessed using the private IP address of the control plane endpoint. Otherwise, the default IP address of the control plane endpoint is used. The default IP address is the private IP address for clusters with private control-plane endpoints and the public IP address otherwise. Only specify this option when ``cluster`` is a `private GKE cluster <https://cloud.google.com/kubernetes-engine/docs/concepts/private-cluster-concept>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#internal_ip ClouddeployTarget#internal_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#internal_ip ClouddeployTarget#internal_ip}
         '''
         result = self._values.get("internal_ip")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1069,7 +1069,7 @@ class ClouddeployTargetAssociatedEntitiesGkeClusters:
     def proxy_url(self) -> typing.Optional[builtins.str]:
         '''Optional. If set, used to configure a `proxy <https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#proxy>`_ to the Kubernetes server.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#proxy_url ClouddeployTarget#proxy_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#proxy_url ClouddeployTarget#proxy_url}
         '''
         result = self._values.get("proxy_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1570,23 +1570,23 @@ class ClouddeployTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#location ClouddeployTarget#location}
-        :param name: Name of the ``Target``. Format is ``[a-z]([a-z0-9-]{0,61}[a-z0-9])?``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#name ClouddeployTarget#name}
-        :param annotations: Optional. User annotations. These attributes can only be set and used by the user, and not by Google Cloud Deploy. See https://google.aip.dev/128#annotations for more details such as format and size limitations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field ``effective_annotations`` for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#annotations ClouddeployTarget#annotations}
-        :param anthos_cluster: anthos_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#anthos_cluster ClouddeployTarget#anthos_cluster}
-        :param associated_entities: associated_entities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#associated_entities ClouddeployTarget#associated_entities}
-        :param custom_target: custom_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#custom_target ClouddeployTarget#custom_target}
-        :param deploy_parameters: Optional. The deploy parameters to use for this target. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#deploy_parameters ClouddeployTarget#deploy_parameters}
-        :param description: Optional. Description of the ``Target``. Max length is 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#description ClouddeployTarget#description}
-        :param execution_configs: execution_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#execution_configs ClouddeployTarget#execution_configs}
-        :param gke: gke block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#gke ClouddeployTarget#gke}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#id ClouddeployTarget#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Optional. Labels are attributes that can be set and used by both the user and by Google Cloud Deploy. Labels must meet the following constraints: * Keys and values can contain only lowercase letters, numeric characters, underscores, and dashes. * All characters must use UTF-8 encoding, and international characters are allowed. * Keys must start with a lowercase letter or international character. * Each resource is limited to a maximum of 64 labels. Both keys and values are additionally constrained to be <= 128 bytes. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field ``effective_labels`` for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#labels ClouddeployTarget#labels}
-        :param multi_target: multi_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#multi_target ClouddeployTarget#multi_target}
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#project ClouddeployTarget#project}
-        :param require_approval: Optional. Whether or not the ``Target`` requires approval. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#require_approval ClouddeployTarget#require_approval}
-        :param run: run block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#run ClouddeployTarget#run}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#timeouts ClouddeployTarget#timeouts}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#location ClouddeployTarget#location}
+        :param name: Name of the ``Target``. Format is ``[a-z]([a-z0-9-]{0,61}[a-z0-9])?``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#name ClouddeployTarget#name}
+        :param annotations: Optional. User annotations. These attributes can only be set and used by the user, and not by Google Cloud Deploy. See https://google.aip.dev/128#annotations for more details such as format and size limitations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field ``effective_annotations`` for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#annotations ClouddeployTarget#annotations}
+        :param anthos_cluster: anthos_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#anthos_cluster ClouddeployTarget#anthos_cluster}
+        :param associated_entities: associated_entities block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#associated_entities ClouddeployTarget#associated_entities}
+        :param custom_target: custom_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#custom_target ClouddeployTarget#custom_target}
+        :param deploy_parameters: Optional. The deploy parameters to use for this target. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#deploy_parameters ClouddeployTarget#deploy_parameters}
+        :param description: Optional. Description of the ``Target``. Max length is 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#description ClouddeployTarget#description}
+        :param execution_configs: execution_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#execution_configs ClouddeployTarget#execution_configs}
+        :param gke: gke block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#gke ClouddeployTarget#gke}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#id ClouddeployTarget#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Optional. Labels are attributes that can be set and used by both the user and by Google Cloud Deploy. Labels must meet the following constraints: * Keys and values can contain only lowercase letters, numeric characters, underscores, and dashes. * All characters must use UTF-8 encoding, and international characters are allowed. * Keys must start with a lowercase letter or international character. * Each resource is limited to a maximum of 64 labels. Both keys and values are additionally constrained to be <= 128 bytes. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field ``effective_labels`` for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#labels ClouddeployTarget#labels}
+        :param multi_target: multi_target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#multi_target ClouddeployTarget#multi_target}
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#project ClouddeployTarget#project}
+        :param require_approval: Optional. Whether or not the ``Target`` requires approval. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#require_approval ClouddeployTarget#require_approval}
+        :param run: run block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#run ClouddeployTarget#run}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#timeouts ClouddeployTarget#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1745,7 +1745,7 @@ class ClouddeployTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#location ClouddeployTarget#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#location ClouddeployTarget#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1755,7 +1755,7 @@ class ClouddeployTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name of the ``Target``. Format is ``[a-z]([a-z0-9-]{0,61}[a-z0-9])?``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#name ClouddeployTarget#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#name ClouddeployTarget#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1772,7 +1772,7 @@ class ClouddeployTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
         Please refer to the field ``effective_annotations`` for all of the annotations present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#annotations ClouddeployTarget#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#annotations ClouddeployTarget#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1781,7 +1781,7 @@ class ClouddeployTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def anthos_cluster(self) -> typing.Optional[ClouddeployTargetAnthosCluster]:
         '''anthos_cluster block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#anthos_cluster ClouddeployTarget#anthos_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#anthos_cluster ClouddeployTarget#anthos_cluster}
         '''
         result = self._values.get("anthos_cluster")
         return typing.cast(typing.Optional[ClouddeployTargetAnthosCluster], result)
@@ -1792,7 +1792,7 @@ class ClouddeployTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ClouddeployTargetAssociatedEntities]]]:
         '''associated_entities block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#associated_entities ClouddeployTarget#associated_entities}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#associated_entities ClouddeployTarget#associated_entities}
         '''
         result = self._values.get("associated_entities")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ClouddeployTargetAssociatedEntities]]], result)
@@ -1801,7 +1801,7 @@ class ClouddeployTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def custom_target(self) -> typing.Optional["ClouddeployTargetCustomTarget"]:
         '''custom_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#custom_target ClouddeployTarget#custom_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#custom_target ClouddeployTarget#custom_target}
         '''
         result = self._values.get("custom_target")
         return typing.cast(typing.Optional["ClouddeployTargetCustomTarget"], result)
@@ -1812,7 +1812,7 @@ class ClouddeployTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Optional. The deploy parameters to use for this target.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#deploy_parameters ClouddeployTarget#deploy_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#deploy_parameters ClouddeployTarget#deploy_parameters}
         '''
         result = self._values.get("deploy_parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1821,7 +1821,7 @@ class ClouddeployTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Optional. Description of the ``Target``. Max length is 255 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#description ClouddeployTarget#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#description ClouddeployTarget#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1832,7 +1832,7 @@ class ClouddeployTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ClouddeployTargetExecutionConfigs"]]]:
         '''execution_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#execution_configs ClouddeployTarget#execution_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#execution_configs ClouddeployTarget#execution_configs}
         '''
         result = self._values.get("execution_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ClouddeployTargetExecutionConfigs"]]], result)
@@ -1841,14 +1841,14 @@ class ClouddeployTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def gke(self) -> typing.Optional["ClouddeployTargetGke"]:
         '''gke block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#gke ClouddeployTarget#gke}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#gke ClouddeployTarget#gke}
         '''
         result = self._values.get("gke")
         return typing.cast(typing.Optional["ClouddeployTargetGke"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#id ClouddeployTarget#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#id ClouddeployTarget#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1865,7 +1865,7 @@ class ClouddeployTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field ``effective_labels`` for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#labels ClouddeployTarget#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#labels ClouddeployTarget#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1874,7 +1874,7 @@ class ClouddeployTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def multi_target(self) -> typing.Optional["ClouddeployTargetMultiTarget"]:
         '''multi_target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#multi_target ClouddeployTarget#multi_target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#multi_target ClouddeployTarget#multi_target}
         '''
         result = self._values.get("multi_target")
         return typing.cast(typing.Optional["ClouddeployTargetMultiTarget"], result)
@@ -1883,7 +1883,7 @@ class ClouddeployTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''The project for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#project ClouddeployTarget#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#project ClouddeployTarget#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1894,7 +1894,7 @@ class ClouddeployTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Optional. Whether or not the ``Target`` requires approval.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#require_approval ClouddeployTarget#require_approval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#require_approval ClouddeployTarget#require_approval}
         '''
         result = self._values.get("require_approval")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1903,7 +1903,7 @@ class ClouddeployTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def run(self) -> typing.Optional["ClouddeployTargetRun"]:
         '''run block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#run ClouddeployTarget#run}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#run ClouddeployTarget#run}
         '''
         result = self._values.get("run")
         return typing.cast(typing.Optional["ClouddeployTargetRun"], result)
@@ -1912,7 +1912,7 @@ class ClouddeployTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ClouddeployTargetTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#timeouts ClouddeployTarget#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#timeouts ClouddeployTarget#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ClouddeployTargetTimeouts"], result)
@@ -1937,7 +1937,7 @@ class ClouddeployTargetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class ClouddeployTargetCustomTarget:
     def __init__(self, *, custom_target_type: builtins.str) -> None:
         '''
-        :param custom_target_type: Required. The name of the CustomTargetType. Format must be ``projects/{project}/locations/{location}/customTargetTypes/{custom_target_type}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#custom_target_type ClouddeployTarget#custom_target_type}
+        :param custom_target_type: Required. The name of the CustomTargetType. Format must be ``projects/{project}/locations/{location}/customTargetTypes/{custom_target_type}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#custom_target_type ClouddeployTarget#custom_target_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c3462772cdd7530dca155e010376898f9bd192120868cd70ae9d89bafed04c8a)
@@ -1950,7 +1950,7 @@ class ClouddeployTargetCustomTarget:
     def custom_target_type(self) -> builtins.str:
         '''Required. The name of the CustomTargetType. Format must be ``projects/{project}/locations/{location}/customTargetTypes/{custom_target_type}``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#custom_target_type ClouddeployTarget#custom_target_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#custom_target_type ClouddeployTarget#custom_target_type}
         '''
         result = self._values.get("custom_target_type")
         assert result is not None, "Required property 'custom_target_type' is missing"
@@ -2045,12 +2045,12 @@ class ClouddeployTargetExecutionConfigs:
         worker_pool: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param usages: Required. Usages when this configuration should be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#usages ClouddeployTarget#usages}
-        :param artifact_storage: Optional. Cloud Storage location in which to store execution outputs. This can either be a bucket ("gs://my-bucket") or a path within a bucket ("gs://my-bucket/my-dir"). If unspecified, a default bucket located in the same region will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#artifact_storage ClouddeployTarget#artifact_storage}
-        :param execution_timeout: Optional. Execution timeout for a Cloud Build Execution. This must be between 10m and 24h in seconds format. If unspecified, a default timeout of 1h is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#execution_timeout ClouddeployTarget#execution_timeout}
-        :param service_account: Optional. Google service account to use for execution. If unspecified, the project execution service account (-compute@developer.gserviceaccount.com) is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#service_account ClouddeployTarget#service_account}
-        :param verbose: Optional. If true, additional logging will be enabled when running builds in this execution environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#verbose ClouddeployTarget#verbose}
-        :param worker_pool: Optional. The resource name of the ``WorkerPool``, with the format ``projects/{project}/locations/{location}/workerPools/{worker_pool}``. If this optional field is unspecified, the default Cloud Build pool will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#worker_pool ClouddeployTarget#worker_pool}
+        :param usages: Required. Usages when this configuration should be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#usages ClouddeployTarget#usages}
+        :param artifact_storage: Optional. Cloud Storage location in which to store execution outputs. This can either be a bucket ("gs://my-bucket") or a path within a bucket ("gs://my-bucket/my-dir"). If unspecified, a default bucket located in the same region will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#artifact_storage ClouddeployTarget#artifact_storage}
+        :param execution_timeout: Optional. Execution timeout for a Cloud Build Execution. This must be between 10m and 24h in seconds format. If unspecified, a default timeout of 1h is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#execution_timeout ClouddeployTarget#execution_timeout}
+        :param service_account: Optional. Google service account to use for execution. If unspecified, the project execution service account (-compute@developer.gserviceaccount.com) is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#service_account ClouddeployTarget#service_account}
+        :param verbose: Optional. If true, additional logging will be enabled when running builds in this execution environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#verbose ClouddeployTarget#verbose}
+        :param worker_pool: Optional. The resource name of the ``WorkerPool``, with the format ``projects/{project}/locations/{location}/workerPools/{worker_pool}``. If this optional field is unspecified, the default Cloud Build pool will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#worker_pool ClouddeployTarget#worker_pool}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__84998a1ce110d9974daf959c6c5847bdf564bd6ed4dae1c9a1a3548be2ed1c9b)
@@ -2078,7 +2078,7 @@ class ClouddeployTargetExecutionConfigs:
     def usages(self) -> typing.List[builtins.str]:
         '''Required. Usages when this configuration should be applied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#usages ClouddeployTarget#usages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#usages ClouddeployTarget#usages}
         '''
         result = self._values.get("usages")
         assert result is not None, "Required property 'usages' is missing"
@@ -2090,7 +2090,7 @@ class ClouddeployTargetExecutionConfigs:
 
         Cloud Storage location in which to store execution outputs. This can either be a bucket ("gs://my-bucket") or a path within a bucket ("gs://my-bucket/my-dir"). If unspecified, a default bucket located in the same region will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#artifact_storage ClouddeployTarget#artifact_storage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#artifact_storage ClouddeployTarget#artifact_storage}
         '''
         result = self._values.get("artifact_storage")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2101,7 +2101,7 @@ class ClouddeployTargetExecutionConfigs:
 
         Execution timeout for a Cloud Build Execution. This must be between 10m and 24h in seconds format. If unspecified, a default timeout of 1h is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#execution_timeout ClouddeployTarget#execution_timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#execution_timeout ClouddeployTarget#execution_timeout}
         '''
         result = self._values.get("execution_timeout")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2110,7 +2110,7 @@ class ClouddeployTargetExecutionConfigs:
     def service_account(self) -> typing.Optional[builtins.str]:
         '''Optional. Google service account to use for execution. If unspecified, the project execution service account (-compute@developer.gserviceaccount.com) is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#service_account ClouddeployTarget#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#service_account ClouddeployTarget#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2121,7 +2121,7 @@ class ClouddeployTargetExecutionConfigs:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Optional. If true, additional logging will be enabled when running builds in this execution environment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#verbose ClouddeployTarget#verbose}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#verbose ClouddeployTarget#verbose}
         '''
         result = self._values.get("verbose")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2132,7 +2132,7 @@ class ClouddeployTargetExecutionConfigs:
 
         The resource name of the ``WorkerPool``, with the format ``projects/{project}/locations/{location}/workerPools/{worker_pool}``. If this optional field is unspecified, the default Cloud Build pool will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#worker_pool ClouddeployTarget#worker_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#worker_pool ClouddeployTarget#worker_pool}
         '''
         result = self._values.get("worker_pool")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2433,10 +2433,10 @@ class ClouddeployTargetGke:
         proxy_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cluster: Information specifying a GKE Cluster. Format is `projects/{project_id}/locations/{location_id}/clusters/{cluster_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#cluster ClouddeployTarget#cluster}
-        :param dns_endpoint: Optional. If set, the cluster will be accessed using the DNS endpoint. Note that both ``dns_endpoint`` and ``internal_ip`` cannot be set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#dns_endpoint ClouddeployTarget#dns_endpoint}
-        :param internal_ip: Optional. If true, ``cluster`` is accessed using the private IP address of the control plane endpoint. Otherwise, the default IP address of the control plane endpoint is used. The default IP address is the private IP address for clusters with private control-plane endpoints and the public IP address otherwise. Only specify this option when ``cluster`` is a `private GKE cluster <https://cloud.google.com/kubernetes-engine/docs/concepts/private-cluster-concept>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#internal_ip ClouddeployTarget#internal_ip}
-        :param proxy_url: Optional. If set, used to configure a `proxy <https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#proxy>`_ to the Kubernetes server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#proxy_url ClouddeployTarget#proxy_url}
+        :param cluster: Information specifying a GKE Cluster. Format is `projects/{project_id}/locations/{location_id}/clusters/{cluster_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#cluster ClouddeployTarget#cluster}
+        :param dns_endpoint: Optional. If set, the cluster will be accessed using the DNS endpoint. Note that both ``dns_endpoint`` and ``internal_ip`` cannot be set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#dns_endpoint ClouddeployTarget#dns_endpoint}
+        :param internal_ip: Optional. If true, ``cluster`` is accessed using the private IP address of the control plane endpoint. Otherwise, the default IP address of the control plane endpoint is used. The default IP address is the private IP address for clusters with private control-plane endpoints and the public IP address otherwise. Only specify this option when ``cluster`` is a `private GKE cluster <https://cloud.google.com/kubernetes-engine/docs/concepts/private-cluster-concept>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#internal_ip ClouddeployTarget#internal_ip}
+        :param proxy_url: Optional. If set, used to configure a `proxy <https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#proxy>`_ to the Kubernetes server. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#proxy_url ClouddeployTarget#proxy_url}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__08270d82f024df8ce96291cf9ed4bf0bd76d97d9fe539bc471f2dbc9dd229b43)
@@ -2458,7 +2458,7 @@ class ClouddeployTargetGke:
     def cluster(self) -> typing.Optional[builtins.str]:
         '''Information specifying a GKE Cluster. Format is `projects/{project_id}/locations/{location_id}/clusters/{cluster_id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#cluster ClouddeployTarget#cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#cluster ClouddeployTarget#cluster}
         '''
         result = self._values.get("cluster")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2471,7 +2471,7 @@ class ClouddeployTargetGke:
 
         If set, the cluster will be accessed using the DNS endpoint. Note that both ``dns_endpoint`` and ``internal_ip`` cannot be set to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#dns_endpoint ClouddeployTarget#dns_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#dns_endpoint ClouddeployTarget#dns_endpoint}
         '''
         result = self._values.get("dns_endpoint")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2484,7 +2484,7 @@ class ClouddeployTargetGke:
 
         If true, ``cluster`` is accessed using the private IP address of the control plane endpoint. Otherwise, the default IP address of the control plane endpoint is used. The default IP address is the private IP address for clusters with private control-plane endpoints and the public IP address otherwise. Only specify this option when ``cluster`` is a `private GKE cluster <https://cloud.google.com/kubernetes-engine/docs/concepts/private-cluster-concept>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#internal_ip ClouddeployTarget#internal_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#internal_ip ClouddeployTarget#internal_ip}
         '''
         result = self._values.get("internal_ip")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2493,7 +2493,7 @@ class ClouddeployTargetGke:
     def proxy_url(self) -> typing.Optional[builtins.str]:
         '''Optional. If set, used to configure a `proxy <https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#proxy>`_ to the Kubernetes server.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#proxy_url ClouddeployTarget#proxy_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#proxy_url ClouddeployTarget#proxy_url}
         '''
         result = self._values.get("proxy_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2645,7 +2645,7 @@ class ClouddeployTargetGkeOutputReference(
 class ClouddeployTargetMultiTarget:
     def __init__(self, *, target_ids: typing.Sequence[builtins.str]) -> None:
         '''
-        :param target_ids: Required. The target_ids of this multiTarget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#target_ids ClouddeployTarget#target_ids}
+        :param target_ids: Required. The target_ids of this multiTarget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#target_ids ClouddeployTarget#target_ids}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8cc298b149b1d6dedace6aa307c975d42f8c6ad3c7ebe6c6b3830d9b3004ebad)
@@ -2658,7 +2658,7 @@ class ClouddeployTargetMultiTarget:
     def target_ids(self) -> typing.List[builtins.str]:
         '''Required. The target_ids of this multiTarget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#target_ids ClouddeployTarget#target_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#target_ids ClouddeployTarget#target_ids}
         '''
         result = self._values.get("target_ids")
         assert result is not None, "Required property 'target_ids' is missing"
@@ -2737,7 +2737,7 @@ class ClouddeployTargetMultiTargetOutputReference(
 class ClouddeployTargetRun:
     def __init__(self, *, location: builtins.str) -> None:
         '''
-        :param location: Required. The location where the Cloud Run Service should be located. Format is ``projects/{project}/locations/{location}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#location ClouddeployTarget#location}
+        :param location: Required. The location where the Cloud Run Service should be located. Format is ``projects/{project}/locations/{location}``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#location ClouddeployTarget#location}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b24c377b86c0dfa744f401b03d41c83cceb0b6d168f74ae4f1804806f228d51)
@@ -2750,7 +2750,7 @@ class ClouddeployTargetRun:
     def location(self) -> builtins.str:
         '''Required. The location where the Cloud Run Service should be located. Format is ``projects/{project}/locations/{location}``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#location ClouddeployTarget#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#location ClouddeployTarget#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -2832,9 +2832,9 @@ class ClouddeployTargetTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#create ClouddeployTarget#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#delete ClouddeployTarget#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#update ClouddeployTarget#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#create ClouddeployTarget#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#delete ClouddeployTarget#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#update ClouddeployTarget#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b736c785504f29a9a635c805715812d69ee7894299c7c007477fb9d6844ff223)
@@ -2851,19 +2851,19 @@ class ClouddeployTargetTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#create ClouddeployTarget#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#create ClouddeployTarget#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#delete ClouddeployTarget#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#delete ClouddeployTarget#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/clouddeploy_target#update ClouddeployTarget#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/clouddeploy_target#update ClouddeployTarget#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

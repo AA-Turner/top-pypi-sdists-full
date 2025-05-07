@@ -157,7 +157,7 @@ class RecipientInvitationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/tenantmanagercontrolplane/accept_recipient_invitation.py.html>`__ to see an example of how to use accept_recipient_invitation API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/tenantmanagercontrolplane/accept_recipient_invitation.py.html>`__ to see an example of how to use accept_recipient_invitation API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['recipientInvitationId']
@@ -256,7 +256,7 @@ class RecipientInvitationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/tenantmanagercontrolplane/get_recipient_invitation.py.html>`__ to see an example of how to use get_recipient_invitation API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/tenantmanagercontrolplane/get_recipient_invitation.py.html>`__ to see an example of how to use get_recipient_invitation API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['recipientInvitationId']
@@ -366,7 +366,7 @@ class RecipientInvitationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/tenantmanagercontrolplane/ignore_recipient_invitation.py.html>`__ to see an example of how to use ignore_recipient_invitation API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/tenantmanagercontrolplane/ignore_recipient_invitation.py.html>`__ to see an example of how to use ignore_recipient_invitation API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['recipientInvitationId']
@@ -483,7 +483,7 @@ class RecipientInvitationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/tenantmanagercontrolplane/list_recipient_invitations.py.html>`__ to see an example of how to use list_recipient_invitations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/tenantmanagercontrolplane/list_recipient_invitations.py.html>`__ to see an example of how to use list_recipient_invitations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -606,7 +606,7 @@ class RecipientInvitationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/tenantmanagercontrolplane/update_recipient_invitation.py.html>`__ to see an example of how to use update_recipient_invitation API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/tenantmanagercontrolplane/update_recipient_invitation.py.html>`__ to see an example of how to use update_recipient_invitation API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['recipientInvitationId']

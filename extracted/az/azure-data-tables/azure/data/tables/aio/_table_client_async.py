@@ -16,7 +16,7 @@ from azure.core.exceptions import HttpResponseError
 from azure.core.tracing.decorator import distributed_trace
 from azure.core.tracing.decorator_async import distributed_trace_async
 
-from .._base_client import parse_connection_str
+from .._base_client import parse_connection_str, AudienceType
 from .._entity import TableEntity
 from .._generated.models import SignedIdentifier, TableProperties
 from .._models import TableAccessPolicy, TableItem, UpdateMode
@@ -65,6 +65,7 @@ class TableClient(AsyncTablesBaseClient):
         table_name: str,
         *,
         credential: Optional[Union[AzureSasCredential, AzureNamedKeyCredential, AsyncTokenCredential]] = None,
+        audience: Optional[AudienceType] = None,
         api_version: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
@@ -80,6 +81,9 @@ class TableClient(AsyncTablesBaseClient):
             ~azure.core.credentials.AzureNamedKeyCredential or
             ~azure.core.credentials.AzureSasCredential or
             ~azure.core.credentials_async.AsyncTokenCredential or None
+        :keyword audience: Optional audience to use for Microsoft Entra ID authentication. If not specified,
+            the public cloud audience will be used.
+        :paramtype audience: str or None
         :keyword api_version: Specifies the version of the operation to use for this request. Default value
             is "2019-02-02".
         :paramtype api_version: str or None
@@ -88,7 +92,9 @@ class TableClient(AsyncTablesBaseClient):
         if not table_name:
             raise ValueError("Please specify a table name.")
         self.table_name: str = table_name
-        super(TableClient, self).__init__(endpoint, credential=credential, api_version=api_version, **kwargs)
+        super(TableClient, self).__init__(
+            endpoint, credential=credential, api_version=api_version, audience=audience, **kwargs
+        )
 
     @classmethod
     def from_connection_string(cls, conn_str: str, table_name: str, **kwargs: Any) -> "TableClient":

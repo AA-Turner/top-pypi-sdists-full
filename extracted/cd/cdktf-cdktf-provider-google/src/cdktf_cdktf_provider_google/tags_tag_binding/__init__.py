@@ -1,7 +1,7 @@
 r'''
 # `google_tags_tag_binding`
 
-Refer to the Terraform Registry for docs: [`google_tags_tag_binding`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding).
+Refer to the Terraform Registry for docs: [`google_tags_tag_binding`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TagsTagBinding(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.tagsTagBinding.TagsTagBinding",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding google_tags_tag_binding}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding google_tags_tag_binding}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class TagsTagBinding(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding google_tags_tag_binding} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding google_tags_tag_binding} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param parent: The full resource name of the resource the TagValue is bound to. E.g. //cloudresourcemanager.googleapis.com/projects/123. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding#parent TagsTagBinding#parent}
-        :param tag_value: The TagValue of the TagBinding. Must be of the form tagValues/456. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding#tag_value TagsTagBinding#tag_value}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding#id TagsTagBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding#timeouts TagsTagBinding#timeouts}
+        :param parent: The full resource name of the resource the TagValue is bound to. E.g. //cloudresourcemanager.googleapis.com/projects/123. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding#parent TagsTagBinding#parent}
+        :param tag_value: The TagValue of the TagBinding. Must be of the form tagValues/456. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding#tag_value TagsTagBinding#tag_value}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding#id TagsTagBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding#timeouts TagsTagBinding#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class TagsTagBinding(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TagsTagBinding to import.
-        :param import_from_id: The id of the existing TagsTagBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TagsTagBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TagsTagBinding to import is found.
         '''
         if __debug__:
@@ -131,8 +131,8 @@ class TagsTagBinding(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding#create TagsTagBinding#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding#delete TagsTagBinding#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding#create TagsTagBinding#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding#delete TagsTagBinding#delete}.
         '''
         value = TagsTagBindingTimeouts(create=create, delete=delete)
 
@@ -269,10 +269,10 @@ class TagsTagBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param parent: The full resource name of the resource the TagValue is bound to. E.g. //cloudresourcemanager.googleapis.com/projects/123. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding#parent TagsTagBinding#parent}
-        :param tag_value: The TagValue of the TagBinding. Must be of the form tagValues/456. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding#tag_value TagsTagBinding#tag_value}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding#id TagsTagBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding#timeouts TagsTagBinding#timeouts}
+        :param parent: The full resource name of the resource the TagValue is bound to. E.g. //cloudresourcemanager.googleapis.com/projects/123. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding#parent TagsTagBinding#parent}
+        :param tag_value: The TagValue of the TagBinding. Must be of the form tagValues/456. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding#tag_value TagsTagBinding#tag_value}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding#id TagsTagBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding#timeouts TagsTagBinding#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -382,7 +382,7 @@ class TagsTagBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parent(self) -> builtins.str:
         '''The full resource name of the resource the TagValue is bound to. E.g. //cloudresourcemanager.googleapis.com/projects/123.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding#parent TagsTagBinding#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding#parent TagsTagBinding#parent}
         '''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
@@ -392,7 +392,7 @@ class TagsTagBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tag_value(self) -> builtins.str:
         '''The TagValue of the TagBinding. Must be of the form tagValues/456.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding#tag_value TagsTagBinding#tag_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding#tag_value TagsTagBinding#tag_value}
         '''
         result = self._values.get("tag_value")
         assert result is not None, "Required property 'tag_value' is missing"
@@ -400,7 +400,7 @@ class TagsTagBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding#id TagsTagBinding#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding#id TagsTagBinding#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -412,7 +412,7 @@ class TagsTagBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["TagsTagBindingTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding#timeouts TagsTagBinding#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding#timeouts TagsTagBinding#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["TagsTagBindingTimeouts"], result)
@@ -442,8 +442,8 @@ class TagsTagBindingTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding#create TagsTagBinding#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding#delete TagsTagBinding#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding#create TagsTagBinding#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding#delete TagsTagBinding#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__976cdd746727d2dfefe313fda89de8ac3a8a16891c7f386aa13fce2745d1c602)
@@ -457,13 +457,13 @@ class TagsTagBindingTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding#create TagsTagBinding#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding#create TagsTagBinding#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/tags_tag_binding#delete TagsTagBinding#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/tags_tag_binding#delete TagsTagBinding#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

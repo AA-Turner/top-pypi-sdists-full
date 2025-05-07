@@ -168,7 +168,7 @@ class MonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/monitoring/change_alarm_compartment.py.html>`__ to see an example of how to use change_alarm_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/monitoring/change_alarm_compartment.py.html>`__ to see an example of how to use change_alarm_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['alarmId']
@@ -288,7 +288,7 @@ class MonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/monitoring/create_alarm.py.html>`__ to see an example of how to use create_alarm API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/monitoring/create_alarm.py.html>`__ to see an example of how to use create_alarm API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -399,7 +399,7 @@ class MonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/monitoring/create_alarm_suppression.py.html>`__ to see an example of how to use create_alarm_suppression API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/monitoring/create_alarm_suppression.py.html>`__ to see an example of how to use create_alarm_suppression API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -507,7 +507,7 @@ class MonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/monitoring/delete_alarm.py.html>`__ to see an example of how to use delete_alarm API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/monitoring/delete_alarm.py.html>`__ to see an example of how to use delete_alarm API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['alarmId']
@@ -624,7 +624,7 @@ class MonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/monitoring/delete_alarm_suppression.py.html>`__ to see an example of how to use delete_alarm_suppression API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/monitoring/delete_alarm_suppression.py.html>`__ to see an example of how to use delete_alarm_suppression API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['alarmSuppressionId']
@@ -734,7 +734,7 @@ class MonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/monitoring/get_alarm.py.html>`__ to see an example of how to use get_alarm API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/monitoring/get_alarm.py.html>`__ to see an example of how to use get_alarm API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['alarmId']
@@ -881,7 +881,7 @@ class MonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/monitoring/get_alarm_history.py.html>`__ to see an example of how to use get_alarm_history API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/monitoring/get_alarm_history.py.html>`__ to see an example of how to use get_alarm_history API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['alarmId']
@@ -1014,7 +1014,7 @@ class MonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/monitoring/get_alarm_suppression.py.html>`__ to see an example of how to use get_alarm_suppression API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/monitoring/get_alarm_suppression.py.html>`__ to see an example of how to use get_alarm_suppression API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['alarmSuppressionId']
@@ -1207,7 +1207,7 @@ class MonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/monitoring/list_alarm_suppressions.py.html>`__ to see an example of how to use list_alarm_suppressions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/monitoring/list_alarm_suppressions.py.html>`__ to see an example of how to use list_alarm_suppressions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1422,7 +1422,7 @@ class MonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/monitoring/list_alarms.py.html>`__ to see an example of how to use list_alarms API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/monitoring/list_alarms.py.html>`__ to see an example of how to use list_alarms API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1643,7 +1643,7 @@ class MonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/monitoring/list_alarms_status.py.html>`__ to see an example of how to use list_alarms_status API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/monitoring/list_alarms_status.py.html>`__ to see an example of how to use list_alarms_status API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1824,7 +1824,7 @@ class MonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/monitoring/list_metrics.py.html>`__ to see an example of how to use list_metrics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/monitoring/list_metrics.py.html>`__ to see an example of how to use list_metrics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1962,7 +1962,7 @@ class MonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/monitoring/post_metric_data.py.html>`__ to see an example of how to use post_metric_data API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/monitoring/post_metric_data.py.html>`__ to see an example of how to use post_metric_data API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2069,7 +2069,7 @@ class MonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/monitoring/remove_alarm_suppression.py.html>`__ to see an example of how to use remove_alarm_suppression API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/monitoring/remove_alarm_suppression.py.html>`__ to see an example of how to use remove_alarm_suppression API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['alarmId']
@@ -2203,7 +2203,7 @@ class MonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/monitoring/retrieve_dimension_states.py.html>`__ to see an example of how to use retrieve_dimension_states API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/monitoring/retrieve_dimension_states.py.html>`__ to see an example of how to use retrieve_dimension_states API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['alarmId']
@@ -2347,7 +2347,7 @@ class MonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/monitoring/summarize_alarm_suppression_history.py.html>`__ to see an example of how to use summarize_alarm_suppression_history API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/monitoring/summarize_alarm_suppression_history.py.html>`__ to see an example of how to use summarize_alarm_suppression_history API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['alarmId']
@@ -2485,7 +2485,7 @@ class MonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/monitoring/summarize_metrics_data.py.html>`__ to see an example of how to use summarize_metrics_data API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/monitoring/summarize_metrics_data.py.html>`__ to see an example of how to use summarize_metrics_data API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2602,7 +2602,7 @@ class MonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/monitoring/update_alarm.py.html>`__ to see an example of how to use update_alarm API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/monitoring/update_alarm.py.html>`__ to see an example of how to use update_alarm API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['alarmId']

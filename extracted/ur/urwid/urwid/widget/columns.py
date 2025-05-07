@@ -121,7 +121,8 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
         flow_fixed = _ContainerElementSizingFlag.FLOW | _ContainerElementSizingFlag.FIXED
         given_box = _ContainerElementSizingFlag.BOX | _ContainerElementSizingFlag.WH_GIVEN
 
-        flags: set[_ContainerElementSizingFlag] = set()
+        # This is a set of _ContainerElementSizingFlag ORed together.
+        flags: set[int] = set()
 
         for idx, (widget, (size_kind, _size_weight, is_box)) in enumerate(self.contents):
             w_sizing = widget.sizing()
@@ -190,7 +191,7 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
         if not supported:
             warnings.warn(
                 f"Columns widget contents flags not allow to determine supported render kind:\n"
-                f"{', '.join(sorted(flag.log_string for flag in flags))}\n"
+                f"{', '.join(sorted(_ContainerElementSizingFlag.log_string(flag) for flag in flags))}\n"
                 f"Using fallback hardcoded BOX|FLOW sizing kind.",
                 ColumnsWarning,
                 stacklevel=3,
@@ -372,8 +373,9 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
             standard container property :attr:`contents`.
         """
         warnings.warn(
-            "only for backwards compatibility. You should use the new standard container `contents`",
-            PendingDeprecationWarning,
+            "only for backwards compatibility. You should use the new standard container `contents`."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         ml = MonitoredList(w for w, t in self.contents)
@@ -387,8 +389,9 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
     @widget_list.setter
     def widget_list(self, widgets):
         warnings.warn(
-            "only for backwards compatibility. You should use the new standard container `contents`",
-            PendingDeprecationWarning,
+            "only for backwards compatibility. You should use the new standard container `contents`."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         focus_position = self.focus_position
@@ -412,8 +415,9 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
         """
         warnings.warn(
             "for backwards compatibility only."
-            "You should use the new standard container property .contents to modify Pile contents.",
-            PendingDeprecationWarning,
+            "You should use the new standard container property .contents to modify Pile contents."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         ml = MonitoredList(
@@ -432,8 +436,9 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
     def column_types(self, column_types):
         warnings.warn(
             "for backwards compatibility only."
-            "You should use the new standard container property .contents to modify Pile contents.",
-            PendingDeprecationWarning,
+            "You should use the new standard container property .contents to modify Pile contents."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         focus_position = self.focus_position
@@ -454,8 +459,9 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
             standard container property :attr:`contents`.
         """
         warnings.warn(
-            "only for backwards compatibility.You should use the new standard container property `contents`",
-            PendingDeprecationWarning,
+            "only for backwards compatibility.You should use the new standard container property `contents`."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         ml = MonitoredList(i for i, (w, (t, n, b)) in enumerate(self.contents) if b)
@@ -469,8 +475,9 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
     @box_columns.setter
     def box_columns(self, box_columns):
         warnings.warn(
-            "only for backwards compatibility.You should use the new standard container property `contents`",
-            PendingDeprecationWarning,
+            "only for backwards compatibility.You should use the new standard container property `contents`."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         box_columns = set(box_columns)
@@ -482,7 +489,7 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
         .. deprecated:: 1.0 Read values from :attr:`contents` instead.
         """
         warnings.warn(
-            ".has_flow_type is deprecated, read values from .contents instead.",
+            ".has_flow_type is deprecated, read values from .contents instead. API will be removed in version 4.0.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -491,7 +498,7 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
     @has_flow_type.setter
     def has_flow_type(self, value):
         warnings.warn(
-            ".has_flow_type is deprecated, read values from .contents instead.",
+            ".has_flow_type is deprecated, read values from .contents instead. API will be removed in version 4.0.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -582,8 +589,9 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
             standard container property :attr:`focus_position` to set the focus.
         """
         warnings.warn(
-            "only for backwards compatibility.You may also use the new standard container property `focus_position`",
-            PendingDeprecationWarning,
+            "only for backwards compatibility.You may also use the new standard container property `focus_position`."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         self.focus_position = num
@@ -596,8 +604,9 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
             standard container property :attr:`focus_position` to get the focus.
         """
         warnings.warn(
-            "only for backwards compatibility.You may also use the new standard container property `focus_position`",
-            PendingDeprecationWarning,
+            "only for backwards compatibility.You may also use the new standard container property `focus_position`."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         return self.focus_position
@@ -612,8 +621,9 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
         :param item: widget or integer index"""
         warnings.warn(
             "only for backwards compatibility."
-            "You may also use the new standard container property `focus_position` to get the focus.",
-            PendingDeprecationWarning,
+            "You may also use the new standard container property `focus_position` to get the focus."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         if isinstance(item, int):
@@ -638,17 +648,6 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
             return None
         return self.contents[self.focus_position][0]
 
-    def _get_focus(self) -> Widget:
-        warnings.warn(
-            f"method `{self.__class__.__name__}._get_focus` is deprecated, "
-            f"please use `{self.__class__.__name__}.focus` property",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        if not self.contents:
-            return None
-        return self.contents[self.focus_position][0]
-
     def get_focus(self):
         """
         Return the widget in focus, for backwards compatibility.
@@ -658,8 +657,9 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
         """
         warnings.warn(
             "only for backwards compatibility."
-            "You may also use the new standard container property `focus` to get the focus.",
-            PendingDeprecationWarning,
+            "You may also use the new standard container property `focus` to get the focus."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         if not self.contents:
@@ -692,38 +692,6 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
             ) from exc
         self.contents.focus = position
 
-    def _get_focus_position(self) -> int | None:
-        warnings.warn(
-            f"method `{self.__class__.__name__}._get_focus_position` is deprecated, "
-            f"please use `{self.__class__.__name__}.focus_position` property",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        if not self.contents:
-            raise IndexError("No focus_position, Columns is empty")
-        return self.contents.focus
-
-    def _set_focus_position(self, position: int) -> None:
-        """
-        Set the widget in focus.
-
-        position -- index of child widget to be made focus
-        """
-        warnings.warn(
-            f"method `{self.__class__.__name__}._set_focus_position` is deprecated, "
-            f"please use `{self.__class__.__name__}.focus_position` property",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        try:
-            if position < 0 or position >= len(self.contents):
-                raise IndexError(f"No Columns child widget at position {position}")
-        except TypeError as exc:
-            raise IndexError(f"No Columns child widget at position {position}").with_traceback(
-                exc.__traceback__
-            ) from exc
-        self.contents.focus = position
-
     @property
     def focus_col(self):
         """
@@ -735,8 +703,9 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
         """
         warnings.warn(
             "only for backwards compatibility."
-            "You may also use the new standard container property `focus_position` to get the focus.",
-            PendingDeprecationWarning,
+            "You may also use the new standard container property `focus_position` to get the focus."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         return self.focus_position
@@ -745,8 +714,9 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
     def focus_col(self, new_position) -> None:
         warnings.warn(
             "only for backwards compatibility."
-            "You may also use the new standard container property `focus_position` to get the focus.",
-            PendingDeprecationWarning,
+            "You may also use the new standard container property `focus_position` to get the focus."
+            "API will be removed in version 5.0.",
+            DeprecationWarning,
             stacklevel=2,
         )
         self.focus_position = new_position
@@ -1032,7 +1002,7 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
 
         if not data:
             if size:
-                return SolidCanvas(" ", size[0], (size[1:] + (1,))[0])
+                return SolidCanvas(" ", size[0], (*size[1:], 1)[0])
             raise ColumnsError("No data to render")
 
         canvas = CanvasJoin(data)
@@ -1053,13 +1023,12 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
         if len(widths) <= self.focus_position:
             return None
 
-        coords = w.get_cursor_coords(size_args[self.focus_position])
-        if coords is None:
-            return None
+        if (coords := w.get_cursor_coords(size_args[self.focus_position])) is not None:
+            x, y = coords
+            x += sum(self.dividechars + wc for wc in widths[: self.focus_position] if wc > 0)
+            return x, y
 
-        x, y = coords
-        x += sum(self.dividechars + wc for wc in widths[: self.focus_position] if wc > 0)
-        return x, y
+        return None
 
     def move_cursor_to_coords(
         self,
@@ -1103,8 +1072,8 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
                 move_x = min(max(0, col - x), end - x - 1)
             else:
                 move_x = col
-            rval = w.move_cursor_to_coords(size_args[i], move_x, row)
-            if rval is False:
+
+            if w.move_cursor_to_coords(size_args[i], move_x, row) is False:
                 return False
 
         self.focus_position = i
@@ -1176,7 +1145,7 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
             col += sum(widths[: self.focus_position])
         return col
 
-    def rows(self, size: tuple[int] | tuple[int, int], focus: bool = False) -> int:
+    def rows(self, size: tuple[int], focus: bool = False) -> int:
         """
         Return the number of rows required by the columns.
         This only makes sense if :attr:`widget_list` contains flow widgets.

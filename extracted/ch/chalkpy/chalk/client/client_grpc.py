@@ -3,6 +3,7 @@ from __future__ import annotations
 import collections.abc
 import dataclasses
 import datetime as dt
+import json
 import random
 import warnings
 from functools import cached_property
@@ -147,6 +148,23 @@ channel_options: List[tuple[str, str | int]] = [
     ("grpc.max_receive_message_length", 1024 * 1024 * 100),  # 100MB
     # https://grpc.io/docs/guides/performance/#python
     (grpc.experimental.ChannelOptions.SingleThreadedUnaryStream, 1),
+    (
+        "grpc.service_config",
+        json.dumps(
+            {
+                "methodConfig": [
+                    {
+                        "name": [{}],
+                        "maxAttempts": 5,
+                        "initialBackoff": "0.1s",
+                        "maxBackoff": "1s",
+                        "backoffMultiplier": 2,
+                        "retryableStatusCodes": ["UNAVAILABLE"],
+                    }
+                ]
+            }
+        ),
+    ),
 ]
 
 
@@ -354,7 +372,9 @@ class StubRefresher:
         try:
             return fn(get_service())
         except grpc.RpcError as e:
-            if e.code() == grpc.StatusCode.UNAVAILABLE and "FD Shutdown" in (e.details() or ""):
+            if e.code() == grpc.StatusCode.UNAVAILABLE and (
+                "FD Shutdown" in (e.details() or "") or "GOAWAY" in (e.details() or "")
+            ):
                 chalk_logger.info("Detected FD shutdown; retrying connection: %s", e.details())
                 old_stub = self._stub
                 self._refresh_stub()

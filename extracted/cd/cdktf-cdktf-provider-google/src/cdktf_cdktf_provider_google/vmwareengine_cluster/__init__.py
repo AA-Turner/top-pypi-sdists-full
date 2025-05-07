@@ -1,7 +1,7 @@
 r'''
 # `google_vmwareengine_cluster`
 
-Refer to the Terraform Registry for docs: [`google_vmwareengine_cluster`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster).
+Refer to the Terraform Registry for docs: [`google_vmwareengine_cluster`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class VmwareengineCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.vmwareengineCluster.VmwareengineCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster google_vmwareengine_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster google_vmwareengine_cluster}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class VmwareengineCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster google_vmwareengine_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster google_vmwareengine_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The ID of the Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#name VmwareengineCluster#name}
-        :param parent: The resource name of the private cloud to create a new cluster in. Resource names are schemeless URIs that follow the conventions in https://cloud.google.com/apis/design/resource_names. For example: projects/my-project/locations/us-west1-a/privateClouds/my-cloud Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#parent VmwareengineCluster#parent}
-        :param autoscaling_settings: autoscaling_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#autoscaling_settings VmwareengineCluster#autoscaling_settings}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#id VmwareengineCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param node_type_configs: node_type_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#node_type_configs VmwareengineCluster#node_type_configs}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#timeouts VmwareengineCluster#timeouts}
+        :param name: The ID of the Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#name VmwareengineCluster#name}
+        :param parent: The resource name of the private cloud to create a new cluster in. Resource names are schemeless URIs that follow the conventions in https://cloud.google.com/apis/design/resource_names. For example: projects/my-project/locations/us-west1-a/privateClouds/my-cloud Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#parent VmwareengineCluster#parent}
+        :param autoscaling_settings: autoscaling_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#autoscaling_settings VmwareengineCluster#autoscaling_settings}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#id VmwareengineCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param node_type_configs: node_type_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#node_type_configs VmwareengineCluster#node_type_configs}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#timeouts VmwareengineCluster#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class VmwareengineCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the VmwareengineCluster to import.
-        :param import_from_id: The id of the existing VmwareengineCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing VmwareengineCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the VmwareengineCluster to import is found.
         '''
         if __debug__:
@@ -139,10 +139,10 @@ class VmwareengineCluster(
         min_cluster_node_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param autoscaling_policies: autoscaling_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#autoscaling_policies VmwareengineCluster#autoscaling_policies}
-        :param cool_down_period: The minimum duration between consecutive autoscale operations. It starts once addition or removal of nodes is fully completed. Minimum cool down period is 30m. Cool down period must be in whole minutes (for example, 30m, 31m, 50m). Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#cool_down_period VmwareengineCluster#cool_down_period}
-        :param max_cluster_node_count: Maximum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#max_cluster_node_count VmwareengineCluster#max_cluster_node_count}
-        :param min_cluster_node_count: Minimum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#min_cluster_node_count VmwareengineCluster#min_cluster_node_count}
+        :param autoscaling_policies: autoscaling_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#autoscaling_policies VmwareengineCluster#autoscaling_policies}
+        :param cool_down_period: The minimum duration between consecutive autoscale operations. It starts once addition or removal of nodes is fully completed. Minimum cool down period is 30m. Cool down period must be in whole minutes (for example, 30m, 31m, 50m). Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#cool_down_period VmwareengineCluster#cool_down_period}
+        :param max_cluster_node_count: Maximum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#max_cluster_node_count VmwareengineCluster#max_cluster_node_count}
+        :param min_cluster_node_count: Minimum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#min_cluster_node_count VmwareengineCluster#min_cluster_node_count}
         '''
         value = VmwareengineClusterAutoscalingSettings(
             autoscaling_policies=autoscaling_policies,
@@ -175,9 +175,9 @@ class VmwareengineCluster(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#create VmwareengineCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#delete VmwareengineCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#update VmwareengineCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#create VmwareengineCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#delete VmwareengineCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#update VmwareengineCluster#update}.
         '''
         value = VmwareengineClusterTimeouts(
             create=create, delete=delete, update=update
@@ -339,10 +339,10 @@ class VmwareengineClusterAutoscalingSettings:
         min_cluster_node_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param autoscaling_policies: autoscaling_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#autoscaling_policies VmwareengineCluster#autoscaling_policies}
-        :param cool_down_period: The minimum duration between consecutive autoscale operations. It starts once addition or removal of nodes is fully completed. Minimum cool down period is 30m. Cool down period must be in whole minutes (for example, 30m, 31m, 50m). Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#cool_down_period VmwareengineCluster#cool_down_period}
-        :param max_cluster_node_count: Maximum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#max_cluster_node_count VmwareengineCluster#max_cluster_node_count}
-        :param min_cluster_node_count: Minimum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#min_cluster_node_count VmwareengineCluster#min_cluster_node_count}
+        :param autoscaling_policies: autoscaling_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#autoscaling_policies VmwareengineCluster#autoscaling_policies}
+        :param cool_down_period: The minimum duration between consecutive autoscale operations. It starts once addition or removal of nodes is fully completed. Minimum cool down period is 30m. Cool down period must be in whole minutes (for example, 30m, 31m, 50m). Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#cool_down_period VmwareengineCluster#cool_down_period}
+        :param max_cluster_node_count: Maximum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#max_cluster_node_count VmwareengineCluster#max_cluster_node_count}
+        :param min_cluster_node_count: Minimum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#min_cluster_node_count VmwareengineCluster#min_cluster_node_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a3ed31e75e258ea44b4e47131de64c6bc645e073ada612fd8e8609be5d623330)
@@ -366,7 +366,7 @@ class VmwareengineClusterAutoscalingSettings:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["VmwareengineClusterAutoscalingSettingsAutoscalingPolicies"]]:
         '''autoscaling_policies block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#autoscaling_policies VmwareengineCluster#autoscaling_policies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#autoscaling_policies VmwareengineCluster#autoscaling_policies}
         '''
         result = self._values.get("autoscaling_policies")
         assert result is not None, "Required property 'autoscaling_policies' is missing"
@@ -381,7 +381,7 @@ class VmwareengineClusterAutoscalingSettings:
         Cool down period must be in whole minutes (for example, 30m, 31m, 50m).
         Mandatory for successful addition of autoscaling settings in cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#cool_down_period VmwareengineCluster#cool_down_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#cool_down_period VmwareengineCluster#cool_down_period}
         '''
         result = self._values.get("cool_down_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -390,7 +390,7 @@ class VmwareengineClusterAutoscalingSettings:
     def max_cluster_node_count(self) -> typing.Optional[jsii.Number]:
         '''Maximum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#max_cluster_node_count VmwareengineCluster#max_cluster_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#max_cluster_node_count VmwareengineCluster#max_cluster_node_count}
         '''
         result = self._values.get("max_cluster_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -399,7 +399,7 @@ class VmwareengineClusterAutoscalingSettings:
     def min_cluster_node_count(self) -> typing.Optional[jsii.Number]:
         '''Minimum number of nodes of any type in a cluster. Mandatory for successful addition of autoscaling settings in cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#min_cluster_node_count VmwareengineCluster#min_cluster_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#min_cluster_node_count VmwareengineCluster#min_cluster_node_count}
         '''
         result = self._values.get("min_cluster_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -440,12 +440,12 @@ class VmwareengineClusterAutoscalingSettingsAutoscalingPolicies:
         storage_thresholds: typing.Optional[typing.Union["VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesStorageThresholds", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param autoscale_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#autoscale_policy_id VmwareengineCluster#autoscale_policy_id}.
-        :param node_type_id: The canonical identifier of the node type to add or remove. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#node_type_id VmwareengineCluster#node_type_id}
-        :param scale_out_size: Number of nodes to add to a cluster during a scale-out operation. Must be divisible by 2 for stretched clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_out_size VmwareengineCluster#scale_out_size}
-        :param consumed_memory_thresholds: consumed_memory_thresholds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#consumed_memory_thresholds VmwareengineCluster#consumed_memory_thresholds}
-        :param cpu_thresholds: cpu_thresholds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#cpu_thresholds VmwareengineCluster#cpu_thresholds}
-        :param storage_thresholds: storage_thresholds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#storage_thresholds VmwareengineCluster#storage_thresholds}
+        :param autoscale_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#autoscale_policy_id VmwareengineCluster#autoscale_policy_id}.
+        :param node_type_id: The canonical identifier of the node type to add or remove. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#node_type_id VmwareengineCluster#node_type_id}
+        :param scale_out_size: Number of nodes to add to a cluster during a scale-out operation. Must be divisible by 2 for stretched clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_out_size VmwareengineCluster#scale_out_size}
+        :param consumed_memory_thresholds: consumed_memory_thresholds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#consumed_memory_thresholds VmwareengineCluster#consumed_memory_thresholds}
+        :param cpu_thresholds: cpu_thresholds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#cpu_thresholds VmwareengineCluster#cpu_thresholds}
+        :param storage_thresholds: storage_thresholds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#storage_thresholds VmwareengineCluster#storage_thresholds}
         '''
         if isinstance(consumed_memory_thresholds, dict):
             consumed_memory_thresholds = VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesConsumedMemoryThresholds(**consumed_memory_thresholds)
@@ -475,7 +475,7 @@ class VmwareengineClusterAutoscalingSettingsAutoscalingPolicies:
 
     @builtins.property
     def autoscale_policy_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#autoscale_policy_id VmwareengineCluster#autoscale_policy_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#autoscale_policy_id VmwareengineCluster#autoscale_policy_id}.'''
         result = self._values.get("autoscale_policy_id")
         assert result is not None, "Required property 'autoscale_policy_id' is missing"
         return typing.cast(builtins.str, result)
@@ -484,7 +484,7 @@ class VmwareengineClusterAutoscalingSettingsAutoscalingPolicies:
     def node_type_id(self) -> builtins.str:
         '''The canonical identifier of the node type to add or remove.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#node_type_id VmwareengineCluster#node_type_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#node_type_id VmwareengineCluster#node_type_id}
         '''
         result = self._values.get("node_type_id")
         assert result is not None, "Required property 'node_type_id' is missing"
@@ -494,7 +494,7 @@ class VmwareengineClusterAutoscalingSettingsAutoscalingPolicies:
     def scale_out_size(self) -> jsii.Number:
         '''Number of nodes to add to a cluster during a scale-out operation. Must be divisible by 2 for stretched clusters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_out_size VmwareengineCluster#scale_out_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_out_size VmwareengineCluster#scale_out_size}
         '''
         result = self._values.get("scale_out_size")
         assert result is not None, "Required property 'scale_out_size' is missing"
@@ -506,7 +506,7 @@ class VmwareengineClusterAutoscalingSettingsAutoscalingPolicies:
     ) -> typing.Optional["VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesConsumedMemoryThresholds"]:
         '''consumed_memory_thresholds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#consumed_memory_thresholds VmwareengineCluster#consumed_memory_thresholds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#consumed_memory_thresholds VmwareengineCluster#consumed_memory_thresholds}
         '''
         result = self._values.get("consumed_memory_thresholds")
         return typing.cast(typing.Optional["VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesConsumedMemoryThresholds"], result)
@@ -517,7 +517,7 @@ class VmwareengineClusterAutoscalingSettingsAutoscalingPolicies:
     ) -> typing.Optional["VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesCpuThresholds"]:
         '''cpu_thresholds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#cpu_thresholds VmwareengineCluster#cpu_thresholds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#cpu_thresholds VmwareengineCluster#cpu_thresholds}
         '''
         result = self._values.get("cpu_thresholds")
         return typing.cast(typing.Optional["VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesCpuThresholds"], result)
@@ -528,7 +528,7 @@ class VmwareengineClusterAutoscalingSettingsAutoscalingPolicies:
     ) -> typing.Optional["VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesStorageThresholds"]:
         '''storage_thresholds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#storage_thresholds VmwareengineCluster#storage_thresholds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#storage_thresholds VmwareengineCluster#storage_thresholds}
         '''
         result = self._values.get("storage_thresholds")
         return typing.cast(typing.Optional["VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesStorageThresholds"], result)
@@ -553,8 +553,8 @@ class VmwareengineClusterAutoscalingSettingsAutoscalingPolicies:
 class VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesConsumedMemoryThresholds:
     def __init__(self, *, scale_in: jsii.Number, scale_out: jsii.Number) -> None:
         '''
-        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_in VmwareengineCluster#scale_in}
-        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_out VmwareengineCluster#scale_out}
+        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_in VmwareengineCluster#scale_in}
+        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_out VmwareengineCluster#scale_out}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8ff2762651e204fc01dbf0fb7622735d10a89742213c22545476ef155bc27110)
@@ -569,7 +569,7 @@ class VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesConsumedMemoryThr
     def scale_in(self) -> jsii.Number:
         '''The utilization triggering the scale-in operation in percent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_in VmwareengineCluster#scale_in}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_in VmwareengineCluster#scale_in}
         '''
         result = self._values.get("scale_in")
         assert result is not None, "Required property 'scale_in' is missing"
@@ -579,7 +579,7 @@ class VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesConsumedMemoryThr
     def scale_out(self) -> jsii.Number:
         '''The utilization triggering the scale-out operation in percent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_out VmwareengineCluster#scale_out}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_out VmwareengineCluster#scale_out}
         '''
         result = self._values.get("scale_out")
         assert result is not None, "Required property 'scale_out' is missing"
@@ -677,8 +677,8 @@ class VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesConsumedMemoryThr
 class VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesCpuThresholds:
     def __init__(self, *, scale_in: jsii.Number, scale_out: jsii.Number) -> None:
         '''
-        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_in VmwareengineCluster#scale_in}
-        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_out VmwareengineCluster#scale_out}
+        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_in VmwareengineCluster#scale_in}
+        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_out VmwareengineCluster#scale_out}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ff4e64af07a898e3961deca75d201d658748bce448ba33afe0cdc00b20e73994)
@@ -693,7 +693,7 @@ class VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesCpuThresholds:
     def scale_in(self) -> jsii.Number:
         '''The utilization triggering the scale-in operation in percent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_in VmwareengineCluster#scale_in}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_in VmwareengineCluster#scale_in}
         '''
         result = self._values.get("scale_in")
         assert result is not None, "Required property 'scale_in' is missing"
@@ -703,7 +703,7 @@ class VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesCpuThresholds:
     def scale_out(self) -> jsii.Number:
         '''The utilization triggering the scale-out operation in percent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_out VmwareengineCluster#scale_out}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_out VmwareengineCluster#scale_out}
         '''
         result = self._values.get("scale_out")
         assert result is not None, "Required property 'scale_out' is missing"
@@ -920,8 +920,8 @@ class VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesOutputReference(
         scale_out: jsii.Number,
     ) -> None:
         '''
-        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_in VmwareengineCluster#scale_in}
-        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_out VmwareengineCluster#scale_out}
+        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_in VmwareengineCluster#scale_in}
+        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_out VmwareengineCluster#scale_out}
         '''
         value = VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesConsumedMemoryThresholds(
             scale_in=scale_in, scale_out=scale_out
@@ -937,8 +937,8 @@ class VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesOutputReference(
         scale_out: jsii.Number,
     ) -> None:
         '''
-        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_in VmwareengineCluster#scale_in}
-        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_out VmwareengineCluster#scale_out}
+        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_in VmwareengineCluster#scale_in}
+        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_out VmwareengineCluster#scale_out}
         '''
         value = VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesCpuThresholds(
             scale_in=scale_in, scale_out=scale_out
@@ -954,8 +954,8 @@ class VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesOutputReference(
         scale_out: jsii.Number,
     ) -> None:
         '''
-        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_in VmwareengineCluster#scale_in}
-        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_out VmwareengineCluster#scale_out}
+        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_in VmwareengineCluster#scale_in}
+        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_out VmwareengineCluster#scale_out}
         '''
         value = VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesStorageThresholds(
             scale_in=scale_in, scale_out=scale_out
@@ -1094,8 +1094,8 @@ class VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesOutputReference(
 class VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesStorageThresholds:
     def __init__(self, *, scale_in: jsii.Number, scale_out: jsii.Number) -> None:
         '''
-        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_in VmwareengineCluster#scale_in}
-        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_out VmwareengineCluster#scale_out}
+        :param scale_in: The utilization triggering the scale-in operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_in VmwareengineCluster#scale_in}
+        :param scale_out: The utilization triggering the scale-out operation in percent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_out VmwareengineCluster#scale_out}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b086c4ce4a5c772d87404055b8740a3a3de570a31e179f8189a477d0004c2621)
@@ -1110,7 +1110,7 @@ class VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesStorageThresholds
     def scale_in(self) -> jsii.Number:
         '''The utilization triggering the scale-in operation in percent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_in VmwareengineCluster#scale_in}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_in VmwareengineCluster#scale_in}
         '''
         result = self._values.get("scale_in")
         assert result is not None, "Required property 'scale_in' is missing"
@@ -1120,7 +1120,7 @@ class VmwareengineClusterAutoscalingSettingsAutoscalingPoliciesStorageThresholds
     def scale_out(self) -> jsii.Number:
         '''The utilization triggering the scale-out operation in percent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#scale_out VmwareengineCluster#scale_out}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#scale_out VmwareengineCluster#scale_out}
         '''
         result = self._values.get("scale_out")
         assert result is not None, "Required property 'scale_out' is missing"
@@ -1381,12 +1381,12 @@ class VmwareengineClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The ID of the Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#name VmwareengineCluster#name}
-        :param parent: The resource name of the private cloud to create a new cluster in. Resource names are schemeless URIs that follow the conventions in https://cloud.google.com/apis/design/resource_names. For example: projects/my-project/locations/us-west1-a/privateClouds/my-cloud Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#parent VmwareengineCluster#parent}
-        :param autoscaling_settings: autoscaling_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#autoscaling_settings VmwareengineCluster#autoscaling_settings}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#id VmwareengineCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param node_type_configs: node_type_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#node_type_configs VmwareengineCluster#node_type_configs}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#timeouts VmwareengineCluster#timeouts}
+        :param name: The ID of the Cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#name VmwareengineCluster#name}
+        :param parent: The resource name of the private cloud to create a new cluster in. Resource names are schemeless URIs that follow the conventions in https://cloud.google.com/apis/design/resource_names. For example: projects/my-project/locations/us-west1-a/privateClouds/my-cloud Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#parent VmwareengineCluster#parent}
+        :param autoscaling_settings: autoscaling_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#autoscaling_settings VmwareengineCluster#autoscaling_settings}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#id VmwareengineCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param node_type_configs: node_type_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#node_type_configs VmwareengineCluster#node_type_configs}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#timeouts VmwareengineCluster#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1504,7 +1504,7 @@ class VmwareengineClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The ID of the Cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#name VmwareengineCluster#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#name VmwareengineCluster#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1517,7 +1517,7 @@ class VmwareengineClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Resource names are schemeless URIs that follow the conventions in https://cloud.google.com/apis/design/resource_names.
         For example: projects/my-project/locations/us-west1-a/privateClouds/my-cloud
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#parent VmwareengineCluster#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#parent VmwareengineCluster#parent}
         '''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
@@ -1529,14 +1529,14 @@ class VmwareengineClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[VmwareengineClusterAutoscalingSettings]:
         '''autoscaling_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#autoscaling_settings VmwareengineCluster#autoscaling_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#autoscaling_settings VmwareengineCluster#autoscaling_settings}
         '''
         result = self._values.get("autoscaling_settings")
         return typing.cast(typing.Optional[VmwareengineClusterAutoscalingSettings], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#id VmwareengineCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#id VmwareengineCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1550,7 +1550,7 @@ class VmwareengineClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["VmwareengineClusterNodeTypeConfigs"]]]:
         '''node_type_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#node_type_configs VmwareengineCluster#node_type_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#node_type_configs VmwareengineCluster#node_type_configs}
         '''
         result = self._values.get("node_type_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["VmwareengineClusterNodeTypeConfigs"]]], result)
@@ -1559,7 +1559,7 @@ class VmwareengineClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["VmwareengineClusterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#timeouts VmwareengineCluster#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#timeouts VmwareengineCluster#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["VmwareengineClusterTimeouts"], result)
@@ -1594,9 +1594,9 @@ class VmwareengineClusterNodeTypeConfigs:
         custom_core_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param node_count: The number of nodes of this type in the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#node_count VmwareengineCluster#node_count}
-        :param node_type_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#node_type_id VmwareengineCluster#node_type_id}.
-        :param custom_core_count: Customized number of cores available to each node of the type. This number must always be one of 'nodeType.availableCustomCoreCounts'. If zero is provided max value from 'nodeType.availableCustomCoreCounts' will be used. Once the customer is created then corecount cannot be changed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#custom_core_count VmwareengineCluster#custom_core_count}
+        :param node_count: The number of nodes of this type in the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#node_count VmwareengineCluster#node_count}
+        :param node_type_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#node_type_id VmwareengineCluster#node_type_id}.
+        :param custom_core_count: Customized number of cores available to each node of the type. This number must always be one of 'nodeType.availableCustomCoreCounts'. If zero is provided max value from 'nodeType.availableCustomCoreCounts' will be used. Once the customer is created then corecount cannot be changed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#custom_core_count VmwareengineCluster#custom_core_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d9e8436a0c2af498bab3da727e7ac830a8f6e9f73ffa89b73ee5205d29a75d56)
@@ -1614,7 +1614,7 @@ class VmwareengineClusterNodeTypeConfigs:
     def node_count(self) -> jsii.Number:
         '''The number of nodes of this type in the cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#node_count VmwareengineCluster#node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#node_count VmwareengineCluster#node_count}
         '''
         result = self._values.get("node_count")
         assert result is not None, "Required property 'node_count' is missing"
@@ -1622,7 +1622,7 @@ class VmwareengineClusterNodeTypeConfigs:
 
     @builtins.property
     def node_type_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#node_type_id VmwareengineCluster#node_type_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#node_type_id VmwareengineCluster#node_type_id}.'''
         result = self._values.get("node_type_id")
         assert result is not None, "Required property 'node_type_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1635,7 +1635,7 @@ class VmwareengineClusterNodeTypeConfigs:
         If zero is provided max value from 'nodeType.availableCustomCoreCounts' will be used.
         Once the customer is created then corecount cannot be changed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#custom_core_count VmwareengineCluster#custom_core_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#custom_core_count VmwareengineCluster#custom_core_count}
         '''
         result = self._values.get("custom_core_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1858,9 +1858,9 @@ class VmwareengineClusterTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#create VmwareengineCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#delete VmwareengineCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#update VmwareengineCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#create VmwareengineCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#delete VmwareengineCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#update VmwareengineCluster#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c4cdeafba0e5a76f0c31e01e4dc419d5f81c4cab14ecc379d2e428ab65215a9f)
@@ -1877,19 +1877,19 @@ class VmwareengineClusterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#create VmwareengineCluster#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#create VmwareengineCluster#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#delete VmwareengineCluster#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#delete VmwareengineCluster#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vmwareengine_cluster#update VmwareengineCluster#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vmwareengine_cluster#update VmwareengineCluster#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

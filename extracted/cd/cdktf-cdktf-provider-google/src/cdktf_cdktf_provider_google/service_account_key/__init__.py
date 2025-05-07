@@ -1,7 +1,7 @@
 r'''
 # `google_service_account_key`
 
-Refer to the Terraform Registry for docs: [`google_service_account_key`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key).
+Refer to the Terraform Registry for docs: [`google_service_account_key`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ServiceAccountKey(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.serviceAccountKey.ServiceAccountKey",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key google_service_account_key}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key google_service_account_key}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class ServiceAccountKey(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key google_service_account_key} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key google_service_account_key} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param service_account_id: The ID of the parent service account of the key. This can be a string in the format {ACCOUNT} or projects/{PROJECT_ID}/serviceAccounts/{ACCOUNT}, where {ACCOUNT} is the email address or unique id of the service account. If the {ACCOUNT} syntax is used, the project will be inferred from the provider's configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#service_account_id ServiceAccountKey#service_account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#id ServiceAccountKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param keepers: Arbitrary map of values that, when changed, will trigger recreation of resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#keepers ServiceAccountKey#keepers}
-        :param key_algorithm: The algorithm used to generate the key, used only on create. KEY_ALG_RSA_2048 is the default algorithm. Valid values are: "KEY_ALG_RSA_1024", "KEY_ALG_RSA_2048". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#key_algorithm ServiceAccountKey#key_algorithm}
-        :param private_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#private_key_type ServiceAccountKey#private_key_type}.
-        :param public_key_data: A field that allows clients to upload their own public key. If set, use this public key data to create a service account key for given service account. Please note, the expected format for this field is a base64 encoded X509_PEM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#public_key_data ServiceAccountKey#public_key_data}
-        :param public_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#public_key_type ServiceAccountKey#public_key_type}.
+        :param service_account_id: The ID of the parent service account of the key. This can be a string in the format {ACCOUNT} or projects/{PROJECT_ID}/serviceAccounts/{ACCOUNT}, where {ACCOUNT} is the email address or unique id of the service account. If the {ACCOUNT} syntax is used, the project will be inferred from the provider's configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#service_account_id ServiceAccountKey#service_account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#id ServiceAccountKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param keepers: Arbitrary map of values that, when changed, will trigger recreation of resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#keepers ServiceAccountKey#keepers}
+        :param key_algorithm: The algorithm used to generate the key, used only on create. KEY_ALG_RSA_2048 is the default algorithm. Valid values are: "KEY_ALG_RSA_1024", "KEY_ALG_RSA_2048". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#key_algorithm ServiceAccountKey#key_algorithm}
+        :param private_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#private_key_type ServiceAccountKey#private_key_type}.
+        :param public_key_data: A field that allows clients to upload their own public key. If set, use this public key data to create a service account key for given service account. Please note, the expected format for this field is a base64 encoded X509_PEM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#public_key_data ServiceAccountKey#public_key_data}
+        :param public_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#public_key_type ServiceAccountKey#public_key_type}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class ServiceAccountKey(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ServiceAccountKey to import.
-        :param import_from_id: The id of the existing ServiceAccountKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ServiceAccountKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ServiceAccountKey to import is found.
         '''
         if __debug__:
@@ -363,13 +363,13 @@ class ServiceAccountKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param service_account_id: The ID of the parent service account of the key. This can be a string in the format {ACCOUNT} or projects/{PROJECT_ID}/serviceAccounts/{ACCOUNT}, where {ACCOUNT} is the email address or unique id of the service account. If the {ACCOUNT} syntax is used, the project will be inferred from the provider's configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#service_account_id ServiceAccountKey#service_account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#id ServiceAccountKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param keepers: Arbitrary map of values that, when changed, will trigger recreation of resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#keepers ServiceAccountKey#keepers}
-        :param key_algorithm: The algorithm used to generate the key, used only on create. KEY_ALG_RSA_2048 is the default algorithm. Valid values are: "KEY_ALG_RSA_1024", "KEY_ALG_RSA_2048". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#key_algorithm ServiceAccountKey#key_algorithm}
-        :param private_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#private_key_type ServiceAccountKey#private_key_type}.
-        :param public_key_data: A field that allows clients to upload their own public key. If set, use this public key data to create a service account key for given service account. Please note, the expected format for this field is a base64 encoded X509_PEM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#public_key_data ServiceAccountKey#public_key_data}
-        :param public_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#public_key_type ServiceAccountKey#public_key_type}.
+        :param service_account_id: The ID of the parent service account of the key. This can be a string in the format {ACCOUNT} or projects/{PROJECT_ID}/serviceAccounts/{ACCOUNT}, where {ACCOUNT} is the email address or unique id of the service account. If the {ACCOUNT} syntax is used, the project will be inferred from the provider's configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#service_account_id ServiceAccountKey#service_account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#id ServiceAccountKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param keepers: Arbitrary map of values that, when changed, will trigger recreation of resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#keepers ServiceAccountKey#keepers}
+        :param key_algorithm: The algorithm used to generate the key, used only on create. KEY_ALG_RSA_2048 is the default algorithm. Valid values are: "KEY_ALG_RSA_1024", "KEY_ALG_RSA_2048". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#key_algorithm ServiceAccountKey#key_algorithm}
+        :param private_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#private_key_type ServiceAccountKey#private_key_type}.
+        :param public_key_data: A field that allows clients to upload their own public key. If set, use this public key data to create a service account key for given service account. Please note, the expected format for this field is a base64 encoded X509_PEM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#public_key_data ServiceAccountKey#public_key_data}
+        :param public_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#public_key_type ServiceAccountKey#public_key_type}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -489,7 +489,7 @@ class ServiceAccountKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This can be a string in the format {ACCOUNT} or projects/{PROJECT_ID}/serviceAccounts/{ACCOUNT}, where {ACCOUNT} is the email address or unique id of the service account. If the {ACCOUNT} syntax is used, the project will be inferred from the provider's configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#service_account_id ServiceAccountKey#service_account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#service_account_id ServiceAccountKey#service_account_id}
         '''
         result = self._values.get("service_account_id")
         assert result is not None, "Required property 'service_account_id' is missing"
@@ -497,7 +497,7 @@ class ServiceAccountKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#id ServiceAccountKey#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#id ServiceAccountKey#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -509,7 +509,7 @@ class ServiceAccountKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def keepers(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Arbitrary map of values that, when changed, will trigger recreation of resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#keepers ServiceAccountKey#keepers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#keepers ServiceAccountKey#keepers}
         '''
         result = self._values.get("keepers")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -520,14 +520,14 @@ class ServiceAccountKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         KEY_ALG_RSA_2048 is the default algorithm. Valid values are: "KEY_ALG_RSA_1024", "KEY_ALG_RSA_2048".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#key_algorithm ServiceAccountKey#key_algorithm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#key_algorithm ServiceAccountKey#key_algorithm}
         '''
         result = self._values.get("key_algorithm")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def private_key_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#private_key_type ServiceAccountKey#private_key_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#private_key_type ServiceAccountKey#private_key_type}.'''
         result = self._values.get("private_key_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -537,14 +537,14 @@ class ServiceAccountKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If set, use this public key data to create a service account key for given service account. Please note, the expected format for this field is a base64 encoded X509_PEM.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#public_key_data ServiceAccountKey#public_key_data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#public_key_data ServiceAccountKey#public_key_data}
         '''
         result = self._values.get("public_key_data")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def public_key_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/service_account_key#public_key_type ServiceAccountKey#public_key_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/service_account_key#public_key_type ServiceAccountKey#public_key_type}.'''
         result = self._values.get("public_key_type")
         return typing.cast(typing.Optional[builtins.str], result)
 

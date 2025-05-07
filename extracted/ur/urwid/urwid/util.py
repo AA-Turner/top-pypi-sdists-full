@@ -493,24 +493,13 @@ def is_mouse_press(ev: str) -> bool:
 
 
 class MetaSuper(type):
-    """adding .__super"""
+    """Deprecated metaclass.
 
-    def __init__(cls, name: str, bases, d):
-        super().__init__(name, bases, d)
-        if hasattr(cls, f"_{name}__super"):
-            raise AttributeError("Class has same name as one of its super classes")
+    Present only for code compatibility, all logic has been removed.
+    Please move to the last position in the class bases to allow future changes.
+    """
 
-        @property
-        def _super(self):
-            warnings.warn(
-                f"`{name}.__super` was a deprecated feature for old python versions."
-                f"Please use `super()` call instead.",
-                DeprecationWarning,
-                stacklevel=3,
-            )
-            return super(cls, self)
-
-        setattr(cls, f"_{name}__super", _super)
+    __slots__ = ()
 
 
 def int_scale(val: int, val_range: int, out_range: int) -> int:
@@ -534,7 +523,7 @@ def int_scale(val: int, val_range: int, out_range: int) -> int:
     return num // dem
 
 
-class StoppingContext(typing.ContextManager["StoppingContext"]):
+class StoppingContext(contextlib.AbstractContextManager["StoppingContext"]):
     """Context manager that calls ``stop`` on a given object on exit.  Used to
     make the ``start`` method on `MainLoop` and `BaseScreen` optionally act as
     context managers.

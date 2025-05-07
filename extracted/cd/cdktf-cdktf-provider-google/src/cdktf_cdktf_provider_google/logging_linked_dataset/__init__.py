@@ -1,7 +1,7 @@
 r'''
 # `google_logging_linked_dataset`
 
-Refer to the Terraform Registry for docs: [`google_logging_linked_dataset`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset).
+Refer to the Terraform Registry for docs: [`google_logging_linked_dataset`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LoggingLinkedDataset(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.loggingLinkedDataset.LoggingLinkedDataset",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset google_logging_linked_dataset}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset google_logging_linked_dataset}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class LoggingLinkedDataset(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset google_logging_linked_dataset} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset google_logging_linked_dataset} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bucket: The bucket to which the linked dataset is attached. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#bucket LoggingLinkedDataset#bucket}
-        :param link_id: The id of the linked dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#link_id LoggingLinkedDataset#link_id}
-        :param bigquery_dataset: bigquery_dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#bigquery_dataset LoggingLinkedDataset#bigquery_dataset}
-        :param description: Describes this link. The maximum length of the description is 8000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#description LoggingLinkedDataset#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#id LoggingLinkedDataset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: The location of the linked dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#location LoggingLinkedDataset#location}
-        :param parent: The parent of the linked dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#parent LoggingLinkedDataset#parent}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#timeouts LoggingLinkedDataset#timeouts}
+        :param bucket: The bucket to which the linked dataset is attached. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#bucket LoggingLinkedDataset#bucket}
+        :param link_id: The id of the linked dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#link_id LoggingLinkedDataset#link_id}
+        :param bigquery_dataset: bigquery_dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#bigquery_dataset LoggingLinkedDataset#bigquery_dataset}
+        :param description: Describes this link. The maximum length of the description is 8000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#description LoggingLinkedDataset#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#id LoggingLinkedDataset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: The location of the linked dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#location LoggingLinkedDataset#location}
+        :param parent: The parent of the linked dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#parent LoggingLinkedDataset#parent}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#timeouts LoggingLinkedDataset#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class LoggingLinkedDataset(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LoggingLinkedDataset to import.
-        :param import_from_id: The id of the existing LoggingLinkedDataset that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LoggingLinkedDataset that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LoggingLinkedDataset to import is found.
         '''
         if __debug__:
@@ -156,8 +156,8 @@ class LoggingLinkedDataset(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#create LoggingLinkedDataset#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#delete LoggingLinkedDataset#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#create LoggingLinkedDataset#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#delete LoggingLinkedDataset#delete}.
         '''
         value = LoggingLinkedDatasetTimeouts(create=create, delete=delete)
 
@@ -554,14 +554,14 @@ class LoggingLinkedDatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bucket: The bucket to which the linked dataset is attached. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#bucket LoggingLinkedDataset#bucket}
-        :param link_id: The id of the linked dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#link_id LoggingLinkedDataset#link_id}
-        :param bigquery_dataset: bigquery_dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#bigquery_dataset LoggingLinkedDataset#bigquery_dataset}
-        :param description: Describes this link. The maximum length of the description is 8000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#description LoggingLinkedDataset#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#id LoggingLinkedDataset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: The location of the linked dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#location LoggingLinkedDataset#location}
-        :param parent: The parent of the linked dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#parent LoggingLinkedDataset#parent}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#timeouts LoggingLinkedDataset#timeouts}
+        :param bucket: The bucket to which the linked dataset is attached. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#bucket LoggingLinkedDataset#bucket}
+        :param link_id: The id of the linked dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#link_id LoggingLinkedDataset#link_id}
+        :param bigquery_dataset: bigquery_dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#bigquery_dataset LoggingLinkedDataset#bigquery_dataset}
+        :param description: Describes this link. The maximum length of the description is 8000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#description LoggingLinkedDataset#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#id LoggingLinkedDataset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: The location of the linked dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#location LoggingLinkedDataset#location}
+        :param parent: The parent of the linked dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#parent LoggingLinkedDataset#parent}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#timeouts LoggingLinkedDataset#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -683,7 +683,7 @@ class LoggingLinkedDatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def bucket(self) -> builtins.str:
         '''The bucket to which the linked dataset is attached.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#bucket LoggingLinkedDataset#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#bucket LoggingLinkedDataset#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -693,7 +693,7 @@ class LoggingLinkedDatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def link_id(self) -> builtins.str:
         '''The id of the linked dataset.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#link_id LoggingLinkedDataset#link_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#link_id LoggingLinkedDataset#link_id}
         '''
         result = self._values.get("link_id")
         assert result is not None, "Required property 'link_id' is missing"
@@ -705,7 +705,7 @@ class LoggingLinkedDatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LoggingLinkedDatasetBigqueryDataset]]]:
         '''bigquery_dataset block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#bigquery_dataset LoggingLinkedDataset#bigquery_dataset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#bigquery_dataset LoggingLinkedDataset#bigquery_dataset}
         '''
         result = self._values.get("bigquery_dataset")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LoggingLinkedDatasetBigqueryDataset]]], result)
@@ -714,14 +714,14 @@ class LoggingLinkedDatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Describes this link. The maximum length of the description is 8000 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#description LoggingLinkedDataset#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#description LoggingLinkedDataset#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#id LoggingLinkedDataset#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#id LoggingLinkedDataset#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -733,7 +733,7 @@ class LoggingLinkedDatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> typing.Optional[builtins.str]:
         '''The location of the linked dataset.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#location LoggingLinkedDataset#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#location LoggingLinkedDataset#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -742,7 +742,7 @@ class LoggingLinkedDatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parent(self) -> typing.Optional[builtins.str]:
         '''The parent of the linked dataset.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#parent LoggingLinkedDataset#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#parent LoggingLinkedDataset#parent}
         '''
         result = self._values.get("parent")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -751,7 +751,7 @@ class LoggingLinkedDatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["LoggingLinkedDatasetTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#timeouts LoggingLinkedDataset#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#timeouts LoggingLinkedDataset#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["LoggingLinkedDatasetTimeouts"], result)
@@ -781,8 +781,8 @@ class LoggingLinkedDatasetTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#create LoggingLinkedDataset#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#delete LoggingLinkedDataset#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#create LoggingLinkedDataset#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#delete LoggingLinkedDataset#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9893d1864dc785fd453e464ed76ff76d43391aff0bb85c5ba8615a2d3a18009f)
@@ -796,13 +796,13 @@ class LoggingLinkedDatasetTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#create LoggingLinkedDataset#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#create LoggingLinkedDataset#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/logging_linked_dataset#delete LoggingLinkedDataset#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/logging_linked_dataset#delete LoggingLinkedDataset#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

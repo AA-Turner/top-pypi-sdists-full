@@ -1,7 +1,7 @@
 r'''
 # `google_compute_resource_policy`
 
-Refer to the Terraform Registry for docs: [`google_compute_resource_policy`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy).
+Refer to the Terraform Registry for docs: [`google_compute_resource_policy`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeResourcePolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeResourcePolicy.ComputeResourcePolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy google_compute_resource_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy google_compute_resource_policy}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class ComputeResourcePolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy google_compute_resource_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy google_compute_resource_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the resource, provided by the client when initially creating the resource. The resource name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_'? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#name ComputeResourcePolicy#name}
-        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#description ComputeResourcePolicy#description}
-        :param disk_consistency_group_policy: disk_consistency_group_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#disk_consistency_group_policy ComputeResourcePolicy#disk_consistency_group_policy}
-        :param group_placement_policy: group_placement_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#group_placement_policy ComputeResourcePolicy#group_placement_policy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#id ComputeResourcePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_schedule_policy: instance_schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#instance_schedule_policy ComputeResourcePolicy#instance_schedule_policy}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#project ComputeResourcePolicy#project}.
-        :param region: Region where resource policy resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#region ComputeResourcePolicy#region}
-        :param snapshot_schedule_policy: snapshot_schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#snapshot_schedule_policy ComputeResourcePolicy#snapshot_schedule_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#timeouts ComputeResourcePolicy#timeouts}
+        :param name: The name of the resource, provided by the client when initially creating the resource. The resource name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_'? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#name ComputeResourcePolicy#name}
+        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#description ComputeResourcePolicy#description}
+        :param disk_consistency_group_policy: disk_consistency_group_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#disk_consistency_group_policy ComputeResourcePolicy#disk_consistency_group_policy}
+        :param group_placement_policy: group_placement_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#group_placement_policy ComputeResourcePolicy#group_placement_policy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#id ComputeResourcePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_schedule_policy: instance_schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#instance_schedule_policy ComputeResourcePolicy#instance_schedule_policy}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#project ComputeResourcePolicy#project}.
+        :param region: Region where resource policy resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#region ComputeResourcePolicy#region}
+        :param snapshot_schedule_policy: snapshot_schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#snapshot_schedule_policy ComputeResourcePolicy#snapshot_schedule_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#timeouts ComputeResourcePolicy#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class ComputeResourcePolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeResourcePolicy to import.
-        :param import_from_id: The id of the existing ComputeResourcePolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeResourcePolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeResourcePolicy to import is found.
         '''
         if __debug__:
@@ -148,7 +148,7 @@ class ComputeResourcePolicy(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Enable disk consistency on the resource policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#enabled ComputeResourcePolicy#enabled}
+        :param enabled: Enable disk consistency on the resource policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#enabled ComputeResourcePolicy#enabled}
         '''
         value = ComputeResourcePolicyDiskConsistencyGroupPolicy(enabled=enabled)
 
@@ -163,9 +163,9 @@ class ComputeResourcePolicy(
         vm_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param availability_domain_count: The number of availability domains instances will be spread across. If two instances are in different availability domain, they will not be put in the same low latency network Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#availability_domain_count ComputeResourcePolicy#availability_domain_count}
-        :param collocation: Collocation specifies whether to place VMs inside the same availability domain on the same low-latency network. Specify 'COLLOCATED' to enable collocation. Can only be specified with 'vm_count'. If compute instances are created with a COLLOCATED policy, then exactly 'vm_count' instances must be created at the same time with the resource policy attached. Possible values: ["COLLOCATED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#collocation ComputeResourcePolicy#collocation}
-        :param vm_count: Number of VMs in this placement group. Google does not recommend that you use this field unless you use a compact policy and you want your policy to work only if it contains this exact number of VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#vm_count ComputeResourcePolicy#vm_count}
+        :param availability_domain_count: The number of availability domains instances will be spread across. If two instances are in different availability domain, they will not be put in the same low latency network Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#availability_domain_count ComputeResourcePolicy#availability_domain_count}
+        :param collocation: Collocation specifies whether to place VMs inside the same availability domain on the same low-latency network. Specify 'COLLOCATED' to enable collocation. Can only be specified with 'vm_count'. If compute instances are created with a COLLOCATED policy, then exactly 'vm_count' instances must be created at the same time with the resource policy attached. Possible values: ["COLLOCATED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#collocation ComputeResourcePolicy#collocation}
+        :param vm_count: Number of VMs in this placement group. Google does not recommend that you use this field unless you use a compact policy and you want your policy to work only if it contains this exact number of VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#vm_count ComputeResourcePolicy#vm_count}
         '''
         value = ComputeResourcePolicyGroupPlacementPolicy(
             availability_domain_count=availability_domain_count,
@@ -186,11 +186,11 @@ class ComputeResourcePolicy(
         vm_stop_schedule: typing.Optional[typing.Union["ComputeResourcePolicyInstanceSchedulePolicyVmStopSchedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param time_zone: Specifies the time zone to be used in interpreting the schedule. The value of this field must be a time zone name from the tz database: http://en.wikipedia.org/wiki/Tz_database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#time_zone ComputeResourcePolicy#time_zone}
-        :param expiration_time: The expiration time of the schedule. The timestamp is an RFC3339 string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#expiration_time ComputeResourcePolicy#expiration_time}
-        :param start_time: The start time of the schedule. The timestamp is an RFC3339 string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
-        :param vm_start_schedule: vm_start_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#vm_start_schedule ComputeResourcePolicy#vm_start_schedule}
-        :param vm_stop_schedule: vm_stop_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#vm_stop_schedule ComputeResourcePolicy#vm_stop_schedule}
+        :param time_zone: Specifies the time zone to be used in interpreting the schedule. The value of this field must be a time zone name from the tz database: http://en.wikipedia.org/wiki/Tz_database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#time_zone ComputeResourcePolicy#time_zone}
+        :param expiration_time: The expiration time of the schedule. The timestamp is an RFC3339 string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#expiration_time ComputeResourcePolicy#expiration_time}
+        :param start_time: The start time of the schedule. The timestamp is an RFC3339 string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
+        :param vm_start_schedule: vm_start_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#vm_start_schedule ComputeResourcePolicy#vm_start_schedule}
+        :param vm_stop_schedule: vm_stop_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#vm_stop_schedule ComputeResourcePolicy#vm_stop_schedule}
         '''
         value = ComputeResourcePolicyInstanceSchedulePolicy(
             time_zone=time_zone,
@@ -211,9 +211,9 @@ class ComputeResourcePolicy(
         snapshot_properties: typing.Optional[typing.Union["ComputeResourcePolicySnapshotSchedulePolicySnapshotProperties", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#schedule ComputeResourcePolicy#schedule}
-        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#retention_policy ComputeResourcePolicy#retention_policy}
-        :param snapshot_properties: snapshot_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#snapshot_properties ComputeResourcePolicy#snapshot_properties}
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#schedule ComputeResourcePolicy#schedule}
+        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#retention_policy ComputeResourcePolicy#retention_policy}
+        :param snapshot_properties: snapshot_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#snapshot_properties ComputeResourcePolicy#snapshot_properties}
         '''
         value = ComputeResourcePolicySnapshotSchedulePolicy(
             schedule=schedule,
@@ -232,9 +232,9 @@ class ComputeResourcePolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#create ComputeResourcePolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#delete ComputeResourcePolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#update ComputeResourcePolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#create ComputeResourcePolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#delete ComputeResourcePolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#update ComputeResourcePolicy#update}.
         '''
         value = ComputeResourcePolicyTimeouts(
             create=create, delete=delete, update=update
@@ -503,16 +503,16 @@ class ComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the resource, provided by the client when initially creating the resource. The resource name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_'? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#name ComputeResourcePolicy#name}
-        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#description ComputeResourcePolicy#description}
-        :param disk_consistency_group_policy: disk_consistency_group_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#disk_consistency_group_policy ComputeResourcePolicy#disk_consistency_group_policy}
-        :param group_placement_policy: group_placement_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#group_placement_policy ComputeResourcePolicy#group_placement_policy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#id ComputeResourcePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_schedule_policy: instance_schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#instance_schedule_policy ComputeResourcePolicy#instance_schedule_policy}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#project ComputeResourcePolicy#project}.
-        :param region: Region where resource policy resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#region ComputeResourcePolicy#region}
-        :param snapshot_schedule_policy: snapshot_schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#snapshot_schedule_policy ComputeResourcePolicy#snapshot_schedule_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#timeouts ComputeResourcePolicy#timeouts}
+        :param name: The name of the resource, provided by the client when initially creating the resource. The resource name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_'? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#name ComputeResourcePolicy#name}
+        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#description ComputeResourcePolicy#description}
+        :param disk_consistency_group_policy: disk_consistency_group_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#disk_consistency_group_policy ComputeResourcePolicy#disk_consistency_group_policy}
+        :param group_placement_policy: group_placement_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#group_placement_policy ComputeResourcePolicy#group_placement_policy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#id ComputeResourcePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_schedule_policy: instance_schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#instance_schedule_policy ComputeResourcePolicy#instance_schedule_policy}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#project ComputeResourcePolicy#project}.
+        :param region: Region where resource policy resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#region ComputeResourcePolicy#region}
+        :param snapshot_schedule_policy: snapshot_schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#snapshot_schedule_policy ComputeResourcePolicy#snapshot_schedule_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#timeouts ComputeResourcePolicy#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -656,7 +656,7 @@ class ComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         must be a dash, lowercase letter, or digit, except the last character,
         which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#name ComputeResourcePolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#name ComputeResourcePolicy#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -666,7 +666,7 @@ class ComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource. Provide this property when you create the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#description ComputeResourcePolicy#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#description ComputeResourcePolicy#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -677,7 +677,7 @@ class ComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ComputeResourcePolicyDiskConsistencyGroupPolicy"]:
         '''disk_consistency_group_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#disk_consistency_group_policy ComputeResourcePolicy#disk_consistency_group_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#disk_consistency_group_policy ComputeResourcePolicy#disk_consistency_group_policy}
         '''
         result = self._values.get("disk_consistency_group_policy")
         return typing.cast(typing.Optional["ComputeResourcePolicyDiskConsistencyGroupPolicy"], result)
@@ -688,14 +688,14 @@ class ComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ComputeResourcePolicyGroupPlacementPolicy"]:
         '''group_placement_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#group_placement_policy ComputeResourcePolicy#group_placement_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#group_placement_policy ComputeResourcePolicy#group_placement_policy}
         '''
         result = self._values.get("group_placement_policy")
         return typing.cast(typing.Optional["ComputeResourcePolicyGroupPlacementPolicy"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#id ComputeResourcePolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#id ComputeResourcePolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -709,14 +709,14 @@ class ComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ComputeResourcePolicyInstanceSchedulePolicy"]:
         '''instance_schedule_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#instance_schedule_policy ComputeResourcePolicy#instance_schedule_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#instance_schedule_policy ComputeResourcePolicy#instance_schedule_policy}
         '''
         result = self._values.get("instance_schedule_policy")
         return typing.cast(typing.Optional["ComputeResourcePolicyInstanceSchedulePolicy"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#project ComputeResourcePolicy#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#project ComputeResourcePolicy#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -724,7 +724,7 @@ class ComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where resource policy resides.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#region ComputeResourcePolicy#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#region ComputeResourcePolicy#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -735,7 +735,7 @@ class ComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ComputeResourcePolicySnapshotSchedulePolicy"]:
         '''snapshot_schedule_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#snapshot_schedule_policy ComputeResourcePolicy#snapshot_schedule_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#snapshot_schedule_policy ComputeResourcePolicy#snapshot_schedule_policy}
         '''
         result = self._values.get("snapshot_schedule_policy")
         return typing.cast(typing.Optional["ComputeResourcePolicySnapshotSchedulePolicy"], result)
@@ -744,7 +744,7 @@ class ComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeResourcePolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#timeouts ComputeResourcePolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#timeouts ComputeResourcePolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeResourcePolicyTimeouts"], result)
@@ -773,7 +773,7 @@ class ComputeResourcePolicyDiskConsistencyGroupPolicy:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Enable disk consistency on the resource policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#enabled ComputeResourcePolicy#enabled}
+        :param enabled: Enable disk consistency on the resource policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#enabled ComputeResourcePolicy#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dd051806b9d0fec1e28ddf027128f8ad6a06a5cc7db68f4db3ae42d9d17d2d6b)
@@ -786,7 +786,7 @@ class ComputeResourcePolicyDiskConsistencyGroupPolicy:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Enable disk consistency on the resource policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#enabled ComputeResourcePolicy#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#enabled ComputeResourcePolicy#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -882,9 +882,9 @@ class ComputeResourcePolicyGroupPlacementPolicy:
         vm_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param availability_domain_count: The number of availability domains instances will be spread across. If two instances are in different availability domain, they will not be put in the same low latency network Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#availability_domain_count ComputeResourcePolicy#availability_domain_count}
-        :param collocation: Collocation specifies whether to place VMs inside the same availability domain on the same low-latency network. Specify 'COLLOCATED' to enable collocation. Can only be specified with 'vm_count'. If compute instances are created with a COLLOCATED policy, then exactly 'vm_count' instances must be created at the same time with the resource policy attached. Possible values: ["COLLOCATED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#collocation ComputeResourcePolicy#collocation}
-        :param vm_count: Number of VMs in this placement group. Google does not recommend that you use this field unless you use a compact policy and you want your policy to work only if it contains this exact number of VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#vm_count ComputeResourcePolicy#vm_count}
+        :param availability_domain_count: The number of availability domains instances will be spread across. If two instances are in different availability domain, they will not be put in the same low latency network Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#availability_domain_count ComputeResourcePolicy#availability_domain_count}
+        :param collocation: Collocation specifies whether to place VMs inside the same availability domain on the same low-latency network. Specify 'COLLOCATED' to enable collocation. Can only be specified with 'vm_count'. If compute instances are created with a COLLOCATED policy, then exactly 'vm_count' instances must be created at the same time with the resource policy attached. Possible values: ["COLLOCATED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#collocation ComputeResourcePolicy#collocation}
+        :param vm_count: Number of VMs in this placement group. Google does not recommend that you use this field unless you use a compact policy and you want your policy to work only if it contains this exact number of VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#vm_count ComputeResourcePolicy#vm_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be5a29e15f41254bcdb9f0497c4044bfa9e0e24ee89e2007012dc472c4239ae5)
@@ -906,7 +906,7 @@ class ComputeResourcePolicyGroupPlacementPolicy:
         If two instances are in different
         availability domain, they will not be put in the same low latency network
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#availability_domain_count ComputeResourcePolicy#availability_domain_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#availability_domain_count ComputeResourcePolicy#availability_domain_count}
         '''
         result = self._values.get("availability_domain_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -919,7 +919,7 @@ class ComputeResourcePolicyGroupPlacementPolicy:
         with a COLLOCATED policy, then exactly 'vm_count' instances must be created at the same time with the resource policy
         attached. Possible values: ["COLLOCATED"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#collocation ComputeResourcePolicy#collocation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#collocation ComputeResourcePolicy#collocation}
         '''
         result = self._values.get("collocation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -932,7 +932,7 @@ class ComputeResourcePolicyGroupPlacementPolicy:
         unless you use a compact policy and you want your policy to work only if it contains this
         exact number of VMs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#vm_count ComputeResourcePolicy#vm_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#vm_count ComputeResourcePolicy#vm_count}
         '''
         result = self._values.get("vm_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1072,11 +1072,11 @@ class ComputeResourcePolicyInstanceSchedulePolicy:
         vm_stop_schedule: typing.Optional[typing.Union["ComputeResourcePolicyInstanceSchedulePolicyVmStopSchedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param time_zone: Specifies the time zone to be used in interpreting the schedule. The value of this field must be a time zone name from the tz database: http://en.wikipedia.org/wiki/Tz_database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#time_zone ComputeResourcePolicy#time_zone}
-        :param expiration_time: The expiration time of the schedule. The timestamp is an RFC3339 string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#expiration_time ComputeResourcePolicy#expiration_time}
-        :param start_time: The start time of the schedule. The timestamp is an RFC3339 string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
-        :param vm_start_schedule: vm_start_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#vm_start_schedule ComputeResourcePolicy#vm_start_schedule}
-        :param vm_stop_schedule: vm_stop_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#vm_stop_schedule ComputeResourcePolicy#vm_stop_schedule}
+        :param time_zone: Specifies the time zone to be used in interpreting the schedule. The value of this field must be a time zone name from the tz database: http://en.wikipedia.org/wiki/Tz_database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#time_zone ComputeResourcePolicy#time_zone}
+        :param expiration_time: The expiration time of the schedule. The timestamp is an RFC3339 string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#expiration_time ComputeResourcePolicy#expiration_time}
+        :param start_time: The start time of the schedule. The timestamp is an RFC3339 string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
+        :param vm_start_schedule: vm_start_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#vm_start_schedule ComputeResourcePolicy#vm_start_schedule}
+        :param vm_stop_schedule: vm_stop_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#vm_stop_schedule ComputeResourcePolicy#vm_stop_schedule}
         '''
         if isinstance(vm_start_schedule, dict):
             vm_start_schedule = ComputeResourcePolicyInstanceSchedulePolicyVmStartSchedule(**vm_start_schedule)
@@ -1108,7 +1108,7 @@ class ComputeResourcePolicyInstanceSchedulePolicy:
         The value of this field must be a time zone name
         from the tz database: http://en.wikipedia.org/wiki/Tz_database.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#time_zone ComputeResourcePolicy#time_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#time_zone ComputeResourcePolicy#time_zone}
         '''
         result = self._values.get("time_zone")
         assert result is not None, "Required property 'time_zone' is missing"
@@ -1118,7 +1118,7 @@ class ComputeResourcePolicyInstanceSchedulePolicy:
     def expiration_time(self) -> typing.Optional[builtins.str]:
         '''The expiration time of the schedule. The timestamp is an RFC3339 string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#expiration_time ComputeResourcePolicy#expiration_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#expiration_time ComputeResourcePolicy#expiration_time}
         '''
         result = self._values.get("expiration_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1127,7 +1127,7 @@ class ComputeResourcePolicyInstanceSchedulePolicy:
     def start_time(self) -> typing.Optional[builtins.str]:
         '''The start time of the schedule. The timestamp is an RFC3339 string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
         '''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1138,7 +1138,7 @@ class ComputeResourcePolicyInstanceSchedulePolicy:
     ) -> typing.Optional["ComputeResourcePolicyInstanceSchedulePolicyVmStartSchedule"]:
         '''vm_start_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#vm_start_schedule ComputeResourcePolicy#vm_start_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#vm_start_schedule ComputeResourcePolicy#vm_start_schedule}
         '''
         result = self._values.get("vm_start_schedule")
         return typing.cast(typing.Optional["ComputeResourcePolicyInstanceSchedulePolicyVmStartSchedule"], result)
@@ -1149,7 +1149,7 @@ class ComputeResourcePolicyInstanceSchedulePolicy:
     ) -> typing.Optional["ComputeResourcePolicyInstanceSchedulePolicyVmStopSchedule"]:
         '''vm_stop_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#vm_stop_schedule ComputeResourcePolicy#vm_stop_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#vm_stop_schedule ComputeResourcePolicy#vm_stop_schedule}
         '''
         result = self._values.get("vm_stop_schedule")
         return typing.cast(typing.Optional["ComputeResourcePolicyInstanceSchedulePolicyVmStopSchedule"], result)
@@ -1189,7 +1189,7 @@ class ComputeResourcePolicyInstanceSchedulePolicyOutputReference(
     @jsii.member(jsii_name="putVmStartSchedule")
     def put_vm_start_schedule(self, *, schedule: builtins.str) -> None:
         '''
-        :param schedule: Specifies the frequency for the operation, using the unix-cron format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#schedule ComputeResourcePolicy#schedule}
+        :param schedule: Specifies the frequency for the operation, using the unix-cron format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#schedule ComputeResourcePolicy#schedule}
         '''
         value = ComputeResourcePolicyInstanceSchedulePolicyVmStartSchedule(
             schedule=schedule
@@ -1200,7 +1200,7 @@ class ComputeResourcePolicyInstanceSchedulePolicyOutputReference(
     @jsii.member(jsii_name="putVmStopSchedule")
     def put_vm_stop_schedule(self, *, schedule: builtins.str) -> None:
         '''
-        :param schedule: Specifies the frequency for the operation, using the unix-cron format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#schedule ComputeResourcePolicy#schedule}
+        :param schedule: Specifies the frequency for the operation, using the unix-cron format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#schedule ComputeResourcePolicy#schedule}
         '''
         value = ComputeResourcePolicyInstanceSchedulePolicyVmStopSchedule(
             schedule=schedule
@@ -1329,7 +1329,7 @@ class ComputeResourcePolicyInstanceSchedulePolicyOutputReference(
 class ComputeResourcePolicyInstanceSchedulePolicyVmStartSchedule:
     def __init__(self, *, schedule: builtins.str) -> None:
         '''
-        :param schedule: Specifies the frequency for the operation, using the unix-cron format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#schedule ComputeResourcePolicy#schedule}
+        :param schedule: Specifies the frequency for the operation, using the unix-cron format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#schedule ComputeResourcePolicy#schedule}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__db52cd2c4cb8f1fcf84b44e9d6b37989eee059f4e9022c46ca4a7938795b04be)
@@ -1342,7 +1342,7 @@ class ComputeResourcePolicyInstanceSchedulePolicyVmStartSchedule:
     def schedule(self) -> builtins.str:
         '''Specifies the frequency for the operation, using the unix-cron format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#schedule ComputeResourcePolicy#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#schedule ComputeResourcePolicy#schedule}
         '''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
@@ -1423,7 +1423,7 @@ class ComputeResourcePolicyInstanceSchedulePolicyVmStartScheduleOutputReference(
 class ComputeResourcePolicyInstanceSchedulePolicyVmStopSchedule:
     def __init__(self, *, schedule: builtins.str) -> None:
         '''
-        :param schedule: Specifies the frequency for the operation, using the unix-cron format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#schedule ComputeResourcePolicy#schedule}
+        :param schedule: Specifies the frequency for the operation, using the unix-cron format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#schedule ComputeResourcePolicy#schedule}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2cc19f7555adeb4c3049cbe1382d46551b1a8c7cbe96f386abf0add52a853f19)
@@ -1436,7 +1436,7 @@ class ComputeResourcePolicyInstanceSchedulePolicyVmStopSchedule:
     def schedule(self) -> builtins.str:
         '''Specifies the frequency for the operation, using the unix-cron format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#schedule ComputeResourcePolicy#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#schedule ComputeResourcePolicy#schedule}
         '''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
@@ -1527,9 +1527,9 @@ class ComputeResourcePolicySnapshotSchedulePolicy:
         snapshot_properties: typing.Optional[typing.Union["ComputeResourcePolicySnapshotSchedulePolicySnapshotProperties", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#schedule ComputeResourcePolicy#schedule}
-        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#retention_policy ComputeResourcePolicy#retention_policy}
-        :param snapshot_properties: snapshot_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#snapshot_properties ComputeResourcePolicy#snapshot_properties}
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#schedule ComputeResourcePolicy#schedule}
+        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#retention_policy ComputeResourcePolicy#retention_policy}
+        :param snapshot_properties: snapshot_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#snapshot_properties ComputeResourcePolicy#snapshot_properties}
         '''
         if isinstance(schedule, dict):
             schedule = ComputeResourcePolicySnapshotSchedulePolicySchedule(**schedule)
@@ -1554,7 +1554,7 @@ class ComputeResourcePolicySnapshotSchedulePolicy:
     def schedule(self) -> "ComputeResourcePolicySnapshotSchedulePolicySchedule":
         '''schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#schedule ComputeResourcePolicy#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#schedule ComputeResourcePolicy#schedule}
         '''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
@@ -1566,7 +1566,7 @@ class ComputeResourcePolicySnapshotSchedulePolicy:
     ) -> typing.Optional["ComputeResourcePolicySnapshotSchedulePolicyRetentionPolicy"]:
         '''retention_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#retention_policy ComputeResourcePolicy#retention_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#retention_policy ComputeResourcePolicy#retention_policy}
         '''
         result = self._values.get("retention_policy")
         return typing.cast(typing.Optional["ComputeResourcePolicySnapshotSchedulePolicyRetentionPolicy"], result)
@@ -1577,7 +1577,7 @@ class ComputeResourcePolicySnapshotSchedulePolicy:
     ) -> typing.Optional["ComputeResourcePolicySnapshotSchedulePolicySnapshotProperties"]:
         '''snapshot_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#snapshot_properties ComputeResourcePolicy#snapshot_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#snapshot_properties ComputeResourcePolicy#snapshot_properties}
         '''
         result = self._values.get("snapshot_properties")
         return typing.cast(typing.Optional["ComputeResourcePolicySnapshotSchedulePolicySnapshotProperties"], result)
@@ -1622,8 +1622,8 @@ class ComputeResourcePolicySnapshotSchedulePolicyOutputReference(
         on_source_disk_delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_retention_days: Maximum age of the snapshot that is allowed to be kept. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#max_retention_days ComputeResourcePolicy#max_retention_days}
-        :param on_source_disk_delete: Specifies the behavior to apply to scheduled snapshots when the source disk is deleted. Default value: "KEEP_AUTO_SNAPSHOTS" Possible values: ["KEEP_AUTO_SNAPSHOTS", "APPLY_RETENTION_POLICY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#on_source_disk_delete ComputeResourcePolicy#on_source_disk_delete}
+        :param max_retention_days: Maximum age of the snapshot that is allowed to be kept. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#max_retention_days ComputeResourcePolicy#max_retention_days}
+        :param on_source_disk_delete: Specifies the behavior to apply to scheduled snapshots when the source disk is deleted. Default value: "KEEP_AUTO_SNAPSHOTS" Possible values: ["KEEP_AUTO_SNAPSHOTS", "APPLY_RETENTION_POLICY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#on_source_disk_delete ComputeResourcePolicy#on_source_disk_delete}
         '''
         value = ComputeResourcePolicySnapshotSchedulePolicyRetentionPolicy(
             max_retention_days=max_retention_days,
@@ -1641,9 +1641,9 @@ class ComputeResourcePolicySnapshotSchedulePolicyOutputReference(
         weekly_schedule: typing.Optional[typing.Union["ComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklySchedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#daily_schedule ComputeResourcePolicy#daily_schedule}
-        :param hourly_schedule: hourly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#hourly_schedule ComputeResourcePolicy#hourly_schedule}
-        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#weekly_schedule ComputeResourcePolicy#weekly_schedule}
+        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#daily_schedule ComputeResourcePolicy#daily_schedule}
+        :param hourly_schedule: hourly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#hourly_schedule ComputeResourcePolicy#hourly_schedule}
+        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#weekly_schedule ComputeResourcePolicy#weekly_schedule}
         '''
         value = ComputeResourcePolicySnapshotSchedulePolicySchedule(
             daily_schedule=daily_schedule,
@@ -1663,10 +1663,10 @@ class ComputeResourcePolicySnapshotSchedulePolicyOutputReference(
         storage_locations: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param chain_name: Creates the new snapshot in the snapshot chain labeled with the specified name. The chain name must be 1-63 characters long and comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#chain_name ComputeResourcePolicy#chain_name}
-        :param guest_flush: Whether to perform a 'guest aware' snapshot. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#guest_flush ComputeResourcePolicy#guest_flush}
-        :param labels: A set of key-value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#labels ComputeResourcePolicy#labels}
-        :param storage_locations: Cloud Storage bucket location to store the auto snapshot (regional or multi-regional). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#storage_locations ComputeResourcePolicy#storage_locations}
+        :param chain_name: Creates the new snapshot in the snapshot chain labeled with the specified name. The chain name must be 1-63 characters long and comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#chain_name ComputeResourcePolicy#chain_name}
+        :param guest_flush: Whether to perform a 'guest aware' snapshot. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#guest_flush ComputeResourcePolicy#guest_flush}
+        :param labels: A set of key-value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#labels ComputeResourcePolicy#labels}
+        :param storage_locations: Cloud Storage bucket location to store the auto snapshot (regional or multi-regional). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#storage_locations ComputeResourcePolicy#storage_locations}
         '''
         value = ComputeResourcePolicySnapshotSchedulePolicySnapshotProperties(
             chain_name=chain_name,
@@ -1761,8 +1761,8 @@ class ComputeResourcePolicySnapshotSchedulePolicyRetentionPolicy:
         on_source_disk_delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_retention_days: Maximum age of the snapshot that is allowed to be kept. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#max_retention_days ComputeResourcePolicy#max_retention_days}
-        :param on_source_disk_delete: Specifies the behavior to apply to scheduled snapshots when the source disk is deleted. Default value: "KEEP_AUTO_SNAPSHOTS" Possible values: ["KEEP_AUTO_SNAPSHOTS", "APPLY_RETENTION_POLICY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#on_source_disk_delete ComputeResourcePolicy#on_source_disk_delete}
+        :param max_retention_days: Maximum age of the snapshot that is allowed to be kept. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#max_retention_days ComputeResourcePolicy#max_retention_days}
+        :param on_source_disk_delete: Specifies the behavior to apply to scheduled snapshots when the source disk is deleted. Default value: "KEEP_AUTO_SNAPSHOTS" Possible values: ["KEEP_AUTO_SNAPSHOTS", "APPLY_RETENTION_POLICY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#on_source_disk_delete ComputeResourcePolicy#on_source_disk_delete}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__70c995b729de2f04a99ff6647534552bbd2986116c7568f0e515b5f1d871059e)
@@ -1778,7 +1778,7 @@ class ComputeResourcePolicySnapshotSchedulePolicyRetentionPolicy:
     def max_retention_days(self) -> jsii.Number:
         '''Maximum age of the snapshot that is allowed to be kept.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#max_retention_days ComputeResourcePolicy#max_retention_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#max_retention_days ComputeResourcePolicy#max_retention_days}
         '''
         result = self._values.get("max_retention_days")
         assert result is not None, "Required property 'max_retention_days' is missing"
@@ -1790,7 +1790,7 @@ class ComputeResourcePolicySnapshotSchedulePolicyRetentionPolicy:
 
         Default value: "KEEP_AUTO_SNAPSHOTS" Possible values: ["KEEP_AUTO_SNAPSHOTS", "APPLY_RETENTION_POLICY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#on_source_disk_delete ComputeResourcePolicy#on_source_disk_delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#on_source_disk_delete ComputeResourcePolicy#on_source_disk_delete}
         '''
         result = self._values.get("on_source_disk_delete")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1901,9 +1901,9 @@ class ComputeResourcePolicySnapshotSchedulePolicySchedule:
         weekly_schedule: typing.Optional[typing.Union["ComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklySchedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#daily_schedule ComputeResourcePolicy#daily_schedule}
-        :param hourly_schedule: hourly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#hourly_schedule ComputeResourcePolicy#hourly_schedule}
-        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#weekly_schedule ComputeResourcePolicy#weekly_schedule}
+        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#daily_schedule ComputeResourcePolicy#daily_schedule}
+        :param hourly_schedule: hourly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#hourly_schedule ComputeResourcePolicy#hourly_schedule}
+        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#weekly_schedule ComputeResourcePolicy#weekly_schedule}
         '''
         if isinstance(daily_schedule, dict):
             daily_schedule = ComputeResourcePolicySnapshotSchedulePolicyScheduleDailySchedule(**daily_schedule)
@@ -1930,7 +1930,7 @@ class ComputeResourcePolicySnapshotSchedulePolicySchedule:
     ) -> typing.Optional["ComputeResourcePolicySnapshotSchedulePolicyScheduleDailySchedule"]:
         '''daily_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#daily_schedule ComputeResourcePolicy#daily_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#daily_schedule ComputeResourcePolicy#daily_schedule}
         '''
         result = self._values.get("daily_schedule")
         return typing.cast(typing.Optional["ComputeResourcePolicySnapshotSchedulePolicyScheduleDailySchedule"], result)
@@ -1941,7 +1941,7 @@ class ComputeResourcePolicySnapshotSchedulePolicySchedule:
     ) -> typing.Optional["ComputeResourcePolicySnapshotSchedulePolicyScheduleHourlySchedule"]:
         '''hourly_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#hourly_schedule ComputeResourcePolicy#hourly_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#hourly_schedule ComputeResourcePolicy#hourly_schedule}
         '''
         result = self._values.get("hourly_schedule")
         return typing.cast(typing.Optional["ComputeResourcePolicySnapshotSchedulePolicyScheduleHourlySchedule"], result)
@@ -1952,7 +1952,7 @@ class ComputeResourcePolicySnapshotSchedulePolicySchedule:
     ) -> typing.Optional["ComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklySchedule"]:
         '''weekly_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#weekly_schedule ComputeResourcePolicy#weekly_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#weekly_schedule ComputeResourcePolicy#weekly_schedule}
         '''
         result = self._values.get("weekly_schedule")
         return typing.cast(typing.Optional["ComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklySchedule"], result)
@@ -1977,8 +1977,8 @@ class ComputeResourcePolicySnapshotSchedulePolicySchedule:
 class ComputeResourcePolicySnapshotSchedulePolicyScheduleDailySchedule:
     def __init__(self, *, days_in_cycle: jsii.Number, start_time: builtins.str) -> None:
         '''
-        :param days_in_cycle: Defines a schedule with units measured in days. The value determines how many days pass between the start of each cycle. Days in cycle for snapshot schedule policy must be 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#days_in_cycle ComputeResourcePolicy#days_in_cycle}
-        :param start_time: This must be in UTC format that resolves to one of 00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. For example, both 13:00-5 and 08:00 are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
+        :param days_in_cycle: Defines a schedule with units measured in days. The value determines how many days pass between the start of each cycle. Days in cycle for snapshot schedule policy must be 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#days_in_cycle ComputeResourcePolicy#days_in_cycle}
+        :param start_time: This must be in UTC format that resolves to one of 00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. For example, both 13:00-5 and 08:00 are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b4b6c613b3f6412c4218f3f3b064e876a70572d4476afaf14c0c76308dcd302f)
@@ -1995,7 +1995,7 @@ class ComputeResourcePolicySnapshotSchedulePolicyScheduleDailySchedule:
 
         The value determines how many days pass between the start of each cycle. Days in cycle for snapshot schedule policy must be 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#days_in_cycle ComputeResourcePolicy#days_in_cycle}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#days_in_cycle ComputeResourcePolicy#days_in_cycle}
         '''
         result = self._values.get("days_in_cycle")
         assert result is not None, "Required property 'days_in_cycle' is missing"
@@ -2008,7 +2008,7 @@ class ComputeResourcePolicySnapshotSchedulePolicyScheduleDailySchedule:
         For example,
         both 13:00-5 and 08:00 are valid.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -2111,8 +2111,8 @@ class ComputeResourcePolicySnapshotSchedulePolicyScheduleHourlySchedule:
         start_time: builtins.str,
     ) -> None:
         '''
-        :param hours_in_cycle: The number of hours between snapshots. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#hours_in_cycle ComputeResourcePolicy#hours_in_cycle}
-        :param start_time: Time within the window to start the operations. It must be in an hourly format "HH:MM", where HH : [00-23] and MM : [00] GMT. eg: 21:00 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
+        :param hours_in_cycle: The number of hours between snapshots. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#hours_in_cycle ComputeResourcePolicy#hours_in_cycle}
+        :param start_time: Time within the window to start the operations. It must be in an hourly format "HH:MM", where HH : [00-23] and MM : [00] GMT. eg: 21:00 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ed9a6e49437c634a0ab8bac23c31b37336ff551885f97d4a8b7b169dc28b1f0f)
@@ -2127,7 +2127,7 @@ class ComputeResourcePolicySnapshotSchedulePolicyScheduleHourlySchedule:
     def hours_in_cycle(self) -> jsii.Number:
         '''The number of hours between snapshots.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#hours_in_cycle ComputeResourcePolicy#hours_in_cycle}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#hours_in_cycle ComputeResourcePolicy#hours_in_cycle}
         '''
         result = self._values.get("hours_in_cycle")
         assert result is not None, "Required property 'hours_in_cycle' is missing"
@@ -2140,7 +2140,7 @@ class ComputeResourcePolicySnapshotSchedulePolicyScheduleHourlySchedule:
         It must be in an hourly format "HH:MM",
         where HH : [00-23] and MM : [00] GMT. eg: 21:00
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -2258,8 +2258,8 @@ class ComputeResourcePolicySnapshotSchedulePolicyScheduleOutputReference(
         start_time: builtins.str,
     ) -> None:
         '''
-        :param days_in_cycle: Defines a schedule with units measured in days. The value determines how many days pass between the start of each cycle. Days in cycle for snapshot schedule policy must be 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#days_in_cycle ComputeResourcePolicy#days_in_cycle}
-        :param start_time: This must be in UTC format that resolves to one of 00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. For example, both 13:00-5 and 08:00 are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
+        :param days_in_cycle: Defines a schedule with units measured in days. The value determines how many days pass between the start of each cycle. Days in cycle for snapshot schedule policy must be 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#days_in_cycle ComputeResourcePolicy#days_in_cycle}
+        :param start_time: This must be in UTC format that resolves to one of 00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. For example, both 13:00-5 and 08:00 are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
         '''
         value = ComputeResourcePolicySnapshotSchedulePolicyScheduleDailySchedule(
             days_in_cycle=days_in_cycle, start_time=start_time
@@ -2275,8 +2275,8 @@ class ComputeResourcePolicySnapshotSchedulePolicyScheduleOutputReference(
         start_time: builtins.str,
     ) -> None:
         '''
-        :param hours_in_cycle: The number of hours between snapshots. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#hours_in_cycle ComputeResourcePolicy#hours_in_cycle}
-        :param start_time: Time within the window to start the operations. It must be in an hourly format "HH:MM", where HH : [00-23] and MM : [00] GMT. eg: 21:00 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
+        :param hours_in_cycle: The number of hours between snapshots. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#hours_in_cycle ComputeResourcePolicy#hours_in_cycle}
+        :param start_time: Time within the window to start the operations. It must be in an hourly format "HH:MM", where HH : [00-23] and MM : [00] GMT. eg: 21:00 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
         '''
         value = ComputeResourcePolicySnapshotSchedulePolicyScheduleHourlySchedule(
             hours_in_cycle=hours_in_cycle, start_time=start_time
@@ -2291,7 +2291,7 @@ class ComputeResourcePolicySnapshotSchedulePolicyScheduleOutputReference(
         day_of_weeks: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklyScheduleDayOfWeeks", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param day_of_weeks: day_of_weeks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#day_of_weeks ComputeResourcePolicy#day_of_weeks}
+        :param day_of_weeks: day_of_weeks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#day_of_weeks ComputeResourcePolicy#day_of_weeks}
         '''
         value = ComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklySchedule(
             day_of_weeks=day_of_weeks
@@ -2383,7 +2383,7 @@ class ComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklySchedule:
         day_of_weeks: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklyScheduleDayOfWeeks", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param day_of_weeks: day_of_weeks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#day_of_weeks ComputeResourcePolicy#day_of_weeks}
+        :param day_of_weeks: day_of_weeks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#day_of_weeks ComputeResourcePolicy#day_of_weeks}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__153999083f30eeef88ab0f316c6257595ccf419f7356b06c6c3eb82eaf577c51)
@@ -2398,7 +2398,7 @@ class ComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklySchedule:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklyScheduleDayOfWeeks"]]:
         '''day_of_weeks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#day_of_weeks ComputeResourcePolicy#day_of_weeks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#day_of_weeks ComputeResourcePolicy#day_of_weeks}
         '''
         result = self._values.get("day_of_weeks")
         assert result is not None, "Required property 'day_of_weeks' is missing"
@@ -2424,8 +2424,8 @@ class ComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklySchedule:
 class ComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklyScheduleDayOfWeeks:
     def __init__(self, *, day: builtins.str, start_time: builtins.str) -> None:
         '''
-        :param day: The day of the week to create the snapshot. e.g. MONDAY Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#day ComputeResourcePolicy#day}
-        :param start_time: Time within the window to start the operations. It must be in format "HH:MM", where HH : [00-23] and MM : [00-00] GMT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
+        :param day: The day of the week to create the snapshot. e.g. MONDAY Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#day ComputeResourcePolicy#day}
+        :param start_time: Time within the window to start the operations. It must be in format "HH:MM", where HH : [00-23] and MM : [00-00] GMT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c5324d2c340ba8f3b3b42a5b968610fd0e31638ec14ee56f0b70c9d7b585eff4)
@@ -2442,7 +2442,7 @@ class ComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklyScheduleDayOfWeek
 
         e.g. MONDAY Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#day ComputeResourcePolicy#day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#day ComputeResourcePolicy#day}
         '''
         result = self._values.get("day")
         assert result is not None, "Required property 'day' is missing"
@@ -2454,7 +2454,7 @@ class ComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklyScheduleDayOfWeek
 
         It must be in format "HH:MM", where HH : [00-23] and MM : [00-00] GMT.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#start_time ComputeResourcePolicy#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -2728,10 +2728,10 @@ class ComputeResourcePolicySnapshotSchedulePolicySnapshotProperties:
         storage_locations: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param chain_name: Creates the new snapshot in the snapshot chain labeled with the specified name. The chain name must be 1-63 characters long and comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#chain_name ComputeResourcePolicy#chain_name}
-        :param guest_flush: Whether to perform a 'guest aware' snapshot. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#guest_flush ComputeResourcePolicy#guest_flush}
-        :param labels: A set of key-value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#labels ComputeResourcePolicy#labels}
-        :param storage_locations: Cloud Storage bucket location to store the auto snapshot (regional or multi-regional). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#storage_locations ComputeResourcePolicy#storage_locations}
+        :param chain_name: Creates the new snapshot in the snapshot chain labeled with the specified name. The chain name must be 1-63 characters long and comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#chain_name ComputeResourcePolicy#chain_name}
+        :param guest_flush: Whether to perform a 'guest aware' snapshot. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#guest_flush ComputeResourcePolicy#guest_flush}
+        :param labels: A set of key-value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#labels ComputeResourcePolicy#labels}
+        :param storage_locations: Cloud Storage bucket location to store the auto snapshot (regional or multi-regional). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#storage_locations ComputeResourcePolicy#storage_locations}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f8fa87dbaebde00a58184bcb235144c55e0ea42d40782ba5188033a07dac8dc3)
@@ -2756,7 +2756,7 @@ class ComputeResourcePolicySnapshotSchedulePolicySnapshotProperties:
         The chain name must be 1-63 characters long and comply
         with RFC1035.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#chain_name ComputeResourcePolicy#chain_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#chain_name ComputeResourcePolicy#chain_name}
         '''
         result = self._values.get("chain_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2767,7 +2767,7 @@ class ComputeResourcePolicySnapshotSchedulePolicySnapshotProperties:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to perform a 'guest aware' snapshot.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#guest_flush ComputeResourcePolicy#guest_flush}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#guest_flush ComputeResourcePolicy#guest_flush}
         '''
         result = self._values.get("guest_flush")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2776,7 +2776,7 @@ class ComputeResourcePolicySnapshotSchedulePolicySnapshotProperties:
     def labels(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A set of key-value pairs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#labels ComputeResourcePolicy#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#labels ComputeResourcePolicy#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2785,7 +2785,7 @@ class ComputeResourcePolicySnapshotSchedulePolicySnapshotProperties:
     def storage_locations(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Cloud Storage bucket location to store the auto snapshot (regional or multi-regional).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#storage_locations ComputeResourcePolicy#storage_locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#storage_locations ComputeResourcePolicy#storage_locations}
         '''
         result = self._values.get("storage_locations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2945,9 +2945,9 @@ class ComputeResourcePolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#create ComputeResourcePolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#delete ComputeResourcePolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#update ComputeResourcePolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#create ComputeResourcePolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#delete ComputeResourcePolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#update ComputeResourcePolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cf47e29da7b3c9ed6169e4141297ed1c09997ca9a09615d70948c188de7acf0e)
@@ -2964,19 +2964,19 @@ class ComputeResourcePolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#create ComputeResourcePolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#create ComputeResourcePolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#delete ComputeResourcePolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#delete ComputeResourcePolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_resource_policy#update ComputeResourcePolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_resource_policy#update ComputeResourcePolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

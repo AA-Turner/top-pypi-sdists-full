@@ -1,7 +1,7 @@
 r'''
 # `google_document_ai_processor`
 
-Refer to the Terraform Registry for docs: [`google_document_ai_processor`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor).
+Refer to the Terraform Registry for docs: [`google_document_ai_processor`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DocumentAiProcessor(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.documentAiProcessor.DocumentAiProcessor",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor google_document_ai_processor}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor google_document_ai_processor}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class DocumentAiProcessor(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor google_document_ai_processor} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor google_document_ai_processor} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The display name. Must be unique. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#display_name DocumentAiProcessor#display_name}
-        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#location DocumentAiProcessor#location}
-        :param type: The type of processor. For possible types see the `official list <https://cloud.google.com/document-ai/docs/reference/rest/v1/projects.locations/fetchProcessorTypes#google.cloud.documentai.v1.DocumentProcessorService.FetchProcessorTypes>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#type DocumentAiProcessor#type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#id DocumentAiProcessor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_name: The KMS key used for encryption/decryption in CMEK scenarios. See https://cloud.google.com/security-key-management. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#kms_key_name DocumentAiProcessor#kms_key_name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#project DocumentAiProcessor#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#timeouts DocumentAiProcessor#timeouts}
+        :param display_name: The display name. Must be unique. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#display_name DocumentAiProcessor#display_name}
+        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#location DocumentAiProcessor#location}
+        :param type: The type of processor. For possible types see the `official list <https://cloud.google.com/document-ai/docs/reference/rest/v1/projects.locations/fetchProcessorTypes#google.cloud.documentai.v1.DocumentProcessorService.FetchProcessorTypes>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#type DocumentAiProcessor#type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#id DocumentAiProcessor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_name: The KMS key used for encryption/decryption in CMEK scenarios. See https://cloud.google.com/security-key-management. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#kms_key_name DocumentAiProcessor#kms_key_name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#project DocumentAiProcessor#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#timeouts DocumentAiProcessor#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class DocumentAiProcessor(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DocumentAiProcessor to import.
-        :param import_from_id: The id of the existing DocumentAiProcessor that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DocumentAiProcessor that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DocumentAiProcessor to import is found.
         '''
         if __debug__:
@@ -140,8 +140,8 @@ class DocumentAiProcessor(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#create DocumentAiProcessor#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#delete DocumentAiProcessor#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#create DocumentAiProcessor#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#delete DocumentAiProcessor#delete}.
         '''
         value = DocumentAiProcessorTimeouts(create=create, delete=delete)
 
@@ -343,13 +343,13 @@ class DocumentAiProcessorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The display name. Must be unique. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#display_name DocumentAiProcessor#display_name}
-        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#location DocumentAiProcessor#location}
-        :param type: The type of processor. For possible types see the `official list <https://cloud.google.com/document-ai/docs/reference/rest/v1/projects.locations/fetchProcessorTypes#google.cloud.documentai.v1.DocumentProcessorService.FetchProcessorTypes>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#type DocumentAiProcessor#type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#id DocumentAiProcessor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_name: The KMS key used for encryption/decryption in CMEK scenarios. See https://cloud.google.com/security-key-management. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#kms_key_name DocumentAiProcessor#kms_key_name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#project DocumentAiProcessor#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#timeouts DocumentAiProcessor#timeouts}
+        :param display_name: The display name. Must be unique. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#display_name DocumentAiProcessor#display_name}
+        :param location: The location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#location DocumentAiProcessor#location}
+        :param type: The type of processor. For possible types see the `official list <https://cloud.google.com/document-ai/docs/reference/rest/v1/projects.locations/fetchProcessorTypes#google.cloud.documentai.v1.DocumentProcessorService.FetchProcessorTypes>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#type DocumentAiProcessor#type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#id DocumentAiProcessor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_name: The KMS key used for encryption/decryption in CMEK scenarios. See https://cloud.google.com/security-key-management. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#kms_key_name DocumentAiProcessor#kms_key_name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#project DocumentAiProcessor#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#timeouts DocumentAiProcessor#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -467,7 +467,7 @@ class DocumentAiProcessorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The display name. Must be unique.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#display_name DocumentAiProcessor#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#display_name DocumentAiProcessor#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -477,7 +477,7 @@ class DocumentAiProcessorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#location DocumentAiProcessor#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#location DocumentAiProcessor#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -487,7 +487,7 @@ class DocumentAiProcessorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def type(self) -> builtins.str:
         '''The type of processor. For possible types see the `official list <https://cloud.google.com/document-ai/docs/reference/rest/v1/projects.locations/fetchProcessorTypes#google.cloud.documentai.v1.DocumentProcessorService.FetchProcessorTypes>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#type DocumentAiProcessor#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#type DocumentAiProcessor#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -495,7 +495,7 @@ class DocumentAiProcessorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#id DocumentAiProcessor#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#id DocumentAiProcessor#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -507,14 +507,14 @@ class DocumentAiProcessorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def kms_key_name(self) -> typing.Optional[builtins.str]:
         '''The KMS key used for encryption/decryption in CMEK scenarios. See https://cloud.google.com/security-key-management.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#kms_key_name DocumentAiProcessor#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#kms_key_name DocumentAiProcessor#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#project DocumentAiProcessor#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#project DocumentAiProcessor#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -522,7 +522,7 @@ class DocumentAiProcessorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DocumentAiProcessorTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#timeouts DocumentAiProcessor#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#timeouts DocumentAiProcessor#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DocumentAiProcessorTimeouts"], result)
@@ -552,8 +552,8 @@ class DocumentAiProcessorTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#create DocumentAiProcessor#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#delete DocumentAiProcessor#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#create DocumentAiProcessor#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#delete DocumentAiProcessor#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4a0beb7fbba7f2d246114021c024b1347dd07bfa0201de0da13def5ebdd1ac27)
@@ -567,13 +567,13 @@ class DocumentAiProcessorTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#create DocumentAiProcessor#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#create DocumentAiProcessor#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/document_ai_processor#delete DocumentAiProcessor#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/document_ai_processor#delete DocumentAiProcessor#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

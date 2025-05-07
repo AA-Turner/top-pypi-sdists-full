@@ -1,7 +1,7 @@
 r'''
 # `google_project_usage_export_bucket`
 
-Refer to the Terraform Registry for docs: [`google_project_usage_export_bucket`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket).
+Refer to the Terraform Registry for docs: [`google_project_usage_export_bucket`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ProjectUsageExportBucket(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.projectUsageExportBucket.ProjectUsageExportBucket",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket google_project_usage_export_bucket}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket google_project_usage_export_bucket}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class ProjectUsageExportBucket(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket google_project_usage_export_bucket} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket google_project_usage_export_bucket} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bucket_name: The bucket to store reports in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#bucket_name ProjectUsageExportBucket#bucket_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#id ProjectUsageExportBucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param prefix: A prefix for the reports, for instance, the project name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#prefix ProjectUsageExportBucket#prefix}
-        :param project: The project to set the export bucket on. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#project ProjectUsageExportBucket#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#timeouts ProjectUsageExportBucket#timeouts}
+        :param bucket_name: The bucket to store reports in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#bucket_name ProjectUsageExportBucket#bucket_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#id ProjectUsageExportBucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param prefix: A prefix for the reports, for instance, the project name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#prefix ProjectUsageExportBucket#prefix}
+        :param project: The project to set the export bucket on. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#project ProjectUsageExportBucket#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#timeouts ProjectUsageExportBucket#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class ProjectUsageExportBucket(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ProjectUsageExportBucket to import.
-        :param import_from_id: The id of the existing ProjectUsageExportBucket that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ProjectUsageExportBucket that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ProjectUsageExportBucket to import is found.
         '''
         if __debug__:
@@ -134,8 +134,8 @@ class ProjectUsageExportBucket(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#create ProjectUsageExportBucket#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#delete ProjectUsageExportBucket#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#create ProjectUsageExportBucket#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#delete ProjectUsageExportBucket#delete}.
         '''
         value = ProjectUsageExportBucketTimeouts(create=create, delete=delete)
 
@@ -294,11 +294,11 @@ class ProjectUsageExportBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bucket_name: The bucket to store reports in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#bucket_name ProjectUsageExportBucket#bucket_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#id ProjectUsageExportBucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param prefix: A prefix for the reports, for instance, the project name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#prefix ProjectUsageExportBucket#prefix}
-        :param project: The project to set the export bucket on. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#project ProjectUsageExportBucket#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#timeouts ProjectUsageExportBucket#timeouts}
+        :param bucket_name: The bucket to store reports in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#bucket_name ProjectUsageExportBucket#bucket_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#id ProjectUsageExportBucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param prefix: A prefix for the reports, for instance, the project name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#prefix ProjectUsageExportBucket#prefix}
+        :param project: The project to set the export bucket on. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#project ProjectUsageExportBucket#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#timeouts ProjectUsageExportBucket#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -412,7 +412,7 @@ class ProjectUsageExportBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def bucket_name(self) -> builtins.str:
         '''The bucket to store reports in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#bucket_name ProjectUsageExportBucket#bucket_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#bucket_name ProjectUsageExportBucket#bucket_name}
         '''
         result = self._values.get("bucket_name")
         assert result is not None, "Required property 'bucket_name' is missing"
@@ -420,7 +420,7 @@ class ProjectUsageExportBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#id ProjectUsageExportBucket#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#id ProjectUsageExportBucket#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -432,7 +432,7 @@ class ProjectUsageExportBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def prefix(self) -> typing.Optional[builtins.str]:
         '''A prefix for the reports, for instance, the project name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#prefix ProjectUsageExportBucket#prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#prefix ProjectUsageExportBucket#prefix}
         '''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -441,7 +441,7 @@ class ProjectUsageExportBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''The project to set the export bucket on. If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#project ProjectUsageExportBucket#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#project ProjectUsageExportBucket#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -450,7 +450,7 @@ class ProjectUsageExportBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ProjectUsageExportBucketTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#timeouts ProjectUsageExportBucket#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#timeouts ProjectUsageExportBucket#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ProjectUsageExportBucketTimeouts"], result)
@@ -480,8 +480,8 @@ class ProjectUsageExportBucketTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#create ProjectUsageExportBucket#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#delete ProjectUsageExportBucket#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#create ProjectUsageExportBucket#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#delete ProjectUsageExportBucket#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ea9eb21fe99d199d7146cebb81117700d8d26890c1295655c2bf2a9a84a208dc)
@@ -495,13 +495,13 @@ class ProjectUsageExportBucketTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#create ProjectUsageExportBucket#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#create ProjectUsageExportBucket#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/project_usage_export_bucket#delete ProjectUsageExportBucket#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/project_usage_export_bucket#delete ProjectUsageExportBucket#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

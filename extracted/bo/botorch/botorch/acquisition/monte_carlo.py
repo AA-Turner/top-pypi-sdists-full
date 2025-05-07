@@ -189,7 +189,7 @@ class SampleReducingMCAcquisitionFunction(MCAcquisitionFunction):
         q_reduction: SampleReductionProtocol = torch.amax,
         constraints: list[Callable[[Tensor], Tensor]] | None = None,
         eta: Tensor | float = 1e-3,
-        fat: bool = False,
+        fat: list[bool | None] | bool = False,
     ):
         r"""Constructor of SampleReducingMCAcquisitionFunction.
 
@@ -228,7 +228,9 @@ class SampleReducingMCAcquisitionFunction(MCAcquisitionFunction):
                 approximation to the constraint indicators. For more details, on this
                 parameter, see the docs of `compute_smoothed_feasibility_indicator`.
             fat: Wether to apply a fat-tailed smooth approximation to the feasibility
-                indicator or the canonical sigmoid approximation.
+                indicator or the canonical sigmoid approximation. For more details,
+                on this parameter, see the docs of
+                `compute_smoothed_feasibility_indicator`.
         """
         if constraints is not None and isinstance(objective, ConstrainedMCObjective):
             raise ValueError(
@@ -401,7 +403,7 @@ class qExpectedImprovement(SampleReducingMCAcquisitionFunction):
             constraints=constraints,
             eta=eta,
         )
-        self.register_buffer("best_f", torch.as_tensor(best_f, dtype=float))
+        self.register_buffer("best_f", torch.as_tensor(best_f))
 
     def _sample_forward(self, obj: Tensor) -> Tensor:
         r"""Evaluate qExpectedImprovement per sample on the candidate set `X`.
@@ -715,9 +717,9 @@ class qProbabilityOfImprovement(SampleReducingMCAcquisitionFunction):
             constraints=constraints,
             eta=eta,
         )
-        best_f = torch.as_tensor(best_f, dtype=float).unsqueeze(-1)  # adding batch dim
+        best_f = torch.as_tensor(best_f).unsqueeze(-1)  # adding batch dim
         self.register_buffer("best_f", best_f)
-        self.register_buffer("tau", torch.as_tensor(tau, dtype=float))
+        self.register_buffer("tau", torch.as_tensor(tau))
 
     def _sample_forward(self, obj: Tensor) -> Tensor:
         r"""Evaluate qProbabilityOfImprovement per sample on the candidate set `X`.

@@ -1,7 +1,7 @@
 r'''
 # `google_spanner_instance_partition`
 
-Refer to the Terraform Registry for docs: [`google_spanner_instance_partition`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition).
+Refer to the Terraform Registry for docs: [`google_spanner_instance_partition`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SpannerInstancePartition(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.spannerInstancePartition.SpannerInstancePartition",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition google_spanner_instance_partition}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition google_spanner_instance_partition}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class SpannerInstancePartition(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition google_spanner_instance_partition} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition google_spanner_instance_partition} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param config: The name of the instance partition's configuration (similar to a region) which defines the geographic placement and replication of data in this instance partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#config SpannerInstancePartition#config}
-        :param display_name: The descriptive name for this instance partition as it appears in UIs. Must be unique per project and between 4 and 30 characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#display_name SpannerInstancePartition#display_name}
-        :param instance: The instance to create the instance partition in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#instance SpannerInstancePartition#instance}
-        :param name: A unique identifier for the instance partition, which cannot be changed after the instance partition is created. The name must be between 2 and 64 characters and match the regular expression [a-z][a-z0-9\\-]{0,61}[a-z0-9]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#name SpannerInstancePartition#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#id SpannerInstancePartition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param node_count: The number of nodes allocated to this instance partition. One node equals 1000 processing units. Exactly one of either node_count or processing_units must be present. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#node_count SpannerInstancePartition#node_count}
-        :param processing_units: The number of processing units allocated to this instance partition. Exactly one of either node_count or processing_units must be present. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#processing_units SpannerInstancePartition#processing_units}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#project SpannerInstancePartition#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#timeouts SpannerInstancePartition#timeouts}
+        :param config: The name of the instance partition's configuration (similar to a region) which defines the geographic placement and replication of data in this instance partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#config SpannerInstancePartition#config}
+        :param display_name: The descriptive name for this instance partition as it appears in UIs. Must be unique per project and between 4 and 30 characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#display_name SpannerInstancePartition#display_name}
+        :param instance: The instance to create the instance partition in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#instance SpannerInstancePartition#instance}
+        :param name: A unique identifier for the instance partition, which cannot be changed after the instance partition is created. The name must be between 2 and 64 characters and match the regular expression [a-z][a-z0-9\\-]{0,61}[a-z0-9]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#name SpannerInstancePartition#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#id SpannerInstancePartition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param node_count: The number of nodes allocated to this instance partition. One node equals 1000 processing units. Exactly one of either node_count or processing_units must be present. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#node_count SpannerInstancePartition#node_count}
+        :param processing_units: The number of processing units allocated to this instance partition. Exactly one of either node_count or processing_units must be present. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#processing_units SpannerInstancePartition#processing_units}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#project SpannerInstancePartition#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#timeouts SpannerInstancePartition#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class SpannerInstancePartition(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SpannerInstancePartition to import.
-        :param import_from_id: The id of the existing SpannerInstancePartition that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SpannerInstancePartition that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SpannerInstancePartition to import is found.
         '''
         if __debug__:
@@ -147,9 +147,9 @@ class SpannerInstancePartition(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#create SpannerInstancePartition#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#delete SpannerInstancePartition#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#update SpannerInstancePartition#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#create SpannerInstancePartition#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#delete SpannerInstancePartition#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#update SpannerInstancePartition#update}.
         '''
         value = SpannerInstancePartitionTimeouts(
             create=create, delete=delete, update=update
@@ -395,15 +395,15 @@ class SpannerInstancePartitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param config: The name of the instance partition's configuration (similar to a region) which defines the geographic placement and replication of data in this instance partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#config SpannerInstancePartition#config}
-        :param display_name: The descriptive name for this instance partition as it appears in UIs. Must be unique per project and between 4 and 30 characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#display_name SpannerInstancePartition#display_name}
-        :param instance: The instance to create the instance partition in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#instance SpannerInstancePartition#instance}
-        :param name: A unique identifier for the instance partition, which cannot be changed after the instance partition is created. The name must be between 2 and 64 characters and match the regular expression [a-z][a-z0-9\\-]{0,61}[a-z0-9]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#name SpannerInstancePartition#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#id SpannerInstancePartition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param node_count: The number of nodes allocated to this instance partition. One node equals 1000 processing units. Exactly one of either node_count or processing_units must be present. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#node_count SpannerInstancePartition#node_count}
-        :param processing_units: The number of processing units allocated to this instance partition. Exactly one of either node_count or processing_units must be present. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#processing_units SpannerInstancePartition#processing_units}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#project SpannerInstancePartition#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#timeouts SpannerInstancePartition#timeouts}
+        :param config: The name of the instance partition's configuration (similar to a region) which defines the geographic placement and replication of data in this instance partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#config SpannerInstancePartition#config}
+        :param display_name: The descriptive name for this instance partition as it appears in UIs. Must be unique per project and between 4 and 30 characters in length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#display_name SpannerInstancePartition#display_name}
+        :param instance: The instance to create the instance partition in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#instance SpannerInstancePartition#instance}
+        :param name: A unique identifier for the instance partition, which cannot be changed after the instance partition is created. The name must be between 2 and 64 characters and match the regular expression [a-z][a-z0-9\\-]{0,61}[a-z0-9]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#name SpannerInstancePartition#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#id SpannerInstancePartition#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param node_count: The number of nodes allocated to this instance partition. One node equals 1000 processing units. Exactly one of either node_count or processing_units must be present. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#node_count SpannerInstancePartition#node_count}
+        :param processing_units: The number of processing units allocated to this instance partition. Exactly one of either node_count or processing_units must be present. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#processing_units SpannerInstancePartition#processing_units}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#project SpannerInstancePartition#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#timeouts SpannerInstancePartition#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -526,7 +526,7 @@ class SpannerInstancePartitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def config(self) -> builtins.str:
         '''The name of the instance partition's configuration (similar to a region) which defines the geographic placement and replication of data in this instance partition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#config SpannerInstancePartition#config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#config SpannerInstancePartition#config}
         '''
         result = self._values.get("config")
         assert result is not None, "Required property 'config' is missing"
@@ -538,7 +538,7 @@ class SpannerInstancePartitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Must be unique per project and between 4 and 30 characters in length.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#display_name SpannerInstancePartition#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#display_name SpannerInstancePartition#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -548,7 +548,7 @@ class SpannerInstancePartitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance(self) -> builtins.str:
         '''The instance to create the instance partition in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#instance SpannerInstancePartition#instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#instance SpannerInstancePartition#instance}
         '''
         result = self._values.get("instance")
         assert result is not None, "Required property 'instance' is missing"
@@ -561,7 +561,7 @@ class SpannerInstancePartitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         The name must be between 2 and 64 characters
         and match the regular expression [a-z][a-z0-9-]{0,61}[a-z0-9].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#name SpannerInstancePartition#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#name SpannerInstancePartition#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -569,7 +569,7 @@ class SpannerInstancePartitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#id SpannerInstancePartition#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#id SpannerInstancePartition#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -585,7 +585,7 @@ class SpannerInstancePartitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         1000 processing units. Exactly one of either node_count or processing_units
         must be present.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#node_count SpannerInstancePartition#node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#node_count SpannerInstancePartition#node_count}
         '''
         result = self._values.get("node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -594,14 +594,14 @@ class SpannerInstancePartitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def processing_units(self) -> typing.Optional[jsii.Number]:
         '''The number of processing units allocated to this instance partition. Exactly one of either node_count or processing_units must be present.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#processing_units SpannerInstancePartition#processing_units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#processing_units SpannerInstancePartition#processing_units}
         '''
         result = self._values.get("processing_units")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#project SpannerInstancePartition#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#project SpannerInstancePartition#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -609,7 +609,7 @@ class SpannerInstancePartitionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SpannerInstancePartitionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#timeouts SpannerInstancePartition#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#timeouts SpannerInstancePartition#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SpannerInstancePartitionTimeouts"], result)
@@ -640,9 +640,9 @@ class SpannerInstancePartitionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#create SpannerInstancePartition#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#delete SpannerInstancePartition#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#update SpannerInstancePartition#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#create SpannerInstancePartition#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#delete SpannerInstancePartition#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#update SpannerInstancePartition#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d309608c00a93eb733d2608e1e2442f12c69145acd918b49fe120104bd72a514)
@@ -659,19 +659,19 @@ class SpannerInstancePartitionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#create SpannerInstancePartition#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#create SpannerInstancePartition#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#delete SpannerInstancePartition#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#delete SpannerInstancePartition#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/spanner_instance_partition#update SpannerInstancePartition#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/spanner_instance_partition#update SpannerInstancePartition#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

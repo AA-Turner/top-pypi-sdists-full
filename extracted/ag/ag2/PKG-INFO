@@ -1,74 +1,323 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ag2
-Version: 0.9
-Summary: Alias package for pyautogen
-Home-page: https://github.com/ag2ai/ag2
-Author: Chi Wang & Qingyun Wu
-Author-email: support@ag2.ai
-License: Apache Software License 2.0
-Platform: UNKNOWN
-Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9,<3.14
-Description-Content-Type: text/markdown
-Provides-Extra: flaml
-Provides-Extra: openai
-Provides-Extra: openai-realtime
-Provides-Extra: jupyter-executor
-Provides-Extra: retrievechat
-Provides-Extra: retrievechat-pgvector
-Provides-Extra: retrievechat-mongodb
-Provides-Extra: retrievechat-qdrant
-Provides-Extra: retrievechat-couchbase
-Provides-Extra: graph-rag-falkor-db
-Provides-Extra: rag
-Provides-Extra: crawl4ai
-Provides-Extra: browser-use
-Provides-Extra: google-client
-Provides-Extra: google-api
-Provides-Extra: google-search
-Provides-Extra: wikipedia
-Provides-Extra: neo4j
-Provides-Extra: twilio
-Provides-Extra: mcp
-Provides-Extra: interop-crewai
-Provides-Extra: interop-langchain
-Provides-Extra: interop-pydantic-ai
-Provides-Extra: interop
-Provides-Extra: autobuild
-Provides-Extra: blendsearch
-Provides-Extra: mathchat
-Provides-Extra: captainagent
-Provides-Extra: teachable
-Provides-Extra: lmm
-Provides-Extra: graph
-Provides-Extra: gemini
-Provides-Extra: gemini-realtime
-Provides-Extra: together
-Provides-Extra: websurfer
-Provides-Extra: redis
-Provides-Extra: cosmosdb
-Provides-Extra: websockets
-Provides-Extra: long-context
-Provides-Extra: anthropic
-Provides-Extra: cerebras
-Provides-Extra: mistral
-Provides-Extra: groq
-Provides-Extra: cohere
-Provides-Extra: ollama
-Provides-Extra: bedrock
-Provides-Extra: deepseek
-Provides-Extra: commsagent-discord
-Provides-Extra: commsagent-slack
-Provides-Extra: commsagent-telegram
-Provides-Extra: test
-Provides-Extra: docs
-Provides-Extra: types
-Provides-Extra: lint
-Provides-Extra: dev
+Version: 0.9.1.post0
+Summary: A programming framework for agentic AI
+Project-URL: Homepage, https://ag2.ai/
+Project-URL: Documentation, https://docs.ag2.ai
+Project-URL: Tracker, https://github.com/ag2ai/ag2/issues
+Project-URL: Source, https://github.com/ag2ai/ag2
+Project-URL: Discord, https://discord.gg/pAbnFJrkgZ
+Author-email: Chi Wang & Qingyun Wu <support@ag2.ai>
 License-File: LICENSE
 License-File: NOTICE.md
+Keywords: ag2,ag2.ai,ag2ai,agent,agentic,ai,autogen
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: <3.14,>=3.9
+Requires-Dist: anyio<5.0.0,>=3.0.0
+Requires-Dist: asyncer==0.0.8
+Requires-Dist: diskcache
+Requires-Dist: docker
+Requires-Dist: httpx<1,>=0.28.1
+Requires-Dist: packaging
+Requires-Dist: pydantic<3,>=2.6.1
+Requires-Dist: python-dotenv
+Requires-Dist: termcolor
+Requires-Dist: tiktoken
+Provides-Extra: anthropic
+Requires-Dist: anthropic[vertex]>=0.23.1; extra == 'anthropic'
+Provides-Extra: autobuild
+Requires-Dist: chromadb; extra == 'autobuild'
+Requires-Dist: huggingface-hub; extra == 'autobuild'
+Requires-Dist: sentence-transformers<=4.1.0; extra == 'autobuild'
+Provides-Extra: bedrock
+Requires-Dist: boto3>=1.34.149; extra == 'bedrock'
+Provides-Extra: blendsearch
+Requires-Dist: flaml[blendsearch]; extra == 'blendsearch'
+Provides-Extra: browser-use
+Requires-Dist: browser-use==0.1.37; extra == 'browser-use'
+Provides-Extra: captainagent
+Requires-Dist: chromadb; extra == 'captainagent'
+Requires-Dist: huggingface-hub; extra == 'captainagent'
+Requires-Dist: pandas; extra == 'captainagent'
+Requires-Dist: sentence-transformers<=4.1.0; extra == 'captainagent'
+Provides-Extra: cerebras
+Requires-Dist: cerebras-cloud-sdk>=1.0.0; extra == 'cerebras'
+Provides-Extra: cohere
+Requires-Dist: cohere>=5.13.5; extra == 'cohere'
+Provides-Extra: commsagent-discord
+Requires-Dist: discord-py<2.6,>=2.4.0; extra == 'commsagent-discord'
+Provides-Extra: commsagent-slack
+Requires-Dist: slack-sdk<3.40,>=3.33.0; extra == 'commsagent-slack'
+Provides-Extra: commsagent-telegram
+Requires-Dist: telethon<2,>=1.38.1; extra == 'commsagent-telegram'
+Provides-Extra: cosmosdb
+Requires-Dist: azure-cosmos>=4.2.0; extra == 'cosmosdb'
+Provides-Extra: crawl4ai
+Requires-Dist: crawl4ai<0.5,>=0.4.247; extra == 'crawl4ai'
+Provides-Extra: deepseek
+Requires-Dist: openai>=1.66.2; extra == 'deepseek'
+Provides-Extra: dev
+Requires-Dist: cairosvg; extra == 'dev'
+Requires-Dist: codespell==2.4.1; extra == 'dev'
+Requires-Dist: detect-secrets==1.5.0; extra == 'dev'
+Requires-Dist: dirty-equals==0.9.0; extra == 'dev'
+Requires-Dist: fastapi==0.115.12; extra == 'dev'
+Requires-Dist: ipykernel==6.29.5; extra == 'dev'
+Requires-Dist: jinja2==3.1.6; extra == 'dev'
+Requires-Dist: mdx-include==1.4.2; extra == 'dev'
+Requires-Dist: mike==2.1.3; extra == 'dev'
+Requires-Dist: mkdocs-git-revision-date-localized-plugin==1.3.0; extra == 'dev'
+Requires-Dist: mkdocs-glightbox==0.4.0; extra == 'dev'
+Requires-Dist: mkdocs-literate-nav==0.6.2; extra == 'dev'
+Requires-Dist: mkdocs-macros-plugin==1.3.7; extra == 'dev'
+Requires-Dist: mkdocs-material==9.6.12; extra == 'dev'
+Requires-Dist: mkdocs-minify-plugin==0.8.0; extra == 'dev'
+Requires-Dist: mkdocs-redirects==1.2.2; extra == 'dev'
+Requires-Dist: mkdocstrings[python]==0.29.1; extra == 'dev'
+Requires-Dist: mock==5.2.0; extra == 'dev'
+Requires-Dist: mypy==1.15.0; extra == 'dev'
+Requires-Dist: nbclient==0.10.2; extra == 'dev'
+Requires-Dist: nbconvert==7.16.6; extra == 'dev'
+Requires-Dist: nbformat==5.10.4; extra == 'dev'
+Requires-Dist: openai>=1.66.2; extra == 'dev'
+Requires-Dist: pandas==2.2.3; extra == 'dev'
+Requires-Dist: pdoc3==0.11.6; extra == 'dev'
+Requires-Dist: pillow; extra == 'dev'
+Requires-Dist: pre-commit==4.2.0; extra == 'dev'
+Requires-Dist: pytest-asyncio==0.26.0; extra == 'dev'
+Requires-Dist: pytest-cov==6.1.1; extra == 'dev'
+Requires-Dist: pytest==8.3.5; extra == 'dev'
+Requires-Dist: pyupgrade-directories==0.3.0; extra == 'dev'
+Requires-Dist: pyyaml==6.0.2; extra == 'dev'
+Requires-Dist: ruff==0.11.6; extra == 'dev'
+Requires-Dist: termcolor==3.0.1; extra == 'dev'
+Requires-Dist: toml==0.10.2; extra == 'dev'
+Requires-Dist: typer==0.15.2; extra == 'dev'
+Requires-Dist: uv==0.6.14; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: cairosvg; extra == 'docs'
+Requires-Dist: jinja2==3.1.6; extra == 'docs'
+Requires-Dist: mdx-include==1.4.2; extra == 'docs'
+Requires-Dist: mike==2.1.3; extra == 'docs'
+Requires-Dist: mkdocs-git-revision-date-localized-plugin==1.3.0; extra == 'docs'
+Requires-Dist: mkdocs-glightbox==0.4.0; extra == 'docs'
+Requires-Dist: mkdocs-literate-nav==0.6.2; extra == 'docs'
+Requires-Dist: mkdocs-macros-plugin==1.3.7; extra == 'docs'
+Requires-Dist: mkdocs-material==9.6.12; extra == 'docs'
+Requires-Dist: mkdocs-minify-plugin==0.8.0; extra == 'docs'
+Requires-Dist: mkdocs-redirects==1.2.2; extra == 'docs'
+Requires-Dist: mkdocstrings[python]==0.29.1; extra == 'docs'
+Requires-Dist: nbclient==0.10.2; extra == 'docs'
+Requires-Dist: pdoc3==0.11.6; extra == 'docs'
+Requires-Dist: pillow; extra == 'docs'
+Requires-Dist: pyyaml==6.0.2; extra == 'docs'
+Requires-Dist: termcolor==3.0.1; extra == 'docs'
+Requires-Dist: typer==0.15.2; extra == 'docs'
+Provides-Extra: flaml
+Requires-Dist: flaml; extra == 'flaml'
+Requires-Dist: numpy<2.0.0,>=1.24.0; (python_version < '3.13') and extra == 'flaml'
+Requires-Dist: numpy>=2.1; (python_version >= '3.13') and extra == 'flaml'
+Provides-Extra: gemini
+Requires-Dist: google-api-core; extra == 'gemini'
+Requires-Dist: google-auth; extra == 'gemini'
+Requires-Dist: google-cloud-aiplatform; extra == 'gemini'
+Requires-Dist: google-genai>=1.2.0; extra == 'gemini'
+Requires-Dist: jsonschema; extra == 'gemini'
+Requires-Dist: pillow; extra == 'gemini'
+Provides-Extra: gemini-realtime
+Requires-Dist: google-api-core; extra == 'gemini-realtime'
+Requires-Dist: google-auth; extra == 'gemini-realtime'
+Requires-Dist: google-cloud-aiplatform; extra == 'gemini-realtime'
+Requires-Dist: google-genai>=1.2.0; extra == 'gemini-realtime'
+Requires-Dist: jsonschema; extra == 'gemini-realtime'
+Requires-Dist: pillow; extra == 'gemini-realtime'
+Requires-Dist: websockets<16,>=14.0; extra == 'gemini-realtime'
+Provides-Extra: google-api
+Requires-Dist: google-api-python-client<3.0,>=2.163.0; extra == 'google-api'
+Requires-Dist: google-auth-httplib2<0.3,>=0.2.0; extra == 'google-api'
+Requires-Dist: google-auth-oauthlib<2.0,>=1.2.1; extra == 'google-api'
+Provides-Extra: google-client
+Requires-Dist: google-api-python-client<3.0,>=2.163.0; extra == 'google-client'
+Provides-Extra: google-search
+Requires-Dist: google-api-python-client<3.0,>=2.163.0; extra == 'google-search'
+Provides-Extra: graph
+Requires-Dist: matplotlib; extra == 'graph'
+Requires-Dist: networkx; extra == 'graph'
+Provides-Extra: graph-rag-falkor-db
+Requires-Dist: falkordb>=1.0.10; extra == 'graph-rag-falkor-db'
+Requires-Dist: graphrag-sdk==0.7.1; extra == 'graph-rag-falkor-db'
+Provides-Extra: groq
+Requires-Dist: groq>=0.9.0; extra == 'groq'
+Provides-Extra: interop
+Requires-Dist: crewai[tools]<1,>=0.76; (python_version >= '3.10' and python_version < '3.13') and extra == 'interop'
+Requires-Dist: langchain-community<1,>=0.3.12; extra == 'interop'
+Requires-Dist: litellm<=1.67.1; extra == 'interop'
+Requires-Dist: pydantic-ai==0.0.31; extra == 'interop'
+Requires-Dist: weaviate-client<5,>=4; (python_version >= '3.10' and python_version < '3.13') and extra == 'interop'
+Provides-Extra: interop-crewai
+Requires-Dist: crewai[tools]<1,>=0.76; (python_version >= '3.10' and python_version < '3.13') and extra == 'interop-crewai'
+Requires-Dist: litellm<=1.67.1; extra == 'interop-crewai'
+Requires-Dist: weaviate-client<5,>=4; (python_version >= '3.10' and python_version < '3.13') and extra == 'interop-crewai'
+Provides-Extra: interop-langchain
+Requires-Dist: langchain-community<1,>=0.3.12; extra == 'interop-langchain'
+Provides-Extra: interop-pydantic-ai
+Requires-Dist: pydantic-ai==0.0.31; extra == 'interop-pydantic-ai'
+Provides-Extra: jupyter-executor
+Requires-Dist: ipykernel>=6.29.0; extra == 'jupyter-executor'
+Requires-Dist: jupyter-client>=8.6.0; extra == 'jupyter-executor'
+Requires-Dist: jupyter-kernel-gateway; extra == 'jupyter-executor'
+Requires-Dist: requests; extra == 'jupyter-executor'
+Requires-Dist: websocket-client; extra == 'jupyter-executor'
+Provides-Extra: lint
+Requires-Dist: codespell==2.4.1; extra == 'lint'
+Requires-Dist: pyupgrade-directories==0.3.0; extra == 'lint'
+Requires-Dist: ruff==0.11.6; extra == 'lint'
+Provides-Extra: lmm
+Requires-Dist: pillow; extra == 'lmm'
+Requires-Dist: replicate; extra == 'lmm'
+Provides-Extra: long-context
+Requires-Dist: llmlingua<0.3; extra == 'long-context'
+Provides-Extra: mathchat
+Requires-Dist: sympy; extra == 'mathchat'
+Requires-Dist: wolframalpha; extra == 'mathchat'
+Provides-Extra: mcp
+Requires-Dist: mcp<1.6,>=1.4.0; (python_version >= '3.10') and extra == 'mcp'
+Provides-Extra: mistral
+Requires-Dist: mistralai>=1.0.1; extra == 'mistral'
+Provides-Extra: neo4j
+Requires-Dist: docx2txt==0.9; extra == 'neo4j'
+Requires-Dist: llama-index-graph-stores-neo4j==0.4.6; extra == 'neo4j'
+Requires-Dist: llama-index-readers-web==0.3.9; extra == 'neo4j'
+Requires-Dist: llama-index<1,>=0.12; extra == 'neo4j'
+Provides-Extra: ollama
+Requires-Dist: fix-busted-json>=0.0.18; extra == 'ollama'
+Requires-Dist: ollama>=0.4.7; extra == 'ollama'
+Provides-Extra: openai
+Requires-Dist: openai>=1.66.2; extra == 'openai'
+Provides-Extra: openai-realtime
+Requires-Dist: openai>=1.66.2; extra == 'openai-realtime'
+Requires-Dist: openai[realtime]; extra == 'openai-realtime'
+Provides-Extra: rag
+Requires-Dist: chromadb<1,>=0.5; extra == 'rag'
+Requires-Dist: docling<3,>=2.15.1; extra == 'rag'
+Requires-Dist: llama-index-embeddings-huggingface==0.5.3; extra == 'rag'
+Requires-Dist: llama-index-llms-langchain==0.6.1; extra == 'rag'
+Requires-Dist: llama-index-vector-stores-chroma==0.4.1; extra == 'rag'
+Requires-Dist: llama-index-vector-stores-mongodb==0.6.0; extra == 'rag'
+Requires-Dist: llama-index<1,>=0.12; extra == 'rag'
+Requires-Dist: requests<3,>=2.32.3; extra == 'rag'
+Requires-Dist: selenium<5,>=4.28.1; extra == 'rag'
+Requires-Dist: webdriver-manager==4.0.2; extra == 'rag'
+Provides-Extra: redis
+Requires-Dist: redis; extra == 'redis'
+Provides-Extra: retrievechat
+Requires-Dist: beautifulsoup4; extra == 'retrievechat'
+Requires-Dist: chromadb==0.6.3; extra == 'retrievechat'
+Requires-Dist: ipython; extra == 'retrievechat'
+Requires-Dist: markdownify; extra == 'retrievechat'
+Requires-Dist: protobuf==5.29.3; extra == 'retrievechat'
+Requires-Dist: pypdf; extra == 'retrievechat'
+Requires-Dist: sentence-transformers<=4.1.0; extra == 'retrievechat'
+Provides-Extra: retrievechat-couchbase
+Requires-Dist: beautifulsoup4; extra == 'retrievechat-couchbase'
+Requires-Dist: chromadb==0.6.3; extra == 'retrievechat-couchbase'
+Requires-Dist: couchbase>=4.3.0; extra == 'retrievechat-couchbase'
+Requires-Dist: ipython; extra == 'retrievechat-couchbase'
+Requires-Dist: markdownify; extra == 'retrievechat-couchbase'
+Requires-Dist: numpy; extra == 'retrievechat-couchbase'
+Requires-Dist: protobuf==5.29.3; extra == 'retrievechat-couchbase'
+Requires-Dist: pypdf; extra == 'retrievechat-couchbase'
+Requires-Dist: sentence-transformers<=4.1.0; extra == 'retrievechat-couchbase'
+Provides-Extra: retrievechat-mongodb
+Requires-Dist: beautifulsoup4; extra == 'retrievechat-mongodb'
+Requires-Dist: chromadb==0.6.3; extra == 'retrievechat-mongodb'
+Requires-Dist: ipython; extra == 'retrievechat-mongodb'
+Requires-Dist: markdownify; extra == 'retrievechat-mongodb'
+Requires-Dist: numpy; extra == 'retrievechat-mongodb'
+Requires-Dist: protobuf==5.29.3; extra == 'retrievechat-mongodb'
+Requires-Dist: pymongo>=4.0.0; extra == 'retrievechat-mongodb'
+Requires-Dist: pypdf; extra == 'retrievechat-mongodb'
+Requires-Dist: sentence-transformers<=4.1.0; extra == 'retrievechat-mongodb'
+Provides-Extra: retrievechat-pgvector
+Requires-Dist: beautifulsoup4; extra == 'retrievechat-pgvector'
+Requires-Dist: chromadb==0.6.3; extra == 'retrievechat-pgvector'
+Requires-Dist: ipython; extra == 'retrievechat-pgvector'
+Requires-Dist: markdownify; extra == 'retrievechat-pgvector'
+Requires-Dist: pgvector>=0.2.5; extra == 'retrievechat-pgvector'
+Requires-Dist: protobuf==5.29.3; extra == 'retrievechat-pgvector'
+Requires-Dist: psycopg>=3.1.18; (platform_system == 'Linux') and extra == 'retrievechat-pgvector'
+Requires-Dist: psycopg[binary]>=3.1.18; (platform_system == 'Windows' or platform_system == 'Darwin') and extra == 'retrievechat-pgvector'
+Requires-Dist: pypdf; extra == 'retrievechat-pgvector'
+Requires-Dist: sentence-transformers<=4.1.0; extra == 'retrievechat-pgvector'
+Provides-Extra: retrievechat-qdrant
+Requires-Dist: beautifulsoup4; extra == 'retrievechat-qdrant'
+Requires-Dist: chromadb==0.6.3; extra == 'retrievechat-qdrant'
+Requires-Dist: fastembed>=0.3.1; extra == 'retrievechat-qdrant'
+Requires-Dist: ipython; extra == 'retrievechat-qdrant'
+Requires-Dist: markdownify; extra == 'retrievechat-qdrant'
+Requires-Dist: protobuf==5.29.3; extra == 'retrievechat-qdrant'
+Requires-Dist: pypdf; extra == 'retrievechat-qdrant'
+Requires-Dist: qdrant-client; extra == 'retrievechat-qdrant'
+Requires-Dist: sentence-transformers<=4.1.0; extra == 'retrievechat-qdrant'
+Provides-Extra: teachable
+Requires-Dist: chromadb; extra == 'teachable'
+Provides-Extra: test
+Requires-Dist: dirty-equals==0.9.0; extra == 'test'
+Requires-Dist: fastapi==0.115.12; extra == 'test'
+Requires-Dist: ipykernel==6.29.5; extra == 'test'
+Requires-Dist: mock==5.2.0; extra == 'test'
+Requires-Dist: nbconvert==7.16.6; extra == 'test'
+Requires-Dist: nbformat==5.10.4; extra == 'test'
+Requires-Dist: pandas==2.2.3; extra == 'test'
+Requires-Dist: pytest-asyncio==0.26.0; extra == 'test'
+Requires-Dist: pytest-cov==6.1.1; extra == 'test'
+Requires-Dist: pytest==8.3.5; extra == 'test'
+Provides-Extra: together
+Requires-Dist: together>=1.2; extra == 'together'
+Provides-Extra: twilio
+Requires-Dist: fastapi<1,>=0.115.0; extra == 'twilio'
+Requires-Dist: twilio>=9.3.2; extra == 'twilio'
+Requires-Dist: uvicorn<1,>=0.30.6; extra == 'twilio'
+Provides-Extra: types
+Requires-Dist: dirty-equals==0.9.0; extra == 'types'
+Requires-Dist: fastapi==0.115.12; extra == 'types'
+Requires-Dist: ipykernel==6.29.5; extra == 'types'
+Requires-Dist: mock==5.2.0; extra == 'types'
+Requires-Dist: mypy==1.15.0; extra == 'types'
+Requires-Dist: nbconvert==7.16.6; extra == 'types'
+Requires-Dist: nbformat==5.10.4; extra == 'types'
+Requires-Dist: openai>=1.66.2; extra == 'types'
+Requires-Dist: pandas==2.2.3; extra == 'types'
+Requires-Dist: pytest-asyncio==0.26.0; extra == 'types'
+Requires-Dist: pytest-cov==6.1.1; extra == 'types'
+Requires-Dist: pytest==8.3.5; extra == 'types'
+Provides-Extra: websockets
+Requires-Dist: websockets<16,>=14.0; extra == 'websockets'
+Provides-Extra: websurfer
+Requires-Dist: beautifulsoup4; extra == 'websurfer'
+Requires-Dist: markdownify; extra == 'websurfer'
+Requires-Dist: pathvalidate; extra == 'websurfer'
+Requires-Dist: pdfminer-six; extra == 'websurfer'
+Provides-Extra: wikipedia
+Requires-Dist: wikipedia-api<1.0,>=0.8.1; extra == 'wikipedia'
+Description-Content-Type: text/markdown
 
 <a name="readme-top"></a>
 
@@ -77,7 +326,7 @@ License-File: NOTICE.md
   <img src="https://raw.githubusercontent.com/ag2ai/ag2/27b37494a6f72b1f8050f6bd7be9a7ff232cf749/website/static/img/ag2.svg" width="150" title="hover text">
   <br>
   <br>
-  <img src="https://img.shields.io/pypi/dm/pyautogen?label=PyPI%20downloads">
+  <img src="https://img.shields.io/pypi/dm/ag2?label=PyPI%20downloads">
   <a href="https://badge.fury.io/py/autogen"><img src="https://badge.fury.io/py/autogen.svg"></a>
   <a href="https://github.com/ag2ai/ag2/actions/workflows/python-package.yml">
     <img src="https://github.com/ag2ai/ag2/actions/workflows/python-package.yml/badge.svg">
@@ -137,7 +386,7 @@ For a step-by-step walk through of AG2 concepts and code, see [Basic Concepts](h
 
 ### Installation
 
-AG2 requires **Python version >= 3.9, < 3.14**. AG2 is available via `ag2` (or its alias `pyautogen` or `autogen`) on PyPI.
+AG2 requires **Python version >= 3.9, < 3.14**. AG2 is available via `ag2` (or its alias `autogen`) on PyPI.
 
 ```bash
 pip install ag2[openai]
@@ -422,7 +671,7 @@ print(chat_result.chat_history[-1]["content"])
 AG2 supports more advanced concepts to help you build your AI agent workflows. You can find more information in the documentation.
 
 - [Structured Output](https://docs.ag2.ai/latest/docs/user-guide/basic-concepts/structured-outputs)
-- [Ending a conversation](https://docs.ag2.ai/latest/docs/user-guide/basic-concepts/orchestration/ending-a-chat/)
+- [Ending a conversation](https://docs.ag2.ai/latest/docs/user-guide/advanced-concepts/orchestration/ending-a-chat/)
 - [Retrieval Augmented Generation (RAG)](https://docs.ag2.ai/docs/user-guide/advanced-concepts/rag)
 - [Code Execution](https://docs.ag2.ai/latest/docs/user-guide/advanced-concepts/code-execution)
 - [Tools with Secrets](https://docs.ag2.ai/latest/docs/user-guide/basic-concepts/introducing-tools/tools-with-secrets)
@@ -502,5 +751,3 @@ This project is a spin-off of [AutoGen](https://github.com/microsoft/autogen) an
 - Modifications and additions made in this fork are licensed under the Apache License, Version 2.0. See the [LICENSE](./LICENSE) file for the full license text.
 
 We have documented these changes for clarity and to ensure transparency with our user and contributor community. For more details, please see the [NOTICE](./NOTICE.md) file.
-
-

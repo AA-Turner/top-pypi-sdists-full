@@ -1,7 +1,7 @@
 r'''
 # `google_compute_router_nat_address`
 
-Refer to the Terraform Registry for docs: [`google_compute_router_nat_address`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address).
+Refer to the Terraform Registry for docs: [`google_compute_router_nat_address`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeRouterNatAddress(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeRouterNatAddress.ComputeRouterNatAddress",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address google_compute_router_nat_address}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address google_compute_router_nat_address}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class ComputeRouterNatAddress(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address google_compute_router_nat_address} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address google_compute_router_nat_address} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param nat_ips: Self-links of NAT IPs to be used in a Nat service. Only valid if the referenced RouterNat natIpAllocateOption is set to MANUAL_ONLY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#nat_ips ComputeRouterNatAddress#nat_ips}
-        :param router: The name of the Cloud Router in which the referenced NAT service is configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#router ComputeRouterNatAddress#router}
-        :param router_nat: The name of the Nat service in which this address will be configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#router_nat ComputeRouterNatAddress#router_nat}
-        :param drain_nat_ips: A list of URLs of the IP resources to be drained. These IPs must be valid static external IPs that have been assigned to the NAT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#drain_nat_ips ComputeRouterNatAddress#drain_nat_ips}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#id ComputeRouterNatAddress#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#project ComputeRouterNatAddress#project}.
-        :param region: Region where the NAT service reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#region ComputeRouterNatAddress#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#timeouts ComputeRouterNatAddress#timeouts}
+        :param nat_ips: Self-links of NAT IPs to be used in a Nat service. Only valid if the referenced RouterNat natIpAllocateOption is set to MANUAL_ONLY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#nat_ips ComputeRouterNatAddress#nat_ips}
+        :param router: The name of the Cloud Router in which the referenced NAT service is configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#router ComputeRouterNatAddress#router}
+        :param router_nat: The name of the Nat service in which this address will be configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#router_nat ComputeRouterNatAddress#router_nat}
+        :param drain_nat_ips: A list of URLs of the IP resources to be drained. These IPs must be valid static external IPs that have been assigned to the NAT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#drain_nat_ips ComputeRouterNatAddress#drain_nat_ips}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#id ComputeRouterNatAddress#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#project ComputeRouterNatAddress#project}.
+        :param region: Region where the NAT service reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#region ComputeRouterNatAddress#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#timeouts ComputeRouterNatAddress#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class ComputeRouterNatAddress(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeRouterNatAddress to import.
-        :param import_from_id: The id of the existing ComputeRouterNatAddress that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeRouterNatAddress that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeRouterNatAddress to import is found.
         '''
         if __debug__:
@@ -144,9 +144,9 @@ class ComputeRouterNatAddress(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#create ComputeRouterNatAddress#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#delete ComputeRouterNatAddress#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#update ComputeRouterNatAddress#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#create ComputeRouterNatAddress#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#delete ComputeRouterNatAddress#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#update ComputeRouterNatAddress#update}.
         '''
         value = ComputeRouterNatAddressTimeouts(
             create=create, delete=delete, update=update
@@ -368,14 +368,14 @@ class ComputeRouterNatAddressConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param nat_ips: Self-links of NAT IPs to be used in a Nat service. Only valid if the referenced RouterNat natIpAllocateOption is set to MANUAL_ONLY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#nat_ips ComputeRouterNatAddress#nat_ips}
-        :param router: The name of the Cloud Router in which the referenced NAT service is configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#router ComputeRouterNatAddress#router}
-        :param router_nat: The name of the Nat service in which this address will be configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#router_nat ComputeRouterNatAddress#router_nat}
-        :param drain_nat_ips: A list of URLs of the IP resources to be drained. These IPs must be valid static external IPs that have been assigned to the NAT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#drain_nat_ips ComputeRouterNatAddress#drain_nat_ips}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#id ComputeRouterNatAddress#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#project ComputeRouterNatAddress#project}.
-        :param region: Region where the NAT service reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#region ComputeRouterNatAddress#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#timeouts ComputeRouterNatAddress#timeouts}
+        :param nat_ips: Self-links of NAT IPs to be used in a Nat service. Only valid if the referenced RouterNat natIpAllocateOption is set to MANUAL_ONLY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#nat_ips ComputeRouterNatAddress#nat_ips}
+        :param router: The name of the Cloud Router in which the referenced NAT service is configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#router ComputeRouterNatAddress#router}
+        :param router_nat: The name of the Nat service in which this address will be configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#router_nat ComputeRouterNatAddress#router_nat}
+        :param drain_nat_ips: A list of URLs of the IP resources to be drained. These IPs must be valid static external IPs that have been assigned to the NAT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#drain_nat_ips ComputeRouterNatAddress#drain_nat_ips}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#id ComputeRouterNatAddress#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#project ComputeRouterNatAddress#project}.
+        :param region: Region where the NAT service reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#region ComputeRouterNatAddress#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#timeouts ComputeRouterNatAddress#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -499,7 +499,7 @@ class ComputeRouterNatAddressConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Only valid if the referenced RouterNat
         natIpAllocateOption is set to MANUAL_ONLY.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#nat_ips ComputeRouterNatAddress#nat_ips}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#nat_ips ComputeRouterNatAddress#nat_ips}
         '''
         result = self._values.get("nat_ips")
         assert result is not None, "Required property 'nat_ips' is missing"
@@ -509,7 +509,7 @@ class ComputeRouterNatAddressConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def router(self) -> builtins.str:
         '''The name of the Cloud Router in which the referenced NAT service is configured.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#router ComputeRouterNatAddress#router}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#router ComputeRouterNatAddress#router}
         '''
         result = self._values.get("router")
         assert result is not None, "Required property 'router' is missing"
@@ -519,7 +519,7 @@ class ComputeRouterNatAddressConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def router_nat(self) -> builtins.str:
         '''The name of the Nat service in which this address will be configured.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#router_nat ComputeRouterNatAddress#router_nat}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#router_nat ComputeRouterNatAddress#router_nat}
         '''
         result = self._values.get("router_nat")
         assert result is not None, "Required property 'router_nat' is missing"
@@ -532,14 +532,14 @@ class ComputeRouterNatAddressConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         These IPs must be
         valid static external IPs that have been assigned to the NAT.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#drain_nat_ips ComputeRouterNatAddress#drain_nat_ips}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#drain_nat_ips ComputeRouterNatAddress#drain_nat_ips}
         '''
         result = self._values.get("drain_nat_ips")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#id ComputeRouterNatAddress#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#id ComputeRouterNatAddress#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -549,7 +549,7 @@ class ComputeRouterNatAddressConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#project ComputeRouterNatAddress#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#project ComputeRouterNatAddress#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -557,7 +557,7 @@ class ComputeRouterNatAddressConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where the NAT service reside.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#region ComputeRouterNatAddress#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#region ComputeRouterNatAddress#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -566,7 +566,7 @@ class ComputeRouterNatAddressConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeRouterNatAddressTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#timeouts ComputeRouterNatAddress#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#timeouts ComputeRouterNatAddress#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeRouterNatAddressTimeouts"], result)
@@ -597,9 +597,9 @@ class ComputeRouterNatAddressTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#create ComputeRouterNatAddress#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#delete ComputeRouterNatAddress#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#update ComputeRouterNatAddress#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#create ComputeRouterNatAddress#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#delete ComputeRouterNatAddress#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#update ComputeRouterNatAddress#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__34b7530ed6e4d57db0912416c48ea5bd77223e0beed622165e5886260dd97b8c)
@@ -616,19 +616,19 @@ class ComputeRouterNatAddressTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#create ComputeRouterNatAddress#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#create ComputeRouterNatAddress#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#delete ComputeRouterNatAddress#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#delete ComputeRouterNatAddress#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_router_nat_address#update ComputeRouterNatAddress#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_router_nat_address#update ComputeRouterNatAddress#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

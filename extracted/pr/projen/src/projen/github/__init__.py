@@ -6367,18 +6367,24 @@ class PullRequestTemplateOptions:
 @jsii.data_type(
     jsii_type="projen.github.SemanticTitleOptions",
     jsii_struct_bases=[],
-    name_mapping={"require_scope": "requireScope", "types": "types"},
+    name_mapping={
+        "require_scope": "requireScope",
+        "scopes": "scopes",
+        "types": "types",
+    },
 )
 class SemanticTitleOptions:
     def __init__(
         self,
         *,
         require_scope: typing.Optional[builtins.bool] = None,
+        scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
         types: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''(experimental) Options for linting that PR titles follow Conventional Commits.
 
         :param require_scope: (experimental) Configure that a scope must always be provided. e.g. feat(ui), fix(core) Default: false
+        :param scopes: (experimental) Configure which scopes are allowed (newline-delimited). These are regex patterns auto-wrapped in ``^ $``. Default: - all scopes allowed
         :param types: (experimental) Configure a list of commit types that are allowed. Default: ["feat", "fix", "chore"]
 
         :see: https://www.conventionalcommits.org/
@@ -6387,10 +6393,13 @@ class SemanticTitleOptions:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9d043d0484269cca19493b2d2d5c51f9cfe65a12520148f80ef37f6855457de0)
             check_type(argname="argument require_scope", value=require_scope, expected_type=type_hints["require_scope"])
+            check_type(argname="argument scopes", value=scopes, expected_type=type_hints["scopes"])
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if require_scope is not None:
             self._values["require_scope"] = require_scope
+        if scopes is not None:
+            self._values["scopes"] = scopes
         if types is not None:
             self._values["types"] = types
 
@@ -6406,6 +6415,19 @@ class SemanticTitleOptions:
         '''
         result = self._values.get("require_scope")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def scopes(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Configure which scopes are allowed (newline-delimited).
+
+        These are regex patterns auto-wrapped in ``^ $``.
+
+        :default: - all scopes allowed
+
+        :stability: experimental
+        '''
+        result = self._values.get("scopes")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def types(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -9596,6 +9618,7 @@ def _typecheckingstub__d8786063961cc00764e7c2005db60e7d427b8a81ce2275510888beb4e
 def _typecheckingstub__9d043d0484269cca19493b2d2d5c51f9cfe65a12520148f80ef37f6855457de0(
     *,
     require_scope: typing.Optional[builtins.bool] = None,
+    scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     types: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

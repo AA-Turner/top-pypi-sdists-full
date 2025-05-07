@@ -1,7 +1,7 @@
 r'''
 # `google_data_catalog_entry_group`
 
-Refer to the Terraform Registry for docs: [`google_data_catalog_entry_group`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group).
+Refer to the Terraform Registry for docs: [`google_data_catalog_entry_group`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataCatalogEntryGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataCatalogEntryGroup.DataCatalogEntryGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group google_data_catalog_entry_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group google_data_catalog_entry_group}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class DataCatalogEntryGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group google_data_catalog_entry_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group google_data_catalog_entry_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param entry_group_id: The id of the entry group to create. The id must begin with a letter or underscore, contain only English letters, numbers and underscores, and be at most 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#entry_group_id DataCatalogEntryGroup#entry_group_id}
-        :param description: Entry group description, which can consist of several sentences or paragraphs that describe entry group contents. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#description DataCatalogEntryGroup#description}
-        :param display_name: A short name to identify the entry group, for example, "analytics data - jan 2011". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#display_name DataCatalogEntryGroup#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#id DataCatalogEntryGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#project DataCatalogEntryGroup#project}.
-        :param region: EntryGroup location region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#region DataCatalogEntryGroup#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#timeouts DataCatalogEntryGroup#timeouts}
+        :param entry_group_id: The id of the entry group to create. The id must begin with a letter or underscore, contain only English letters, numbers and underscores, and be at most 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#entry_group_id DataCatalogEntryGroup#entry_group_id}
+        :param description: Entry group description, which can consist of several sentences or paragraphs that describe entry group contents. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#description DataCatalogEntryGroup#description}
+        :param display_name: A short name to identify the entry group, for example, "analytics data - jan 2011". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#display_name DataCatalogEntryGroup#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#id DataCatalogEntryGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#project DataCatalogEntryGroup#project}.
+        :param region: EntryGroup location region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#region DataCatalogEntryGroup#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#timeouts DataCatalogEntryGroup#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class DataCatalogEntryGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataCatalogEntryGroup to import.
-        :param import_from_id: The id of the existing DataCatalogEntryGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataCatalogEntryGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataCatalogEntryGroup to import is found.
         '''
         if __debug__:
@@ -141,9 +141,9 @@ class DataCatalogEntryGroup(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#create DataCatalogEntryGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#delete DataCatalogEntryGroup#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#update DataCatalogEntryGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#create DataCatalogEntryGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#delete DataCatalogEntryGroup#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#update DataCatalogEntryGroup#update}.
         '''
         value = DataCatalogEntryGroupTimeouts(
             create=create, delete=delete, update=update
@@ -355,13 +355,13 @@ class DataCatalogEntryGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param entry_group_id: The id of the entry group to create. The id must begin with a letter or underscore, contain only English letters, numbers and underscores, and be at most 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#entry_group_id DataCatalogEntryGroup#entry_group_id}
-        :param description: Entry group description, which can consist of several sentences or paragraphs that describe entry group contents. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#description DataCatalogEntryGroup#description}
-        :param display_name: A short name to identify the entry group, for example, "analytics data - jan 2011". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#display_name DataCatalogEntryGroup#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#id DataCatalogEntryGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#project DataCatalogEntryGroup#project}.
-        :param region: EntryGroup location region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#region DataCatalogEntryGroup#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#timeouts DataCatalogEntryGroup#timeouts}
+        :param entry_group_id: The id of the entry group to create. The id must begin with a letter or underscore, contain only English letters, numbers and underscores, and be at most 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#entry_group_id DataCatalogEntryGroup#entry_group_id}
+        :param description: Entry group description, which can consist of several sentences or paragraphs that describe entry group contents. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#description DataCatalogEntryGroup#description}
+        :param display_name: A short name to identify the entry group, for example, "analytics data - jan 2011". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#display_name DataCatalogEntryGroup#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#id DataCatalogEntryGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#project DataCatalogEntryGroup#project}.
+        :param region: EntryGroup location region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#region DataCatalogEntryGroup#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#timeouts DataCatalogEntryGroup#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -484,7 +484,7 @@ class DataCatalogEntryGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         The id must begin with a letter or underscore,
         contain only English letters, numbers and underscores, and be at most 64 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#entry_group_id DataCatalogEntryGroup#entry_group_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#entry_group_id DataCatalogEntryGroup#entry_group_id}
         '''
         result = self._values.get("entry_group_id")
         assert result is not None, "Required property 'entry_group_id' is missing"
@@ -494,7 +494,7 @@ class DataCatalogEntryGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Entry group description, which can consist of several sentences or paragraphs that describe entry group contents.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#description DataCatalogEntryGroup#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#description DataCatalogEntryGroup#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -503,14 +503,14 @@ class DataCatalogEntryGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''A short name to identify the entry group, for example, "analytics data - jan 2011".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#display_name DataCatalogEntryGroup#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#display_name DataCatalogEntryGroup#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#id DataCatalogEntryGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#id DataCatalogEntryGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -520,7 +520,7 @@ class DataCatalogEntryGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#project DataCatalogEntryGroup#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#project DataCatalogEntryGroup#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -528,7 +528,7 @@ class DataCatalogEntryGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''EntryGroup location region.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#region DataCatalogEntryGroup#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#region DataCatalogEntryGroup#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -537,7 +537,7 @@ class DataCatalogEntryGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataCatalogEntryGroupTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#timeouts DataCatalogEntryGroup#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#timeouts DataCatalogEntryGroup#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataCatalogEntryGroupTimeouts"], result)
@@ -568,9 +568,9 @@ class DataCatalogEntryGroupTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#create DataCatalogEntryGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#delete DataCatalogEntryGroup#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#update DataCatalogEntryGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#create DataCatalogEntryGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#delete DataCatalogEntryGroup#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#update DataCatalogEntryGroup#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__819698be4c043bdbc67219986c39b72dea33390aa97f6b980ee28e25bbb9157d)
@@ -587,19 +587,19 @@ class DataCatalogEntryGroupTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#create DataCatalogEntryGroup#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#create DataCatalogEntryGroup#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#delete DataCatalogEntryGroup#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#delete DataCatalogEntryGroup#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_catalog_entry_group#update DataCatalogEntryGroup#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_catalog_entry_group#update DataCatalogEntryGroup#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

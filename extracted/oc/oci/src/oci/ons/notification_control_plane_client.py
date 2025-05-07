@@ -168,7 +168,7 @@ class NotificationControlPlaneClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/ons/change_topic_compartment.py.html>`__ to see an example of how to use change_topic_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/ons/change_topic_compartment.py.html>`__ to see an example of how to use change_topic_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['topicId']
@@ -294,7 +294,7 @@ class NotificationControlPlaneClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/ons/create_topic.py.html>`__ to see an example of how to use create_topic API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/ons/create_topic.py.html>`__ to see an example of how to use create_topic API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -393,7 +393,7 @@ class NotificationControlPlaneClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/ons/delete_topic.py.html>`__ to see an example of how to use delete_topic API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/ons/delete_topic.py.html>`__ to see an example of how to use delete_topic API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['topicId']
@@ -494,7 +494,7 @@ class NotificationControlPlaneClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/ons/get_topic.py.html>`__ to see an example of how to use get_topic API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/ons/get_topic.py.html>`__ to see an example of how to use get_topic API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['topicId']
@@ -628,7 +628,7 @@ class NotificationControlPlaneClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/ons/list_topics.py.html>`__ to see an example of how to use list_topics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/ons/list_topics.py.html>`__ to see an example of how to use list_topics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -767,7 +767,7 @@ class NotificationControlPlaneClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/ons/update_topic.py.html>`__ to see an example of how to use update_topic API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/ons/update_topic.py.html>`__ to see an example of how to use update_topic API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['topicId']

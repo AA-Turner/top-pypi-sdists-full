@@ -8,23 +8,18 @@ import structlog
 from langgraph.pregel.debug import CheckpointPayload, TaskResultPayload
 from starlette.exceptions import HTTPException
 
+import langgraph_api.logging as lg_logging
 from langgraph_api.auth.custom import SimpleUser, normalize_user
 from langgraph_api.config import (
     BG_JOB_ISOLATED_LOOPS,
     BG_JOB_MAX_RETRIES,
     BG_JOB_TIMEOUT_SECS,
 )
-from langgraph_api.errors import (
-    UserInterrupt,
-    UserRollback,
-)
+from langgraph_api.errors import UserInterrupt, UserRollback
 from langgraph_api.js.errors import RemoteException
 from langgraph_api.metadata import incr_runs
 from langgraph_api.schema import Run
-from langgraph_api.stream import (
-    astream_state,
-    consume,
-)
+from langgraph_api.stream import astream_state, consume
 from langgraph_api.utils import set_auth_ctx, with_user
 from langgraph_runtime.database import connect
 from langgraph_runtime.ops import Runs, Threads
@@ -89,11 +84,20 @@ async def worker(
     ):
         temporary = run["kwargs"].get("temporary", False)
         run_created_at = run["created_at"].isoformat()
+        run["kwargs"]
+        lg_logging.set_logging_context(
+            {
+                "run_id": str(run_id),
+                "run_attempt": attempt,
+                "thread_id": str(run.get("thread_id")),
+                "assistant_id": str(run.get("assistant_id")),
+                "graph_id": _get_graph_id(run),
+                "request_id": _get_request_id(run),
+            }
+        )
+
         await logger.ainfo(
             "Starting background run",
-            run_id=str(run_id),
-            run_attempt=attempt,
-            run_created_at=run_created_at,
             run_started_at=run_started_at.isoformat(),
             run_queue_ms=ms(run_started_at, run["created_at"]),
         )
@@ -166,7 +170,6 @@ async def worker(
                 run_started_at=run_started_at.isoformat(),
                 run_ended_at=run_ended_at,
                 run_exec_ms=ms(datetime.now(UTC), run_started_at),
-                graph_id=_get_graph_id(run),
             )
             await Runs.set_status(conn, run_id, "timeout")
         except UserRollback as e:
@@ -183,7 +186,6 @@ async def worker(
                     run_started_at=run_started_at.isoformat(),
                     run_ended_at=run_ended_at,
                     run_exec_ms=ms(datetime.now(UTC), run_started_at),
-                    graph_id=_get_graph_id(run),
                 )
 
             except InFailedSqlTransaction as e:
@@ -221,7 +223,6 @@ async def worker(
                 run_started_at=run_started_at.isoformat(),
                 run_ended_at=run_ended_at,
                 run_exec_ms=ms(datetime.now(UTC), run_started_at),
-                graph_id=_get_graph_id(run),
             )
             await Runs.set_status(conn, run_id, "interrupted")
         except RETRIABLE_EXCEPTIONS as e:
@@ -237,7 +238,6 @@ async def worker(
                 run_started_at=run_started_at.isoformat(),
                 run_ended_at=run_ended_at,
                 run_exec_ms=ms(datetime.now(UTC), run_started_at),
-                graph_id=_get_graph_id(run),
             )
             await Runs.set_status(conn, run_id, "pending")
             raise
@@ -254,7 +254,6 @@ async def worker(
                 run_started_at=run_started_at.isoformat(),
                 run_ended_at=run_ended_at,
                 run_exec_ms=ms(datetime.now(UTC), run_started_at),
-                graph_id=_get_graph_id(run),
             )
             await Runs.set_status(conn, run_id, "error")
         set_auth_ctx(None, None)
@@ -309,6 +308,13 @@ async def worker(
 
 def ms(after: datetime, before: datetime) -> int:
     return int((after - before).total_seconds() * 1000)
+
+
+def _get_request_id(run: Run) -> str | None:
+    try:
+        return run["kwargs"]["config"]["configurable"]["langgraph_request_id"]
+    except Exception:
+        return None
 
 
 def _get_graph_id(run: Run) -> str | None:

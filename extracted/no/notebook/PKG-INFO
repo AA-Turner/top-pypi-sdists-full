@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: notebook
-Version: 7.4.1
+Version: 7.4.2
 Summary: Jupyter Notebook - A web-based notebook environment for interactive computing
 Project-URL: Documentation, https://jupyter-notebook.readthedocs.io/
 Project-URL: Homepage, https://github.com/jupyter/notebook
@@ -55,7 +55,7 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.8
 Requires-Dist: jupyter-server<3,>=2.4.0
 Requires-Dist: jupyterlab-server<3,>=2.27.1
-Requires-Dist: jupyterlab<4.5,>=4.4.0rc0
+Requires-Dist: jupyterlab<4.5,>=4.4.0
 Requires-Dist: notebook-shim<0.3,>=0.2
 Requires-Dist: tornado>=6.2.0
 Provides-Extra: dev

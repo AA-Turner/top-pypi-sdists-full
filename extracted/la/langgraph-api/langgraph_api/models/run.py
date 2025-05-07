@@ -248,6 +248,7 @@ async def create_valid_run(
     barrier: asyncio.Barrier | None = None,
     run_id: UUID | None = None,
 ) -> Run:
+    request_id = headers.get("x-request-id")  # Will be null in the crons scheduler.
     (
         assistant_id,
         thread_id,
@@ -288,6 +289,8 @@ async def create_valid_run(
         configurable["langgraph_auth_permissions"] = ctx.permissions
     else:
         user_id = None
+    if not configurable.get("langgraph_request_id"):
+        configurable["langgraph_request_id"] = request_id
     run_coro = Runs.put(
         conn,
         assistant_id,

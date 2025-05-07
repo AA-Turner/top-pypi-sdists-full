@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pygdal
-Version: 3.7.2.12
+Version: 3.8.5.12
 Summary: Virtualenv and setuptools friendly version of standard GDAL python bindings
 Home-page: https://github.com/nextgis/pygdal
 Author: Frank Warmerdam
@@ -31,7 +31,7 @@ to install GDAL library and its header files on your system. On Ubuntu it can be
 done this way:
 
 ```bash
-$ sudo apt-get install libgdal1-dev
+$ sudo apt-get install libgdal-dev
 ```
 
 Version of the same package, and GDAL, so that if you have installed GDAL 3.6.4

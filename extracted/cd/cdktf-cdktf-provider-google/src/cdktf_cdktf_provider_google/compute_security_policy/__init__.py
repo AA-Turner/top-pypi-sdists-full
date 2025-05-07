@@ -1,7 +1,7 @@
 r'''
 # `google_compute_security_policy`
 
-Refer to the Terraform Registry for docs: [`google_compute_security_policy`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy).
+Refer to the Terraform Registry for docs: [`google_compute_security_policy`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeSecurityPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeSecurityPolicy.ComputeSecurityPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy google_compute_security_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy google_compute_security_policy}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class ComputeSecurityPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy google_compute_security_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy google_compute_security_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the security policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#name ComputeSecurityPolicy#name}
-        :param adaptive_protection_config: adaptive_protection_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#adaptive_protection_config ComputeSecurityPolicy#adaptive_protection_config}
-        :param advanced_options_config: advanced_options_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#advanced_options_config ComputeSecurityPolicy#advanced_options_config}
-        :param description: An optional description of this security policy. Max size is 2048. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#description ComputeSecurityPolicy#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#id ComputeSecurityPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#project ComputeSecurityPolicy#project}
-        :param recaptcha_options_config: recaptcha_options_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#recaptcha_options_config ComputeSecurityPolicy#recaptcha_options_config}
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#rule ComputeSecurityPolicy#rule}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#timeouts ComputeSecurityPolicy#timeouts}
-        :param type: The type indicates the intended use of the security policy. CLOUD_ARMOR - Cloud Armor backend security policies can be configured to filter incoming HTTP requests targeting backend services. They filter requests before they hit the origin servers. CLOUD_ARMOR_EDGE - Cloud Armor edge security policies can be configured to filter incoming HTTP requests targeting backend services (including Cloud CDN-enabled) as well as backend buckets (Cloud Storage). They filter requests before the request is served from Google's cache. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
+        :param name: The name of the security policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#name ComputeSecurityPolicy#name}
+        :param adaptive_protection_config: adaptive_protection_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#adaptive_protection_config ComputeSecurityPolicy#adaptive_protection_config}
+        :param advanced_options_config: advanced_options_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#advanced_options_config ComputeSecurityPolicy#advanced_options_config}
+        :param description: An optional description of this security policy. Max size is 2048. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#description ComputeSecurityPolicy#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#id ComputeSecurityPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#project ComputeSecurityPolicy#project}
+        :param recaptcha_options_config: recaptcha_options_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#recaptcha_options_config ComputeSecurityPolicy#recaptcha_options_config}
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#rule ComputeSecurityPolicy#rule}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#timeouts ComputeSecurityPolicy#timeouts}
+        :param type: The type indicates the intended use of the security policy. CLOUD_ARMOR - Cloud Armor backend security policies can be configured to filter incoming HTTP requests targeting backend services. They filter requests before they hit the origin servers. CLOUD_ARMOR_EDGE - Cloud Armor edge security policies can be configured to filter incoming HTTP requests targeting backend services (including Cloud CDN-enabled) as well as backend buckets (Cloud Storage). They filter requests before the request is served from Google's cache. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class ComputeSecurityPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeSecurityPolicy to import.
-        :param import_from_id: The id of the existing ComputeSecurityPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeSecurityPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeSecurityPolicy to import is found.
         '''
         if __debug__:
@@ -148,7 +148,7 @@ class ComputeSecurityPolicy(
         layer7_ddos_defense_config: typing.Optional[typing.Union["ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param layer7_ddos_defense_config: layer_7_ddos_defense_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#layer_7_ddos_defense_config ComputeSecurityPolicy#layer_7_ddos_defense_config}
+        :param layer7_ddos_defense_config: layer_7_ddos_defense_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#layer_7_ddos_defense_config ComputeSecurityPolicy#layer_7_ddos_defense_config}
         '''
         value = ComputeSecurityPolicyAdaptiveProtectionConfig(
             layer7_ddos_defense_config=layer7_ddos_defense_config
@@ -166,10 +166,10 @@ class ComputeSecurityPolicy(
         user_ip_request_headers: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param json_custom_config: json_custom_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#json_custom_config ComputeSecurityPolicy#json_custom_config}
-        :param json_parsing: JSON body parsing. Supported values include: "DISABLED", "STANDARD". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#json_parsing ComputeSecurityPolicy#json_parsing}
-        :param log_level: Logging level. Supported values include: "NORMAL", "VERBOSE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#log_level ComputeSecurityPolicy#log_level}
-        :param user_ip_request_headers: An optional list of case-insensitive request header names to use for resolving the callers client IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#user_ip_request_headers ComputeSecurityPolicy#user_ip_request_headers}
+        :param json_custom_config: json_custom_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#json_custom_config ComputeSecurityPolicy#json_custom_config}
+        :param json_parsing: JSON body parsing. Supported values include: "DISABLED", "STANDARD". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#json_parsing ComputeSecurityPolicy#json_parsing}
+        :param log_level: Logging level. Supported values include: "NORMAL", "VERBOSE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#log_level ComputeSecurityPolicy#log_level}
+        :param user_ip_request_headers: An optional list of case-insensitive request header names to use for resolving the callers client IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#user_ip_request_headers ComputeSecurityPolicy#user_ip_request_headers}
         '''
         value = ComputeSecurityPolicyAdvancedOptionsConfig(
             json_custom_config=json_custom_config,
@@ -183,7 +183,7 @@ class ComputeSecurityPolicy(
     @jsii.member(jsii_name="putRecaptchaOptionsConfig")
     def put_recaptcha_options_config(self, *, redirect_site_key: builtins.str) -> None:
         '''
-        :param redirect_site_key: A field to supply a reCAPTCHA site key to be used for all the rules using the redirect action with the type of GOOGLE_RECAPTCHA under the security policy. The specified site key needs to be created from the reCAPTCHA API. The user is responsible for the validity of the specified site key. If not specified, a Google-managed site key is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#redirect_site_key ComputeSecurityPolicy#redirect_site_key}
+        :param redirect_site_key: A field to supply a reCAPTCHA site key to be used for all the rules using the redirect action with the type of GOOGLE_RECAPTCHA under the security policy. The specified site key needs to be created from the reCAPTCHA API. The user is responsible for the validity of the specified site key. If not specified, a Google-managed site key is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#redirect_site_key ComputeSecurityPolicy#redirect_site_key}
         '''
         value = ComputeSecurityPolicyRecaptchaOptionsConfig(
             redirect_site_key=redirect_site_key
@@ -213,9 +213,9 @@ class ComputeSecurityPolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#create ComputeSecurityPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#delete ComputeSecurityPolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#update ComputeSecurityPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#create ComputeSecurityPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#delete ComputeSecurityPolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#update ComputeSecurityPolicy#update}.
         '''
         value = ComputeSecurityPolicyTimeouts(
             create=create, delete=delete, update=update
@@ -446,7 +446,7 @@ class ComputeSecurityPolicyAdaptiveProtectionConfig:
         layer7_ddos_defense_config: typing.Optional[typing.Union["ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param layer7_ddos_defense_config: layer_7_ddos_defense_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#layer_7_ddos_defense_config ComputeSecurityPolicy#layer_7_ddos_defense_config}
+        :param layer7_ddos_defense_config: layer_7_ddos_defense_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#layer_7_ddos_defense_config ComputeSecurityPolicy#layer_7_ddos_defense_config}
         '''
         if isinstance(layer7_ddos_defense_config, dict):
             layer7_ddos_defense_config = ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfig(**layer7_ddos_defense_config)
@@ -463,7 +463,7 @@ class ComputeSecurityPolicyAdaptiveProtectionConfig:
     ) -> typing.Optional["ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfig"]:
         '''layer_7_ddos_defense_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#layer_7_ddos_defense_config ComputeSecurityPolicy#layer_7_ddos_defense_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#layer_7_ddos_defense_config ComputeSecurityPolicy#layer_7_ddos_defense_config}
         '''
         result = self._values.get("layer7_ddos_defense_config")
         return typing.cast(typing.Optional["ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfig"], result)
@@ -498,9 +498,9 @@ class ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfig:
         threshold_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfigThresholdConfigs", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param enable: If set to true, enables CAAP for L7 DDoS detection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#enable ComputeSecurityPolicy#enable}
-        :param rule_visibility: Rule visibility. Supported values include: "STANDARD", "PREMIUM". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#rule_visibility ComputeSecurityPolicy#rule_visibility}
-        :param threshold_configs: threshold_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#threshold_configs ComputeSecurityPolicy#threshold_configs}
+        :param enable: If set to true, enables CAAP for L7 DDoS detection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#enable ComputeSecurityPolicy#enable}
+        :param rule_visibility: Rule visibility. Supported values include: "STANDARD", "PREMIUM". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#rule_visibility ComputeSecurityPolicy#rule_visibility}
+        :param threshold_configs: threshold_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#threshold_configs ComputeSecurityPolicy#threshold_configs}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__19d3926c3cd50d957efe608297568fd1dcbaaa1415e53efd71d5e2c0c352bfcc)
@@ -521,7 +521,7 @@ class ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, enables CAAP for L7 DDoS detection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#enable ComputeSecurityPolicy#enable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#enable ComputeSecurityPolicy#enable}
         '''
         result = self._values.get("enable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -530,7 +530,7 @@ class ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfig:
     def rule_visibility(self) -> typing.Optional[builtins.str]:
         '''Rule visibility. Supported values include: "STANDARD", "PREMIUM".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#rule_visibility ComputeSecurityPolicy#rule_visibility}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#rule_visibility ComputeSecurityPolicy#rule_visibility}
         '''
         result = self._values.get("rule_visibility")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -541,7 +541,7 @@ class ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfigThresholdConfigs"]]]:
         '''threshold_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#threshold_configs ComputeSecurityPolicy#threshold_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#threshold_configs ComputeSecurityPolicy#threshold_configs}
         '''
         result = self._values.get("threshold_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfigThresholdConfigs"]]], result)
@@ -704,15 +704,15 @@ class ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfigThresh
         traffic_granularity_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfigThresholdConfigsTrafficGranularityConfigs", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: The name must be 1-63 characters long, and comply with RFC1035. The name must be unique within the security policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#name ComputeSecurityPolicy#name}
-        :param auto_deploy_confidence_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#auto_deploy_confidence_threshold ComputeSecurityPolicy#auto_deploy_confidence_threshold}.
-        :param auto_deploy_expiration_sec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#auto_deploy_expiration_sec ComputeSecurityPolicy#auto_deploy_expiration_sec}.
-        :param auto_deploy_impacted_baseline_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#auto_deploy_impacted_baseline_threshold ComputeSecurityPolicy#auto_deploy_impacted_baseline_threshold}.
-        :param auto_deploy_load_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#auto_deploy_load_threshold ComputeSecurityPolicy#auto_deploy_load_threshold}.
-        :param detection_absolute_qps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#detection_absolute_qps ComputeSecurityPolicy#detection_absolute_qps}.
-        :param detection_load_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#detection_load_threshold ComputeSecurityPolicy#detection_load_threshold}.
-        :param detection_relative_to_baseline_qps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#detection_relative_to_baseline_qps ComputeSecurityPolicy#detection_relative_to_baseline_qps}.
-        :param traffic_granularity_configs: traffic_granularity_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#traffic_granularity_configs ComputeSecurityPolicy#traffic_granularity_configs}
+        :param name: The name must be 1-63 characters long, and comply with RFC1035. The name must be unique within the security policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#name ComputeSecurityPolicy#name}
+        :param auto_deploy_confidence_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#auto_deploy_confidence_threshold ComputeSecurityPolicy#auto_deploy_confidence_threshold}.
+        :param auto_deploy_expiration_sec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#auto_deploy_expiration_sec ComputeSecurityPolicy#auto_deploy_expiration_sec}.
+        :param auto_deploy_impacted_baseline_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#auto_deploy_impacted_baseline_threshold ComputeSecurityPolicy#auto_deploy_impacted_baseline_threshold}.
+        :param auto_deploy_load_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#auto_deploy_load_threshold ComputeSecurityPolicy#auto_deploy_load_threshold}.
+        :param detection_absolute_qps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#detection_absolute_qps ComputeSecurityPolicy#detection_absolute_qps}.
+        :param detection_load_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#detection_load_threshold ComputeSecurityPolicy#detection_load_threshold}.
+        :param detection_relative_to_baseline_qps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#detection_relative_to_baseline_qps ComputeSecurityPolicy#detection_relative_to_baseline_qps}.
+        :param traffic_granularity_configs: traffic_granularity_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#traffic_granularity_configs ComputeSecurityPolicy#traffic_granularity_configs}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__83e155f3cebd7f21fb13c04667217cff67c2e6f15a4cab87f292e62b36024e6e)
@@ -751,7 +751,7 @@ class ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfigThresh
 
         The name must be unique within the security policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#name ComputeSecurityPolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#name ComputeSecurityPolicy#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -759,43 +759,43 @@ class ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfigThresh
 
     @builtins.property
     def auto_deploy_confidence_threshold(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#auto_deploy_confidence_threshold ComputeSecurityPolicy#auto_deploy_confidence_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#auto_deploy_confidence_threshold ComputeSecurityPolicy#auto_deploy_confidence_threshold}.'''
         result = self._values.get("auto_deploy_confidence_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def auto_deploy_expiration_sec(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#auto_deploy_expiration_sec ComputeSecurityPolicy#auto_deploy_expiration_sec}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#auto_deploy_expiration_sec ComputeSecurityPolicy#auto_deploy_expiration_sec}.'''
         result = self._values.get("auto_deploy_expiration_sec")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def auto_deploy_impacted_baseline_threshold(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#auto_deploy_impacted_baseline_threshold ComputeSecurityPolicy#auto_deploy_impacted_baseline_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#auto_deploy_impacted_baseline_threshold ComputeSecurityPolicy#auto_deploy_impacted_baseline_threshold}.'''
         result = self._values.get("auto_deploy_impacted_baseline_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def auto_deploy_load_threshold(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#auto_deploy_load_threshold ComputeSecurityPolicy#auto_deploy_load_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#auto_deploy_load_threshold ComputeSecurityPolicy#auto_deploy_load_threshold}.'''
         result = self._values.get("auto_deploy_load_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def detection_absolute_qps(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#detection_absolute_qps ComputeSecurityPolicy#detection_absolute_qps}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#detection_absolute_qps ComputeSecurityPolicy#detection_absolute_qps}.'''
         result = self._values.get("detection_absolute_qps")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def detection_load_threshold(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#detection_load_threshold ComputeSecurityPolicy#detection_load_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#detection_load_threshold ComputeSecurityPolicy#detection_load_threshold}.'''
         result = self._values.get("detection_load_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def detection_relative_to_baseline_qps(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#detection_relative_to_baseline_qps ComputeSecurityPolicy#detection_relative_to_baseline_qps}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#detection_relative_to_baseline_qps ComputeSecurityPolicy#detection_relative_to_baseline_qps}.'''
         result = self._values.get("detection_relative_to_baseline_qps")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -805,7 +805,7 @@ class ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfigThresh
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfigThresholdConfigsTrafficGranularityConfigs"]]]:
         '''traffic_granularity_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#traffic_granularity_configs ComputeSecurityPolicy#traffic_granularity_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#traffic_granularity_configs ComputeSecurityPolicy#traffic_granularity_configs}
         '''
         result = self._values.get("traffic_granularity_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfigThresholdConfigsTrafficGranularityConfigs"]]], result)
@@ -1174,9 +1174,9 @@ class ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfigThresh
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Type of this configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
-        :param enable_each_unique_value: If enabled, traffic matching each unique value for the specified type constitutes a separate traffic unit. It can only be set to true if value is empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#enable_each_unique_value ComputeSecurityPolicy#enable_each_unique_value}
-        :param value: Requests that match this value constitute a granular traffic unit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
+        :param type: Type of this configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
+        :param enable_each_unique_value: If enabled, traffic matching each unique value for the specified type constitutes a separate traffic unit. It can only be set to true if value is empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#enable_each_unique_value ComputeSecurityPolicy#enable_each_unique_value}
+        :param value: Requests that match this value constitute a granular traffic unit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e8a3bc8f1deeaba37a1e783c90958f3175c5b82aebd6d3baf6bd9e9dc665c477)
@@ -1195,7 +1195,7 @@ class ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfigThresh
     def type(self) -> builtins.str:
         '''Type of this configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -1209,7 +1209,7 @@ class ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfigThresh
 
         It can only be set to true if value is empty.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#enable_each_unique_value ComputeSecurityPolicy#enable_each_unique_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#enable_each_unique_value ComputeSecurityPolicy#enable_each_unique_value}
         '''
         result = self._values.get("enable_each_unique_value")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1218,7 +1218,7 @@ class ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfigThresh
     def value(self) -> typing.Optional[builtins.str]:
         '''Requests that match this value constitute a granular traffic unit.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1467,9 +1467,9 @@ class ComputeSecurityPolicyAdaptiveProtectionConfigOutputReference(
         threshold_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfigThresholdConfigs, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param enable: If set to true, enables CAAP for L7 DDoS detection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#enable ComputeSecurityPolicy#enable}
-        :param rule_visibility: Rule visibility. Supported values include: "STANDARD", "PREMIUM". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#rule_visibility ComputeSecurityPolicy#rule_visibility}
-        :param threshold_configs: threshold_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#threshold_configs ComputeSecurityPolicy#threshold_configs}
+        :param enable: If set to true, enables CAAP for L7 DDoS detection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#enable ComputeSecurityPolicy#enable}
+        :param rule_visibility: Rule visibility. Supported values include: "STANDARD", "PREMIUM". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#rule_visibility ComputeSecurityPolicy#rule_visibility}
+        :param threshold_configs: threshold_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#threshold_configs ComputeSecurityPolicy#threshold_configs}
         '''
         value = ComputeSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfig(
             enable=enable,
@@ -1535,10 +1535,10 @@ class ComputeSecurityPolicyAdvancedOptionsConfig:
         user_ip_request_headers: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param json_custom_config: json_custom_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#json_custom_config ComputeSecurityPolicy#json_custom_config}
-        :param json_parsing: JSON body parsing. Supported values include: "DISABLED", "STANDARD". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#json_parsing ComputeSecurityPolicy#json_parsing}
-        :param log_level: Logging level. Supported values include: "NORMAL", "VERBOSE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#log_level ComputeSecurityPolicy#log_level}
-        :param user_ip_request_headers: An optional list of case-insensitive request header names to use for resolving the callers client IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#user_ip_request_headers ComputeSecurityPolicy#user_ip_request_headers}
+        :param json_custom_config: json_custom_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#json_custom_config ComputeSecurityPolicy#json_custom_config}
+        :param json_parsing: JSON body parsing. Supported values include: "DISABLED", "STANDARD". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#json_parsing ComputeSecurityPolicy#json_parsing}
+        :param log_level: Logging level. Supported values include: "NORMAL", "VERBOSE". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#log_level ComputeSecurityPolicy#log_level}
+        :param user_ip_request_headers: An optional list of case-insensitive request header names to use for resolving the callers client IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#user_ip_request_headers ComputeSecurityPolicy#user_ip_request_headers}
         '''
         if isinstance(json_custom_config, dict):
             json_custom_config = ComputeSecurityPolicyAdvancedOptionsConfigJsonCustomConfig(**json_custom_config)
@@ -1564,7 +1564,7 @@ class ComputeSecurityPolicyAdvancedOptionsConfig:
     ) -> typing.Optional["ComputeSecurityPolicyAdvancedOptionsConfigJsonCustomConfig"]:
         '''json_custom_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#json_custom_config ComputeSecurityPolicy#json_custom_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#json_custom_config ComputeSecurityPolicy#json_custom_config}
         '''
         result = self._values.get("json_custom_config")
         return typing.cast(typing.Optional["ComputeSecurityPolicyAdvancedOptionsConfigJsonCustomConfig"], result)
@@ -1573,7 +1573,7 @@ class ComputeSecurityPolicyAdvancedOptionsConfig:
     def json_parsing(self) -> typing.Optional[builtins.str]:
         '''JSON body parsing. Supported values include: "DISABLED", "STANDARD".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#json_parsing ComputeSecurityPolicy#json_parsing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#json_parsing ComputeSecurityPolicy#json_parsing}
         '''
         result = self._values.get("json_parsing")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1582,7 +1582,7 @@ class ComputeSecurityPolicyAdvancedOptionsConfig:
     def log_level(self) -> typing.Optional[builtins.str]:
         '''Logging level. Supported values include: "NORMAL", "VERBOSE".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#log_level ComputeSecurityPolicy#log_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#log_level ComputeSecurityPolicy#log_level}
         '''
         result = self._values.get("log_level")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1591,7 +1591,7 @@ class ComputeSecurityPolicyAdvancedOptionsConfig:
     def user_ip_request_headers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''An optional list of case-insensitive request header names to use for resolving the callers client IP address.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#user_ip_request_headers ComputeSecurityPolicy#user_ip_request_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#user_ip_request_headers ComputeSecurityPolicy#user_ip_request_headers}
         '''
         result = self._values.get("user_ip_request_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1616,7 +1616,7 @@ class ComputeSecurityPolicyAdvancedOptionsConfig:
 class ComputeSecurityPolicyAdvancedOptionsConfigJsonCustomConfig:
     def __init__(self, *, content_types: typing.Sequence[builtins.str]) -> None:
         '''
-        :param content_types: A list of custom Content-Type header values to apply the JSON parsing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#content_types ComputeSecurityPolicy#content_types}
+        :param content_types: A list of custom Content-Type header values to apply the JSON parsing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#content_types ComputeSecurityPolicy#content_types}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eb438a3770599a7060e8985213810cf127f624adf96f5f8c7892cb4ccf8be8c9)
@@ -1629,7 +1629,7 @@ class ComputeSecurityPolicyAdvancedOptionsConfigJsonCustomConfig:
     def content_types(self) -> typing.List[builtins.str]:
         '''A list of custom Content-Type header values to apply the JSON parsing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#content_types ComputeSecurityPolicy#content_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#content_types ComputeSecurityPolicy#content_types}
         '''
         result = self._values.get("content_types")
         assert result is not None, "Required property 'content_types' is missing"
@@ -1729,7 +1729,7 @@ class ComputeSecurityPolicyAdvancedOptionsConfigOutputReference(
         content_types: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param content_types: A list of custom Content-Type header values to apply the JSON parsing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#content_types ComputeSecurityPolicy#content_types}
+        :param content_types: A list of custom Content-Type header values to apply the JSON parsing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#content_types ComputeSecurityPolicy#content_types}
         '''
         value = ComputeSecurityPolicyAdvancedOptionsConfigJsonCustomConfig(
             content_types=content_types
@@ -1891,16 +1891,16 @@ class ComputeSecurityPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the security policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#name ComputeSecurityPolicy#name}
-        :param adaptive_protection_config: adaptive_protection_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#adaptive_protection_config ComputeSecurityPolicy#adaptive_protection_config}
-        :param advanced_options_config: advanced_options_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#advanced_options_config ComputeSecurityPolicy#advanced_options_config}
-        :param description: An optional description of this security policy. Max size is 2048. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#description ComputeSecurityPolicy#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#id ComputeSecurityPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#project ComputeSecurityPolicy#project}
-        :param recaptcha_options_config: recaptcha_options_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#recaptcha_options_config ComputeSecurityPolicy#recaptcha_options_config}
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#rule ComputeSecurityPolicy#rule}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#timeouts ComputeSecurityPolicy#timeouts}
-        :param type: The type indicates the intended use of the security policy. CLOUD_ARMOR - Cloud Armor backend security policies can be configured to filter incoming HTTP requests targeting backend services. They filter requests before they hit the origin servers. CLOUD_ARMOR_EDGE - Cloud Armor edge security policies can be configured to filter incoming HTTP requests targeting backend services (including Cloud CDN-enabled) as well as backend buckets (Cloud Storage). They filter requests before the request is served from Google's cache. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
+        :param name: The name of the security policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#name ComputeSecurityPolicy#name}
+        :param adaptive_protection_config: adaptive_protection_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#adaptive_protection_config ComputeSecurityPolicy#adaptive_protection_config}
+        :param advanced_options_config: advanced_options_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#advanced_options_config ComputeSecurityPolicy#advanced_options_config}
+        :param description: An optional description of this security policy. Max size is 2048. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#description ComputeSecurityPolicy#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#id ComputeSecurityPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#project ComputeSecurityPolicy#project}
+        :param recaptcha_options_config: recaptcha_options_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#recaptcha_options_config ComputeSecurityPolicy#recaptcha_options_config}
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#rule ComputeSecurityPolicy#rule}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#timeouts ComputeSecurityPolicy#timeouts}
+        :param type: The type indicates the intended use of the security policy. CLOUD_ARMOR - Cloud Armor backend security policies can be configured to filter incoming HTTP requests targeting backend services. They filter requests before they hit the origin servers. CLOUD_ARMOR_EDGE - Cloud Armor edge security policies can be configured to filter incoming HTTP requests targeting backend services (including Cloud CDN-enabled) as well as backend buckets (Cloud Storage). They filter requests before the request is served from Google's cache. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2035,7 +2035,7 @@ class ComputeSecurityPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the security policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#name ComputeSecurityPolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#name ComputeSecurityPolicy#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -2047,7 +2047,7 @@ class ComputeSecurityPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[ComputeSecurityPolicyAdaptiveProtectionConfig]:
         '''adaptive_protection_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#adaptive_protection_config ComputeSecurityPolicy#adaptive_protection_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#adaptive_protection_config ComputeSecurityPolicy#adaptive_protection_config}
         '''
         result = self._values.get("adaptive_protection_config")
         return typing.cast(typing.Optional[ComputeSecurityPolicyAdaptiveProtectionConfig], result)
@@ -2058,7 +2058,7 @@ class ComputeSecurityPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[ComputeSecurityPolicyAdvancedOptionsConfig]:
         '''advanced_options_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#advanced_options_config ComputeSecurityPolicy#advanced_options_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#advanced_options_config ComputeSecurityPolicy#advanced_options_config}
         '''
         result = self._values.get("advanced_options_config")
         return typing.cast(typing.Optional[ComputeSecurityPolicyAdvancedOptionsConfig], result)
@@ -2067,14 +2067,14 @@ class ComputeSecurityPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this security policy. Max size is 2048.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#description ComputeSecurityPolicy#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#description ComputeSecurityPolicy#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#id ComputeSecurityPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#id ComputeSecurityPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2086,7 +2086,7 @@ class ComputeSecurityPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''The project in which the resource belongs. If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#project ComputeSecurityPolicy#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#project ComputeSecurityPolicy#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2097,7 +2097,7 @@ class ComputeSecurityPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ComputeSecurityPolicyRecaptchaOptionsConfig"]:
         '''recaptcha_options_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#recaptcha_options_config ComputeSecurityPolicy#recaptcha_options_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#recaptcha_options_config ComputeSecurityPolicy#recaptcha_options_config}
         '''
         result = self._values.get("recaptcha_options_config")
         return typing.cast(typing.Optional["ComputeSecurityPolicyRecaptchaOptionsConfig"], result)
@@ -2108,7 +2108,7 @@ class ComputeSecurityPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSecurityPolicyRule"]]]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#rule ComputeSecurityPolicy#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#rule ComputeSecurityPolicy#rule}
         '''
         result = self._values.get("rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSecurityPolicyRule"]]], result)
@@ -2117,7 +2117,7 @@ class ComputeSecurityPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeSecurityPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#timeouts ComputeSecurityPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#timeouts ComputeSecurityPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeSecurityPolicyTimeouts"], result)
@@ -2128,7 +2128,7 @@ class ComputeSecurityPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         CLOUD_ARMOR - Cloud Armor backend security policies can be configured to filter incoming HTTP requests targeting backend services. They filter requests before they hit the origin servers. CLOUD_ARMOR_EDGE - Cloud Armor edge security policies can be configured to filter incoming HTTP requests targeting backend services (including Cloud CDN-enabled) as well as backend buckets (Cloud Storage). They filter requests before the request is served from Google's cache.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2153,7 +2153,7 @@ class ComputeSecurityPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class ComputeSecurityPolicyRecaptchaOptionsConfig:
     def __init__(self, *, redirect_site_key: builtins.str) -> None:
         '''
-        :param redirect_site_key: A field to supply a reCAPTCHA site key to be used for all the rules using the redirect action with the type of GOOGLE_RECAPTCHA under the security policy. The specified site key needs to be created from the reCAPTCHA API. The user is responsible for the validity of the specified site key. If not specified, a Google-managed site key is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#redirect_site_key ComputeSecurityPolicy#redirect_site_key}
+        :param redirect_site_key: A field to supply a reCAPTCHA site key to be used for all the rules using the redirect action with the type of GOOGLE_RECAPTCHA under the security policy. The specified site key needs to be created from the reCAPTCHA API. The user is responsible for the validity of the specified site key. If not specified, a Google-managed site key is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#redirect_site_key ComputeSecurityPolicy#redirect_site_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b068fe9b98a44fb6a6aa907fd051099b34f7e8d1352488cff62bcfeae8b0c84e)
@@ -2168,7 +2168,7 @@ class ComputeSecurityPolicyRecaptchaOptionsConfig:
 
         The specified site key needs to be created from the reCAPTCHA API. The user is responsible for the validity of the specified site key. If not specified, a Google-managed site key is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#redirect_site_key ComputeSecurityPolicy#redirect_site_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#redirect_site_key ComputeSecurityPolicy#redirect_site_key}
         '''
         result = self._values.get("redirect_site_key")
         assert result is not None, "Required property 'redirect_site_key' is missing"
@@ -2271,15 +2271,15 @@ class ComputeSecurityPolicyRule:
         redirect_options: typing.Optional[typing.Union["ComputeSecurityPolicyRuleRedirectOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param action: Action to take when match matches the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#action ComputeSecurityPolicy#action}
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#match ComputeSecurityPolicy#match}
-        :param priority: An unique positive integer indicating the priority of evaluation for a rule. Rules are evaluated from highest priority (lowest numerically) to lowest priority (highest numerically) in order. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#priority ComputeSecurityPolicy#priority}
-        :param description: An optional description of this rule. Max size is 64. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#description ComputeSecurityPolicy#description}
-        :param header_action: header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#header_action ComputeSecurityPolicy#header_action}
-        :param preconfigured_waf_config: preconfigured_waf_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#preconfigured_waf_config ComputeSecurityPolicy#preconfigured_waf_config}
-        :param preview: When set to true, the action specified above is not enforced. Stackdriver logs for requests that trigger a preview action are annotated as such. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#preview ComputeSecurityPolicy#preview}
-        :param rate_limit_options: rate_limit_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#rate_limit_options ComputeSecurityPolicy#rate_limit_options}
-        :param redirect_options: redirect_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#redirect_options ComputeSecurityPolicy#redirect_options}
+        :param action: Action to take when match matches the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#action ComputeSecurityPolicy#action}
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#match ComputeSecurityPolicy#match}
+        :param priority: An unique positive integer indicating the priority of evaluation for a rule. Rules are evaluated from highest priority (lowest numerically) to lowest priority (highest numerically) in order. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#priority ComputeSecurityPolicy#priority}
+        :param description: An optional description of this rule. Max size is 64. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#description ComputeSecurityPolicy#description}
+        :param header_action: header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#header_action ComputeSecurityPolicy#header_action}
+        :param preconfigured_waf_config: preconfigured_waf_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#preconfigured_waf_config ComputeSecurityPolicy#preconfigured_waf_config}
+        :param preview: When set to true, the action specified above is not enforced. Stackdriver logs for requests that trigger a preview action are annotated as such. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#preview ComputeSecurityPolicy#preview}
+        :param rate_limit_options: rate_limit_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#rate_limit_options ComputeSecurityPolicy#rate_limit_options}
+        :param redirect_options: redirect_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#redirect_options ComputeSecurityPolicy#redirect_options}
         '''
         if isinstance(match, dict):
             match = ComputeSecurityPolicyRuleMatch(**match)
@@ -2324,7 +2324,7 @@ class ComputeSecurityPolicyRule:
     def action(self) -> builtins.str:
         '''Action to take when match matches the request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#action ComputeSecurityPolicy#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#action ComputeSecurityPolicy#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -2334,7 +2334,7 @@ class ComputeSecurityPolicyRule:
     def match(self) -> "ComputeSecurityPolicyRuleMatch":
         '''match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#match ComputeSecurityPolicy#match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#match ComputeSecurityPolicy#match}
         '''
         result = self._values.get("match")
         assert result is not None, "Required property 'match' is missing"
@@ -2346,7 +2346,7 @@ class ComputeSecurityPolicyRule:
 
         Rules are evaluated from highest priority (lowest numerically) to lowest priority (highest numerically) in order.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#priority ComputeSecurityPolicy#priority}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#priority ComputeSecurityPolicy#priority}
         '''
         result = self._values.get("priority")
         assert result is not None, "Required property 'priority' is missing"
@@ -2356,7 +2356,7 @@ class ComputeSecurityPolicyRule:
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this rule. Max size is 64.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#description ComputeSecurityPolicy#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#description ComputeSecurityPolicy#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2365,7 +2365,7 @@ class ComputeSecurityPolicyRule:
     def header_action(self) -> typing.Optional["ComputeSecurityPolicyRuleHeaderAction"]:
         '''header_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#header_action ComputeSecurityPolicy#header_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#header_action ComputeSecurityPolicy#header_action}
         '''
         result = self._values.get("header_action")
         return typing.cast(typing.Optional["ComputeSecurityPolicyRuleHeaderAction"], result)
@@ -2376,7 +2376,7 @@ class ComputeSecurityPolicyRule:
     ) -> typing.Optional["ComputeSecurityPolicyRulePreconfiguredWafConfig"]:
         '''preconfigured_waf_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#preconfigured_waf_config ComputeSecurityPolicy#preconfigured_waf_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#preconfigured_waf_config ComputeSecurityPolicy#preconfigured_waf_config}
         '''
         result = self._values.get("preconfigured_waf_config")
         return typing.cast(typing.Optional["ComputeSecurityPolicyRulePreconfiguredWafConfig"], result)
@@ -2389,7 +2389,7 @@ class ComputeSecurityPolicyRule:
 
         Stackdriver logs for requests that trigger a preview action are annotated as such.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#preview ComputeSecurityPolicy#preview}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#preview ComputeSecurityPolicy#preview}
         '''
         result = self._values.get("preview")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2400,7 +2400,7 @@ class ComputeSecurityPolicyRule:
     ) -> typing.Optional["ComputeSecurityPolicyRuleRateLimitOptions"]:
         '''rate_limit_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#rate_limit_options ComputeSecurityPolicy#rate_limit_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#rate_limit_options ComputeSecurityPolicy#rate_limit_options}
         '''
         result = self._values.get("rate_limit_options")
         return typing.cast(typing.Optional["ComputeSecurityPolicyRuleRateLimitOptions"], result)
@@ -2411,7 +2411,7 @@ class ComputeSecurityPolicyRule:
     ) -> typing.Optional["ComputeSecurityPolicyRuleRedirectOptions"]:
         '''redirect_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#redirect_options ComputeSecurityPolicy#redirect_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#redirect_options ComputeSecurityPolicy#redirect_options}
         '''
         result = self._values.get("redirect_options")
         return typing.cast(typing.Optional["ComputeSecurityPolicyRuleRedirectOptions"], result)
@@ -2440,7 +2440,7 @@ class ComputeSecurityPolicyRuleHeaderAction:
         request_headers_to_adds: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeSecurityPolicyRuleHeaderActionRequestHeadersToAdds", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param request_headers_to_adds: request_headers_to_adds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#request_headers_to_adds ComputeSecurityPolicy#request_headers_to_adds}
+        :param request_headers_to_adds: request_headers_to_adds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#request_headers_to_adds ComputeSecurityPolicy#request_headers_to_adds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f6e5af6a32266044b5ce1b2973a8f8a74429cbf3cc1ec110764d8575ec3bc4bd)
@@ -2455,7 +2455,7 @@ class ComputeSecurityPolicyRuleHeaderAction:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSecurityPolicyRuleHeaderActionRequestHeadersToAdds"]]:
         '''request_headers_to_adds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#request_headers_to_adds ComputeSecurityPolicy#request_headers_to_adds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#request_headers_to_adds ComputeSecurityPolicy#request_headers_to_adds}
         '''
         result = self._values.get("request_headers_to_adds")
         assert result is not None, "Required property 'request_headers_to_adds' is missing"
@@ -2549,8 +2549,8 @@ class ComputeSecurityPolicyRuleHeaderActionRequestHeadersToAdds:
         header_value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param header_name: The name of the header to set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#header_name ComputeSecurityPolicy#header_name}
-        :param header_value: The value to set the named header to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#header_value ComputeSecurityPolicy#header_value}
+        :param header_name: The name of the header to set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#header_name ComputeSecurityPolicy#header_name}
+        :param header_value: The value to set the named header to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#header_value ComputeSecurityPolicy#header_value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5a27d30e52936fe3622e42e0df85c5fd9ab5a91eeefc5373a0b73231f176060d)
@@ -2566,7 +2566,7 @@ class ComputeSecurityPolicyRuleHeaderActionRequestHeadersToAdds:
     def header_name(self) -> builtins.str:
         '''The name of the header to set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#header_name ComputeSecurityPolicy#header_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#header_name ComputeSecurityPolicy#header_name}
         '''
         result = self._values.get("header_name")
         assert result is not None, "Required property 'header_name' is missing"
@@ -2576,7 +2576,7 @@ class ComputeSecurityPolicyRuleHeaderActionRequestHeadersToAdds:
     def header_value(self) -> typing.Optional[builtins.str]:
         '''The value to set the named header to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#header_value ComputeSecurityPolicy#header_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#header_value ComputeSecurityPolicy#header_value}
         '''
         result = self._values.get("header_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2878,10 +2878,10 @@ class ComputeSecurityPolicyRuleMatch:
         versioned_expr: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#config ComputeSecurityPolicy#config}
-        :param expr: expr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#expr ComputeSecurityPolicy#expr}
-        :param expr_options: expr_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#expr_options ComputeSecurityPolicy#expr_options}
-        :param versioned_expr: Predefined rule expression. If this field is specified, config must also be specified. Available options: SRC_IPS_V1: Must specify the corresponding src_ip_ranges field in config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#versioned_expr ComputeSecurityPolicy#versioned_expr}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#config ComputeSecurityPolicy#config}
+        :param expr: expr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#expr ComputeSecurityPolicy#expr}
+        :param expr_options: expr_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#expr_options ComputeSecurityPolicy#expr_options}
+        :param versioned_expr: Predefined rule expression. If this field is specified, config must also be specified. Available options: SRC_IPS_V1: Must specify the corresponding src_ip_ranges field in config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#versioned_expr ComputeSecurityPolicy#versioned_expr}
         '''
         if isinstance(config, dict):
             config = ComputeSecurityPolicyRuleMatchConfig(**config)
@@ -2909,7 +2909,7 @@ class ComputeSecurityPolicyRuleMatch:
     def config(self) -> typing.Optional["ComputeSecurityPolicyRuleMatchConfig"]:
         '''config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#config ComputeSecurityPolicy#config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#config ComputeSecurityPolicy#config}
         '''
         result = self._values.get("config")
         return typing.cast(typing.Optional["ComputeSecurityPolicyRuleMatchConfig"], result)
@@ -2918,7 +2918,7 @@ class ComputeSecurityPolicyRuleMatch:
     def expr(self) -> typing.Optional["ComputeSecurityPolicyRuleMatchExpr"]:
         '''expr block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#expr ComputeSecurityPolicy#expr}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#expr ComputeSecurityPolicy#expr}
         '''
         result = self._values.get("expr")
         return typing.cast(typing.Optional["ComputeSecurityPolicyRuleMatchExpr"], result)
@@ -2929,7 +2929,7 @@ class ComputeSecurityPolicyRuleMatch:
     ) -> typing.Optional["ComputeSecurityPolicyRuleMatchExprOptions"]:
         '''expr_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#expr_options ComputeSecurityPolicy#expr_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#expr_options ComputeSecurityPolicy#expr_options}
         '''
         result = self._values.get("expr_options")
         return typing.cast(typing.Optional["ComputeSecurityPolicyRuleMatchExprOptions"], result)
@@ -2940,7 +2940,7 @@ class ComputeSecurityPolicyRuleMatch:
 
         If this field is specified, config must also be specified. Available options:   SRC_IPS_V1: Must specify the corresponding src_ip_ranges field in config.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#versioned_expr ComputeSecurityPolicy#versioned_expr}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#versioned_expr ComputeSecurityPolicy#versioned_expr}
         '''
         result = self._values.get("versioned_expr")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2965,7 +2965,7 @@ class ComputeSecurityPolicyRuleMatch:
 class ComputeSecurityPolicyRuleMatchConfig:
     def __init__(self, *, src_ip_ranges: typing.Sequence[builtins.str]) -> None:
         '''
-        :param src_ip_ranges: Set of IP addresses or ranges (IPV4 or IPV6) in CIDR notation to match against inbound traffic. There is a limit of 10 IP ranges per rule. A value of '*' matches all IPs (can be used to override the default behavior). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#src_ip_ranges ComputeSecurityPolicy#src_ip_ranges}
+        :param src_ip_ranges: Set of IP addresses or ranges (IPV4 or IPV6) in CIDR notation to match against inbound traffic. There is a limit of 10 IP ranges per rule. A value of '*' matches all IPs (can be used to override the default behavior). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#src_ip_ranges ComputeSecurityPolicy#src_ip_ranges}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f7f0131dcc111c41d2dc494a82ab9e7a9ed28d4c8daf78f24f5d4f6b362d5486)
@@ -2980,7 +2980,7 @@ class ComputeSecurityPolicyRuleMatchConfig:
 
         There is a limit of 10 IP ranges per rule. A value of '*' matches all IPs (can be used to override the default behavior).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#src_ip_ranges ComputeSecurityPolicy#src_ip_ranges}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#src_ip_ranges ComputeSecurityPolicy#src_ip_ranges}
         '''
         result = self._values.get("src_ip_ranges")
         assert result is not None, "Required property 'src_ip_ranges' is missing"
@@ -3059,7 +3059,7 @@ class ComputeSecurityPolicyRuleMatchConfigOutputReference(
 class ComputeSecurityPolicyRuleMatchExpr:
     def __init__(self, *, expression: builtins.str) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. The application context of the containing message determines which well-known feature set of CEL is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#expression ComputeSecurityPolicy#expression}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. The application context of the containing message determines which well-known feature set of CEL is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#expression ComputeSecurityPolicy#expression}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__37c7b584a5b111ec379bd0db55777d6bbfebe64b4c2d60dfa57f90fd8fac28fb)
@@ -3074,7 +3074,7 @@ class ComputeSecurityPolicyRuleMatchExpr:
 
         The application context of the containing message determines which well-known feature set of CEL is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#expression ComputeSecurityPolicy#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#expression ComputeSecurityPolicy#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -3104,7 +3104,7 @@ class ComputeSecurityPolicyRuleMatchExprOptions:
         recaptcha_options: typing.Union["ComputeSecurityPolicyRuleMatchExprOptionsRecaptchaOptions", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param recaptcha_options: recaptcha_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#recaptcha_options ComputeSecurityPolicy#recaptcha_options}
+        :param recaptcha_options: recaptcha_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#recaptcha_options ComputeSecurityPolicy#recaptcha_options}
         '''
         if isinstance(recaptcha_options, dict):
             recaptcha_options = ComputeSecurityPolicyRuleMatchExprOptionsRecaptchaOptions(**recaptcha_options)
@@ -3121,7 +3121,7 @@ class ComputeSecurityPolicyRuleMatchExprOptions:
     ) -> "ComputeSecurityPolicyRuleMatchExprOptionsRecaptchaOptions":
         '''recaptcha_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#recaptcha_options ComputeSecurityPolicy#recaptcha_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#recaptcha_options ComputeSecurityPolicy#recaptcha_options}
         '''
         result = self._values.get("recaptcha_options")
         assert result is not None, "Required property 'recaptcha_options' is missing"
@@ -3167,8 +3167,8 @@ class ComputeSecurityPolicyRuleMatchExprOptionsOutputReference(
         session_token_site_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param action_token_site_keys: A list of site keys to be used during the validation of reCAPTCHA action-tokens. The provided site keys need to be created from reCAPTCHA API under the same project where the security policy is created Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#action_token_site_keys ComputeSecurityPolicy#action_token_site_keys}
-        :param session_token_site_keys: A list of site keys to be used during the validation of reCAPTCHA session-tokens. The provided site keys need to be created from reCAPTCHA API under the same project where the security policy is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#session_token_site_keys ComputeSecurityPolicy#session_token_site_keys}
+        :param action_token_site_keys: A list of site keys to be used during the validation of reCAPTCHA action-tokens. The provided site keys need to be created from reCAPTCHA API under the same project where the security policy is created Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#action_token_site_keys ComputeSecurityPolicy#action_token_site_keys}
+        :param session_token_site_keys: A list of site keys to be used during the validation of reCAPTCHA session-tokens. The provided site keys need to be created from reCAPTCHA API under the same project where the security policy is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#session_token_site_keys ComputeSecurityPolicy#session_token_site_keys}
         '''
         value = ComputeSecurityPolicyRuleMatchExprOptionsRecaptchaOptions(
             action_token_site_keys=action_token_site_keys,
@@ -3225,8 +3225,8 @@ class ComputeSecurityPolicyRuleMatchExprOptionsRecaptchaOptions:
         session_token_site_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param action_token_site_keys: A list of site keys to be used during the validation of reCAPTCHA action-tokens. The provided site keys need to be created from reCAPTCHA API under the same project where the security policy is created Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#action_token_site_keys ComputeSecurityPolicy#action_token_site_keys}
-        :param session_token_site_keys: A list of site keys to be used during the validation of reCAPTCHA session-tokens. The provided site keys need to be created from reCAPTCHA API under the same project where the security policy is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#session_token_site_keys ComputeSecurityPolicy#session_token_site_keys}
+        :param action_token_site_keys: A list of site keys to be used during the validation of reCAPTCHA action-tokens. The provided site keys need to be created from reCAPTCHA API under the same project where the security policy is created Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#action_token_site_keys ComputeSecurityPolicy#action_token_site_keys}
+        :param session_token_site_keys: A list of site keys to be used during the validation of reCAPTCHA session-tokens. The provided site keys need to be created from reCAPTCHA API under the same project where the security policy is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#session_token_site_keys ComputeSecurityPolicy#session_token_site_keys}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e4768378bf15b08167c79d4634a54081d43ee99cecff751b629e051879767972)
@@ -3244,7 +3244,7 @@ class ComputeSecurityPolicyRuleMatchExprOptionsRecaptchaOptions:
 
         The provided site keys need to be created from reCAPTCHA API under the same project where the security policy is created
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#action_token_site_keys ComputeSecurityPolicy#action_token_site_keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#action_token_site_keys ComputeSecurityPolicy#action_token_site_keys}
         '''
         result = self._values.get("action_token_site_keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3255,7 +3255,7 @@ class ComputeSecurityPolicyRuleMatchExprOptionsRecaptchaOptions:
 
         The provided site keys need to be created from reCAPTCHA API under the same project where the security policy is created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#session_token_site_keys ComputeSecurityPolicy#session_token_site_keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#session_token_site_keys ComputeSecurityPolicy#session_token_site_keys}
         '''
         result = self._values.get("session_token_site_keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3432,7 +3432,7 @@ class ComputeSecurityPolicyRuleMatchOutputReference(
     @jsii.member(jsii_name="putConfig")
     def put_config(self, *, src_ip_ranges: typing.Sequence[builtins.str]) -> None:
         '''
-        :param src_ip_ranges: Set of IP addresses or ranges (IPV4 or IPV6) in CIDR notation to match against inbound traffic. There is a limit of 10 IP ranges per rule. A value of '*' matches all IPs (can be used to override the default behavior). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#src_ip_ranges ComputeSecurityPolicy#src_ip_ranges}
+        :param src_ip_ranges: Set of IP addresses or ranges (IPV4 or IPV6) in CIDR notation to match against inbound traffic. There is a limit of 10 IP ranges per rule. A value of '*' matches all IPs (can be used to override the default behavior). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#src_ip_ranges ComputeSecurityPolicy#src_ip_ranges}
         '''
         value = ComputeSecurityPolicyRuleMatchConfig(src_ip_ranges=src_ip_ranges)
 
@@ -3441,7 +3441,7 @@ class ComputeSecurityPolicyRuleMatchOutputReference(
     @jsii.member(jsii_name="putExpr")
     def put_expr(self, *, expression: builtins.str) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. The application context of the containing message determines which well-known feature set of CEL is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#expression ComputeSecurityPolicy#expression}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. The application context of the containing message determines which well-known feature set of CEL is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#expression ComputeSecurityPolicy#expression}
         '''
         value = ComputeSecurityPolicyRuleMatchExpr(expression=expression)
 
@@ -3454,7 +3454,7 @@ class ComputeSecurityPolicyRuleMatchOutputReference(
         recaptcha_options: typing.Union[ComputeSecurityPolicyRuleMatchExprOptionsRecaptchaOptions, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param recaptcha_options: recaptcha_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#recaptcha_options ComputeSecurityPolicy#recaptcha_options}
+        :param recaptcha_options: recaptcha_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#recaptcha_options ComputeSecurityPolicy#recaptcha_options}
         '''
         value = ComputeSecurityPolicyRuleMatchExprOptions(
             recaptcha_options=recaptcha_options
@@ -3576,7 +3576,7 @@ class ComputeSecurityPolicyRuleOutputReference(
         request_headers_to_adds: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ComputeSecurityPolicyRuleHeaderActionRequestHeadersToAdds, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param request_headers_to_adds: request_headers_to_adds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#request_headers_to_adds ComputeSecurityPolicy#request_headers_to_adds}
+        :param request_headers_to_adds: request_headers_to_adds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#request_headers_to_adds ComputeSecurityPolicy#request_headers_to_adds}
         '''
         value = ComputeSecurityPolicyRuleHeaderAction(
             request_headers_to_adds=request_headers_to_adds
@@ -3594,10 +3594,10 @@ class ComputeSecurityPolicyRuleOutputReference(
         versioned_expr: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#config ComputeSecurityPolicy#config}
-        :param expr: expr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#expr ComputeSecurityPolicy#expr}
-        :param expr_options: expr_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#expr_options ComputeSecurityPolicy#expr_options}
-        :param versioned_expr: Predefined rule expression. If this field is specified, config must also be specified. Available options: SRC_IPS_V1: Must specify the corresponding src_ip_ranges field in config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#versioned_expr ComputeSecurityPolicy#versioned_expr}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#config ComputeSecurityPolicy#config}
+        :param expr: expr block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#expr ComputeSecurityPolicy#expr}
+        :param expr_options: expr_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#expr_options ComputeSecurityPolicy#expr_options}
+        :param versioned_expr: Predefined rule expression. If this field is specified, config must also be specified. Available options: SRC_IPS_V1: Must specify the corresponding src_ip_ranges field in config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#versioned_expr ComputeSecurityPolicy#versioned_expr}
         '''
         value = ComputeSecurityPolicyRuleMatch(
             config=config,
@@ -3615,7 +3615,7 @@ class ComputeSecurityPolicyRuleOutputReference(
         exclusion: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeSecurityPolicyRulePreconfiguredWafConfigExclusion", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param exclusion: exclusion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#exclusion ComputeSecurityPolicy#exclusion}
+        :param exclusion: exclusion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#exclusion ComputeSecurityPolicy#exclusion}
         '''
         value = ComputeSecurityPolicyRulePreconfiguredWafConfig(exclusion=exclusion)
 
@@ -3636,15 +3636,15 @@ class ComputeSecurityPolicyRuleOutputReference(
         exceed_redirect_options: typing.Optional[typing.Union["ComputeSecurityPolicyRuleRateLimitOptionsExceedRedirectOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param conform_action: Action to take for requests that are under the configured rate limit threshold. Valid option is "allow" only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#conform_action ComputeSecurityPolicy#conform_action}
-        :param exceed_action: Action to take for requests that are above the configured rate limit threshold, to either deny with a specified HTTP response code, or redirect to a different endpoint. Valid options are "deny()" where valid values for status are 403, 404, 429, and 502, and "redirect" where the redirect parameters come from exceedRedirectOptions below. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#exceed_action ComputeSecurityPolicy#exceed_action}
-        :param rate_limit_threshold: rate_limit_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#rate_limit_threshold ComputeSecurityPolicy#rate_limit_threshold}
-        :param ban_duration_sec: Can only be specified if the action for the rule is "rate_based_ban". If specified, determines the time (in seconds) the traffic will continue to be banned by the rate limit after the rate falls below the threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#ban_duration_sec ComputeSecurityPolicy#ban_duration_sec}
-        :param ban_threshold: ban_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#ban_threshold ComputeSecurityPolicy#ban_threshold}
-        :param enforce_on_key: Determines the key to enforce the rateLimitThreshold on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#enforce_on_key ComputeSecurityPolicy#enforce_on_key}
-        :param enforce_on_key_configs: enforce_on_key_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#enforce_on_key_configs ComputeSecurityPolicy#enforce_on_key_configs}
-        :param enforce_on_key_name: Rate limit key name applicable only for the following key types: HTTP_HEADER -- Name of the HTTP header whose value is taken as the key value. HTTP_COOKIE -- Name of the HTTP cookie whose value is taken as the key value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#enforce_on_key_name ComputeSecurityPolicy#enforce_on_key_name}
-        :param exceed_redirect_options: exceed_redirect_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#exceed_redirect_options ComputeSecurityPolicy#exceed_redirect_options}
+        :param conform_action: Action to take for requests that are under the configured rate limit threshold. Valid option is "allow" only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#conform_action ComputeSecurityPolicy#conform_action}
+        :param exceed_action: Action to take for requests that are above the configured rate limit threshold, to either deny with a specified HTTP response code, or redirect to a different endpoint. Valid options are "deny()" where valid values for status are 403, 404, 429, and 502, and "redirect" where the redirect parameters come from exceedRedirectOptions below. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#exceed_action ComputeSecurityPolicy#exceed_action}
+        :param rate_limit_threshold: rate_limit_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#rate_limit_threshold ComputeSecurityPolicy#rate_limit_threshold}
+        :param ban_duration_sec: Can only be specified if the action for the rule is "rate_based_ban". If specified, determines the time (in seconds) the traffic will continue to be banned by the rate limit after the rate falls below the threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#ban_duration_sec ComputeSecurityPolicy#ban_duration_sec}
+        :param ban_threshold: ban_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#ban_threshold ComputeSecurityPolicy#ban_threshold}
+        :param enforce_on_key: Determines the key to enforce the rateLimitThreshold on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#enforce_on_key ComputeSecurityPolicy#enforce_on_key}
+        :param enforce_on_key_configs: enforce_on_key_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#enforce_on_key_configs ComputeSecurityPolicy#enforce_on_key_configs}
+        :param enforce_on_key_name: Rate limit key name applicable only for the following key types: HTTP_HEADER -- Name of the HTTP header whose value is taken as the key value. HTTP_COOKIE -- Name of the HTTP cookie whose value is taken as the key value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#enforce_on_key_name ComputeSecurityPolicy#enforce_on_key_name}
+        :param exceed_redirect_options: exceed_redirect_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#exceed_redirect_options ComputeSecurityPolicy#exceed_redirect_options}
         '''
         value = ComputeSecurityPolicyRuleRateLimitOptions(
             conform_action=conform_action,
@@ -3668,8 +3668,8 @@ class ComputeSecurityPolicyRuleOutputReference(
         target: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Type of the redirect action. Available options: EXTERNAL_302: Must specify the corresponding target field in config. GOOGLE_RECAPTCHA: Cannot specify target field in config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
-        :param target: Target for the redirect action. This is required if the type is EXTERNAL_302 and cannot be specified for GOOGLE_RECAPTCHA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#target ComputeSecurityPolicy#target}
+        :param type: Type of the redirect action. Available options: EXTERNAL_302: Must specify the corresponding target field in config. GOOGLE_RECAPTCHA: Cannot specify target field in config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
+        :param target: Target for the redirect action. This is required if the type is EXTERNAL_302 and cannot be specified for GOOGLE_RECAPTCHA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#target ComputeSecurityPolicy#target}
         '''
         value = ComputeSecurityPolicyRuleRedirectOptions(type=type, target=target)
 
@@ -3866,7 +3866,7 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfig:
         exclusion: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeSecurityPolicyRulePreconfiguredWafConfigExclusion", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param exclusion: exclusion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#exclusion ComputeSecurityPolicy#exclusion}
+        :param exclusion: exclusion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#exclusion ComputeSecurityPolicy#exclusion}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__89e68fa66f026a04ed275fd0c3ae77c197ec191878c2e470787692f467b2816a)
@@ -3881,7 +3881,7 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSecurityPolicyRulePreconfiguredWafConfigExclusion"]]]:
         '''exclusion block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#exclusion ComputeSecurityPolicy#exclusion}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#exclusion ComputeSecurityPolicy#exclusion}
         '''
         result = self._values.get("exclusion")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSecurityPolicyRulePreconfiguredWafConfigExclusion"]]], result)
@@ -3922,12 +3922,12 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfigExclusion:
         target_rule_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param target_rule_set: Target WAF rule set to apply the preconfigured WAF exclusion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#target_rule_set ComputeSecurityPolicy#target_rule_set}
-        :param request_cookie: request_cookie block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#request_cookie ComputeSecurityPolicy#request_cookie}
-        :param request_header: request_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#request_header ComputeSecurityPolicy#request_header}
-        :param request_query_param: request_query_param block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#request_query_param ComputeSecurityPolicy#request_query_param}
-        :param request_uri: request_uri block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#request_uri ComputeSecurityPolicy#request_uri}
-        :param target_rule_ids: A list of target rule IDs under the WAF rule set to apply the preconfigured WAF exclusion. If omitted, it refers to all the rule IDs under the WAF rule set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#target_rule_ids ComputeSecurityPolicy#target_rule_ids}
+        :param target_rule_set: Target WAF rule set to apply the preconfigured WAF exclusion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#target_rule_set ComputeSecurityPolicy#target_rule_set}
+        :param request_cookie: request_cookie block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#request_cookie ComputeSecurityPolicy#request_cookie}
+        :param request_header: request_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#request_header ComputeSecurityPolicy#request_header}
+        :param request_query_param: request_query_param block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#request_query_param ComputeSecurityPolicy#request_query_param}
+        :param request_uri: request_uri block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#request_uri ComputeSecurityPolicy#request_uri}
+        :param target_rule_ids: A list of target rule IDs under the WAF rule set to apply the preconfigured WAF exclusion. If omitted, it refers to all the rule IDs under the WAF rule set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#target_rule_ids ComputeSecurityPolicy#target_rule_ids}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0e4e5d4a6704be27a7f995946a3cd9f75941b3ac6eb875140efa6eef6bbfd082)
@@ -3955,7 +3955,7 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfigExclusion:
     def target_rule_set(self) -> builtins.str:
         '''Target WAF rule set to apply the preconfigured WAF exclusion.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#target_rule_set ComputeSecurityPolicy#target_rule_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#target_rule_set ComputeSecurityPolicy#target_rule_set}
         '''
         result = self._values.get("target_rule_set")
         assert result is not None, "Required property 'target_rule_set' is missing"
@@ -3967,7 +3967,7 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfigExclusion:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookie"]]]:
         '''request_cookie block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#request_cookie ComputeSecurityPolicy#request_cookie}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#request_cookie ComputeSecurityPolicy#request_cookie}
         '''
         result = self._values.get("request_cookie")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookie"]]], result)
@@ -3978,7 +3978,7 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfigExclusion:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeader"]]]:
         '''request_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#request_header ComputeSecurityPolicy#request_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#request_header ComputeSecurityPolicy#request_header}
         '''
         result = self._values.get("request_header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeader"]]], result)
@@ -3989,7 +3989,7 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfigExclusion:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParam"]]]:
         '''request_query_param block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#request_query_param ComputeSecurityPolicy#request_query_param}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#request_query_param ComputeSecurityPolicy#request_query_param}
         '''
         result = self._values.get("request_query_param")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParam"]]], result)
@@ -4000,7 +4000,7 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfigExclusion:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestUri"]]]:
         '''request_uri block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#request_uri ComputeSecurityPolicy#request_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#request_uri ComputeSecurityPolicy#request_uri}
         '''
         result = self._values.get("request_uri")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestUri"]]], result)
@@ -4011,7 +4011,7 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfigExclusion:
 
         If omitted, it refers to all the rule IDs under the WAF rule set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#target_rule_ids ComputeSecurityPolicy#target_rule_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#target_rule_ids ComputeSecurityPolicy#target_rule_ids}
         '''
         result = self._values.get("target_rule_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4340,8 +4340,8 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookie:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param operator: You can specify an exact match or a partial match by using a field operator and a field value. Available options: EQUALS: The operator matches if the field value equals the specified value. STARTS_WITH: The operator matches if the field value starts with the specified value. ENDS_WITH: The operator matches if the field value ends with the specified value. CONTAINS: The operator matches if the field value contains the specified value. EQUALS_ANY: The operator matches if the field value is any value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#operator ComputeSecurityPolicy#operator}
-        :param value: A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation. The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
+        :param operator: You can specify an exact match or a partial match by using a field operator and a field value. Available options: EQUALS: The operator matches if the field value equals the specified value. STARTS_WITH: The operator matches if the field value starts with the specified value. ENDS_WITH: The operator matches if the field value ends with the specified value. CONTAINS: The operator matches if the field value contains the specified value. EQUALS_ANY: The operator matches if the field value is any value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#operator ComputeSecurityPolicy#operator}
+        :param value: A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation. The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__566fcf96d097daa1fd78723f1dc343a05867273e01ba77d710190b7a8104a4ae)
@@ -4359,7 +4359,7 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookie:
 
         Available options: EQUALS: The operator matches if the field value equals the specified value. STARTS_WITH: The operator matches if the field value starts with the specified value. ENDS_WITH: The operator matches if the field value ends with the specified value. CONTAINS: The operator matches if the field value contains the specified value. EQUALS_ANY: The operator matches if the field value is any value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#operator ComputeSecurityPolicy#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#operator ComputeSecurityPolicy#operator}
         '''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
@@ -4371,7 +4371,7 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookie:
 
         The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4576,8 +4576,8 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeader:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param operator: You can specify an exact match or a partial match by using a field operator and a field value. Available options: EQUALS: The operator matches if the field value equals the specified value. STARTS_WITH: The operator matches if the field value starts with the specified value. ENDS_WITH: The operator matches if the field value ends with the specified value. CONTAINS: The operator matches if the field value contains the specified value. EQUALS_ANY: The operator matches if the field value is any value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#operator ComputeSecurityPolicy#operator}
-        :param value: A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation. The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
+        :param operator: You can specify an exact match or a partial match by using a field operator and a field value. Available options: EQUALS: The operator matches if the field value equals the specified value. STARTS_WITH: The operator matches if the field value starts with the specified value. ENDS_WITH: The operator matches if the field value ends with the specified value. CONTAINS: The operator matches if the field value contains the specified value. EQUALS_ANY: The operator matches if the field value is any value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#operator ComputeSecurityPolicy#operator}
+        :param value: A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation. The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__42fb9c46f07606b327504f47c438a9706425d54a3e905a7c0afc65ca29c2b17e)
@@ -4595,7 +4595,7 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeader:
 
         Available options: EQUALS: The operator matches if the field value equals the specified value. STARTS_WITH: The operator matches if the field value starts with the specified value. ENDS_WITH: The operator matches if the field value ends with the specified value. CONTAINS: The operator matches if the field value contains the specified value. EQUALS_ANY: The operator matches if the field value is any value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#operator ComputeSecurityPolicy#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#operator ComputeSecurityPolicy#operator}
         '''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
@@ -4607,7 +4607,7 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeader:
 
         The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4812,8 +4812,8 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParam:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param operator: You can specify an exact match or a partial match by using a field operator and a field value. Available options: EQUALS: The operator matches if the field value equals the specified value. STARTS_WITH: The operator matches if the field value starts with the specified value. ENDS_WITH: The operator matches if the field value ends with the specified value. CONTAINS: The operator matches if the field value contains the specified value. EQUALS_ANY: The operator matches if the field value is any value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#operator ComputeSecurityPolicy#operator}
-        :param value: A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation. The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
+        :param operator: You can specify an exact match or a partial match by using a field operator and a field value. Available options: EQUALS: The operator matches if the field value equals the specified value. STARTS_WITH: The operator matches if the field value starts with the specified value. ENDS_WITH: The operator matches if the field value ends with the specified value. CONTAINS: The operator matches if the field value contains the specified value. EQUALS_ANY: The operator matches if the field value is any value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#operator ComputeSecurityPolicy#operator}
+        :param value: A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation. The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8d75914f78158edc5ee8e4e6ddb1bef4c8544e98a581242b02e0c98b1840f80d)
@@ -4831,7 +4831,7 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParam:
 
         Available options: EQUALS: The operator matches if the field value equals the specified value. STARTS_WITH: The operator matches if the field value starts with the specified value. ENDS_WITH: The operator matches if the field value ends with the specified value. CONTAINS: The operator matches if the field value contains the specified value. EQUALS_ANY: The operator matches if the field value is any value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#operator ComputeSecurityPolicy#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#operator ComputeSecurityPolicy#operator}
         '''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
@@ -4843,7 +4843,7 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParam:
 
         The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5048,8 +5048,8 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestUri:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param operator: You can specify an exact match or a partial match by using a field operator and a field value. Available options: EQUALS: The operator matches if the field value equals the specified value. STARTS_WITH: The operator matches if the field value starts with the specified value. ENDS_WITH: The operator matches if the field value ends with the specified value. CONTAINS: The operator matches if the field value contains the specified value. EQUALS_ANY: The operator matches if the field value is any value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#operator ComputeSecurityPolicy#operator}
-        :param value: A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation. The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
+        :param operator: You can specify an exact match or a partial match by using a field operator and a field value. Available options: EQUALS: The operator matches if the field value equals the specified value. STARTS_WITH: The operator matches if the field value starts with the specified value. ENDS_WITH: The operator matches if the field value ends with the specified value. CONTAINS: The operator matches if the field value contains the specified value. EQUALS_ANY: The operator matches if the field value is any value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#operator ComputeSecurityPolicy#operator}
+        :param value: A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation. The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__11d205aaa4638bcb3efc89d860d5aeaf78f5064f4d6e00e6f86709c298250abd)
@@ -5067,7 +5067,7 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestUri:
 
         Available options: EQUALS: The operator matches if the field value equals the specified value. STARTS_WITH: The operator matches if the field value starts with the specified value. ENDS_WITH: The operator matches if the field value ends with the specified value. CONTAINS: The operator matches if the field value contains the specified value. EQUALS_ANY: The operator matches if the field value is any value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#operator ComputeSecurityPolicy#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#operator ComputeSecurityPolicy#operator}
         '''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
@@ -5079,7 +5079,7 @@ class ComputeSecurityPolicyRulePreconfiguredWafConfigExclusionRequestUri:
 
         The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#value ComputeSecurityPolicy#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5368,15 +5368,15 @@ class ComputeSecurityPolicyRuleRateLimitOptions:
         exceed_redirect_options: typing.Optional[typing.Union["ComputeSecurityPolicyRuleRateLimitOptionsExceedRedirectOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param conform_action: Action to take for requests that are under the configured rate limit threshold. Valid option is "allow" only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#conform_action ComputeSecurityPolicy#conform_action}
-        :param exceed_action: Action to take for requests that are above the configured rate limit threshold, to either deny with a specified HTTP response code, or redirect to a different endpoint. Valid options are "deny()" where valid values for status are 403, 404, 429, and 502, and "redirect" where the redirect parameters come from exceedRedirectOptions below. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#exceed_action ComputeSecurityPolicy#exceed_action}
-        :param rate_limit_threshold: rate_limit_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#rate_limit_threshold ComputeSecurityPolicy#rate_limit_threshold}
-        :param ban_duration_sec: Can only be specified if the action for the rule is "rate_based_ban". If specified, determines the time (in seconds) the traffic will continue to be banned by the rate limit after the rate falls below the threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#ban_duration_sec ComputeSecurityPolicy#ban_duration_sec}
-        :param ban_threshold: ban_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#ban_threshold ComputeSecurityPolicy#ban_threshold}
-        :param enforce_on_key: Determines the key to enforce the rateLimitThreshold on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#enforce_on_key ComputeSecurityPolicy#enforce_on_key}
-        :param enforce_on_key_configs: enforce_on_key_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#enforce_on_key_configs ComputeSecurityPolicy#enforce_on_key_configs}
-        :param enforce_on_key_name: Rate limit key name applicable only for the following key types: HTTP_HEADER -- Name of the HTTP header whose value is taken as the key value. HTTP_COOKIE -- Name of the HTTP cookie whose value is taken as the key value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#enforce_on_key_name ComputeSecurityPolicy#enforce_on_key_name}
-        :param exceed_redirect_options: exceed_redirect_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#exceed_redirect_options ComputeSecurityPolicy#exceed_redirect_options}
+        :param conform_action: Action to take for requests that are under the configured rate limit threshold. Valid option is "allow" only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#conform_action ComputeSecurityPolicy#conform_action}
+        :param exceed_action: Action to take for requests that are above the configured rate limit threshold, to either deny with a specified HTTP response code, or redirect to a different endpoint. Valid options are "deny()" where valid values for status are 403, 404, 429, and 502, and "redirect" where the redirect parameters come from exceedRedirectOptions below. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#exceed_action ComputeSecurityPolicy#exceed_action}
+        :param rate_limit_threshold: rate_limit_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#rate_limit_threshold ComputeSecurityPolicy#rate_limit_threshold}
+        :param ban_duration_sec: Can only be specified if the action for the rule is "rate_based_ban". If specified, determines the time (in seconds) the traffic will continue to be banned by the rate limit after the rate falls below the threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#ban_duration_sec ComputeSecurityPolicy#ban_duration_sec}
+        :param ban_threshold: ban_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#ban_threshold ComputeSecurityPolicy#ban_threshold}
+        :param enforce_on_key: Determines the key to enforce the rateLimitThreshold on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#enforce_on_key ComputeSecurityPolicy#enforce_on_key}
+        :param enforce_on_key_configs: enforce_on_key_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#enforce_on_key_configs ComputeSecurityPolicy#enforce_on_key_configs}
+        :param enforce_on_key_name: Rate limit key name applicable only for the following key types: HTTP_HEADER -- Name of the HTTP header whose value is taken as the key value. HTTP_COOKIE -- Name of the HTTP cookie whose value is taken as the key value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#enforce_on_key_name ComputeSecurityPolicy#enforce_on_key_name}
+        :param exceed_redirect_options: exceed_redirect_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#exceed_redirect_options ComputeSecurityPolicy#exceed_redirect_options}
         '''
         if isinstance(rate_limit_threshold, dict):
             rate_limit_threshold = ComputeSecurityPolicyRuleRateLimitOptionsRateLimitThreshold(**rate_limit_threshold)
@@ -5417,7 +5417,7 @@ class ComputeSecurityPolicyRuleRateLimitOptions:
     def conform_action(self) -> builtins.str:
         '''Action to take for requests that are under the configured rate limit threshold. Valid option is "allow" only.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#conform_action ComputeSecurityPolicy#conform_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#conform_action ComputeSecurityPolicy#conform_action}
         '''
         result = self._values.get("conform_action")
         assert result is not None, "Required property 'conform_action' is missing"
@@ -5429,7 +5429,7 @@ class ComputeSecurityPolicyRuleRateLimitOptions:
 
         Valid options are "deny()" where valid values for status are 403, 404, 429, and 502, and "redirect" where the redirect parameters come from exceedRedirectOptions below.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#exceed_action ComputeSecurityPolicy#exceed_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#exceed_action ComputeSecurityPolicy#exceed_action}
         '''
         result = self._values.get("exceed_action")
         assert result is not None, "Required property 'exceed_action' is missing"
@@ -5441,7 +5441,7 @@ class ComputeSecurityPolicyRuleRateLimitOptions:
     ) -> "ComputeSecurityPolicyRuleRateLimitOptionsRateLimitThreshold":
         '''rate_limit_threshold block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#rate_limit_threshold ComputeSecurityPolicy#rate_limit_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#rate_limit_threshold ComputeSecurityPolicy#rate_limit_threshold}
         '''
         result = self._values.get("rate_limit_threshold")
         assert result is not None, "Required property 'rate_limit_threshold' is missing"
@@ -5453,7 +5453,7 @@ class ComputeSecurityPolicyRuleRateLimitOptions:
 
         If specified, determines the time (in seconds) the traffic will continue to be banned by the rate limit after the rate falls below the threshold.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#ban_duration_sec ComputeSecurityPolicy#ban_duration_sec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#ban_duration_sec ComputeSecurityPolicy#ban_duration_sec}
         '''
         result = self._values.get("ban_duration_sec")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5464,7 +5464,7 @@ class ComputeSecurityPolicyRuleRateLimitOptions:
     ) -> typing.Optional["ComputeSecurityPolicyRuleRateLimitOptionsBanThreshold"]:
         '''ban_threshold block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#ban_threshold ComputeSecurityPolicy#ban_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#ban_threshold ComputeSecurityPolicy#ban_threshold}
         '''
         result = self._values.get("ban_threshold")
         return typing.cast(typing.Optional["ComputeSecurityPolicyRuleRateLimitOptionsBanThreshold"], result)
@@ -5473,7 +5473,7 @@ class ComputeSecurityPolicyRuleRateLimitOptions:
     def enforce_on_key(self) -> typing.Optional[builtins.str]:
         '''Determines the key to enforce the rateLimitThreshold on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#enforce_on_key ComputeSecurityPolicy#enforce_on_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#enforce_on_key ComputeSecurityPolicy#enforce_on_key}
         '''
         result = self._values.get("enforce_on_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5484,7 +5484,7 @@ class ComputeSecurityPolicyRuleRateLimitOptions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSecurityPolicyRuleRateLimitOptionsEnforceOnKeyConfigs"]]]:
         '''enforce_on_key_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#enforce_on_key_configs ComputeSecurityPolicy#enforce_on_key_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#enforce_on_key_configs ComputeSecurityPolicy#enforce_on_key_configs}
         '''
         result = self._values.get("enforce_on_key_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeSecurityPolicyRuleRateLimitOptionsEnforceOnKeyConfigs"]]], result)
@@ -5495,7 +5495,7 @@ class ComputeSecurityPolicyRuleRateLimitOptions:
 
         HTTP_COOKIE -- Name of the HTTP cookie whose value is taken as the key value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#enforce_on_key_name ComputeSecurityPolicy#enforce_on_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#enforce_on_key_name ComputeSecurityPolicy#enforce_on_key_name}
         '''
         result = self._values.get("enforce_on_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5506,7 +5506,7 @@ class ComputeSecurityPolicyRuleRateLimitOptions:
     ) -> typing.Optional["ComputeSecurityPolicyRuleRateLimitOptionsExceedRedirectOptions"]:
         '''exceed_redirect_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#exceed_redirect_options ComputeSecurityPolicy#exceed_redirect_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#exceed_redirect_options ComputeSecurityPolicy#exceed_redirect_options}
         '''
         result = self._values.get("exceed_redirect_options")
         return typing.cast(typing.Optional["ComputeSecurityPolicyRuleRateLimitOptionsExceedRedirectOptions"], result)
@@ -5531,8 +5531,8 @@ class ComputeSecurityPolicyRuleRateLimitOptions:
 class ComputeSecurityPolicyRuleRateLimitOptionsBanThreshold:
     def __init__(self, *, count: jsii.Number, interval_sec: jsii.Number) -> None:
         '''
-        :param count: Number of HTTP(S) requests for calculating the threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#count ComputeSecurityPolicy#count}
-        :param interval_sec: Interval over which the threshold is computed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#interval_sec ComputeSecurityPolicy#interval_sec}
+        :param count: Number of HTTP(S) requests for calculating the threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#count ComputeSecurityPolicy#count}
+        :param interval_sec: Interval over which the threshold is computed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#interval_sec ComputeSecurityPolicy#interval_sec}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dbf526eca30c6b0f5bce336280236cfb750b870c91f436d0c2f88d03d3beb9b4)
@@ -5547,7 +5547,7 @@ class ComputeSecurityPolicyRuleRateLimitOptionsBanThreshold:
     def count(self) -> jsii.Number:
         '''Number of HTTP(S) requests for calculating the threshold.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#count ComputeSecurityPolicy#count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#count ComputeSecurityPolicy#count}
         '''
         result = self._values.get("count")
         assert result is not None, "Required property 'count' is missing"
@@ -5557,7 +5557,7 @@ class ComputeSecurityPolicyRuleRateLimitOptionsBanThreshold:
     def interval_sec(self) -> jsii.Number:
         '''Interval over which the threshold is computed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#interval_sec ComputeSecurityPolicy#interval_sec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#interval_sec ComputeSecurityPolicy#interval_sec}
         '''
         result = self._values.get("interval_sec")
         assert result is not None, "Required property 'interval_sec' is missing"
@@ -5663,8 +5663,8 @@ class ComputeSecurityPolicyRuleRateLimitOptionsEnforceOnKeyConfigs:
         enforce_on_key_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enforce_on_key_name: Rate limit key name applicable only for the following key types: HTTP_HEADER -- Name of the HTTP header whose value is taken as the key value. HTTP_COOKIE -- Name of the HTTP cookie whose value is taken as the key value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#enforce_on_key_name ComputeSecurityPolicy#enforce_on_key_name}
-        :param enforce_on_key_type: Determines the key to enforce the rate_limit_threshold on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#enforce_on_key_type ComputeSecurityPolicy#enforce_on_key_type}
+        :param enforce_on_key_name: Rate limit key name applicable only for the following key types: HTTP_HEADER -- Name of the HTTP header whose value is taken as the key value. HTTP_COOKIE -- Name of the HTTP cookie whose value is taken as the key value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#enforce_on_key_name ComputeSecurityPolicy#enforce_on_key_name}
+        :param enforce_on_key_type: Determines the key to enforce the rate_limit_threshold on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#enforce_on_key_type ComputeSecurityPolicy#enforce_on_key_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__efbf44ceeeedc5236a8ac0a88aa5780e34c8f8cf423af99953ec7e144d4503c9)
@@ -5682,7 +5682,7 @@ class ComputeSecurityPolicyRuleRateLimitOptionsEnforceOnKeyConfigs:
 
         HTTP_COOKIE -- Name of the HTTP cookie whose value is taken as the key value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#enforce_on_key_name ComputeSecurityPolicy#enforce_on_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#enforce_on_key_name ComputeSecurityPolicy#enforce_on_key_name}
         '''
         result = self._values.get("enforce_on_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5691,7 +5691,7 @@ class ComputeSecurityPolicyRuleRateLimitOptionsEnforceOnKeyConfigs:
     def enforce_on_key_type(self) -> typing.Optional[builtins.str]:
         '''Determines the key to enforce the rate_limit_threshold on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#enforce_on_key_type ComputeSecurityPolicy#enforce_on_key_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#enforce_on_key_type ComputeSecurityPolicy#enforce_on_key_type}
         '''
         result = self._values.get("enforce_on_key_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5900,8 +5900,8 @@ class ComputeSecurityPolicyRuleRateLimitOptionsExceedRedirectOptions:
         target: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Type of the redirect action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
-        :param target: Target for the redirect action. This is required if the type is EXTERNAL_302 and cannot be specified for GOOGLE_RECAPTCHA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#target ComputeSecurityPolicy#target}
+        :param type: Type of the redirect action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
+        :param target: Target for the redirect action. This is required if the type is EXTERNAL_302 and cannot be specified for GOOGLE_RECAPTCHA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#target ComputeSecurityPolicy#target}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__91f662a0ffdac86f09124fdd5771e3d7b96af3fcd647e82226c6b988f52d14a7)
@@ -5917,7 +5917,7 @@ class ComputeSecurityPolicyRuleRateLimitOptionsExceedRedirectOptions:
     def type(self) -> builtins.str:
         '''Type of the redirect action.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -5927,7 +5927,7 @@ class ComputeSecurityPolicyRuleRateLimitOptionsExceedRedirectOptions:
     def target(self) -> typing.Optional[builtins.str]:
         '''Target for the redirect action. This is required if the type is EXTERNAL_302 and cannot be specified for GOOGLE_RECAPTCHA.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#target ComputeSecurityPolicy#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#target ComputeSecurityPolicy#target}
         '''
         result = self._values.get("target")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6048,8 +6048,8 @@ class ComputeSecurityPolicyRuleRateLimitOptionsOutputReference(
         interval_sec: jsii.Number,
     ) -> None:
         '''
-        :param count: Number of HTTP(S) requests for calculating the threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#count ComputeSecurityPolicy#count}
-        :param interval_sec: Interval over which the threshold is computed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#interval_sec ComputeSecurityPolicy#interval_sec}
+        :param count: Number of HTTP(S) requests for calculating the threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#count ComputeSecurityPolicy#count}
+        :param interval_sec: Interval over which the threshold is computed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#interval_sec ComputeSecurityPolicy#interval_sec}
         '''
         value = ComputeSecurityPolicyRuleRateLimitOptionsBanThreshold(
             count=count, interval_sec=interval_sec
@@ -6078,8 +6078,8 @@ class ComputeSecurityPolicyRuleRateLimitOptionsOutputReference(
         target: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Type of the redirect action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
-        :param target: Target for the redirect action. This is required if the type is EXTERNAL_302 and cannot be specified for GOOGLE_RECAPTCHA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#target ComputeSecurityPolicy#target}
+        :param type: Type of the redirect action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
+        :param target: Target for the redirect action. This is required if the type is EXTERNAL_302 and cannot be specified for GOOGLE_RECAPTCHA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#target ComputeSecurityPolicy#target}
         '''
         value = ComputeSecurityPolicyRuleRateLimitOptionsExceedRedirectOptions(
             type=type, target=target
@@ -6095,8 +6095,8 @@ class ComputeSecurityPolicyRuleRateLimitOptionsOutputReference(
         interval_sec: jsii.Number,
     ) -> None:
         '''
-        :param count: Number of HTTP(S) requests for calculating the threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#count ComputeSecurityPolicy#count}
-        :param interval_sec: Interval over which the threshold is computed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#interval_sec ComputeSecurityPolicy#interval_sec}
+        :param count: Number of HTTP(S) requests for calculating the threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#count ComputeSecurityPolicy#count}
+        :param interval_sec: Interval over which the threshold is computed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#interval_sec ComputeSecurityPolicy#interval_sec}
         '''
         value = ComputeSecurityPolicyRuleRateLimitOptionsRateLimitThreshold(
             count=count, interval_sec=interval_sec
@@ -6295,8 +6295,8 @@ class ComputeSecurityPolicyRuleRateLimitOptionsOutputReference(
 class ComputeSecurityPolicyRuleRateLimitOptionsRateLimitThreshold:
     def __init__(self, *, count: jsii.Number, interval_sec: jsii.Number) -> None:
         '''
-        :param count: Number of HTTP(S) requests for calculating the threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#count ComputeSecurityPolicy#count}
-        :param interval_sec: Interval over which the threshold is computed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#interval_sec ComputeSecurityPolicy#interval_sec}
+        :param count: Number of HTTP(S) requests for calculating the threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#count ComputeSecurityPolicy#count}
+        :param interval_sec: Interval over which the threshold is computed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#interval_sec ComputeSecurityPolicy#interval_sec}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__627a8fa941a20f4d26571249e9004f9eb22d682c1854dc8142c5955c1a8ff2fe)
@@ -6311,7 +6311,7 @@ class ComputeSecurityPolicyRuleRateLimitOptionsRateLimitThreshold:
     def count(self) -> jsii.Number:
         '''Number of HTTP(S) requests for calculating the threshold.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#count ComputeSecurityPolicy#count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#count ComputeSecurityPolicy#count}
         '''
         result = self._values.get("count")
         assert result is not None, "Required property 'count' is missing"
@@ -6321,7 +6321,7 @@ class ComputeSecurityPolicyRuleRateLimitOptionsRateLimitThreshold:
     def interval_sec(self) -> jsii.Number:
         '''Interval over which the threshold is computed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#interval_sec ComputeSecurityPolicy#interval_sec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#interval_sec ComputeSecurityPolicy#interval_sec}
         '''
         result = self._values.get("interval_sec")
         assert result is not None, "Required property 'interval_sec' is missing"
@@ -6424,8 +6424,8 @@ class ComputeSecurityPolicyRuleRedirectOptions:
         target: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Type of the redirect action. Available options: EXTERNAL_302: Must specify the corresponding target field in config. GOOGLE_RECAPTCHA: Cannot specify target field in config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
-        :param target: Target for the redirect action. This is required if the type is EXTERNAL_302 and cannot be specified for GOOGLE_RECAPTCHA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#target ComputeSecurityPolicy#target}
+        :param type: Type of the redirect action. Available options: EXTERNAL_302: Must specify the corresponding target field in config. GOOGLE_RECAPTCHA: Cannot specify target field in config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
+        :param target: Target for the redirect action. This is required if the type is EXTERNAL_302 and cannot be specified for GOOGLE_RECAPTCHA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#target ComputeSecurityPolicy#target}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7aac13f1b4905ddf26ddbb8453a3057f859fe57c84d0e1a6e0f14fb5eae4abad)
@@ -6443,7 +6443,7 @@ class ComputeSecurityPolicyRuleRedirectOptions:
 
         Available options: EXTERNAL_302: Must specify the corresponding target field in config. GOOGLE_RECAPTCHA: Cannot specify target field in config.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#type ComputeSecurityPolicy#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -6453,7 +6453,7 @@ class ComputeSecurityPolicyRuleRedirectOptions:
     def target(self) -> typing.Optional[builtins.str]:
         '''Target for the redirect action. This is required if the type is EXTERNAL_302 and cannot be specified for GOOGLE_RECAPTCHA.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#target ComputeSecurityPolicy#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#target ComputeSecurityPolicy#target}
         '''
         result = self._values.get("target")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6560,9 +6560,9 @@ class ComputeSecurityPolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#create ComputeSecurityPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#delete ComputeSecurityPolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#update ComputeSecurityPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#create ComputeSecurityPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#delete ComputeSecurityPolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#update ComputeSecurityPolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8efc9556a6a0b01e405855ae88e02148f377321c7ff8218d5da02325a7016364)
@@ -6579,19 +6579,19 @@ class ComputeSecurityPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#create ComputeSecurityPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#create ComputeSecurityPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#delete ComputeSecurityPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#delete ComputeSecurityPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_security_policy#update ComputeSecurityPolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_security_policy#update ComputeSecurityPolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -160,7 +160,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/apply_monitoring_template.py.html>`__ to see an example of how to use apply_monitoring_template API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/apply_monitoring_template.py.html>`__ to see an example of how to use apply_monitoring_template API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoringTemplateId']
@@ -278,7 +278,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/associate_monitored_resources.py.html>`__ to see an example of how to use associate_monitored_resources API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/associate_monitored_resources.py.html>`__ to see an example of how to use associate_monitored_resources API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -397,7 +397,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/change_config_compartment.py.html>`__ to see an example of how to use change_config_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/change_config_compartment.py.html>`__ to see an example of how to use change_config_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['configId']
@@ -521,7 +521,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/change_metric_extension_compartment.py.html>`__ to see an example of how to use change_metric_extension_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/change_metric_extension_compartment.py.html>`__ to see an example of how to use change_metric_extension_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['metricExtensionId']
@@ -643,7 +643,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/change_monitored_resource_compartment.py.html>`__ to see an example of how to use change_monitored_resource_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/change_monitored_resource_compartment.py.html>`__ to see an example of how to use change_monitored_resource_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoredResourceId']
@@ -764,7 +764,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/change_monitored_resource_task_compartment.py.html>`__ to see an example of how to use change_monitored_resource_task_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/change_monitored_resource_task_compartment.py.html>`__ to see an example of how to use change_monitored_resource_task_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoredResourceTaskId']
@@ -885,7 +885,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/change_process_set_compartment.py.html>`__ to see an example of how to use change_process_set_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/change_process_set_compartment.py.html>`__ to see an example of how to use change_process_set_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['processSetId']
@@ -1001,7 +1001,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/create_alarm_condition.py.html>`__ to see an example of how to use create_alarm_condition API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/create_alarm_condition.py.html>`__ to see an example of how to use create_alarm_condition API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoringTemplateId']
@@ -1112,7 +1112,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/create_baselineable_metric.py.html>`__ to see an example of how to use create_baselineable_metric API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/create_baselineable_metric.py.html>`__ to see an example of how to use create_baselineable_metric API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1217,7 +1217,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/create_config.py.html>`__ to see an example of how to use create_config API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/create_config.py.html>`__ to see an example of how to use create_config API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1316,7 +1316,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/create_discovery_job.py.html>`__ to see an example of how to use create_discovery_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/create_discovery_job.py.html>`__ to see an example of how to use create_discovery_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1414,7 +1414,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/create_maintenance_window.py.html>`__ to see an example of how to use create_maintenance_window API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/create_maintenance_window.py.html>`__ to see an example of how to use create_maintenance_window API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1513,7 +1513,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/create_metric_extension.py.html>`__ to see an example of how to use create_metric_extension API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/create_metric_extension.py.html>`__ to see an example of how to use create_metric_extension API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1618,7 +1618,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/create_monitored_resource.py.html>`__ to see an example of how to use create_monitored_resource API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/create_monitored_resource.py.html>`__ to see an example of how to use create_monitored_resource API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1717,7 +1717,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/create_monitored_resource_task.py.html>`__ to see an example of how to use create_monitored_resource_task API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/create_monitored_resource_task.py.html>`__ to see an example of how to use create_monitored_resource_task API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1816,7 +1816,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/create_monitored_resource_type.py.html>`__ to see an example of how to use create_monitored_resource_type API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/create_monitored_resource_type.py.html>`__ to see an example of how to use create_monitored_resource_type API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1915,7 +1915,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/create_monitoring_template.py.html>`__ to see an example of how to use create_monitoring_template API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/create_monitoring_template.py.html>`__ to see an example of how to use create_monitoring_template API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2014,7 +2014,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/create_process_set.py.html>`__ to see an example of how to use create_process_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/create_process_set.py.html>`__ to see an example of how to use create_process_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2120,7 +2120,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/delete_alarm_condition.py.html>`__ to see an example of how to use delete_alarm_condition API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/delete_alarm_condition.py.html>`__ to see an example of how to use delete_alarm_condition API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['alarmConditionId', 'monitoringTemplateId']
@@ -2225,7 +2225,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/delete_baselineable_metric.py.html>`__ to see an example of how to use delete_baselineable_metric API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/delete_baselineable_metric.py.html>`__ to see an example of how to use delete_baselineable_metric API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['baselineableMetricId']
@@ -2331,7 +2331,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/delete_config.py.html>`__ to see an example of how to use delete_config API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/delete_config.py.html>`__ to see an example of how to use delete_config API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['configId']
@@ -2437,7 +2437,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/delete_discovery_job.py.html>`__ to see an example of how to use delete_discovery_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/delete_discovery_job.py.html>`__ to see an example of how to use delete_discovery_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['discoveryJobId']
@@ -2545,7 +2545,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/delete_maintenance_window.py.html>`__ to see an example of how to use delete_maintenance_window API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/delete_maintenance_window.py.html>`__ to see an example of how to use delete_maintenance_window API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['maintenanceWindowId']
@@ -2651,7 +2651,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/delete_metric_extension.py.html>`__ to see an example of how to use delete_metric_extension API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/delete_metric_extension.py.html>`__ to see an example of how to use delete_metric_extension API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['metricExtensionId']
@@ -2766,7 +2766,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/delete_monitored_resource.py.html>`__ to see an example of how to use delete_monitored_resource API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/delete_monitored_resource.py.html>`__ to see an example of how to use delete_monitored_resource API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoredResourceId']
@@ -2882,7 +2882,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/delete_monitored_resource_type.py.html>`__ to see an example of how to use delete_monitored_resource_type API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/delete_monitored_resource_type.py.html>`__ to see an example of how to use delete_monitored_resource_type API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoredResourceTypeId']
@@ -2988,7 +2988,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/delete_monitoring_template.py.html>`__ to see an example of how to use delete_monitoring_template API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/delete_monitoring_template.py.html>`__ to see an example of how to use delete_monitoring_template API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoringTemplateId']
@@ -3092,7 +3092,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/delete_process_set.py.html>`__ to see an example of how to use delete_process_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/delete_process_set.py.html>`__ to see an example of how to use delete_process_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['processSetId']
@@ -3208,7 +3208,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/disable_external_database.py.html>`__ to see an example of how to use disable_external_database API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/disable_external_database.py.html>`__ to see an example of how to use disable_external_database API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoredResourceId']
@@ -3327,7 +3327,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/disable_metric_extension.py.html>`__ to see an example of how to use disable_metric_extension API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/disable_metric_extension.py.html>`__ to see an example of how to use disable_metric_extension API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['metricExtensionId']
@@ -3443,7 +3443,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/disassociate_monitored_resources.py.html>`__ to see an example of how to use disassociate_monitored_resources API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/disassociate_monitored_resources.py.html>`__ to see an example of how to use disassociate_monitored_resources API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3552,7 +3552,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/enable_metric_extension.py.html>`__ to see an example of how to use enable_metric_extension API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/enable_metric_extension.py.html>`__ to see an example of how to use enable_metric_extension API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['metricExtensionId']
@@ -3671,7 +3671,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/evaluate_baselineable_metric.py.html>`__ to see an example of how to use evaluate_baselineable_metric API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/evaluate_baselineable_metric.py.html>`__ to see an example of how to use evaluate_baselineable_metric API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['baselineableMetricId']
@@ -3794,7 +3794,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/export_metric_extension.py.html>`__ to see an example of how to use export_metric_extension API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/export_metric_extension.py.html>`__ to see an example of how to use export_metric_extension API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['metricExtensionId']
@@ -3914,7 +3914,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/export_monitoring_template.py.html>`__ to see an example of how to use export_monitoring_template API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/export_monitoring_template.py.html>`__ to see an example of how to use export_monitoring_template API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoringTemplateId']
@@ -4025,7 +4025,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/get_alarm_condition.py.html>`__ to see an example of how to use get_alarm_condition API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/get_alarm_condition.py.html>`__ to see an example of how to use get_alarm_condition API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['alarmConditionId', 'monitoringTemplateId']
@@ -4125,7 +4125,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/get_baselineable_metric.py.html>`__ to see an example of how to use get_baselineable_metric API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/get_baselineable_metric.py.html>`__ to see an example of how to use get_baselineable_metric API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['baselineableMetricId']
@@ -4224,7 +4224,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/get_config.py.html>`__ to see an example of how to use get_config API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/get_config.py.html>`__ to see an example of how to use get_config API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['configId']
@@ -4323,7 +4323,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/get_discovery_job.py.html>`__ to see an example of how to use get_discovery_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/get_discovery_job.py.html>`__ to see an example of how to use get_discovery_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['discoveryJobId']
@@ -4426,7 +4426,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/get_maintenance_window.py.html>`__ to see an example of how to use get_maintenance_window API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/get_maintenance_window.py.html>`__ to see an example of how to use get_maintenance_window API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['maintenanceWindowId']
@@ -4527,7 +4527,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/get_metric_extension.py.html>`__ to see an example of how to use get_metric_extension API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/get_metric_extension.py.html>`__ to see an example of how to use get_metric_extension API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['metricExtensionId']
@@ -4630,7 +4630,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/get_monitored_resource.py.html>`__ to see an example of how to use get_monitored_resource API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/get_monitored_resource.py.html>`__ to see an example of how to use get_monitored_resource API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoredResourceId']
@@ -4733,7 +4733,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/get_monitored_resource_task.py.html>`__ to see an example of how to use get_monitored_resource_task API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/get_monitored_resource_task.py.html>`__ to see an example of how to use get_monitored_resource_task API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoredResourceTaskId']
@@ -4836,7 +4836,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/get_monitored_resource_type.py.html>`__ to see an example of how to use get_monitored_resource_type API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/get_monitored_resource_type.py.html>`__ to see an example of how to use get_monitored_resource_type API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoredResourceTypeId']
@@ -4937,7 +4937,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/get_monitoring_template.py.html>`__ to see an example of how to use get_monitoring_template API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/get_monitoring_template.py.html>`__ to see an example of how to use get_monitoring_template API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoringTemplateId']
@@ -5036,7 +5036,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/get_process_set.py.html>`__ to see an example of how to use get_process_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/get_process_set.py.html>`__ to see an example of how to use get_process_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['processSetId']
@@ -5137,7 +5137,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -5279,7 +5279,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/list_alarm_conditions.py.html>`__ to see an example of how to use list_alarm_conditions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/list_alarm_conditions.py.html>`__ to see an example of how to use list_alarm_conditions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoringTemplateId']
@@ -5470,7 +5470,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/list_baselineable_metrics.py.html>`__ to see an example of how to use list_baselineable_metrics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/list_baselineable_metrics.py.html>`__ to see an example of how to use list_baselineable_metrics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -5638,7 +5638,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/list_configs.py.html>`__ to see an example of how to use list_configs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/list_configs.py.html>`__ to see an example of how to use list_configs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -5808,7 +5808,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/list_defined_monitoring_templates.py.html>`__ to see an example of how to use list_defined_monitoring_templates API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/list_defined_monitoring_templates.py.html>`__ to see an example of how to use list_defined_monitoring_templates API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -5957,7 +5957,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/list_discovery_job_logs.py.html>`__ to see an example of how to use list_discovery_job_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/list_discovery_job_logs.py.html>`__ to see an example of how to use list_discovery_job_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['discoveryJobId']
@@ -6120,7 +6120,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/list_discovery_jobs.py.html>`__ to see an example of how to use list_discovery_jobs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/list_discovery_jobs.py.html>`__ to see an example of how to use list_discovery_jobs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -6276,7 +6276,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/list_maintenance_windows.py.html>`__ to see an example of how to use list_maintenance_windows API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/list_maintenance_windows.py.html>`__ to see an example of how to use list_maintenance_windows API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -6459,7 +6459,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/list_metric_extensions.py.html>`__ to see an example of how to use list_metric_extensions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/list_metric_extensions.py.html>`__ to see an example of how to use list_metric_extensions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -6635,7 +6635,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/list_monitored_resource_tasks.py.html>`__ to see an example of how to use list_monitored_resource_tasks API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/list_monitored_resource_tasks.py.html>`__ to see an example of how to use list_monitored_resource_tasks API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -6843,7 +6843,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/list_monitored_resource_types.py.html>`__ to see an example of how to use list_monitored_resource_types API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/list_monitored_resource_types.py.html>`__ to see an example of how to use list_monitored_resource_types API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -7032,7 +7032,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/list_monitored_resources.py.html>`__ to see an example of how to use list_monitored_resources API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/list_monitored_resources.py.html>`__ to see an example of how to use list_monitored_resources API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -7211,7 +7211,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/list_monitoring_templates.py.html>`__ to see an example of how to use list_monitoring_templates API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/list_monitoring_templates.py.html>`__ to see an example of how to use list_monitoring_templates API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -7383,7 +7383,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/list_process_sets.py.html>`__ to see an example of how to use list_process_sets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/list_process_sets.py.html>`__ to see an example of how to use list_process_sets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -7527,7 +7527,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -7680,7 +7680,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -7842,7 +7842,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -7994,7 +7994,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/manage_license.py.html>`__ to see an example of how to use manage_license API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/manage_license.py.html>`__ to see an example of how to use manage_license API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoredResourceId']
@@ -8114,7 +8114,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/publish_metric_extension.py.html>`__ to see an example of how to use publish_metric_extension API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/publish_metric_extension.py.html>`__ to see an example of how to use publish_metric_extension API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['metricExtensionId']
@@ -8253,7 +8253,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/request_monitored_resources_summarized_count.py.html>`__ to see an example of how to use request_monitored_resources_summarized_count API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/request_monitored_resources_summarized_count.py.html>`__ to see an example of how to use request_monitored_resources_summarized_count API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -8404,7 +8404,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/request_summarized_metric_extensions_metrics.py.html>`__ to see an example of how to use request_summarized_metric_extensions_metrics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/request_summarized_metric_extensions_metrics.py.html>`__ to see an example of how to use request_summarized_metric_extensions_metrics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -8518,7 +8518,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/request_summarized_metric_extensions_resources.py.html>`__ to see an example of how to use request_summarized_metric_extensions_resources API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/request_summarized_metric_extensions_resources.py.html>`__ to see an example of how to use request_summarized_metric_extensions_resources API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -8626,7 +8626,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/retry_failed_maintenance_window_operation.py.html>`__ to see an example of how to use retry_failed_maintenance_window_operation API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/retry_failed_maintenance_window_operation.py.html>`__ to see an example of how to use retry_failed_maintenance_window_operation API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['maintenanceWindowId']
@@ -8776,7 +8776,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/search_associated_resources.py.html>`__ to see an example of how to use search_associated_resources API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/search_associated_resources.py.html>`__ to see an example of how to use search_associated_resources API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -8912,7 +8912,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/search_monitored_resource_associations.py.html>`__ to see an example of how to use search_monitored_resource_associations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/search_monitored_resource_associations.py.html>`__ to see an example of how to use search_monitored_resource_associations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -9061,7 +9061,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/search_monitored_resource_members.py.html>`__ to see an example of how to use search_monitored_resource_members API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/search_monitored_resource_members.py.html>`__ to see an example of how to use search_monitored_resource_members API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoredResourceId']
@@ -9247,7 +9247,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/search_monitored_resources.py.html>`__ to see an example of how to use search_monitored_resources API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/search_monitored_resources.py.html>`__ to see an example of how to use search_monitored_resources API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -9364,7 +9364,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/stop_maintenance_window.py.html>`__ to see an example of how to use stop_maintenance_window API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/stop_maintenance_window.py.html>`__ to see an example of how to use stop_maintenance_window API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['maintenanceWindowId']
@@ -9480,7 +9480,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/test_metric_extension.py.html>`__ to see an example of how to use test_metric_extension API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/test_metric_extension.py.html>`__ to see an example of how to use test_metric_extension API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['metricExtensionId']
@@ -9600,7 +9600,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/unapply_monitoring_template.py.html>`__ to see an example of how to use unapply_monitoring_template API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/unapply_monitoring_template.py.html>`__ to see an example of how to use unapply_monitoring_template API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoringTemplateId']
@@ -9719,7 +9719,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/update_alarm_condition.py.html>`__ to see an example of how to use update_alarm_condition API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/update_alarm_condition.py.html>`__ to see an example of how to use update_alarm_condition API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['alarmConditionId', 'monitoringTemplateId']
@@ -9847,7 +9847,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/update_and_propagate_tags.py.html>`__ to see an example of how to use update_and_propagate_tags API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/update_and_propagate_tags.py.html>`__ to see an example of how to use update_and_propagate_tags API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoredResourceId']
@@ -9961,7 +9961,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/update_baselineable_metric.py.html>`__ to see an example of how to use update_baselineable_metric API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/update_baselineable_metric.py.html>`__ to see an example of how to use update_baselineable_metric API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['baselineableMetricId']
@@ -10074,7 +10074,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/update_config.py.html>`__ to see an example of how to use update_config API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/update_config.py.html>`__ to see an example of how to use update_config API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['configId']
@@ -10191,7 +10191,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/update_maintenance_window.py.html>`__ to see an example of how to use update_maintenance_window API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/update_maintenance_window.py.html>`__ to see an example of how to use update_maintenance_window API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['maintenanceWindowId']
@@ -10302,7 +10302,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/update_metric_extension.py.html>`__ to see an example of how to use update_metric_extension API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/update_metric_extension.py.html>`__ to see an example of how to use update_metric_extension API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['metricExtensionId']
@@ -10419,7 +10419,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/update_monitored_resource.py.html>`__ to see an example of how to use update_monitored_resource API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/update_monitored_resource.py.html>`__ to see an example of how to use update_monitored_resource API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoredResourceId']
@@ -10532,7 +10532,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/update_monitored_resource_task.py.html>`__ to see an example of how to use update_monitored_resource_task API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/update_monitored_resource_task.py.html>`__ to see an example of how to use update_monitored_resource_task API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoredResourceTaskId']
@@ -10647,7 +10647,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/update_monitored_resource_type.py.html>`__ to see an example of how to use update_monitored_resource_type API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/update_monitored_resource_type.py.html>`__ to see an example of how to use update_monitored_resource_type API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoredResourceTypeId']
@@ -10760,7 +10760,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/update_monitoring_template.py.html>`__ to see an example of how to use update_monitoring_template API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/update_monitoring_template.py.html>`__ to see an example of how to use update_monitoring_template API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['monitoringTemplateId']
@@ -10871,7 +10871,7 @@ class StackMonitoringClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/stackmonitoring/update_process_set.py.html>`__ to see an example of how to use update_process_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/stackmonitoring/update_process_set.py.html>`__ to see an example of how to use update_process_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['processSetId']

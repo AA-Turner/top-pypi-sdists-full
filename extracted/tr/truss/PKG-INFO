@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: truss
-Version: 0.9.87
+Version: 0.9.88
 Summary: A seamless bridge from model development to model delivery
 License: MIT
 Keywords: MLOps,AI,Model Serving,Model Deployment,Machine Learning
@@ -40,6 +40,7 @@ Requires-Dist: rich-click (>=1.6.1,<2.0.0)
 Requires-Dist: ruff (>=0.4.8)
 Requires-Dist: single-source (>=0.3.0,<0.4.0)
 Requires-Dist: tenacity (>=8.0.1,<9.0.0)
+Requires-Dist: tomlkit (>=0.13.2)
 Requires-Dist: watchfiles (>=0.19.0,<0.20.0)
 Project-URL: Bug Reports, https://github.com/basetenlabs/truss/issues
 Project-URL: Baseten, https://baseten.co

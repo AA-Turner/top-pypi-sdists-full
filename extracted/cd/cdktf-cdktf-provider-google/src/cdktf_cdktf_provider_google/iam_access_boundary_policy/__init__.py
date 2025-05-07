@@ -1,7 +1,7 @@
 r'''
 # `google_iam_access_boundary_policy`
 
-Refer to the Terraform Registry for docs: [`google_iam_access_boundary_policy`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy).
+Refer to the Terraform Registry for docs: [`google_iam_access_boundary_policy`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IamAccessBoundaryPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.iamAccessBoundaryPolicy.IamAccessBoundaryPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy google_iam_access_boundary_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy google_iam_access_boundary_policy}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class IamAccessBoundaryPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy google_iam_access_boundary_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy google_iam_access_boundary_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#name IamAccessBoundaryPolicy#name}
-        :param parent: The attachment point is identified by its URL-encoded full resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#parent IamAccessBoundaryPolicy#parent}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#rules IamAccessBoundaryPolicy#rules}
-        :param display_name: The display name of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#display_name IamAccessBoundaryPolicy#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#id IamAccessBoundaryPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#timeouts IamAccessBoundaryPolicy#timeouts}
+        :param name: The name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#name IamAccessBoundaryPolicy#name}
+        :param parent: The attachment point is identified by its URL-encoded full resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#parent IamAccessBoundaryPolicy#parent}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#rules IamAccessBoundaryPolicy#rules}
+        :param display_name: The display name of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#display_name IamAccessBoundaryPolicy#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#id IamAccessBoundaryPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#timeouts IamAccessBoundaryPolicy#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class IamAccessBoundaryPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IamAccessBoundaryPolicy to import.
-        :param import_from_id: The id of the existing IamAccessBoundaryPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IamAccessBoundaryPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IamAccessBoundaryPolicy to import is found.
         '''
         if __debug__:
@@ -151,9 +151,9 @@ class IamAccessBoundaryPolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#create IamAccessBoundaryPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#delete IamAccessBoundaryPolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#update IamAccessBoundaryPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#create IamAccessBoundaryPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#delete IamAccessBoundaryPolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#update IamAccessBoundaryPolicy#update}.
         '''
         value = IamAccessBoundaryPolicyTimeouts(
             create=create, delete=delete, update=update
@@ -329,12 +329,12 @@ class IamAccessBoundaryPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#name IamAccessBoundaryPolicy#name}
-        :param parent: The attachment point is identified by its URL-encoded full resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#parent IamAccessBoundaryPolicy#parent}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#rules IamAccessBoundaryPolicy#rules}
-        :param display_name: The display name of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#display_name IamAccessBoundaryPolicy#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#id IamAccessBoundaryPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#timeouts IamAccessBoundaryPolicy#timeouts}
+        :param name: The name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#name IamAccessBoundaryPolicy#name}
+        :param parent: The attachment point is identified by its URL-encoded full resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#parent IamAccessBoundaryPolicy#parent}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#rules IamAccessBoundaryPolicy#rules}
+        :param display_name: The display name of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#display_name IamAccessBoundaryPolicy#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#id IamAccessBoundaryPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#timeouts IamAccessBoundaryPolicy#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -449,7 +449,7 @@ class IamAccessBoundaryPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#name IamAccessBoundaryPolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#name IamAccessBoundaryPolicy#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -459,7 +459,7 @@ class IamAccessBoundaryPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parent(self) -> builtins.str:
         '''The attachment point is identified by its URL-encoded full resource name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#parent IamAccessBoundaryPolicy#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#parent IamAccessBoundaryPolicy#parent}
         '''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
@@ -471,7 +471,7 @@ class IamAccessBoundaryPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IamAccessBoundaryPolicyRules"]]:
         '''rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#rules IamAccessBoundaryPolicy#rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#rules IamAccessBoundaryPolicy#rules}
         '''
         result = self._values.get("rules")
         assert result is not None, "Required property 'rules' is missing"
@@ -481,14 +481,14 @@ class IamAccessBoundaryPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The display name of the rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#display_name IamAccessBoundaryPolicy#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#display_name IamAccessBoundaryPolicy#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#id IamAccessBoundaryPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#id IamAccessBoundaryPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -500,7 +500,7 @@ class IamAccessBoundaryPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["IamAccessBoundaryPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#timeouts IamAccessBoundaryPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#timeouts IamAccessBoundaryPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["IamAccessBoundaryPolicyTimeouts"], result)
@@ -533,8 +533,8 @@ class IamAccessBoundaryPolicyRules:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_boundary_rule: access_boundary_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#access_boundary_rule IamAccessBoundaryPolicy#access_boundary_rule}
-        :param description: The description of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#description IamAccessBoundaryPolicy#description}
+        :param access_boundary_rule: access_boundary_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#access_boundary_rule IamAccessBoundaryPolicy#access_boundary_rule}
+        :param description: The description of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#description IamAccessBoundaryPolicy#description}
         '''
         if isinstance(access_boundary_rule, dict):
             access_boundary_rule = IamAccessBoundaryPolicyRulesAccessBoundaryRule(**access_boundary_rule)
@@ -554,7 +554,7 @@ class IamAccessBoundaryPolicyRules:
     ) -> typing.Optional["IamAccessBoundaryPolicyRulesAccessBoundaryRule"]:
         '''access_boundary_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#access_boundary_rule IamAccessBoundaryPolicy#access_boundary_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#access_boundary_rule IamAccessBoundaryPolicy#access_boundary_rule}
         '''
         result = self._values.get("access_boundary_rule")
         return typing.cast(typing.Optional["IamAccessBoundaryPolicyRulesAccessBoundaryRule"], result)
@@ -563,7 +563,7 @@ class IamAccessBoundaryPolicyRules:
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#description IamAccessBoundaryPolicy#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#description IamAccessBoundaryPolicy#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -598,9 +598,9 @@ class IamAccessBoundaryPolicyRulesAccessBoundaryRule:
         available_resource: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_condition: availability_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#availability_condition IamAccessBoundaryPolicy#availability_condition}
-        :param available_permissions: A list of permissions that may be allowed for use on the specified resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#available_permissions IamAccessBoundaryPolicy#available_permissions}
-        :param available_resource: The full resource name of a Google Cloud resource entity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#available_resource IamAccessBoundaryPolicy#available_resource}
+        :param availability_condition: availability_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#availability_condition IamAccessBoundaryPolicy#availability_condition}
+        :param available_permissions: A list of permissions that may be allowed for use on the specified resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#available_permissions IamAccessBoundaryPolicy#available_permissions}
+        :param available_resource: The full resource name of a Google Cloud resource entity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#available_resource IamAccessBoundaryPolicy#available_resource}
         '''
         if isinstance(availability_condition, dict):
             availability_condition = IamAccessBoundaryPolicyRulesAccessBoundaryRuleAvailabilityCondition(**availability_condition)
@@ -623,7 +623,7 @@ class IamAccessBoundaryPolicyRulesAccessBoundaryRule:
     ) -> typing.Optional["IamAccessBoundaryPolicyRulesAccessBoundaryRuleAvailabilityCondition"]:
         '''availability_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#availability_condition IamAccessBoundaryPolicy#availability_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#availability_condition IamAccessBoundaryPolicy#availability_condition}
         '''
         result = self._values.get("availability_condition")
         return typing.cast(typing.Optional["IamAccessBoundaryPolicyRulesAccessBoundaryRuleAvailabilityCondition"], result)
@@ -632,7 +632,7 @@ class IamAccessBoundaryPolicyRulesAccessBoundaryRule:
     def available_permissions(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of permissions that may be allowed for use on the specified resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#available_permissions IamAccessBoundaryPolicy#available_permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#available_permissions IamAccessBoundaryPolicy#available_permissions}
         '''
         result = self._values.get("available_permissions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -641,7 +641,7 @@ class IamAccessBoundaryPolicyRulesAccessBoundaryRule:
     def available_resource(self) -> typing.Optional[builtins.str]:
         '''The full resource name of a Google Cloud resource entity.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#available_resource IamAccessBoundaryPolicy#available_resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#available_resource IamAccessBoundaryPolicy#available_resource}
         '''
         result = self._values.get("available_resource")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -678,10 +678,10 @@ class IamAccessBoundaryPolicyRulesAccessBoundaryRuleAvailabilityCondition:
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#expression IamAccessBoundaryPolicy#expression}
-        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#description IamAccessBoundaryPolicy#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#location IamAccessBoundaryPolicy#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#title IamAccessBoundaryPolicy#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#expression IamAccessBoundaryPolicy#expression}
+        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#description IamAccessBoundaryPolicy#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#location IamAccessBoundaryPolicy#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#title IamAccessBoundaryPolicy#title}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f240e88ca58d25127a1f7748405095ee8d02b0fafe93b6352f64a34aae6f3134)
@@ -703,7 +703,7 @@ class IamAccessBoundaryPolicyRulesAccessBoundaryRuleAvailabilityCondition:
     def expression(self) -> builtins.str:
         '''Textual representation of an expression in Common Expression Language syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#expression IamAccessBoundaryPolicy#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#expression IamAccessBoundaryPolicy#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -716,7 +716,7 @@ class IamAccessBoundaryPolicyRulesAccessBoundaryRuleAvailabilityCondition:
         This is a longer text which describes the expression,
         e.g. when hovered over it in a UI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#description IamAccessBoundaryPolicy#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#description IamAccessBoundaryPolicy#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -725,7 +725,7 @@ class IamAccessBoundaryPolicyRulesAccessBoundaryRuleAvailabilityCondition:
     def location(self) -> typing.Optional[builtins.str]:
         '''String indicating the location of the expression for error reporting, e.g. a file name and a position in the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#location IamAccessBoundaryPolicy#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#location IamAccessBoundaryPolicy#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -734,7 +734,7 @@ class IamAccessBoundaryPolicyRulesAccessBoundaryRuleAvailabilityCondition:
     def title(self) -> typing.Optional[builtins.str]:
         '''Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#title IamAccessBoundaryPolicy#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#title IamAccessBoundaryPolicy#title}
         '''
         result = self._values.get("title")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -899,10 +899,10 @@ class IamAccessBoundaryPolicyRulesAccessBoundaryRuleOutputReference(
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#expression IamAccessBoundaryPolicy#expression}
-        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#description IamAccessBoundaryPolicy#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#location IamAccessBoundaryPolicy#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#title IamAccessBoundaryPolicy#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#expression IamAccessBoundaryPolicy#expression}
+        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#description IamAccessBoundaryPolicy#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#location IamAccessBoundaryPolicy#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#title IamAccessBoundaryPolicy#title}
         '''
         value = IamAccessBoundaryPolicyRulesAccessBoundaryRuleAvailabilityCondition(
             expression=expression,
@@ -1116,9 +1116,9 @@ class IamAccessBoundaryPolicyRulesOutputReference(
         available_resource: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param availability_condition: availability_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#availability_condition IamAccessBoundaryPolicy#availability_condition}
-        :param available_permissions: A list of permissions that may be allowed for use on the specified resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#available_permissions IamAccessBoundaryPolicy#available_permissions}
-        :param available_resource: The full resource name of a Google Cloud resource entity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#available_resource IamAccessBoundaryPolicy#available_resource}
+        :param availability_condition: availability_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#availability_condition IamAccessBoundaryPolicy#availability_condition}
+        :param available_permissions: A list of permissions that may be allowed for use on the specified resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#available_permissions IamAccessBoundaryPolicy#available_permissions}
+        :param available_resource: The full resource name of a Google Cloud resource entity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#available_resource IamAccessBoundaryPolicy#available_resource}
         '''
         value = IamAccessBoundaryPolicyRulesAccessBoundaryRule(
             availability_condition=availability_condition,
@@ -1199,9 +1199,9 @@ class IamAccessBoundaryPolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#create IamAccessBoundaryPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#delete IamAccessBoundaryPolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#update IamAccessBoundaryPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#create IamAccessBoundaryPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#delete IamAccessBoundaryPolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#update IamAccessBoundaryPolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__538cc9aedcfbc83a1b3cee06aecdb8b60f3c53415d41e1cdeed7ca08a3e3779a)
@@ -1218,19 +1218,19 @@ class IamAccessBoundaryPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#create IamAccessBoundaryPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#create IamAccessBoundaryPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#delete IamAccessBoundaryPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#delete IamAccessBoundaryPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/iam_access_boundary_policy#update IamAccessBoundaryPolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/iam_access_boundary_policy#update IamAccessBoundaryPolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -152,7 +152,7 @@ class QueryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/apmtraces/list_quick_picks.py.html>`__ to see an example of how to use list_quick_picks API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/apmtraces/list_quick_picks.py.html>`__ to see an example of how to use list_quick_picks API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId']
@@ -268,7 +268,7 @@ class QueryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/apmtraces/query.py.html>`__ to see an example of how to use query API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/apmtraces/query.py.html>`__ to see an example of how to use query API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId', 'timeSpanStartedGreaterThanOrEqualTo', 'timeSpanStartedLessThan']

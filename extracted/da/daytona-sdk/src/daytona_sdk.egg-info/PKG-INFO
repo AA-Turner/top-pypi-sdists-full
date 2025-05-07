@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: daytona_sdk
-Version: 0.16.0
+Version: 0.16.1
 Summary: Python SDK for Daytona
 Author-email: Vedran Jukic <vedran.jukic@gmail.com>
 License: Apache 2.0

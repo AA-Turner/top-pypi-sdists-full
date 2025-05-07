@@ -14,7 +14,7 @@ from azure.core.exceptions import HttpResponseError
 from azure.core.paging import ItemPaged
 from azure.core.tracing.decorator import distributed_trace
 
-from ._base_client import parse_connection_str, TablesBaseClient
+from ._base_client import parse_connection_str, TablesBaseClient, AudienceType
 from ._entity import TableEntity
 from ._error import (
     _decode_error,
@@ -60,6 +60,7 @@ class TableClient(TablesBaseClient):
         table_name: str,
         *,
         credential: Optional[Union[AzureSasCredential, AzureNamedKeyCredential, TokenCredential]] = None,
+        audience: Optional[AudienceType] = None,
         api_version: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
@@ -75,6 +76,9 @@ class TableClient(TablesBaseClient):
             ~azure.core.credentials.AzureNamedKeyCredential or
             ~azure.core.credentials.AzureSasCredential or
             ~azure.core.credentials.TokenCredential or None
+        :keyword audience: Optional audience to use for Microsoft Entra ID authentication. If not specified,
+            the public cloud audience will be used.
+        :paramtype audience: str or None
         :keyword api_version: Specifies the version of the operation to use for this request. Default value
             is "2019-02-02".
         :paramtype api_version: str or None
@@ -83,7 +87,9 @@ class TableClient(TablesBaseClient):
         if not table_name:
             raise ValueError("Please specify a table name.")
         self.table_name: str = table_name
-        super(TableClient, self).__init__(endpoint, credential=credential, api_version=api_version, **kwargs)
+        super(TableClient, self).__init__(
+            endpoint, credential=credential, api_version=api_version, audience=audience, **kwargs
+        )
 
     @classmethod
     def from_connection_string(cls, conn_str: str, table_name: str, **kwargs: Any) -> "TableClient":

@@ -1,7 +1,7 @@
 r'''
 # `google_scc_folder_custom_module`
 
-Refer to the Terraform Registry for docs: [`google_scc_folder_custom_module`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module).
+Refer to the Terraform Registry for docs: [`google_scc_folder_custom_module`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SccFolderCustomModule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.sccFolderCustomModule.SccFolderCustomModule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module google_scc_folder_custom_module}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module google_scc_folder_custom_module}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class SccFolderCustomModule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module google_scc_folder_custom_module} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module google_scc_folder_custom_module} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param custom_config: custom_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#custom_config SccFolderCustomModule#custom_config}
-        :param display_name: The display name of the Security Health Analytics custom module. This display name becomes the finding category for all findings that are returned by this custom module. The display name must be between 1 and 128 characters, start with a lowercase letter, and contain alphanumeric characters or underscores only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#display_name SccFolderCustomModule#display_name}
-        :param enablement_state: The enablement state of the custom module. Possible values: ["ENABLED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#enablement_state SccFolderCustomModule#enablement_state}
-        :param folder: Numerical ID of the parent folder. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#folder SccFolderCustomModule#folder}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#id SccFolderCustomModule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#timeouts SccFolderCustomModule#timeouts}
+        :param custom_config: custom_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#custom_config SccFolderCustomModule#custom_config}
+        :param display_name: The display name of the Security Health Analytics custom module. This display name becomes the finding category for all findings that are returned by this custom module. The display name must be between 1 and 128 characters, start with a lowercase letter, and contain alphanumeric characters or underscores only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#display_name SccFolderCustomModule#display_name}
+        :param enablement_state: The enablement state of the custom module. Possible values: ["ENABLED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#enablement_state SccFolderCustomModule#enablement_state}
+        :param folder: Numerical ID of the parent folder. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#folder SccFolderCustomModule#folder}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#id SccFolderCustomModule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#timeouts SccFolderCustomModule#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class SccFolderCustomModule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SccFolderCustomModule to import.
-        :param import_from_id: The id of the existing SccFolderCustomModule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SccFolderCustomModule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SccFolderCustomModule to import is found.
         '''
         if __debug__:
@@ -141,12 +141,12 @@ class SccFolderCustomModule(
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#predicate SccFolderCustomModule#predicate}
-        :param recommendation: An explanation of the recommended steps that security teams can take to resolve the detected issue. This explanation is returned with each finding generated by this module in the nextSteps property of the finding JSON. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#recommendation SccFolderCustomModule#recommendation}
-        :param resource_selector: resource_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#resource_selector SccFolderCustomModule#resource_selector}
-        :param severity: The severity to assign to findings generated by the module. Possible values: ["CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#severity SccFolderCustomModule#severity}
-        :param custom_output: custom_output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#custom_output SccFolderCustomModule#custom_output}
-        :param description: Text that describes the vulnerability or misconfiguration that the custom module detects. This explanation is returned with each finding instance to help investigators understand the detected issue. The text must be enclosed in quotation marks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#description SccFolderCustomModule#description}
+        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#predicate SccFolderCustomModule#predicate}
+        :param recommendation: An explanation of the recommended steps that security teams can take to resolve the detected issue. This explanation is returned with each finding generated by this module in the nextSteps property of the finding JSON. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#recommendation SccFolderCustomModule#recommendation}
+        :param resource_selector: resource_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#resource_selector SccFolderCustomModule#resource_selector}
+        :param severity: The severity to assign to findings generated by the module. Possible values: ["CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#severity SccFolderCustomModule#severity}
+        :param custom_output: custom_output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#custom_output SccFolderCustomModule#custom_output}
+        :param description: Text that describes the vulnerability or misconfiguration that the custom module detects. This explanation is returned with each finding instance to help investigators understand the detected issue. The text must be enclosed in quotation marks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#description SccFolderCustomModule#description}
         '''
         value = SccFolderCustomModuleCustomConfig(
             predicate=predicate,
@@ -168,9 +168,9 @@ class SccFolderCustomModule(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#create SccFolderCustomModule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#delete SccFolderCustomModule#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#update SccFolderCustomModule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#create SccFolderCustomModule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#delete SccFolderCustomModule#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#update SccFolderCustomModule#update}.
         '''
         value = SccFolderCustomModuleTimeouts(
             create=create, delete=delete, update=update
@@ -357,12 +357,12 @@ class SccFolderCustomModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param custom_config: custom_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#custom_config SccFolderCustomModule#custom_config}
-        :param display_name: The display name of the Security Health Analytics custom module. This display name becomes the finding category for all findings that are returned by this custom module. The display name must be between 1 and 128 characters, start with a lowercase letter, and contain alphanumeric characters or underscores only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#display_name SccFolderCustomModule#display_name}
-        :param enablement_state: The enablement state of the custom module. Possible values: ["ENABLED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#enablement_state SccFolderCustomModule#enablement_state}
-        :param folder: Numerical ID of the parent folder. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#folder SccFolderCustomModule#folder}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#id SccFolderCustomModule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#timeouts SccFolderCustomModule#timeouts}
+        :param custom_config: custom_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#custom_config SccFolderCustomModule#custom_config}
+        :param display_name: The display name of the Security Health Analytics custom module. This display name becomes the finding category for all findings that are returned by this custom module. The display name must be between 1 and 128 characters, start with a lowercase letter, and contain alphanumeric characters or underscores only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#display_name SccFolderCustomModule#display_name}
+        :param enablement_state: The enablement state of the custom module. Possible values: ["ENABLED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#enablement_state SccFolderCustomModule#enablement_state}
+        :param folder: Numerical ID of the parent folder. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#folder SccFolderCustomModule#folder}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#id SccFolderCustomModule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#timeouts SccFolderCustomModule#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -478,7 +478,7 @@ class SccFolderCustomModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def custom_config(self) -> "SccFolderCustomModuleCustomConfig":
         '''custom_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#custom_config SccFolderCustomModule#custom_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#custom_config SccFolderCustomModule#custom_config}
         '''
         result = self._values.get("custom_config")
         assert result is not None, "Required property 'custom_config' is missing"
@@ -494,7 +494,7 @@ class SccFolderCustomModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         128 characters, start with a lowercase letter, and contain alphanumeric
         characters or underscores only.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#display_name SccFolderCustomModule#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#display_name SccFolderCustomModule#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -504,7 +504,7 @@ class SccFolderCustomModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enablement_state(self) -> builtins.str:
         '''The enablement state of the custom module. Possible values: ["ENABLED", "DISABLED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#enablement_state SccFolderCustomModule#enablement_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#enablement_state SccFolderCustomModule#enablement_state}
         '''
         result = self._values.get("enablement_state")
         assert result is not None, "Required property 'enablement_state' is missing"
@@ -514,7 +514,7 @@ class SccFolderCustomModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def folder(self) -> builtins.str:
         '''Numerical ID of the parent folder.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#folder SccFolderCustomModule#folder}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#folder SccFolderCustomModule#folder}
         '''
         result = self._values.get("folder")
         assert result is not None, "Required property 'folder' is missing"
@@ -522,7 +522,7 @@ class SccFolderCustomModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#id SccFolderCustomModule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#id SccFolderCustomModule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -534,7 +534,7 @@ class SccFolderCustomModuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SccFolderCustomModuleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#timeouts SccFolderCustomModule#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#timeouts SccFolderCustomModule#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SccFolderCustomModuleTimeouts"], result)
@@ -575,12 +575,12 @@ class SccFolderCustomModuleCustomConfig:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#predicate SccFolderCustomModule#predicate}
-        :param recommendation: An explanation of the recommended steps that security teams can take to resolve the detected issue. This explanation is returned with each finding generated by this module in the nextSteps property of the finding JSON. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#recommendation SccFolderCustomModule#recommendation}
-        :param resource_selector: resource_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#resource_selector SccFolderCustomModule#resource_selector}
-        :param severity: The severity to assign to findings generated by the module. Possible values: ["CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#severity SccFolderCustomModule#severity}
-        :param custom_output: custom_output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#custom_output SccFolderCustomModule#custom_output}
-        :param description: Text that describes the vulnerability or misconfiguration that the custom module detects. This explanation is returned with each finding instance to help investigators understand the detected issue. The text must be enclosed in quotation marks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#description SccFolderCustomModule#description}
+        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#predicate SccFolderCustomModule#predicate}
+        :param recommendation: An explanation of the recommended steps that security teams can take to resolve the detected issue. This explanation is returned with each finding generated by this module in the nextSteps property of the finding JSON. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#recommendation SccFolderCustomModule#recommendation}
+        :param resource_selector: resource_selector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#resource_selector SccFolderCustomModule#resource_selector}
+        :param severity: The severity to assign to findings generated by the module. Possible values: ["CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#severity SccFolderCustomModule#severity}
+        :param custom_output: custom_output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#custom_output SccFolderCustomModule#custom_output}
+        :param description: Text that describes the vulnerability or misconfiguration that the custom module detects. This explanation is returned with each finding instance to help investigators understand the detected issue. The text must be enclosed in quotation marks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#description SccFolderCustomModule#description}
         '''
         if isinstance(predicate, dict):
             predicate = SccFolderCustomModuleCustomConfigPredicate(**predicate)
@@ -611,7 +611,7 @@ class SccFolderCustomModuleCustomConfig:
     def predicate(self) -> "SccFolderCustomModuleCustomConfigPredicate":
         '''predicate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#predicate SccFolderCustomModule#predicate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#predicate SccFolderCustomModule#predicate}
         '''
         result = self._values.get("predicate")
         assert result is not None, "Required property 'predicate' is missing"
@@ -624,7 +624,7 @@ class SccFolderCustomModuleCustomConfig:
         This explanation is returned with each finding generated by
         this module in the nextSteps property of the finding JSON.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#recommendation SccFolderCustomModule#recommendation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#recommendation SccFolderCustomModule#recommendation}
         '''
         result = self._values.get("recommendation")
         assert result is not None, "Required property 'recommendation' is missing"
@@ -634,7 +634,7 @@ class SccFolderCustomModuleCustomConfig:
     def resource_selector(self) -> "SccFolderCustomModuleCustomConfigResourceSelector":
         '''resource_selector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#resource_selector SccFolderCustomModule#resource_selector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#resource_selector SccFolderCustomModule#resource_selector}
         '''
         result = self._values.get("resource_selector")
         assert result is not None, "Required property 'resource_selector' is missing"
@@ -644,7 +644,7 @@ class SccFolderCustomModuleCustomConfig:
     def severity(self) -> builtins.str:
         '''The severity to assign to findings generated by the module. Possible values: ["CRITICAL", "HIGH", "MEDIUM", "LOW"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#severity SccFolderCustomModule#severity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#severity SccFolderCustomModule#severity}
         '''
         result = self._values.get("severity")
         assert result is not None, "Required property 'severity' is missing"
@@ -656,7 +656,7 @@ class SccFolderCustomModuleCustomConfig:
     ) -> typing.Optional["SccFolderCustomModuleCustomConfigCustomOutput"]:
         '''custom_output block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#custom_output SccFolderCustomModule#custom_output}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#custom_output SccFolderCustomModule#custom_output}
         '''
         result = self._values.get("custom_output")
         return typing.cast(typing.Optional["SccFolderCustomModuleCustomConfigCustomOutput"], result)
@@ -668,7 +668,7 @@ class SccFolderCustomModuleCustomConfig:
         This explanation is returned with each finding instance to
         help investigators understand the detected issue. The text must be enclosed in quotation marks.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#description SccFolderCustomModule#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#description SccFolderCustomModule#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -697,7 +697,7 @@ class SccFolderCustomModuleCustomConfigCustomOutput:
         properties: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SccFolderCustomModuleCustomConfigCustomOutputProperties", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param properties: properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#properties SccFolderCustomModule#properties}
+        :param properties: properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#properties SccFolderCustomModule#properties}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f7f42f1d90765c0100aac00460aba0391618ec463b2a30dd26826cb8f27523fb)
@@ -712,7 +712,7 @@ class SccFolderCustomModuleCustomConfigCustomOutput:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SccFolderCustomModuleCustomConfigCustomOutputProperties"]]]:
         '''properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#properties SccFolderCustomModule#properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#properties SccFolderCustomModule#properties}
         '''
         result = self._values.get("properties")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SccFolderCustomModuleCustomConfigCustomOutputProperties"]]], result)
@@ -811,8 +811,8 @@ class SccFolderCustomModuleCustomConfigCustomOutputProperties:
         value_expression: typing.Optional[typing.Union["SccFolderCustomModuleCustomConfigCustomOutputPropertiesValueExpression", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param name: Name of the property for the custom output. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#name SccFolderCustomModule#name}
-        :param value_expression: value_expression block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#value_expression SccFolderCustomModule#value_expression}
+        :param name: Name of the property for the custom output. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#name SccFolderCustomModule#name}
+        :param value_expression: value_expression block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#value_expression SccFolderCustomModule#value_expression}
         '''
         if isinstance(value_expression, dict):
             value_expression = SccFolderCustomModuleCustomConfigCustomOutputPropertiesValueExpression(**value_expression)
@@ -830,7 +830,7 @@ class SccFolderCustomModuleCustomConfigCustomOutputProperties:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the property for the custom output.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#name SccFolderCustomModule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#name SccFolderCustomModule#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -841,7 +841,7 @@ class SccFolderCustomModuleCustomConfigCustomOutputProperties:
     ) -> typing.Optional["SccFolderCustomModuleCustomConfigCustomOutputPropertiesValueExpression"]:
         '''value_expression block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#value_expression SccFolderCustomModule#value_expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#value_expression SccFolderCustomModule#value_expression}
         '''
         result = self._values.get("value_expression")
         return typing.cast(typing.Optional["SccFolderCustomModuleCustomConfigCustomOutputPropertiesValueExpression"], result)
@@ -987,10 +987,10 @@ class SccFolderCustomModuleCustomConfigCustomOutputPropertiesOutputReference(
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#expression SccFolderCustomModule#expression}
-        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#description SccFolderCustomModule#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#location SccFolderCustomModule#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#title SccFolderCustomModule#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#expression SccFolderCustomModule#expression}
+        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#description SccFolderCustomModule#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#location SccFolderCustomModule#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#title SccFolderCustomModule#title}
         '''
         value = SccFolderCustomModuleCustomConfigCustomOutputPropertiesValueExpression(
             expression=expression,
@@ -1078,10 +1078,10 @@ class SccFolderCustomModuleCustomConfigCustomOutputPropertiesValueExpression:
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#expression SccFolderCustomModule#expression}
-        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#description SccFolderCustomModule#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#location SccFolderCustomModule#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#title SccFolderCustomModule#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#expression SccFolderCustomModule#expression}
+        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#description SccFolderCustomModule#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#location SccFolderCustomModule#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#title SccFolderCustomModule#title}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b5d3e05a0d744f3aeb817bb878063d94c3c69b7ff78901b7783a90dee8ef9c40)
@@ -1103,7 +1103,7 @@ class SccFolderCustomModuleCustomConfigCustomOutputPropertiesValueExpression:
     def expression(self) -> builtins.str:
         '''Textual representation of an expression in Common Expression Language syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#expression SccFolderCustomModule#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#expression SccFolderCustomModule#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -1116,7 +1116,7 @@ class SccFolderCustomModuleCustomConfigCustomOutputPropertiesValueExpression:
         This is a longer text which describes the
         expression, e.g. when hovered over it in a UI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#description SccFolderCustomModule#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#description SccFolderCustomModule#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1125,7 +1125,7 @@ class SccFolderCustomModuleCustomConfigCustomOutputPropertiesValueExpression:
     def location(self) -> typing.Optional[builtins.str]:
         '''String indicating the location of the expression for error reporting, e.g. a file name and a position in the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#location SccFolderCustomModule#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#location SccFolderCustomModule#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1134,7 +1134,7 @@ class SccFolderCustomModuleCustomConfigCustomOutputPropertiesValueExpression:
     def title(self) -> typing.Optional[builtins.str]:
         '''Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#title SccFolderCustomModule#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#title SccFolderCustomModule#title}
         '''
         result = self._values.get("title")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1296,7 +1296,7 @@ class SccFolderCustomModuleCustomConfigOutputReference(
         properties: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SccFolderCustomModuleCustomConfigCustomOutputProperties, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param properties: properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#properties SccFolderCustomModule#properties}
+        :param properties: properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#properties SccFolderCustomModule#properties}
         '''
         value = SccFolderCustomModuleCustomConfigCustomOutput(properties=properties)
 
@@ -1312,10 +1312,10 @@ class SccFolderCustomModuleCustomConfigOutputReference(
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#expression SccFolderCustomModule#expression}
-        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#description SccFolderCustomModule#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#location SccFolderCustomModule#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#title SccFolderCustomModule#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#expression SccFolderCustomModule#expression}
+        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#description SccFolderCustomModule#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#location SccFolderCustomModule#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#title SccFolderCustomModule#title}
         '''
         value = SccFolderCustomModuleCustomConfigPredicate(
             expression=expression,
@@ -1333,7 +1333,7 @@ class SccFolderCustomModuleCustomConfigOutputReference(
         resource_types: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param resource_types: The resource types to run the detector on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#resource_types SccFolderCustomModule#resource_types}
+        :param resource_types: The resource types to run the detector on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#resource_types SccFolderCustomModule#resource_types}
         '''
         value = SccFolderCustomModuleCustomConfigResourceSelector(
             resource_types=resource_types
@@ -1476,10 +1476,10 @@ class SccFolderCustomModuleCustomConfigPredicate:
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#expression SccFolderCustomModule#expression}
-        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#description SccFolderCustomModule#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#location SccFolderCustomModule#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#title SccFolderCustomModule#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#expression SccFolderCustomModule#expression}
+        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#description SccFolderCustomModule#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#location SccFolderCustomModule#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#title SccFolderCustomModule#title}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f82e61ea6fabc572c77475051196d2033c5e00e7b3b52736d5a81f0f6191c1ae)
@@ -1501,7 +1501,7 @@ class SccFolderCustomModuleCustomConfigPredicate:
     def expression(self) -> builtins.str:
         '''Textual representation of an expression in Common Expression Language syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#expression SccFolderCustomModule#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#expression SccFolderCustomModule#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -1514,7 +1514,7 @@ class SccFolderCustomModuleCustomConfigPredicate:
         This is a longer text which describes the
         expression, e.g. when hovered over it in a UI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#description SccFolderCustomModule#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#description SccFolderCustomModule#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1523,7 +1523,7 @@ class SccFolderCustomModuleCustomConfigPredicate:
     def location(self) -> typing.Optional[builtins.str]:
         '''String indicating the location of the expression for error reporting, e.g. a file name and a position in the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#location SccFolderCustomModule#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#location SccFolderCustomModule#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1532,7 +1532,7 @@ class SccFolderCustomModuleCustomConfigPredicate:
     def title(self) -> typing.Optional[builtins.str]:
         '''Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#title SccFolderCustomModule#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#title SccFolderCustomModule#title}
         '''
         result = self._values.get("title")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1675,7 +1675,7 @@ class SccFolderCustomModuleCustomConfigPredicateOutputReference(
 class SccFolderCustomModuleCustomConfigResourceSelector:
     def __init__(self, *, resource_types: typing.Sequence[builtins.str]) -> None:
         '''
-        :param resource_types: The resource types to run the detector on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#resource_types SccFolderCustomModule#resource_types}
+        :param resource_types: The resource types to run the detector on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#resource_types SccFolderCustomModule#resource_types}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8d95ab9bf81615cfb3984bd1c2477c9f86cd9166ee43c9fc9e933d86716026a6)
@@ -1688,7 +1688,7 @@ class SccFolderCustomModuleCustomConfigResourceSelector:
     def resource_types(self) -> typing.List[builtins.str]:
         '''The resource types to run the detector on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#resource_types SccFolderCustomModule#resource_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#resource_types SccFolderCustomModule#resource_types}
         '''
         result = self._values.get("resource_types")
         assert result is not None, "Required property 'resource_types' is missing"
@@ -1775,9 +1775,9 @@ class SccFolderCustomModuleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#create SccFolderCustomModule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#delete SccFolderCustomModule#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#update SccFolderCustomModule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#create SccFolderCustomModule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#delete SccFolderCustomModule#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#update SccFolderCustomModule#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__16be7261a40866c3bdcdbe55226e458117bc9c3472b04918a7e33bfa6f8f8cc2)
@@ -1794,19 +1794,19 @@ class SccFolderCustomModuleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#create SccFolderCustomModule#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#create SccFolderCustomModule#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#delete SccFolderCustomModule#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#delete SccFolderCustomModule#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/scc_folder_custom_module#update SccFolderCustomModule#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/scc_folder_custom_module#update SccFolderCustomModule#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

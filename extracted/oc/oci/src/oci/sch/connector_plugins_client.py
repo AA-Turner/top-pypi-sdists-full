@@ -147,7 +147,7 @@ class ConnectorPluginsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/sch/get_connector_plugin.py.html>`__ to see an example of how to use get_connector_plugin API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/sch/get_connector_plugin.py.html>`__ to see an example of how to use get_connector_plugin API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['connectorPluginName']
@@ -285,7 +285,7 @@ class ConnectorPluginsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/sch/list_connector_plugins.py.html>`__ to see an example of how to use list_connector_plugins API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/sch/list_connector_plugins.py.html>`__ to see an example of how to use list_connector_plugins API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []

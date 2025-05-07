@@ -1,7 +1,7 @@
 r'''
 # `google_container_analysis_occurrence`
 
-Refer to the Terraform Registry for docs: [`google_container_analysis_occurrence`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence).
+Refer to the Terraform Registry for docs: [`google_container_analysis_occurrence`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ContainerAnalysisOccurrence(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.containerAnalysisOccurrence.ContainerAnalysisOccurrence",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence google_container_analysis_occurrence}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence google_container_analysis_occurrence}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class ContainerAnalysisOccurrence(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence google_container_analysis_occurrence} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence google_container_analysis_occurrence} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param attestation: attestation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#attestation ContainerAnalysisOccurrence#attestation}
-        :param note_name: The analysis note associated with this occurrence, in the form of projects/[PROJECT]/notes/[NOTE_ID]. This field can be used as a filter in list requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#note_name ContainerAnalysisOccurrence#note_name}
-        :param resource_uri: Required. Immutable. A URI that represents the resource for which the occurrence applies. For example, https://gcr.io/project/image@sha256:123abc for a Docker image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#resource_uri ContainerAnalysisOccurrence#resource_uri}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#id ContainerAnalysisOccurrence#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#project ContainerAnalysisOccurrence#project}.
-        :param remediation: A description of actions that can be taken to remedy the note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#remediation ContainerAnalysisOccurrence#remediation}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#timeouts ContainerAnalysisOccurrence#timeouts}
+        :param attestation: attestation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#attestation ContainerAnalysisOccurrence#attestation}
+        :param note_name: The analysis note associated with this occurrence, in the form of projects/[PROJECT]/notes/[NOTE_ID]. This field can be used as a filter in list requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#note_name ContainerAnalysisOccurrence#note_name}
+        :param resource_uri: Required. Immutable. A URI that represents the resource for which the occurrence applies. For example, https://gcr.io/project/image@sha256:123abc for a Docker image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#resource_uri ContainerAnalysisOccurrence#resource_uri}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#id ContainerAnalysisOccurrence#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#project ContainerAnalysisOccurrence#project}.
+        :param remediation: A description of actions that can be taken to remedy the note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#remediation ContainerAnalysisOccurrence#remediation}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#timeouts ContainerAnalysisOccurrence#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class ContainerAnalysisOccurrence(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ContainerAnalysisOccurrence to import.
-        :param import_from_id: The id of the existing ContainerAnalysisOccurrence that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ContainerAnalysisOccurrence that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ContainerAnalysisOccurrence to import is found.
         '''
         if __debug__:
@@ -140,8 +140,8 @@ class ContainerAnalysisOccurrence(
         signatures: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerAnalysisOccurrenceAttestationSignatures", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param serialized_payload: The serialized payload that is verified by one or more signatures. A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#serialized_payload ContainerAnalysisOccurrence#serialized_payload}
-        :param signatures: signatures block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#signatures ContainerAnalysisOccurrence#signatures}
+        :param serialized_payload: The serialized payload that is verified by one or more signatures. A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#serialized_payload ContainerAnalysisOccurrence#serialized_payload}
+        :param signatures: signatures block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#signatures ContainerAnalysisOccurrence#signatures}
         '''
         value = ContainerAnalysisOccurrenceAttestation(
             serialized_payload=serialized_payload, signatures=signatures
@@ -158,9 +158,9 @@ class ContainerAnalysisOccurrence(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#create ContainerAnalysisOccurrence#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#delete ContainerAnalysisOccurrence#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#update ContainerAnalysisOccurrence#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#create ContainerAnalysisOccurrence#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#delete ContainerAnalysisOccurrence#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#update ContainerAnalysisOccurrence#update}.
         '''
         value = ContainerAnalysisOccurrenceTimeouts(
             create=create, delete=delete, update=update
@@ -343,8 +343,8 @@ class ContainerAnalysisOccurrenceAttestation:
         signatures: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerAnalysisOccurrenceAttestationSignatures", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param serialized_payload: The serialized payload that is verified by one or more signatures. A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#serialized_payload ContainerAnalysisOccurrence#serialized_payload}
-        :param signatures: signatures block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#signatures ContainerAnalysisOccurrence#signatures}
+        :param serialized_payload: The serialized payload that is verified by one or more signatures. A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#serialized_payload ContainerAnalysisOccurrence#serialized_payload}
+        :param signatures: signatures block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#signatures ContainerAnalysisOccurrence#signatures}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14ad7a54237818156b24b851c29fc5ad0507b98af68002361d1569b624838f4e)
@@ -359,7 +359,7 @@ class ContainerAnalysisOccurrenceAttestation:
     def serialized_payload(self) -> builtins.str:
         '''The serialized payload that is verified by one or more signatures. A base64-encoded string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#serialized_payload ContainerAnalysisOccurrence#serialized_payload}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#serialized_payload ContainerAnalysisOccurrence#serialized_payload}
         '''
         result = self._values.get("serialized_payload")
         assert result is not None, "Required property 'serialized_payload' is missing"
@@ -371,7 +371,7 @@ class ContainerAnalysisOccurrenceAttestation:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerAnalysisOccurrenceAttestationSignatures"]]:
         '''signatures block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#signatures ContainerAnalysisOccurrence#signatures}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#signatures ContainerAnalysisOccurrence#signatures}
         '''
         result = self._values.get("signatures")
         assert result is not None, "Required property 'signatures' is missing"
@@ -480,8 +480,8 @@ class ContainerAnalysisOccurrenceAttestationSignatures:
         signature: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param public_key_id: The identifier for the public key that verifies this signature. MUST be an RFC3986 conformant URI. * When possible, the key id should be an immutable reference, such as a cryptographic digest. Examples of valid values: - OpenPGP V4 public key fingerprint. See https://www.iana.org/assignments/uri-schemes/prov/openpgp4fpr for more details on this scheme. - 'openpgp4fpr:74FAF3B861BDA0870C7B6DEF607E48D2A663AEEA' - RFC6920 digest-named SubjectPublicKeyInfo (digest of the DER serialization): - "ni:///sha-256;cD9o9Cq6LG3jD0iKXqEi_vdjJGecm_iXkbqVoScViaU" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#public_key_id ContainerAnalysisOccurrence#public_key_id}
-        :param signature: The content of the signature, an opaque bytestring. The payload that this signature verifies MUST be unambiguously provided with the Signature during verification. A wrapper message might provide the payload explicitly. Alternatively, a message might have a canonical serialization that can always be unambiguously computed to derive the payload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#signature ContainerAnalysisOccurrence#signature}
+        :param public_key_id: The identifier for the public key that verifies this signature. MUST be an RFC3986 conformant URI. * When possible, the key id should be an immutable reference, such as a cryptographic digest. Examples of valid values: - OpenPGP V4 public key fingerprint. See https://www.iana.org/assignments/uri-schemes/prov/openpgp4fpr for more details on this scheme. - 'openpgp4fpr:74FAF3B861BDA0870C7B6DEF607E48D2A663AEEA' - RFC6920 digest-named SubjectPublicKeyInfo (digest of the DER serialization): - "ni:///sha-256;cD9o9Cq6LG3jD0iKXqEi_vdjJGecm_iXkbqVoScViaU" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#public_key_id ContainerAnalysisOccurrence#public_key_id}
+        :param signature: The content of the signature, an opaque bytestring. The payload that this signature verifies MUST be unambiguously provided with the Signature during verification. A wrapper message might provide the payload explicitly. Alternatively, a message might have a canonical serialization that can always be unambiguously computed to derive the payload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#signature ContainerAnalysisOccurrence#signature}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1fae1ed2ac4517c8e78a35e5fa438efc9c1f4a54a3f7dee58582f3035791ebbd)
@@ -511,7 +511,7 @@ class ContainerAnalysisOccurrenceAttestationSignatures:
 
           - "ni:///sha-256;cD9o9Cq6LG3jD0iKXqEi_vdjJGecm_iXkbqVoScViaU"
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#public_key_id ContainerAnalysisOccurrence#public_key_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#public_key_id ContainerAnalysisOccurrence#public_key_id}
         '''
         result = self._values.get("public_key_id")
         assert result is not None, "Required property 'public_key_id' is missing"
@@ -528,7 +528,7 @@ class ContainerAnalysisOccurrenceAttestationSignatures:
         have a canonical serialization that can always be
         unambiguously computed to derive the payload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#signature ContainerAnalysisOccurrence#signature}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#signature ContainerAnalysisOccurrence#signature}
         '''
         result = self._values.get("signature")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -767,13 +767,13 @@ class ContainerAnalysisOccurrenceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param attestation: attestation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#attestation ContainerAnalysisOccurrence#attestation}
-        :param note_name: The analysis note associated with this occurrence, in the form of projects/[PROJECT]/notes/[NOTE_ID]. This field can be used as a filter in list requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#note_name ContainerAnalysisOccurrence#note_name}
-        :param resource_uri: Required. Immutable. A URI that represents the resource for which the occurrence applies. For example, https://gcr.io/project/image@sha256:123abc for a Docker image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#resource_uri ContainerAnalysisOccurrence#resource_uri}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#id ContainerAnalysisOccurrence#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#project ContainerAnalysisOccurrence#project}.
-        :param remediation: A description of actions that can be taken to remedy the note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#remediation ContainerAnalysisOccurrence#remediation}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#timeouts ContainerAnalysisOccurrence#timeouts}
+        :param attestation: attestation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#attestation ContainerAnalysisOccurrence#attestation}
+        :param note_name: The analysis note associated with this occurrence, in the form of projects/[PROJECT]/notes/[NOTE_ID]. This field can be used as a filter in list requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#note_name ContainerAnalysisOccurrence#note_name}
+        :param resource_uri: Required. Immutable. A URI that represents the resource for which the occurrence applies. For example, https://gcr.io/project/image@sha256:123abc for a Docker image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#resource_uri ContainerAnalysisOccurrence#resource_uri}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#id ContainerAnalysisOccurrence#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#project ContainerAnalysisOccurrence#project}.
+        :param remediation: A description of actions that can be taken to remedy the note. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#remediation ContainerAnalysisOccurrence#remediation}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#timeouts ContainerAnalysisOccurrence#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -893,7 +893,7 @@ class ContainerAnalysisOccurrenceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def attestation(self) -> ContainerAnalysisOccurrenceAttestation:
         '''attestation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#attestation ContainerAnalysisOccurrence#attestation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#attestation ContainerAnalysisOccurrence#attestation}
         '''
         result = self._values.get("attestation")
         assert result is not None, "Required property 'attestation' is missing"
@@ -906,7 +906,7 @@ class ContainerAnalysisOccurrenceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         This field can be used as a
         filter in list requests.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#note_name ContainerAnalysisOccurrence#note_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#note_name ContainerAnalysisOccurrence#note_name}
         '''
         result = self._values.get("note_name")
         assert result is not None, "Required property 'note_name' is missing"
@@ -916,7 +916,7 @@ class ContainerAnalysisOccurrenceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def resource_uri(self) -> builtins.str:
         '''Required. Immutable. A URI that represents the resource for which the occurrence applies. For example, https://gcr.io/project/image@sha256:123abc for a Docker image.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#resource_uri ContainerAnalysisOccurrence#resource_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#resource_uri ContainerAnalysisOccurrence#resource_uri}
         '''
         result = self._values.get("resource_uri")
         assert result is not None, "Required property 'resource_uri' is missing"
@@ -924,7 +924,7 @@ class ContainerAnalysisOccurrenceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#id ContainerAnalysisOccurrence#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#id ContainerAnalysisOccurrence#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -934,7 +934,7 @@ class ContainerAnalysisOccurrenceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#project ContainerAnalysisOccurrence#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#project ContainerAnalysisOccurrence#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -942,7 +942,7 @@ class ContainerAnalysisOccurrenceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def remediation(self) -> typing.Optional[builtins.str]:
         '''A description of actions that can be taken to remedy the note.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#remediation ContainerAnalysisOccurrence#remediation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#remediation ContainerAnalysisOccurrence#remediation}
         '''
         result = self._values.get("remediation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -951,7 +951,7 @@ class ContainerAnalysisOccurrenceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ContainerAnalysisOccurrenceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#timeouts ContainerAnalysisOccurrence#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#timeouts ContainerAnalysisOccurrence#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ContainerAnalysisOccurrenceTimeouts"], result)
@@ -982,9 +982,9 @@ class ContainerAnalysisOccurrenceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#create ContainerAnalysisOccurrence#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#delete ContainerAnalysisOccurrence#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#update ContainerAnalysisOccurrence#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#create ContainerAnalysisOccurrence#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#delete ContainerAnalysisOccurrence#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#update ContainerAnalysisOccurrence#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__53a9f0b8beadc2acae6893017e32e6965c599ff90406c2d29f77aa0d6c6fd565)
@@ -1001,19 +1001,19 @@ class ContainerAnalysisOccurrenceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#create ContainerAnalysisOccurrence#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#create ContainerAnalysisOccurrence#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#delete ContainerAnalysisOccurrence#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#delete ContainerAnalysisOccurrence#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_analysis_occurrence#update ContainerAnalysisOccurrence#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_analysis_occurrence#update ContainerAnalysisOccurrence#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

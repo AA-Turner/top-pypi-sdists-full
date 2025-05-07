@@ -147,7 +147,7 @@ class AccountClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/marketplace/get_launch_eligibility.py.html>`__ to see an example of how to use get_launch_eligibility API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/marketplace/get_launch_eligibility.py.html>`__ to see an example of how to use get_launch_eligibility API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'imageId']
@@ -242,7 +242,7 @@ class AccountClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/marketplace/get_third_party_paid_listing_eligibility.py.html>`__ to see an example of how to use get_third_party_paid_listing_eligibility API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/marketplace/get_third_party_paid_listing_eligibility.py.html>`__ to see an example of how to use get_third_party_paid_listing_eligibility API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']

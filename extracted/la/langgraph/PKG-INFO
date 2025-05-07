@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: langgraph
-Version: 0.4.1
+Version: 0.4.2
 Summary: Building stateful, multi-actor applications with LLMs
 License: MIT
 Requires-Python: >=3.9

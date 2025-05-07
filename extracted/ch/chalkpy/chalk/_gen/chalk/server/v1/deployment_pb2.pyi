@@ -30,6 +30,12 @@ class DeploymentStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DEPLOYMENT_STATUS_AWAITING_SOURCE: _ClassVar[DeploymentStatus]
     DEPLOYMENT_STATUS_DEPLOYING: _ClassVar[DeploymentStatus]
 
+class DeploymentProfilingMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DEPLOYMENT_PROFILING_MODE_UNSPECIFIED: _ClassVar[DeploymentProfilingMode]
+    DEPLOYMENT_PROFILING_MODE_NONE: _ClassVar[DeploymentProfilingMode]
+    DEPLOYMENT_PROFILING_MODE_O2: _ClassVar[DeploymentProfilingMode]
+
 DEPLOYMENT_STATUS_UNSPECIFIED: DeploymentStatus
 DEPLOYMENT_STATUS_UNKNOWN: DeploymentStatus
 DEPLOYMENT_STATUS_PENDING: DeploymentStatus
@@ -44,6 +50,9 @@ DEPLOYMENT_STATUS_EXPIRED: DeploymentStatus
 DEPLOYMENT_STATUS_BOOT_ERRORS: DeploymentStatus
 DEPLOYMENT_STATUS_AWAITING_SOURCE: DeploymentStatus
 DEPLOYMENT_STATUS_DEPLOYING: DeploymentStatus
+DEPLOYMENT_PROFILING_MODE_UNSPECIFIED: DeploymentProfilingMode
+DEPLOYMENT_PROFILING_MODE_NONE: DeploymentProfilingMode
+DEPLOYMENT_PROFILING_MODE_O2: DeploymentProfilingMode
 
 class InstanceSizing(_message.Message):
     __slots__ = ("min_instances", "max_instances")
@@ -82,6 +91,7 @@ class Deployment(_message.Message):
         "status_changed_at",
         "pinned_platform_version",
         "preview_deployment_tag",
+        "profiling_mode",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -110,6 +120,7 @@ class Deployment(_message.Message):
     STATUS_CHANGED_AT_FIELD_NUMBER: _ClassVar[int]
     PINNED_PLATFORM_VERSION_FIELD_NUMBER: _ClassVar[int]
     PREVIEW_DEPLOYMENT_TAG_FIELD_NUMBER: _ClassVar[int]
+    PROFILING_MODE_FIELD_NUMBER: _ClassVar[int]
     id: str
     environment_id: str
     status: DeploymentStatus
@@ -137,6 +148,7 @@ class Deployment(_message.Message):
     status_changed_at: _timestamp_pb2.Timestamp
     pinned_platform_version: str
     preview_deployment_tag: str
+    profiling_mode: DeploymentProfilingMode
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -166,4 +178,5 @@ class Deployment(_message.Message):
         status_changed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         pinned_platform_version: _Optional[str] = ...,
         preview_deployment_tag: _Optional[str] = ...,
+        profiling_mode: _Optional[_Union[DeploymentProfilingMode, str]] = ...,
     ) -> None: ...

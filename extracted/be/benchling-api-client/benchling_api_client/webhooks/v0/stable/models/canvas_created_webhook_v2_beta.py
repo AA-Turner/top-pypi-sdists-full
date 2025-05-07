@@ -16,6 +16,7 @@ class CanvasCreatedWebhookV2Beta:
     _canvas_id: str
     _feature_id: str
     _type: CanvasCreatedWebhookV2BetaType
+    _user_id: str
     _deprecated: bool
 
     def __repr__(self):
@@ -23,6 +24,7 @@ class CanvasCreatedWebhookV2Beta:
         fields.append("canvas_id={}".format(repr(self._canvas_id)))
         fields.append("feature_id={}".format(repr(self._feature_id)))
         fields.append("type={}".format(repr(self._type)))
+        fields.append("user_id={}".format(repr(self._user_id)))
         fields.append("deprecated={}".format(repr(self._deprecated)))
         return "CanvasCreatedWebhookV2Beta({})".format(", ".join(fields))
 
@@ -31,6 +33,7 @@ class CanvasCreatedWebhookV2Beta:
         feature_id = self._feature_id
         type = self._type.value
 
+        user_id = self._user_id
         deprecated = self._deprecated
 
         field_dict: Dict[str, Any] = {}
@@ -41,6 +44,8 @@ class CanvasCreatedWebhookV2Beta:
             field_dict["featureId"] = feature_id
         if type is not UNSET:
             field_dict["type"] = type
+        if user_id is not UNSET:
+            field_dict["userId"] = user_id
         if deprecated is not UNSET:
             field_dict["deprecated"] = deprecated
 
@@ -88,6 +93,17 @@ class CanvasCreatedWebhookV2Beta:
                 raise
             type = cast(CanvasCreatedWebhookV2BetaType, UNSET)
 
+        def get_user_id() -> str:
+            user_id = d.pop("userId")
+            return user_id
+
+        try:
+            user_id = get_user_id()
+        except KeyError:
+            if strict:
+                raise
+            user_id = cast(str, UNSET)
+
         def get_deprecated() -> bool:
             deprecated = d.pop("deprecated")
             return deprecated
@@ -103,6 +119,7 @@ class CanvasCreatedWebhookV2Beta:
             canvas_id=canvas_id,
             feature_id=feature_id,
             type=type,
+            user_id=user_id,
             deprecated=deprecated,
         )
 
@@ -137,6 +154,16 @@ class CanvasCreatedWebhookV2Beta:
     @type.setter
     def type(self, value: CanvasCreatedWebhookV2BetaType) -> None:
         self._type = value
+
+    @property
+    def user_id(self) -> str:
+        if isinstance(self._user_id, Unset):
+            raise NotPresentError(self, "user_id")
+        return self._user_id
+
+    @user_id.setter
+    def user_id(self, value: str) -> None:
+        self._user_id = value
 
     @property
     def deprecated(self) -> bool:

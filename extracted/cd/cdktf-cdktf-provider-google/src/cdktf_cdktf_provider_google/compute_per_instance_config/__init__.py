@@ -1,7 +1,7 @@
 r'''
 # `google_compute_per_instance_config`
 
-Refer to the Terraform Registry for docs: [`google_compute_per_instance_config`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config).
+Refer to the Terraform Registry for docs: [`google_compute_per_instance_config`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputePerInstanceConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computePerInstanceConfig.ComputePerInstanceConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config google_compute_per_instance_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config google_compute_per_instance_config}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class ComputePerInstanceConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config google_compute_per_instance_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config google_compute_per_instance_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_group_manager: The instance group manager this instance config is part of. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#instance_group_manager ComputePerInstanceConfig#instance_group_manager}
-        :param name: The name for this per-instance config and its corresponding instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#name ComputePerInstanceConfig#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#id ComputePerInstanceConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param minimal_action: The minimal action to perform on the instance during an update. Default is 'NONE'. Possible values are: - REPLACE - RESTART - REFRESH - NONE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#minimal_action ComputePerInstanceConfig#minimal_action}
-        :param most_disruptive_allowed_action: The most disruptive action to perform on the instance during an update. Default is 'REPLACE'. Possible values are: - REPLACE - RESTART - REFRESH - NONE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#most_disruptive_allowed_action ComputePerInstanceConfig#most_disruptive_allowed_action}
-        :param preserved_state: preserved_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#preserved_state ComputePerInstanceConfig#preserved_state}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#project ComputePerInstanceConfig#project}.
-        :param remove_instance_on_destroy: When true, deleting this config will immediately remove the underlying instance. When false, deleting this config will use the behavior as determined by remove_instance_on_destroy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#remove_instance_on_destroy ComputePerInstanceConfig#remove_instance_on_destroy}
-        :param remove_instance_state_on_destroy: When true, deleting this config will immediately remove any specified state from the underlying instance. When false, deleting this config will *not* immediately remove any state from the underlying instance. State will be removed on the next instance recreation or update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#remove_instance_state_on_destroy ComputePerInstanceConfig#remove_instance_state_on_destroy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#timeouts ComputePerInstanceConfig#timeouts}
-        :param zone: Zone where the containing instance group manager is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#zone ComputePerInstanceConfig#zone}
+        :param instance_group_manager: The instance group manager this instance config is part of. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#instance_group_manager ComputePerInstanceConfig#instance_group_manager}
+        :param name: The name for this per-instance config and its corresponding instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#name ComputePerInstanceConfig#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#id ComputePerInstanceConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param minimal_action: The minimal action to perform on the instance during an update. Default is 'NONE'. Possible values are: - REPLACE - RESTART - REFRESH - NONE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#minimal_action ComputePerInstanceConfig#minimal_action}
+        :param most_disruptive_allowed_action: The most disruptive action to perform on the instance during an update. Default is 'REPLACE'. Possible values are: - REPLACE - RESTART - REFRESH - NONE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#most_disruptive_allowed_action ComputePerInstanceConfig#most_disruptive_allowed_action}
+        :param preserved_state: preserved_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#preserved_state ComputePerInstanceConfig#preserved_state}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#project ComputePerInstanceConfig#project}.
+        :param remove_instance_on_destroy: When true, deleting this config will immediately remove the underlying instance. When false, deleting this config will use the behavior as determined by remove_instance_on_destroy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#remove_instance_on_destroy ComputePerInstanceConfig#remove_instance_on_destroy}
+        :param remove_instance_state_on_destroy: When true, deleting this config will immediately remove any specified state from the underlying instance. When false, deleting this config will *not* immediately remove any state from the underlying instance. State will be removed on the next instance recreation or update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#remove_instance_state_on_destroy ComputePerInstanceConfig#remove_instance_state_on_destroy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#timeouts ComputePerInstanceConfig#timeouts}
+        :param zone: Zone where the containing instance group manager is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#zone ComputePerInstanceConfig#zone}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class ComputePerInstanceConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputePerInstanceConfig to import.
-        :param import_from_id: The id of the existing ComputePerInstanceConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputePerInstanceConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputePerInstanceConfig to import is found.
         '''
         if __debug__:
@@ -154,10 +154,10 @@ class ComputePerInstanceConfig(
         metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param disk: disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#disk ComputePerInstanceConfig#disk}
-        :param external_ip: external_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#external_ip ComputePerInstanceConfig#external_ip}
-        :param internal_ip: internal_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#internal_ip ComputePerInstanceConfig#internal_ip}
-        :param metadata: Preserved metadata defined for this instance. This is a list of key->value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#metadata ComputePerInstanceConfig#metadata}
+        :param disk: disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#disk ComputePerInstanceConfig#disk}
+        :param external_ip: external_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#external_ip ComputePerInstanceConfig#external_ip}
+        :param internal_ip: internal_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#internal_ip ComputePerInstanceConfig#internal_ip}
+        :param metadata: Preserved metadata defined for this instance. This is a list of key->value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#metadata ComputePerInstanceConfig#metadata}
         '''
         value = ComputePerInstanceConfigPreservedState(
             disk=disk,
@@ -177,9 +177,9 @@ class ComputePerInstanceConfig(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#create ComputePerInstanceConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#delete ComputePerInstanceConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#update ComputePerInstanceConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#create ComputePerInstanceConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#delete ComputePerInstanceConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#update ComputePerInstanceConfig#update}.
         '''
         value = ComputePerInstanceConfigTimeouts(
             create=create, delete=delete, update=update
@@ -485,17 +485,17 @@ class ComputePerInstanceConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_group_manager: The instance group manager this instance config is part of. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#instance_group_manager ComputePerInstanceConfig#instance_group_manager}
-        :param name: The name for this per-instance config and its corresponding instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#name ComputePerInstanceConfig#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#id ComputePerInstanceConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param minimal_action: The minimal action to perform on the instance during an update. Default is 'NONE'. Possible values are: - REPLACE - RESTART - REFRESH - NONE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#minimal_action ComputePerInstanceConfig#minimal_action}
-        :param most_disruptive_allowed_action: The most disruptive action to perform on the instance during an update. Default is 'REPLACE'. Possible values are: - REPLACE - RESTART - REFRESH - NONE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#most_disruptive_allowed_action ComputePerInstanceConfig#most_disruptive_allowed_action}
-        :param preserved_state: preserved_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#preserved_state ComputePerInstanceConfig#preserved_state}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#project ComputePerInstanceConfig#project}.
-        :param remove_instance_on_destroy: When true, deleting this config will immediately remove the underlying instance. When false, deleting this config will use the behavior as determined by remove_instance_on_destroy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#remove_instance_on_destroy ComputePerInstanceConfig#remove_instance_on_destroy}
-        :param remove_instance_state_on_destroy: When true, deleting this config will immediately remove any specified state from the underlying instance. When false, deleting this config will *not* immediately remove any state from the underlying instance. State will be removed on the next instance recreation or update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#remove_instance_state_on_destroy ComputePerInstanceConfig#remove_instance_state_on_destroy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#timeouts ComputePerInstanceConfig#timeouts}
-        :param zone: Zone where the containing instance group manager is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#zone ComputePerInstanceConfig#zone}
+        :param instance_group_manager: The instance group manager this instance config is part of. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#instance_group_manager ComputePerInstanceConfig#instance_group_manager}
+        :param name: The name for this per-instance config and its corresponding instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#name ComputePerInstanceConfig#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#id ComputePerInstanceConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param minimal_action: The minimal action to perform on the instance during an update. Default is 'NONE'. Possible values are: - REPLACE - RESTART - REFRESH - NONE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#minimal_action ComputePerInstanceConfig#minimal_action}
+        :param most_disruptive_allowed_action: The most disruptive action to perform on the instance during an update. Default is 'REPLACE'. Possible values are: - REPLACE - RESTART - REFRESH - NONE Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#most_disruptive_allowed_action ComputePerInstanceConfig#most_disruptive_allowed_action}
+        :param preserved_state: preserved_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#preserved_state ComputePerInstanceConfig#preserved_state}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#project ComputePerInstanceConfig#project}.
+        :param remove_instance_on_destroy: When true, deleting this config will immediately remove the underlying instance. When false, deleting this config will use the behavior as determined by remove_instance_on_destroy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#remove_instance_on_destroy ComputePerInstanceConfig#remove_instance_on_destroy}
+        :param remove_instance_state_on_destroy: When true, deleting this config will immediately remove any specified state from the underlying instance. When false, deleting this config will *not* immediately remove any state from the underlying instance. State will be removed on the next instance recreation or update. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#remove_instance_state_on_destroy ComputePerInstanceConfig#remove_instance_state_on_destroy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#timeouts ComputePerInstanceConfig#timeouts}
+        :param zone: Zone where the containing instance group manager is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#zone ComputePerInstanceConfig#zone}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -628,7 +628,7 @@ class ComputePerInstanceConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance_group_manager(self) -> builtins.str:
         '''The instance group manager this instance config is part of.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#instance_group_manager ComputePerInstanceConfig#instance_group_manager}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#instance_group_manager ComputePerInstanceConfig#instance_group_manager}
         '''
         result = self._values.get("instance_group_manager")
         assert result is not None, "Required property 'instance_group_manager' is missing"
@@ -638,7 +638,7 @@ class ComputePerInstanceConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name for this per-instance config and its corresponding instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#name ComputePerInstanceConfig#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#name ComputePerInstanceConfig#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -646,7 +646,7 @@ class ComputePerInstanceConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#id ComputePerInstanceConfig#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#id ComputePerInstanceConfig#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -665,7 +665,7 @@ class ComputePerInstanceConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - REFRESH
         - NONE
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#minimal_action ComputePerInstanceConfig#minimal_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#minimal_action ComputePerInstanceConfig#minimal_action}
         '''
         result = self._values.get("minimal_action")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -681,7 +681,7 @@ class ComputePerInstanceConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - REFRESH
         - NONE
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#most_disruptive_allowed_action ComputePerInstanceConfig#most_disruptive_allowed_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#most_disruptive_allowed_action ComputePerInstanceConfig#most_disruptive_allowed_action}
         '''
         result = self._values.get("most_disruptive_allowed_action")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -692,14 +692,14 @@ class ComputePerInstanceConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ComputePerInstanceConfigPreservedState"]:
         '''preserved_state block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#preserved_state ComputePerInstanceConfig#preserved_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#preserved_state ComputePerInstanceConfig#preserved_state}
         '''
         result = self._values.get("preserved_state")
         return typing.cast(typing.Optional["ComputePerInstanceConfigPreservedState"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#project ComputePerInstanceConfig#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#project ComputePerInstanceConfig#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -711,7 +711,7 @@ class ComputePerInstanceConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         When false, deleting this config will use the behavior as determined by remove_instance_on_destroy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#remove_instance_on_destroy ComputePerInstanceConfig#remove_instance_on_destroy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#remove_instance_on_destroy ComputePerInstanceConfig#remove_instance_on_destroy}
         '''
         result = self._values.get("remove_instance_on_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -725,7 +725,7 @@ class ComputePerInstanceConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         When false, deleting this config will *not* immediately remove any state from the underlying instance.
         State will be removed on the next instance recreation or update.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#remove_instance_state_on_destroy ComputePerInstanceConfig#remove_instance_state_on_destroy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#remove_instance_state_on_destroy ComputePerInstanceConfig#remove_instance_state_on_destroy}
         '''
         result = self._values.get("remove_instance_state_on_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -734,7 +734,7 @@ class ComputePerInstanceConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputePerInstanceConfigTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#timeouts ComputePerInstanceConfig#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#timeouts ComputePerInstanceConfig#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputePerInstanceConfigTimeouts"], result)
@@ -743,7 +743,7 @@ class ComputePerInstanceConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def zone(self) -> typing.Optional[builtins.str]:
         '''Zone where the containing instance group manager is located.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#zone ComputePerInstanceConfig#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#zone ComputePerInstanceConfig#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -780,10 +780,10 @@ class ComputePerInstanceConfigPreservedState:
         metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param disk: disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#disk ComputePerInstanceConfig#disk}
-        :param external_ip: external_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#external_ip ComputePerInstanceConfig#external_ip}
-        :param internal_ip: internal_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#internal_ip ComputePerInstanceConfig#internal_ip}
-        :param metadata: Preserved metadata defined for this instance. This is a list of key->value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#metadata ComputePerInstanceConfig#metadata}
+        :param disk: disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#disk ComputePerInstanceConfig#disk}
+        :param external_ip: external_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#external_ip ComputePerInstanceConfig#external_ip}
+        :param internal_ip: internal_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#internal_ip ComputePerInstanceConfig#internal_ip}
+        :param metadata: Preserved metadata defined for this instance. This is a list of key->value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#metadata ComputePerInstanceConfig#metadata}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f7e801b0a5329fd5c42bc4d0b62acd7bddfba3e4f915365e2da2840fd7c7a782)
@@ -807,7 +807,7 @@ class ComputePerInstanceConfigPreservedState:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputePerInstanceConfigPreservedStateDisk"]]]:
         '''disk block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#disk ComputePerInstanceConfig#disk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#disk ComputePerInstanceConfig#disk}
         '''
         result = self._values.get("disk")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputePerInstanceConfigPreservedStateDisk"]]], result)
@@ -818,7 +818,7 @@ class ComputePerInstanceConfigPreservedState:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputePerInstanceConfigPreservedStateExternalIp"]]]:
         '''external_ip block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#external_ip ComputePerInstanceConfig#external_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#external_ip ComputePerInstanceConfig#external_ip}
         '''
         result = self._values.get("external_ip")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputePerInstanceConfigPreservedStateExternalIp"]]], result)
@@ -829,7 +829,7 @@ class ComputePerInstanceConfigPreservedState:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputePerInstanceConfigPreservedStateInternalIp"]]]:
         '''internal_ip block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#internal_ip ComputePerInstanceConfig#internal_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#internal_ip ComputePerInstanceConfig#internal_ip}
         '''
         result = self._values.get("internal_ip")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputePerInstanceConfigPreservedStateInternalIp"]]], result)
@@ -838,7 +838,7 @@ class ComputePerInstanceConfigPreservedState:
     def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Preserved metadata defined for this instance. This is a list of key->value pairs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#metadata ComputePerInstanceConfig#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#metadata ComputePerInstanceConfig#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -875,10 +875,10 @@ class ComputePerInstanceConfigPreservedStateDisk:
         mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param device_name: A unique device name that is reflected into the /dev/ tree of a Linux operating system running within the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#device_name ComputePerInstanceConfig#device_name}
-        :param source: The URI of an existing persistent disk to attach under the specified device-name in the format 'projects/project-id/zones/zone/disks/disk-name'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#source ComputePerInstanceConfig#source}
-        :param delete_rule: A value that prescribes what should happen to the stateful disk when the VM instance is deleted. The available options are 'NEVER' and 'ON_PERMANENT_INSTANCE_DELETION'. 'NEVER' - detach the disk when the VM is deleted, but do not delete the disk. 'ON_PERMANENT_INSTANCE_DELETION' will delete the stateful disk when the VM is permanently deleted from the instance group. Default value: "NEVER" Possible values: ["NEVER", "ON_PERMANENT_INSTANCE_DELETION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#delete_rule ComputePerInstanceConfig#delete_rule}
-        :param mode: The mode of the disk. Default value: "READ_WRITE" Possible values: ["READ_ONLY", "READ_WRITE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#mode ComputePerInstanceConfig#mode}
+        :param device_name: A unique device name that is reflected into the /dev/ tree of a Linux operating system running within the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#device_name ComputePerInstanceConfig#device_name}
+        :param source: The URI of an existing persistent disk to attach under the specified device-name in the format 'projects/project-id/zones/zone/disks/disk-name'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#source ComputePerInstanceConfig#source}
+        :param delete_rule: A value that prescribes what should happen to the stateful disk when the VM instance is deleted. The available options are 'NEVER' and 'ON_PERMANENT_INSTANCE_DELETION'. 'NEVER' - detach the disk when the VM is deleted, but do not delete the disk. 'ON_PERMANENT_INSTANCE_DELETION' will delete the stateful disk when the VM is permanently deleted from the instance group. Default value: "NEVER" Possible values: ["NEVER", "ON_PERMANENT_INSTANCE_DELETION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#delete_rule ComputePerInstanceConfig#delete_rule}
+        :param mode: The mode of the disk. Default value: "READ_WRITE" Possible values: ["READ_ONLY", "READ_WRITE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#mode ComputePerInstanceConfig#mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__87e2daba97a4b5703095afd2e5d299ffb4c67118f546e25e785e8b967600c645)
@@ -899,7 +899,7 @@ class ComputePerInstanceConfigPreservedStateDisk:
     def device_name(self) -> builtins.str:
         '''A unique device name that is reflected into the /dev/ tree of a Linux operating system running within the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#device_name ComputePerInstanceConfig#device_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#device_name ComputePerInstanceConfig#device_name}
         '''
         result = self._values.get("device_name")
         assert result is not None, "Required property 'device_name' is missing"
@@ -909,7 +909,7 @@ class ComputePerInstanceConfigPreservedStateDisk:
     def source(self) -> builtins.str:
         '''The URI of an existing persistent disk to attach under the specified device-name in the format 'projects/project-id/zones/zone/disks/disk-name'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#source ComputePerInstanceConfig#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#source ComputePerInstanceConfig#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -924,7 +924,7 @@ class ComputePerInstanceConfigPreservedStateDisk:
         'ON_PERMANENT_INSTANCE_DELETION' will delete the stateful disk when the VM is permanently
         deleted from the instance group. Default value: "NEVER" Possible values: ["NEVER", "ON_PERMANENT_INSTANCE_DELETION"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#delete_rule ComputePerInstanceConfig#delete_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#delete_rule ComputePerInstanceConfig#delete_rule}
         '''
         result = self._values.get("delete_rule")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -933,7 +933,7 @@ class ComputePerInstanceConfigPreservedStateDisk:
     def mode(self) -> typing.Optional[builtins.str]:
         '''The mode of the disk. Default value: "READ_WRITE" Possible values: ["READ_ONLY", "READ_WRITE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#mode ComputePerInstanceConfig#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#mode ComputePerInstanceConfig#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1181,9 +1181,9 @@ class ComputePerInstanceConfigPreservedStateExternalIp:
         ip_address: typing.Optional[typing.Union["ComputePerInstanceConfigPreservedStateExternalIpIpAddress", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param interface_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#interface_name ComputePerInstanceConfig#interface_name}.
-        :param auto_delete: These stateful IPs will never be released during autohealing, update or VM instance recreate operations. This flag is used to configure if the IP reservation should be deleted after it is no longer used by the group, e.g. when the given instance or the whole group is deleted. Default value: "NEVER" Possible values: ["NEVER", "ON_PERMANENT_INSTANCE_DELETION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#auto_delete ComputePerInstanceConfig#auto_delete}
-        :param ip_address: ip_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#ip_address ComputePerInstanceConfig#ip_address}
+        :param interface_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#interface_name ComputePerInstanceConfig#interface_name}.
+        :param auto_delete: These stateful IPs will never be released during autohealing, update or VM instance recreate operations. This flag is used to configure if the IP reservation should be deleted after it is no longer used by the group, e.g. when the given instance or the whole group is deleted. Default value: "NEVER" Possible values: ["NEVER", "ON_PERMANENT_INSTANCE_DELETION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#auto_delete ComputePerInstanceConfig#auto_delete}
+        :param ip_address: ip_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#ip_address ComputePerInstanceConfig#ip_address}
         '''
         if isinstance(ip_address, dict):
             ip_address = ComputePerInstanceConfigPreservedStateExternalIpIpAddress(**ip_address)
@@ -1202,7 +1202,7 @@ class ComputePerInstanceConfigPreservedStateExternalIp:
 
     @builtins.property
     def interface_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#interface_name ComputePerInstanceConfig#interface_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#interface_name ComputePerInstanceConfig#interface_name}.'''
         result = self._values.get("interface_name")
         assert result is not None, "Required property 'interface_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1213,7 +1213,7 @@ class ComputePerInstanceConfigPreservedStateExternalIp:
 
         This flag is used to configure if the IP reservation should be deleted after it is no longer used by the group, e.g. when the given instance or the whole group is deleted. Default value: "NEVER" Possible values: ["NEVER", "ON_PERMANENT_INSTANCE_DELETION"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#auto_delete ComputePerInstanceConfig#auto_delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#auto_delete ComputePerInstanceConfig#auto_delete}
         '''
         result = self._values.get("auto_delete")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1224,7 +1224,7 @@ class ComputePerInstanceConfigPreservedStateExternalIp:
     ) -> typing.Optional["ComputePerInstanceConfigPreservedStateExternalIpIpAddress"]:
         '''ip_address block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#ip_address ComputePerInstanceConfig#ip_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#ip_address ComputePerInstanceConfig#ip_address}
         '''
         result = self._values.get("ip_address")
         return typing.cast(typing.Optional["ComputePerInstanceConfigPreservedStateExternalIpIpAddress"], result)
@@ -1249,7 +1249,7 @@ class ComputePerInstanceConfigPreservedStateExternalIp:
 class ComputePerInstanceConfigPreservedStateExternalIpIpAddress:
     def __init__(self, *, address: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param address: The URL of the reservation for this IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#address ComputePerInstanceConfig#address}
+        :param address: The URL of the reservation for this IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#address ComputePerInstanceConfig#address}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__af3761e875375739dfc6b3e1960700e5c613e01d51c7064e16365f6bd055e565)
@@ -1262,7 +1262,7 @@ class ComputePerInstanceConfigPreservedStateExternalIpIpAddress:
     def address(self) -> typing.Optional[builtins.str]:
         '''The URL of the reservation for this IP address.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#address ComputePerInstanceConfig#address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#address ComputePerInstanceConfig#address}
         '''
         result = self._values.get("address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1460,7 +1460,7 @@ class ComputePerInstanceConfigPreservedStateExternalIpOutputReference(
     @jsii.member(jsii_name="putIpAddress")
     def put_ip_address(self, *, address: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param address: The URL of the reservation for this IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#address ComputePerInstanceConfig#address}
+        :param address: The URL of the reservation for this IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#address ComputePerInstanceConfig#address}
         '''
         value = ComputePerInstanceConfigPreservedStateExternalIpIpAddress(
             address=address
@@ -1560,9 +1560,9 @@ class ComputePerInstanceConfigPreservedStateInternalIp:
         ip_address: typing.Optional[typing.Union["ComputePerInstanceConfigPreservedStateInternalIpIpAddress", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param interface_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#interface_name ComputePerInstanceConfig#interface_name}.
-        :param auto_delete: These stateful IPs will never be released during autohealing, update or VM instance recreate operations. This flag is used to configure if the IP reservation should be deleted after it is no longer used by the group, e.g. when the given instance or the whole group is deleted. Default value: "NEVER" Possible values: ["NEVER", "ON_PERMANENT_INSTANCE_DELETION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#auto_delete ComputePerInstanceConfig#auto_delete}
-        :param ip_address: ip_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#ip_address ComputePerInstanceConfig#ip_address}
+        :param interface_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#interface_name ComputePerInstanceConfig#interface_name}.
+        :param auto_delete: These stateful IPs will never be released during autohealing, update or VM instance recreate operations. This flag is used to configure if the IP reservation should be deleted after it is no longer used by the group, e.g. when the given instance or the whole group is deleted. Default value: "NEVER" Possible values: ["NEVER", "ON_PERMANENT_INSTANCE_DELETION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#auto_delete ComputePerInstanceConfig#auto_delete}
+        :param ip_address: ip_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#ip_address ComputePerInstanceConfig#ip_address}
         '''
         if isinstance(ip_address, dict):
             ip_address = ComputePerInstanceConfigPreservedStateInternalIpIpAddress(**ip_address)
@@ -1581,7 +1581,7 @@ class ComputePerInstanceConfigPreservedStateInternalIp:
 
     @builtins.property
     def interface_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#interface_name ComputePerInstanceConfig#interface_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#interface_name ComputePerInstanceConfig#interface_name}.'''
         result = self._values.get("interface_name")
         assert result is not None, "Required property 'interface_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1592,7 +1592,7 @@ class ComputePerInstanceConfigPreservedStateInternalIp:
 
         This flag is used to configure if the IP reservation should be deleted after it is no longer used by the group, e.g. when the given instance or the whole group is deleted. Default value: "NEVER" Possible values: ["NEVER", "ON_PERMANENT_INSTANCE_DELETION"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#auto_delete ComputePerInstanceConfig#auto_delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#auto_delete ComputePerInstanceConfig#auto_delete}
         '''
         result = self._values.get("auto_delete")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1603,7 +1603,7 @@ class ComputePerInstanceConfigPreservedStateInternalIp:
     ) -> typing.Optional["ComputePerInstanceConfigPreservedStateInternalIpIpAddress"]:
         '''ip_address block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#ip_address ComputePerInstanceConfig#ip_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#ip_address ComputePerInstanceConfig#ip_address}
         '''
         result = self._values.get("ip_address")
         return typing.cast(typing.Optional["ComputePerInstanceConfigPreservedStateInternalIpIpAddress"], result)
@@ -1628,7 +1628,7 @@ class ComputePerInstanceConfigPreservedStateInternalIp:
 class ComputePerInstanceConfigPreservedStateInternalIpIpAddress:
     def __init__(self, *, address: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param address: The URL of the reservation for this IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#address ComputePerInstanceConfig#address}
+        :param address: The URL of the reservation for this IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#address ComputePerInstanceConfig#address}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e0f9910c66a2e6be2ecf7bf14eb0a630eeb02e5c8962ad875b10fe01a9e4b7f)
@@ -1641,7 +1641,7 @@ class ComputePerInstanceConfigPreservedStateInternalIpIpAddress:
     def address(self) -> typing.Optional[builtins.str]:
         '''The URL of the reservation for this IP address.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#address ComputePerInstanceConfig#address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#address ComputePerInstanceConfig#address}
         '''
         result = self._values.get("address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1839,7 +1839,7 @@ class ComputePerInstanceConfigPreservedStateInternalIpOutputReference(
     @jsii.member(jsii_name="putIpAddress")
     def put_ip_address(self, *, address: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param address: The URL of the reservation for this IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#address ComputePerInstanceConfig#address}
+        :param address: The URL of the reservation for this IP address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#address ComputePerInstanceConfig#address}
         '''
         value = ComputePerInstanceConfigPreservedStateInternalIpIpAddress(
             address=address
@@ -2081,9 +2081,9 @@ class ComputePerInstanceConfigTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#create ComputePerInstanceConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#delete ComputePerInstanceConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#update ComputePerInstanceConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#create ComputePerInstanceConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#delete ComputePerInstanceConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#update ComputePerInstanceConfig#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3eea74df6c3f2af648e775b47b214b2358612fc0cf2efe2e02185269bf82045f)
@@ -2100,19 +2100,19 @@ class ComputePerInstanceConfigTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#create ComputePerInstanceConfig#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#create ComputePerInstanceConfig#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#delete ComputePerInstanceConfig#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#delete ComputePerInstanceConfig#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_per_instance_config#update ComputePerInstanceConfig#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_per_instance_config#update ComputePerInstanceConfig#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -57,6 +57,7 @@ class RequestType(Enum):
     EVG_TASK = "evg_task"
     MONGO_RELEASE_VERSION = "mongo_release_version"
     MONGO_PATCH_VERSION = "mongo_patch_version"
+    VERSIONS_FILE = "versions_file"
 
     def __str__(self) -> str:
         """Display item as a string."""

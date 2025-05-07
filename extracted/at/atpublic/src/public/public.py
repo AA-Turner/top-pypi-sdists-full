@@ -26,9 +26,7 @@ def public(**kws: Any) -> Any | tuple[Any]:
 
 
 # fmt: on
-def public(
-    thing: Any | None = None, **kws: Any
-) -> ModuleAware | Any | tuple[Any]:
+def public(thing: Any | None = None, **kws: Any) -> ModuleAware | Any | tuple[Any]:
     """Add a name or names to __all__.
 
     There are two forms of use for this function.  Most commonly it will
@@ -91,9 +89,7 @@ def public(
     # I think it's impossible to use the @public decorator and pass in keyword
     # arguments.  Not quite syntactically impossible, but you'll get a
     # TypeError if you try it, before you even get to this code.
-    assert (
-        len(kws) == 0
-    ), 'Keyword arguments are incompatible with use as decorator'
+    assert len(kws) == 0, 'Keyword arguments are incompatible with use as decorator'
     if thing.__name__ not in dunder_all:
         dunder_all.append(thing.__name__)
     return thing

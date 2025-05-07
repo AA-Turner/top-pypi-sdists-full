@@ -1,7 +1,7 @@
 r'''
 # `data_google_tags_tag_value`
 
-Refer to the Terraform Registry for docs: [`data_google_tags_tag_value`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/tags_tag_value).
+Refer to the Terraform Registry for docs: [`data_google_tags_tag_value`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/tags_tag_value).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleTagsTagValue(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleTagsTagValue.DataGoogleTagsTagValue",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/tags_tag_value google_tags_tag_value}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/tags_tag_value google_tags_tag_value}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataGoogleTagsTagValue(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/tags_tag_value google_tags_tag_value} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/tags_tag_value google_tags_tag_value} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param parent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/tags_tag_value#parent DataGoogleTagsTagValue#parent}.
-        :param short_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/tags_tag_value#short_name DataGoogleTagsTagValue#short_name}.
+        :param parent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/tags_tag_value#parent DataGoogleTagsTagValue#parent}.
+        :param short_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/tags_tag_value#short_name DataGoogleTagsTagValue#short_name}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataGoogleTagsTagValue(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleTagsTagValue to import.
-        :param import_from_id: The id of the existing DataGoogleTagsTagValue that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/tags_tag_value#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleTagsTagValue that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/tags_tag_value#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleTagsTagValue to import is found.
         '''
         if __debug__:
@@ -232,8 +232,8 @@ class DataGoogleTagsTagValueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param parent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/tags_tag_value#parent DataGoogleTagsTagValue#parent}.
-        :param short_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/tags_tag_value#short_name DataGoogleTagsTagValue#short_name}.
+        :param parent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/tags_tag_value#parent DataGoogleTagsTagValue#parent}.
+        :param short_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/tags_tag_value#short_name DataGoogleTagsTagValue#short_name}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -333,14 +333,14 @@ class DataGoogleTagsTagValueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def parent(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/tags_tag_value#parent DataGoogleTagsTagValue#parent}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/tags_tag_value#parent DataGoogleTagsTagValue#parent}.'''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def short_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/tags_tag_value#short_name DataGoogleTagsTagValue#short_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/tags_tag_value#short_name DataGoogleTagsTagValue#short_name}.'''
         result = self._values.get("short_name")
         assert result is not None, "Required property 'short_name' is missing"
         return typing.cast(builtins.str, result)

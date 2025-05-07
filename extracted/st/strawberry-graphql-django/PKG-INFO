@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: strawberry-graphql-django
-Version: 0.59.0
+Version: 0.59.1
 Summary: Strawberry GraphQL Django extension
 License: MIT
 Keywords: graphql,api,django,strawberry-graphql

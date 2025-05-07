@@ -1,26 +1,46 @@
 import asyncio
 import base64
 import json
-import time
+import warnings
 from typing import Callable, Dict, List, Optional
 
 import httpx
-from daytona_api_client import (
-    Command,
-    CreateSessionRequest,
-    ExecuteRequest,
-    Session,
-    SessionExecuteRequest,
-    SessionExecuteResponse,
-    ToolboxApi,
-)
+from daytona_api_client import Command, CreateSessionRequest, ExecuteRequest, Session
+from daytona_api_client import SessionExecuteRequest as ApiSessionExecuteRequest
+from daytona_api_client import SessionExecuteResponse, ToolboxApi
 from daytona_sdk._utils.errors import intercept_errors
+from pydantic import model_validator
 
 from .charts import parse_chart
 from .code_toolbox.sandbox_python_code_toolbox import SandboxPythonCodeToolbox
 from .common.code_run_params import CodeRunParams
 from .common.execute_response import ExecuteResponse, ExecutionArtifacts
 from .protocols import SandboxInstance
+
+
+class SessionExecuteRequest(ApiSessionExecuteRequest):
+    """Contains the request for executing a command in a session.
+
+    Attributes:
+        command (str): The command to execute.
+        run_async (Optional[bool]): Whether to execute the command asynchronously.
+        var_async (Optional[bool]): Deprecated. Use `run_async` instead.
+    """
+
+    @model_validator(mode="before")
+    @classmethod
+    def __handle_deprecated_var_async(
+        cls, values
+    ):  # pylint: disable=unused-private-member
+        if "var_async" in values and values.get("var_async"):
+            warnings.warn(
+                "'var_async' is deprecated and will be removed in a future version. Use 'run_async' instead.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
+            if "run_async" not in values or not values["run_async"]:
+                values["run_async"] = values.pop("var_async")
+        return values
 
 
 class Process:
@@ -37,7 +57,7 @@ class Process:
         code_toolbox: SandboxPythonCodeToolbox,
         toolbox_api: ToolboxApi,
         instance: SandboxInstance,
-        root_dir: str,
+        get_root_dir: Callable[[], str],
     ):
         """Initialize a new Process instance.
 
@@ -45,12 +65,12 @@ class Process:
             code_toolbox (SandboxPythonCodeToolbox): Language-specific code execution toolbox.
             toolbox_api (ToolboxApi): API client for Sandbox operations.
             instance (SandboxInstance): The Sandbox instance this process belongs to.
-            root_dir (str): The default root directory of the Sandbox.
+            get_root_dir (Callable[[], str]): A function to get the default root directory of the Sandbox.
         """
         self.code_toolbox = code_toolbox
         self.toolbox_api = toolbox_api
         self.instance = instance
-        self._root_dir = root_dir
+        self._get_root_dir = get_root_dir
 
     @staticmethod
     def _parse_output(lines: List[str]) -> Optional[ExecutionArtifacts]:
@@ -135,7 +155,9 @@ class Process:
             command = f"{safe_env_exports} {command}"
 
         command = f'sh -c "{command}"'
-        execute_request = ExecuteRequest(command=command, cwd=cwd or self._root_dir, timeout=timeout)
+        execute_request = ExecuteRequest(
+            command=command, cwd=cwd or self._get_root_dir(), timeout=timeout
+        )
 
         response = self.toolbox_api.execute_command(
             workspace_id=self.instance.id, execute_request=execute_request
@@ -312,7 +334,7 @@ class Process:
             session_id (str): Unique identifier of the session to use.
             req (SessionExecuteRequest): Command execution request containing:
                 - command: The command to execute
-                - var_async: Whether to execute asynchronously
+                - run_async: Whether to execute asynchronously
 
         Returns:
             SessionExecuteResponse: Command execution results containing:
@@ -339,25 +361,12 @@ class Process:
             print(result.output)  # Prints: Hello
             ```
         """
-        response = self.toolbox_api.execute_session_command(
+        return self.toolbox_api.execute_session_command(
             self.instance.id,
             session_id=session_id,
             session_execute_request=req,
             _request_timeout=timeout or None,
         )
-
-        if req.var_async and response is None:
-            time.sleep(0.1)
-            session = self.get_session(session_id)
-            for cmd in reversed(session.commands):
-                if cmd.command == req.command:
-                    response = SessionExecuteResponse(
-                        cmd_id=cmd.id,
-                        exit_code=cmd.exit_code,
-                    )
-                    break
-
-        return response
 
     @intercept_errors(message_prefix="Failed to get session command logs: ")
     def get_session_command_logs(self, session_id: str, command_id: str) -> str:

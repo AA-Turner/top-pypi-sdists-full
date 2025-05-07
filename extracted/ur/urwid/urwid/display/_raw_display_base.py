@@ -172,7 +172,7 @@ class Screen(BaseScreen, RealTerminal):
         After calling this function get_input will include mouse
         click events along with keystrokes.
         """
-        enable = bool(enable)  # noqa: FURB123,RUF100
+        enable = bool(enable)
         if enable == self._mouse_tracking_enabled:
             return
 
@@ -323,8 +323,8 @@ class Screen(BaseScreen, RealTerminal):
             return []
 
         fd_list: list[socket.socket | typing.IO | int] = [self._resize_pipe_rd]
-        input_io = self._term_input_io
-        if input_io is not None:
+
+        if (input_io := self._term_input_io) is not None:
             fd_list.append(input_io)
         return fd_list
 
@@ -641,7 +641,7 @@ class Screen(BaseScreen, RealTerminal):
                 a, cs, run = row[-1]
                 if run[-1:] == b" " and self.back_color_erase and not using_standout_or_underline(a):
                     whitespace_at_end = True
-                    row = row[:-1] + [(a, cs, run.rstrip(b" "))]  # noqa: PLW2901
+                    row = [*row[:-1], (a, cs, run.rstrip(b" "))]  # noqa: PLW2901
                 elif y == maxrow - 1 and maxcol > 1:
                     row, back, ins = self._last_row(row)  # noqa: PLW2901
 
@@ -727,7 +727,10 @@ class Screen(BaseScreen, RealTerminal):
         self.screen_buf = sb
         self._screen_buf_canvas = canvas
 
-    def _last_row(self, row: list[tuple[object, Literal["0", "U"] | None, bytes]]) -> tuple[
+    def _last_row(
+        self,
+        row: list[tuple[object, Literal["0", "U"] | None, bytes]],
+    ) -> tuple[
         list[tuple[object, Literal["0", "U"] | None, bytes]],
         int,
         tuple[object, Literal["0", "U"] | None, bytes],

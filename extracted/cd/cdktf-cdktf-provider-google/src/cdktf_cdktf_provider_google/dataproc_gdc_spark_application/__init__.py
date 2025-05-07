@@ -1,7 +1,7 @@
 r'''
 # `google_dataproc_gdc_spark_application`
 
-Refer to the Terraform Registry for docs: [`google_dataproc_gdc_spark_application`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application).
+Refer to the Terraform Registry for docs: [`google_dataproc_gdc_spark_application`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataprocGdcSparkApplication(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataprocGdcSparkApplication.DataprocGdcSparkApplication",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application google_dataproc_gdc_spark_application}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application google_dataproc_gdc_spark_application}.'''
 
     def __init__(
         self,
@@ -77,28 +77,28 @@ class DataprocGdcSparkApplication(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application google_dataproc_gdc_spark_application} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application google_dataproc_gdc_spark_application} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location of the spark application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#location DataprocGdcSparkApplication#location}
-        :param serviceinstance: The id of the service instance to which this spark application belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#serviceinstance DataprocGdcSparkApplication#serviceinstance}
-        :param spark_application_id: The id of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#spark_application_id DataprocGdcSparkApplication#spark_application_id}
-        :param annotations: The annotations to associate with this application. Annotations may be used to store client information, but are not used by the server. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#annotations DataprocGdcSparkApplication#annotations}
-        :param application_environment: An ApplicationEnvironment from which to inherit configuration properties. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#application_environment DataprocGdcSparkApplication#application_environment}
-        :param dependency_images: List of container image uris for additional file dependencies. Dependent files are sequentially copied from each image. If a file with the same name exists in 2 images then the file from later image is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#dependency_images DataprocGdcSparkApplication#dependency_images}
-        :param display_name: User-provided human-readable name to be used in user interfaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#display_name DataprocGdcSparkApplication#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#id DataprocGdcSparkApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: The labels to associate with this application. Labels may be used for filtering and billing tracking. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#labels DataprocGdcSparkApplication#labels}
-        :param namespace: The Kubernetes namespace in which to create the application. This namespace must already exist on the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#namespace DataprocGdcSparkApplication#namespace}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#project DataprocGdcSparkApplication#project}.
-        :param properties: application-specific properties. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#properties DataprocGdcSparkApplication#properties}
-        :param pyspark_application_config: pyspark_application_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#pyspark_application_config DataprocGdcSparkApplication#pyspark_application_config}
-        :param spark_application_config: spark_application_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#spark_application_config DataprocGdcSparkApplication#spark_application_config}
-        :param spark_r_application_config: spark_r_application_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#spark_r_application_config DataprocGdcSparkApplication#spark_r_application_config}
-        :param spark_sql_application_config: spark_sql_application_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#spark_sql_application_config DataprocGdcSparkApplication#spark_sql_application_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#timeouts DataprocGdcSparkApplication#timeouts}
-        :param version: The Dataproc version of this application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#version DataprocGdcSparkApplication#version}
+        :param location: The location of the spark application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#location DataprocGdcSparkApplication#location}
+        :param serviceinstance: The id of the service instance to which this spark application belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#serviceinstance DataprocGdcSparkApplication#serviceinstance}
+        :param spark_application_id: The id of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#spark_application_id DataprocGdcSparkApplication#spark_application_id}
+        :param annotations: The annotations to associate with this application. Annotations may be used to store client information, but are not used by the server. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#annotations DataprocGdcSparkApplication#annotations}
+        :param application_environment: An ApplicationEnvironment from which to inherit configuration properties. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#application_environment DataprocGdcSparkApplication#application_environment}
+        :param dependency_images: List of container image uris for additional file dependencies. Dependent files are sequentially copied from each image. If a file with the same name exists in 2 images then the file from later image is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#dependency_images DataprocGdcSparkApplication#dependency_images}
+        :param display_name: User-provided human-readable name to be used in user interfaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#display_name DataprocGdcSparkApplication#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#id DataprocGdcSparkApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: The labels to associate with this application. Labels may be used for filtering and billing tracking. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#labels DataprocGdcSparkApplication#labels}
+        :param namespace: The Kubernetes namespace in which to create the application. This namespace must already exist on the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#namespace DataprocGdcSparkApplication#namespace}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#project DataprocGdcSparkApplication#project}.
+        :param properties: application-specific properties. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#properties DataprocGdcSparkApplication#properties}
+        :param pyspark_application_config: pyspark_application_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#pyspark_application_config DataprocGdcSparkApplication#pyspark_application_config}
+        :param spark_application_config: spark_application_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#spark_application_config DataprocGdcSparkApplication#spark_application_config}
+        :param spark_r_application_config: spark_r_application_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#spark_r_application_config DataprocGdcSparkApplication#spark_r_application_config}
+        :param spark_sql_application_config: spark_sql_application_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#spark_sql_application_config DataprocGdcSparkApplication#spark_sql_application_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#timeouts DataprocGdcSparkApplication#timeouts}
+        :param version: The Dataproc version of this application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#version DataprocGdcSparkApplication#version}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -154,7 +154,7 @@ class DataprocGdcSparkApplication(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataprocGdcSparkApplication to import.
-        :param import_from_id: The id of the existing DataprocGdcSparkApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataprocGdcSparkApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataprocGdcSparkApplication to import is found.
         '''
         if __debug__:
@@ -177,12 +177,12 @@ class DataprocGdcSparkApplication(
         python_file_uris: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param main_python_file_uri: The HCFS URI of the main Python file to use as the driver. Must be a .py file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#main_python_file_uri DataprocGdcSparkApplication#main_python_file_uri}
-        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#archive_uris DataprocGdcSparkApplication#archive_uris}
-        :param args: The arguments to pass to the driver. Do not include arguments, such as '--conf', that can be set as job properties, since a collision may occur that causes an incorrect job submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#args DataprocGdcSparkApplication#args}
-        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Useful for naively parallel tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#file_uris DataprocGdcSparkApplication#file_uris}
-        :param jar_file_uris: HCFS URIs of jar files to add to the CLASSPATHs of the Python driver and tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#jar_file_uris DataprocGdcSparkApplication#jar_file_uris}
-        :param python_file_uris: HCFS file URIs of Python files to pass to the PySpark framework. Supported file types: .py, .egg, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#python_file_uris DataprocGdcSparkApplication#python_file_uris}
+        :param main_python_file_uri: The HCFS URI of the main Python file to use as the driver. Must be a .py file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#main_python_file_uri DataprocGdcSparkApplication#main_python_file_uri}
+        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#archive_uris DataprocGdcSparkApplication#archive_uris}
+        :param args: The arguments to pass to the driver. Do not include arguments, such as '--conf', that can be set as job properties, since a collision may occur that causes an incorrect job submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#args DataprocGdcSparkApplication#args}
+        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Useful for naively parallel tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#file_uris DataprocGdcSparkApplication#file_uris}
+        :param jar_file_uris: HCFS URIs of jar files to add to the CLASSPATHs of the Python driver and tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#jar_file_uris DataprocGdcSparkApplication#jar_file_uris}
+        :param python_file_uris: HCFS file URIs of Python files to pass to the PySpark framework. Supported file types: .py, .egg, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#python_file_uris DataprocGdcSparkApplication#python_file_uris}
         '''
         value = DataprocGdcSparkApplicationPysparkApplicationConfig(
             main_python_file_uri=main_python_file_uri,
@@ -207,12 +207,12 @@ class DataprocGdcSparkApplication(
         main_jar_file_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: '.jar', '.tar', '.tar.gz', '.tgz', and '.zip'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#archive_uris DataprocGdcSparkApplication#archive_uris}
-        :param args: The arguments to pass to the driver. Do not include arguments that can be set as application properties, such as '--conf', since a collision can occur that causes an incorrect application submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#args DataprocGdcSparkApplication#args}
-        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#file_uris DataprocGdcSparkApplication#file_uris}
-        :param jar_file_uris: HCFS URIs of jar files to add to the classpath of the Spark driver and tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#jar_file_uris DataprocGdcSparkApplication#jar_file_uris}
-        :param main_class: The name of the driver main class. The jar file that contains the class must be in the classpath or specified in 'jar_file_uris'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#main_class DataprocGdcSparkApplication#main_class}
-        :param main_jar_file_uri: The HCFS URI of the jar file that contains the main class. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#main_jar_file_uri DataprocGdcSparkApplication#main_jar_file_uri}
+        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: '.jar', '.tar', '.tar.gz', '.tgz', and '.zip'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#archive_uris DataprocGdcSparkApplication#archive_uris}
+        :param args: The arguments to pass to the driver. Do not include arguments that can be set as application properties, such as '--conf', since a collision can occur that causes an incorrect application submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#args DataprocGdcSparkApplication#args}
+        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#file_uris DataprocGdcSparkApplication#file_uris}
+        :param jar_file_uris: HCFS URIs of jar files to add to the classpath of the Spark driver and tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#jar_file_uris DataprocGdcSparkApplication#jar_file_uris}
+        :param main_class: The name of the driver main class. The jar file that contains the class must be in the classpath or specified in 'jar_file_uris'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#main_class DataprocGdcSparkApplication#main_class}
+        :param main_jar_file_uri: The HCFS URI of the jar file that contains the main class. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#main_jar_file_uri DataprocGdcSparkApplication#main_jar_file_uri}
         '''
         value = DataprocGdcSparkApplicationSparkApplicationConfig(
             archive_uris=archive_uris,
@@ -235,10 +235,10 @@ class DataprocGdcSparkApplication(
         file_uris: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param main_r_file_uri: The HCFS URI of the main R file to use as the driver. Must be a .R file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#main_r_file_uri DataprocGdcSparkApplication#main_r_file_uri}
-        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#archive_uris DataprocGdcSparkApplication#archive_uris}
-        :param args: The arguments to pass to the driver. Do not include arguments, such as '--conf', that can be set as job properties, since a collision may occur that causes an incorrect job submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#args DataprocGdcSparkApplication#args}
-        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Useful for naively parallel tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#file_uris DataprocGdcSparkApplication#file_uris}
+        :param main_r_file_uri: The HCFS URI of the main R file to use as the driver. Must be a .R file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#main_r_file_uri DataprocGdcSparkApplication#main_r_file_uri}
+        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#archive_uris DataprocGdcSparkApplication#archive_uris}
+        :param args: The arguments to pass to the driver. Do not include arguments, such as '--conf', that can be set as job properties, since a collision may occur that causes an incorrect job submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#args DataprocGdcSparkApplication#args}
+        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Useful for naively parallel tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#file_uris DataprocGdcSparkApplication#file_uris}
         '''
         value = DataprocGdcSparkApplicationSparkRApplicationConfig(
             main_r_file_uri=main_r_file_uri,
@@ -259,10 +259,10 @@ class DataprocGdcSparkApplication(
         script_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param jar_file_uris: HCFS URIs of jar files to be added to the Spark CLASSPATH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#jar_file_uris DataprocGdcSparkApplication#jar_file_uris}
-        :param query_file_uri: The HCFS URI of the script that contains SQL queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#query_file_uri DataprocGdcSparkApplication#query_file_uri}
-        :param query_list: query_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#query_list DataprocGdcSparkApplication#query_list}
-        :param script_variables: Mapping of query variable names to values (equivalent to the Spark SQL command: SET 'name="value";'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#script_variables DataprocGdcSparkApplication#script_variables}
+        :param jar_file_uris: HCFS URIs of jar files to be added to the Spark CLASSPATH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#jar_file_uris DataprocGdcSparkApplication#jar_file_uris}
+        :param query_file_uri: The HCFS URI of the script that contains SQL queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#query_file_uri DataprocGdcSparkApplication#query_file_uri}
+        :param query_list: query_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#query_list DataprocGdcSparkApplication#query_list}
+        :param script_variables: Mapping of query variable names to values (equivalent to the Spark SQL command: SET 'name="value";'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#script_variables DataprocGdcSparkApplication#script_variables}
         '''
         value = DataprocGdcSparkApplicationSparkSqlApplicationConfig(
             jar_file_uris=jar_file_uris,
@@ -282,9 +282,9 @@ class DataprocGdcSparkApplication(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#create DataprocGdcSparkApplication#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#delete DataprocGdcSparkApplication#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#update DataprocGdcSparkApplication#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#create DataprocGdcSparkApplication#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#delete DataprocGdcSparkApplication#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#update DataprocGdcSparkApplication#update}.
         '''
         value = DataprocGdcSparkApplicationTimeouts(
             create=create, delete=delete, update=update
@@ -790,24 +790,24 @@ class DataprocGdcSparkApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location of the spark application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#location DataprocGdcSparkApplication#location}
-        :param serviceinstance: The id of the service instance to which this spark application belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#serviceinstance DataprocGdcSparkApplication#serviceinstance}
-        :param spark_application_id: The id of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#spark_application_id DataprocGdcSparkApplication#spark_application_id}
-        :param annotations: The annotations to associate with this application. Annotations may be used to store client information, but are not used by the server. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#annotations DataprocGdcSparkApplication#annotations}
-        :param application_environment: An ApplicationEnvironment from which to inherit configuration properties. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#application_environment DataprocGdcSparkApplication#application_environment}
-        :param dependency_images: List of container image uris for additional file dependencies. Dependent files are sequentially copied from each image. If a file with the same name exists in 2 images then the file from later image is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#dependency_images DataprocGdcSparkApplication#dependency_images}
-        :param display_name: User-provided human-readable name to be used in user interfaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#display_name DataprocGdcSparkApplication#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#id DataprocGdcSparkApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: The labels to associate with this application. Labels may be used for filtering and billing tracking. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#labels DataprocGdcSparkApplication#labels}
-        :param namespace: The Kubernetes namespace in which to create the application. This namespace must already exist on the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#namespace DataprocGdcSparkApplication#namespace}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#project DataprocGdcSparkApplication#project}.
-        :param properties: application-specific properties. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#properties DataprocGdcSparkApplication#properties}
-        :param pyspark_application_config: pyspark_application_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#pyspark_application_config DataprocGdcSparkApplication#pyspark_application_config}
-        :param spark_application_config: spark_application_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#spark_application_config DataprocGdcSparkApplication#spark_application_config}
-        :param spark_r_application_config: spark_r_application_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#spark_r_application_config DataprocGdcSparkApplication#spark_r_application_config}
-        :param spark_sql_application_config: spark_sql_application_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#spark_sql_application_config DataprocGdcSparkApplication#spark_sql_application_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#timeouts DataprocGdcSparkApplication#timeouts}
-        :param version: The Dataproc version of this application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#version DataprocGdcSparkApplication#version}
+        :param location: The location of the spark application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#location DataprocGdcSparkApplication#location}
+        :param serviceinstance: The id of the service instance to which this spark application belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#serviceinstance DataprocGdcSparkApplication#serviceinstance}
+        :param spark_application_id: The id of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#spark_application_id DataprocGdcSparkApplication#spark_application_id}
+        :param annotations: The annotations to associate with this application. Annotations may be used to store client information, but are not used by the server. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#annotations DataprocGdcSparkApplication#annotations}
+        :param application_environment: An ApplicationEnvironment from which to inherit configuration properties. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#application_environment DataprocGdcSparkApplication#application_environment}
+        :param dependency_images: List of container image uris for additional file dependencies. Dependent files are sequentially copied from each image. If a file with the same name exists in 2 images then the file from later image is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#dependency_images DataprocGdcSparkApplication#dependency_images}
+        :param display_name: User-provided human-readable name to be used in user interfaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#display_name DataprocGdcSparkApplication#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#id DataprocGdcSparkApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: The labels to associate with this application. Labels may be used for filtering and billing tracking. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#labels DataprocGdcSparkApplication#labels}
+        :param namespace: The Kubernetes namespace in which to create the application. This namespace must already exist on the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#namespace DataprocGdcSparkApplication#namespace}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#project DataprocGdcSparkApplication#project}.
+        :param properties: application-specific properties. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#properties DataprocGdcSparkApplication#properties}
+        :param pyspark_application_config: pyspark_application_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#pyspark_application_config DataprocGdcSparkApplication#pyspark_application_config}
+        :param spark_application_config: spark_application_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#spark_application_config DataprocGdcSparkApplication#spark_application_config}
+        :param spark_r_application_config: spark_r_application_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#spark_r_application_config DataprocGdcSparkApplication#spark_r_application_config}
+        :param spark_sql_application_config: spark_sql_application_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#spark_sql_application_config DataprocGdcSparkApplication#spark_sql_application_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#timeouts DataprocGdcSparkApplication#timeouts}
+        :param version: The Dataproc version of this application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#version DataprocGdcSparkApplication#version}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -966,7 +966,7 @@ class DataprocGdcSparkApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location of the spark application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#location DataprocGdcSparkApplication#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#location DataprocGdcSparkApplication#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -976,7 +976,7 @@ class DataprocGdcSparkApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def serviceinstance(self) -> builtins.str:
         '''The id of the service instance to which this spark application belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#serviceinstance DataprocGdcSparkApplication#serviceinstance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#serviceinstance DataprocGdcSparkApplication#serviceinstance}
         '''
         result = self._values.get("serviceinstance")
         assert result is not None, "Required property 'serviceinstance' is missing"
@@ -986,7 +986,7 @@ class DataprocGdcSparkApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def spark_application_id(self) -> builtins.str:
         '''The id of the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#spark_application_id DataprocGdcSparkApplication#spark_application_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#spark_application_id DataprocGdcSparkApplication#spark_application_id}
         '''
         result = self._values.get("spark_application_id")
         assert result is not None, "Required property 'spark_application_id' is missing"
@@ -1003,7 +1003,7 @@ class DataprocGdcSparkApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
         Please refer to the field 'effective_annotations' for all of the annotations present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#annotations DataprocGdcSparkApplication#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#annotations DataprocGdcSparkApplication#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1012,7 +1012,7 @@ class DataprocGdcSparkApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def application_environment(self) -> typing.Optional[builtins.str]:
         '''An ApplicationEnvironment from which to inherit configuration properties.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#application_environment DataprocGdcSparkApplication#application_environment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#application_environment DataprocGdcSparkApplication#application_environment}
         '''
         result = self._values.get("application_environment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1023,7 +1023,7 @@ class DataprocGdcSparkApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Dependent files are sequentially copied from each image. If a file with the same name exists in 2 images then the file from later image is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#dependency_images DataprocGdcSparkApplication#dependency_images}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#dependency_images DataprocGdcSparkApplication#dependency_images}
         '''
         result = self._values.get("dependency_images")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1032,14 +1032,14 @@ class DataprocGdcSparkApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''User-provided human-readable name to be used in user interfaces.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#display_name DataprocGdcSparkApplication#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#display_name DataprocGdcSparkApplication#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#id DataprocGdcSparkApplication#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#id DataprocGdcSparkApplication#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1054,7 +1054,7 @@ class DataprocGdcSparkApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#labels DataprocGdcSparkApplication#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#labels DataprocGdcSparkApplication#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1063,14 +1063,14 @@ class DataprocGdcSparkApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def namespace(self) -> typing.Optional[builtins.str]:
         '''The Kubernetes namespace in which to create the application. This namespace must already exist on the cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#namespace DataprocGdcSparkApplication#namespace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#namespace DataprocGdcSparkApplication#namespace}
         '''
         result = self._values.get("namespace")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#project DataprocGdcSparkApplication#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#project DataprocGdcSparkApplication#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1078,7 +1078,7 @@ class DataprocGdcSparkApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def properties(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''application-specific properties.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#properties DataprocGdcSparkApplication#properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#properties DataprocGdcSparkApplication#properties}
         '''
         result = self._values.get("properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1089,7 +1089,7 @@ class DataprocGdcSparkApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DataprocGdcSparkApplicationPysparkApplicationConfig"]:
         '''pyspark_application_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#pyspark_application_config DataprocGdcSparkApplication#pyspark_application_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#pyspark_application_config DataprocGdcSparkApplication#pyspark_application_config}
         '''
         result = self._values.get("pyspark_application_config")
         return typing.cast(typing.Optional["DataprocGdcSparkApplicationPysparkApplicationConfig"], result)
@@ -1100,7 +1100,7 @@ class DataprocGdcSparkApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DataprocGdcSparkApplicationSparkApplicationConfig"]:
         '''spark_application_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#spark_application_config DataprocGdcSparkApplication#spark_application_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#spark_application_config DataprocGdcSparkApplication#spark_application_config}
         '''
         result = self._values.get("spark_application_config")
         return typing.cast(typing.Optional["DataprocGdcSparkApplicationSparkApplicationConfig"], result)
@@ -1111,7 +1111,7 @@ class DataprocGdcSparkApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DataprocGdcSparkApplicationSparkRApplicationConfig"]:
         '''spark_r_application_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#spark_r_application_config DataprocGdcSparkApplication#spark_r_application_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#spark_r_application_config DataprocGdcSparkApplication#spark_r_application_config}
         '''
         result = self._values.get("spark_r_application_config")
         return typing.cast(typing.Optional["DataprocGdcSparkApplicationSparkRApplicationConfig"], result)
@@ -1122,7 +1122,7 @@ class DataprocGdcSparkApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DataprocGdcSparkApplicationSparkSqlApplicationConfig"]:
         '''spark_sql_application_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#spark_sql_application_config DataprocGdcSparkApplication#spark_sql_application_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#spark_sql_application_config DataprocGdcSparkApplication#spark_sql_application_config}
         '''
         result = self._values.get("spark_sql_application_config")
         return typing.cast(typing.Optional["DataprocGdcSparkApplicationSparkSqlApplicationConfig"], result)
@@ -1131,7 +1131,7 @@ class DataprocGdcSparkApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataprocGdcSparkApplicationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#timeouts DataprocGdcSparkApplication#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#timeouts DataprocGdcSparkApplication#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataprocGdcSparkApplicationTimeouts"], result)
@@ -1140,7 +1140,7 @@ class DataprocGdcSparkApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def version(self) -> typing.Optional[builtins.str]:
         '''The Dataproc version of this application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#version DataprocGdcSparkApplication#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#version DataprocGdcSparkApplication#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1181,12 +1181,12 @@ class DataprocGdcSparkApplicationPysparkApplicationConfig:
         python_file_uris: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param main_python_file_uri: The HCFS URI of the main Python file to use as the driver. Must be a .py file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#main_python_file_uri DataprocGdcSparkApplication#main_python_file_uri}
-        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#archive_uris DataprocGdcSparkApplication#archive_uris}
-        :param args: The arguments to pass to the driver. Do not include arguments, such as '--conf', that can be set as job properties, since a collision may occur that causes an incorrect job submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#args DataprocGdcSparkApplication#args}
-        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Useful for naively parallel tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#file_uris DataprocGdcSparkApplication#file_uris}
-        :param jar_file_uris: HCFS URIs of jar files to add to the CLASSPATHs of the Python driver and tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#jar_file_uris DataprocGdcSparkApplication#jar_file_uris}
-        :param python_file_uris: HCFS file URIs of Python files to pass to the PySpark framework. Supported file types: .py, .egg, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#python_file_uris DataprocGdcSparkApplication#python_file_uris}
+        :param main_python_file_uri: The HCFS URI of the main Python file to use as the driver. Must be a .py file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#main_python_file_uri DataprocGdcSparkApplication#main_python_file_uri}
+        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#archive_uris DataprocGdcSparkApplication#archive_uris}
+        :param args: The arguments to pass to the driver. Do not include arguments, such as '--conf', that can be set as job properties, since a collision may occur that causes an incorrect job submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#args DataprocGdcSparkApplication#args}
+        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Useful for naively parallel tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#file_uris DataprocGdcSparkApplication#file_uris}
+        :param jar_file_uris: HCFS URIs of jar files to add to the CLASSPATHs of the Python driver and tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#jar_file_uris DataprocGdcSparkApplication#jar_file_uris}
+        :param python_file_uris: HCFS file URIs of Python files to pass to the PySpark framework. Supported file types: .py, .egg, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#python_file_uris DataprocGdcSparkApplication#python_file_uris}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a3611e17a97d8fc560994f7197f13292c9c2fc8242a402e5fdfe9aa837f6ab24)
@@ -1214,7 +1214,7 @@ class DataprocGdcSparkApplicationPysparkApplicationConfig:
     def main_python_file_uri(self) -> builtins.str:
         '''The HCFS URI of the main Python file to use as the driver. Must be a .py file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#main_python_file_uri DataprocGdcSparkApplication#main_python_file_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#main_python_file_uri DataprocGdcSparkApplication#main_python_file_uri}
         '''
         result = self._values.get("main_python_file_uri")
         assert result is not None, "Required property 'main_python_file_uri' is missing"
@@ -1226,7 +1226,7 @@ class DataprocGdcSparkApplicationPysparkApplicationConfig:
 
         Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#archive_uris DataprocGdcSparkApplication#archive_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#archive_uris DataprocGdcSparkApplication#archive_uris}
         '''
         result = self._values.get("archive_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1237,7 +1237,7 @@ class DataprocGdcSparkApplicationPysparkApplicationConfig:
 
         Do not include arguments, such as '--conf', that can be set as job properties, since a collision may occur that causes an incorrect job submission.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#args DataprocGdcSparkApplication#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#args DataprocGdcSparkApplication#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1246,7 +1246,7 @@ class DataprocGdcSparkApplicationPysparkApplicationConfig:
     def file_uris(self) -> typing.Optional[typing.List[builtins.str]]:
         '''HCFS URIs of files to be placed in the working directory of each executor. Useful for naively parallel tasks.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#file_uris DataprocGdcSparkApplication#file_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#file_uris DataprocGdcSparkApplication#file_uris}
         '''
         result = self._values.get("file_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1255,7 +1255,7 @@ class DataprocGdcSparkApplicationPysparkApplicationConfig:
     def jar_file_uris(self) -> typing.Optional[typing.List[builtins.str]]:
         '''HCFS URIs of jar files to add to the CLASSPATHs of the Python driver and tasks.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#jar_file_uris DataprocGdcSparkApplication#jar_file_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#jar_file_uris DataprocGdcSparkApplication#jar_file_uris}
         '''
         result = self._values.get("jar_file_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1264,7 +1264,7 @@ class DataprocGdcSparkApplicationPysparkApplicationConfig:
     def python_file_uris(self) -> typing.Optional[typing.List[builtins.str]]:
         '''HCFS file URIs of Python files to pass to the PySpark framework. Supported file types: .py, .egg, and .zip.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#python_file_uris DataprocGdcSparkApplication#python_file_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#python_file_uris DataprocGdcSparkApplication#python_file_uris}
         '''
         result = self._values.get("python_file_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1465,12 +1465,12 @@ class DataprocGdcSparkApplicationSparkApplicationConfig:
         main_jar_file_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: '.jar', '.tar', '.tar.gz', '.tgz', and '.zip'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#archive_uris DataprocGdcSparkApplication#archive_uris}
-        :param args: The arguments to pass to the driver. Do not include arguments that can be set as application properties, such as '--conf', since a collision can occur that causes an incorrect application submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#args DataprocGdcSparkApplication#args}
-        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#file_uris DataprocGdcSparkApplication#file_uris}
-        :param jar_file_uris: HCFS URIs of jar files to add to the classpath of the Spark driver and tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#jar_file_uris DataprocGdcSparkApplication#jar_file_uris}
-        :param main_class: The name of the driver main class. The jar file that contains the class must be in the classpath or specified in 'jar_file_uris'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#main_class DataprocGdcSparkApplication#main_class}
-        :param main_jar_file_uri: The HCFS URI of the jar file that contains the main class. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#main_jar_file_uri DataprocGdcSparkApplication#main_jar_file_uri}
+        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: '.jar', '.tar', '.tar.gz', '.tgz', and '.zip'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#archive_uris DataprocGdcSparkApplication#archive_uris}
+        :param args: The arguments to pass to the driver. Do not include arguments that can be set as application properties, such as '--conf', since a collision can occur that causes an incorrect application submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#args DataprocGdcSparkApplication#args}
+        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#file_uris DataprocGdcSparkApplication#file_uris}
+        :param jar_file_uris: HCFS URIs of jar files to add to the classpath of the Spark driver and tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#jar_file_uris DataprocGdcSparkApplication#jar_file_uris}
+        :param main_class: The name of the driver main class. The jar file that contains the class must be in the classpath or specified in 'jar_file_uris'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#main_class DataprocGdcSparkApplication#main_class}
+        :param main_jar_file_uri: The HCFS URI of the jar file that contains the main class. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#main_jar_file_uri DataprocGdcSparkApplication#main_jar_file_uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eaaaad758126a9ff1447f5641582b3337b4f1f7c26029d83a01065ea37b8544b)
@@ -1500,7 +1500,7 @@ class DataprocGdcSparkApplicationSparkApplicationConfig:
 
         Supported file types: '.jar', '.tar', '.tar.gz', '.tgz', and '.zip'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#archive_uris DataprocGdcSparkApplication#archive_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#archive_uris DataprocGdcSparkApplication#archive_uris}
         '''
         result = self._values.get("archive_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1511,7 +1511,7 @@ class DataprocGdcSparkApplicationSparkApplicationConfig:
 
         Do not include arguments that can be set as application properties, such as '--conf', since a collision can occur that causes an incorrect application submission.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#args DataprocGdcSparkApplication#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#args DataprocGdcSparkApplication#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1520,7 +1520,7 @@ class DataprocGdcSparkApplicationSparkApplicationConfig:
     def file_uris(self) -> typing.Optional[typing.List[builtins.str]]:
         '''HCFS URIs of files to be placed in the working directory of each executor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#file_uris DataprocGdcSparkApplication#file_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#file_uris DataprocGdcSparkApplication#file_uris}
         '''
         result = self._values.get("file_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1529,7 +1529,7 @@ class DataprocGdcSparkApplicationSparkApplicationConfig:
     def jar_file_uris(self) -> typing.Optional[typing.List[builtins.str]]:
         '''HCFS URIs of jar files to add to the classpath of the Spark driver and tasks.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#jar_file_uris DataprocGdcSparkApplication#jar_file_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#jar_file_uris DataprocGdcSparkApplication#jar_file_uris}
         '''
         result = self._values.get("jar_file_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1540,7 +1540,7 @@ class DataprocGdcSparkApplicationSparkApplicationConfig:
 
         The jar file that contains the class must be in the classpath or specified in 'jar_file_uris'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#main_class DataprocGdcSparkApplication#main_class}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#main_class DataprocGdcSparkApplication#main_class}
         '''
         result = self._values.get("main_class")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1549,7 +1549,7 @@ class DataprocGdcSparkApplicationSparkApplicationConfig:
     def main_jar_file_uri(self) -> typing.Optional[builtins.str]:
         '''The HCFS URI of the jar file that contains the main class.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#main_jar_file_uri DataprocGdcSparkApplication#main_jar_file_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#main_jar_file_uri DataprocGdcSparkApplication#main_jar_file_uri}
         '''
         result = self._values.get("main_jar_file_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1750,10 +1750,10 @@ class DataprocGdcSparkApplicationSparkRApplicationConfig:
         file_uris: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param main_r_file_uri: The HCFS URI of the main R file to use as the driver. Must be a .R file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#main_r_file_uri DataprocGdcSparkApplication#main_r_file_uri}
-        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#archive_uris DataprocGdcSparkApplication#archive_uris}
-        :param args: The arguments to pass to the driver. Do not include arguments, such as '--conf', that can be set as job properties, since a collision may occur that causes an incorrect job submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#args DataprocGdcSparkApplication#args}
-        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Useful for naively parallel tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#file_uris DataprocGdcSparkApplication#file_uris}
+        :param main_r_file_uri: The HCFS URI of the main R file to use as the driver. Must be a .R file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#main_r_file_uri DataprocGdcSparkApplication#main_r_file_uri}
+        :param archive_uris: HCFS URIs of archives to be extracted into the working directory of each executor. Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#archive_uris DataprocGdcSparkApplication#archive_uris}
+        :param args: The arguments to pass to the driver. Do not include arguments, such as '--conf', that can be set as job properties, since a collision may occur that causes an incorrect job submission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#args DataprocGdcSparkApplication#args}
+        :param file_uris: HCFS URIs of files to be placed in the working directory of each executor. Useful for naively parallel tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#file_uris DataprocGdcSparkApplication#file_uris}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__93ded1236cd932e235bc544fa38017944a7c38695fb7f6826a259421c8b5dddf)
@@ -1775,7 +1775,7 @@ class DataprocGdcSparkApplicationSparkRApplicationConfig:
     def main_r_file_uri(self) -> builtins.str:
         '''The HCFS URI of the main R file to use as the driver. Must be a .R file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#main_r_file_uri DataprocGdcSparkApplication#main_r_file_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#main_r_file_uri DataprocGdcSparkApplication#main_r_file_uri}
         '''
         result = self._values.get("main_r_file_uri")
         assert result is not None, "Required property 'main_r_file_uri' is missing"
@@ -1787,7 +1787,7 @@ class DataprocGdcSparkApplicationSparkRApplicationConfig:
 
         Supported file types: .jar, .tar, .tar.gz, .tgz, and .zip.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#archive_uris DataprocGdcSparkApplication#archive_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#archive_uris DataprocGdcSparkApplication#archive_uris}
         '''
         result = self._values.get("archive_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1798,7 +1798,7 @@ class DataprocGdcSparkApplicationSparkRApplicationConfig:
 
         Do not include arguments, such as '--conf', that can be set as job properties, since a collision may occur that causes an incorrect job submission.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#args DataprocGdcSparkApplication#args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#args DataprocGdcSparkApplication#args}
         '''
         result = self._values.get("args")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1807,7 +1807,7 @@ class DataprocGdcSparkApplicationSparkRApplicationConfig:
     def file_uris(self) -> typing.Optional[typing.List[builtins.str]]:
         '''HCFS URIs of files to be placed in the working directory of each executor. Useful for naively parallel tasks.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#file_uris DataprocGdcSparkApplication#file_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#file_uris DataprocGdcSparkApplication#file_uris}
         '''
         result = self._values.get("file_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1962,10 +1962,10 @@ class DataprocGdcSparkApplicationSparkSqlApplicationConfig:
         script_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param jar_file_uris: HCFS URIs of jar files to be added to the Spark CLASSPATH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#jar_file_uris DataprocGdcSparkApplication#jar_file_uris}
-        :param query_file_uri: The HCFS URI of the script that contains SQL queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#query_file_uri DataprocGdcSparkApplication#query_file_uri}
-        :param query_list: query_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#query_list DataprocGdcSparkApplication#query_list}
-        :param script_variables: Mapping of query variable names to values (equivalent to the Spark SQL command: SET 'name="value";'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#script_variables DataprocGdcSparkApplication#script_variables}
+        :param jar_file_uris: HCFS URIs of jar files to be added to the Spark CLASSPATH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#jar_file_uris DataprocGdcSparkApplication#jar_file_uris}
+        :param query_file_uri: The HCFS URI of the script that contains SQL queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#query_file_uri DataprocGdcSparkApplication#query_file_uri}
+        :param query_list: query_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#query_list DataprocGdcSparkApplication#query_list}
+        :param script_variables: Mapping of query variable names to values (equivalent to the Spark SQL command: SET 'name="value";'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#script_variables DataprocGdcSparkApplication#script_variables}
         '''
         if isinstance(query_list, dict):
             query_list = DataprocGdcSparkApplicationSparkSqlApplicationConfigQueryListStruct(**query_list)
@@ -1989,7 +1989,7 @@ class DataprocGdcSparkApplicationSparkSqlApplicationConfig:
     def jar_file_uris(self) -> typing.Optional[typing.List[builtins.str]]:
         '''HCFS URIs of jar files to be added to the Spark CLASSPATH.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#jar_file_uris DataprocGdcSparkApplication#jar_file_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#jar_file_uris DataprocGdcSparkApplication#jar_file_uris}
         '''
         result = self._values.get("jar_file_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1998,7 +1998,7 @@ class DataprocGdcSparkApplicationSparkSqlApplicationConfig:
     def query_file_uri(self) -> typing.Optional[builtins.str]:
         '''The HCFS URI of the script that contains SQL queries.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#query_file_uri DataprocGdcSparkApplication#query_file_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#query_file_uri DataprocGdcSparkApplication#query_file_uri}
         '''
         result = self._values.get("query_file_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2009,7 +2009,7 @@ class DataprocGdcSparkApplicationSparkSqlApplicationConfig:
     ) -> typing.Optional["DataprocGdcSparkApplicationSparkSqlApplicationConfigQueryListStruct"]:
         '''query_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#query_list DataprocGdcSparkApplication#query_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#query_list DataprocGdcSparkApplication#query_list}
         '''
         result = self._values.get("query_list")
         return typing.cast(typing.Optional["DataprocGdcSparkApplicationSparkSqlApplicationConfigQueryListStruct"], result)
@@ -2020,7 +2020,7 @@ class DataprocGdcSparkApplicationSparkSqlApplicationConfig:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Mapping of query variable names to values (equivalent to the Spark SQL command: SET 'name="value";').
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#script_variables DataprocGdcSparkApplication#script_variables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#script_variables DataprocGdcSparkApplication#script_variables}
         '''
         result = self._values.get("script_variables")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2060,7 +2060,7 @@ class DataprocGdcSparkApplicationSparkSqlApplicationConfigOutputReference(
     @jsii.member(jsii_name="putQueryList")
     def put_query_list(self, *, queries: typing.Sequence[builtins.str]) -> None:
         '''
-        :param queries: The queries to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#queries DataprocGdcSparkApplication#queries}
+        :param queries: The queries to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#queries DataprocGdcSparkApplication#queries}
         '''
         value = DataprocGdcSparkApplicationSparkSqlApplicationConfigQueryListStruct(
             queries=queries
@@ -2180,7 +2180,7 @@ class DataprocGdcSparkApplicationSparkSqlApplicationConfigOutputReference(
 class DataprocGdcSparkApplicationSparkSqlApplicationConfigQueryListStruct:
     def __init__(self, *, queries: typing.Sequence[builtins.str]) -> None:
         '''
-        :param queries: The queries to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#queries DataprocGdcSparkApplication#queries}
+        :param queries: The queries to run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#queries DataprocGdcSparkApplication#queries}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__faeb3e76f53d8232e34ac049e5ed8ecdb79cca0cc04c1487ef5ac0d3985c840b)
@@ -2193,7 +2193,7 @@ class DataprocGdcSparkApplicationSparkSqlApplicationConfigQueryListStruct:
     def queries(self) -> typing.List[builtins.str]:
         '''The queries to run.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#queries DataprocGdcSparkApplication#queries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#queries DataprocGdcSparkApplication#queries}
         '''
         result = self._values.get("queries")
         assert result is not None, "Required property 'queries' is missing"
@@ -2280,9 +2280,9 @@ class DataprocGdcSparkApplicationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#create DataprocGdcSparkApplication#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#delete DataprocGdcSparkApplication#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#update DataprocGdcSparkApplication#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#create DataprocGdcSparkApplication#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#delete DataprocGdcSparkApplication#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#update DataprocGdcSparkApplication#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b7c565cef7bca2763ba769407b9722d7a68af7613c0602a8c2678bbab7f8e18)
@@ -2299,19 +2299,19 @@ class DataprocGdcSparkApplicationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#create DataprocGdcSparkApplication#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#create DataprocGdcSparkApplication#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#delete DataprocGdcSparkApplication#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#delete DataprocGdcSparkApplication#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dataproc_gdc_spark_application#update DataprocGdcSparkApplication#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dataproc_gdc_spark_application#update DataprocGdcSparkApplication#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

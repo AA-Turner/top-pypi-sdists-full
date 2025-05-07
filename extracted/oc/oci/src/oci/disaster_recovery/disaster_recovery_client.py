@@ -166,7 +166,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/associate_dr_protection_group.py.html>`__ to see an example of how to use associate_dr_protection_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/associate_dr_protection_group.py.html>`__ to see an example of how to use associate_dr_protection_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drProtectionGroupId']
@@ -288,7 +288,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/cancel_dr_plan_execution.py.html>`__ to see an example of how to use cancel_dr_plan_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/cancel_dr_plan_execution.py.html>`__ to see an example of how to use cancel_dr_plan_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanExecutionId']
@@ -400,7 +400,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/cancel_work_request.py.html>`__ to see an example of how to use cancel_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/cancel_work_request.py.html>`__ to see an example of how to use cancel_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -517,7 +517,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/change_dr_protection_group_compartment.py.html>`__ to see an example of how to use change_dr_protection_group_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/change_dr_protection_group_compartment.py.html>`__ to see an example of how to use change_dr_protection_group_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drProtectionGroupId']
@@ -627,7 +627,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/create_dr_plan.py.html>`__ to see an example of how to use create_dr_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/create_dr_plan.py.html>`__ to see an example of how to use create_dr_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -725,7 +725,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/create_dr_plan_execution.py.html>`__ to see an example of how to use create_dr_plan_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/create_dr_plan_execution.py.html>`__ to see an example of how to use create_dr_plan_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -823,7 +823,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/create_dr_protection_group.py.html>`__ to see an example of how to use create_dr_protection_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/create_dr_protection_group.py.html>`__ to see an example of how to use create_dr_protection_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -923,7 +923,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/delete_dr_plan.py.html>`__ to see an example of how to use delete_dr_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/delete_dr_plan.py.html>`__ to see an example of how to use delete_dr_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanId']
@@ -1030,7 +1030,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/delete_dr_plan_execution.py.html>`__ to see an example of how to use delete_dr_plan_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/delete_dr_plan_execution.py.html>`__ to see an example of how to use delete_dr_plan_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanExecutionId']
@@ -1137,7 +1137,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/delete_dr_protection_group.py.html>`__ to see an example of how to use delete_dr_protection_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/delete_dr_protection_group.py.html>`__ to see an example of how to use delete_dr_protection_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drProtectionGroupId']
@@ -1255,7 +1255,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/disassociate_dr_protection_group.py.html>`__ to see an example of how to use disassociate_dr_protection_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/disassociate_dr_protection_group.py.html>`__ to see an example of how to use disassociate_dr_protection_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drProtectionGroupId']
@@ -1360,7 +1360,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/get_dr_plan.py.html>`__ to see an example of how to use get_dr_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/get_dr_plan.py.html>`__ to see an example of how to use get_dr_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanId']
@@ -1460,7 +1460,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/get_dr_plan_execution.py.html>`__ to see an example of how to use get_dr_plan_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/get_dr_plan_execution.py.html>`__ to see an example of how to use get_dr_plan_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanExecutionId']
@@ -1560,7 +1560,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/get_dr_protection_group.py.html>`__ to see an example of how to use get_dr_protection_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/get_dr_protection_group.py.html>`__ to see an example of how to use get_dr_protection_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drProtectionGroupId']
@@ -1660,7 +1660,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1777,7 +1777,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/ignore_dr_plan_execution.py.html>`__ to see an example of how to use ignore_dr_plan_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/ignore_dr_plan_execution.py.html>`__ to see an example of how to use ignore_dr_plan_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanExecutionId']
@@ -1931,7 +1931,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/list_dr_plan_executions.py.html>`__ to see an example of how to use list_dr_plan_executions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/list_dr_plan_executions.py.html>`__ to see an example of how to use list_dr_plan_executions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drProtectionGroupId']
@@ -2120,7 +2120,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/list_dr_plans.py.html>`__ to see an example of how to use list_dr_plans API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/list_dr_plans.py.html>`__ to see an example of how to use list_dr_plans API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drProtectionGroupId']
@@ -2327,7 +2327,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/list_dr_protection_groups.py.html>`__ to see an example of how to use list_dr_protection_groups API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/list_dr_protection_groups.py.html>`__ to see an example of how to use list_dr_protection_groups API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2507,7 +2507,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2667,7 +2667,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2842,7 +2842,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2990,7 +2990,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/pause_dr_plan_execution.py.html>`__ to see an example of how to use pause_dr_plan_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/pause_dr_plan_execution.py.html>`__ to see an example of how to use pause_dr_plan_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanExecutionId']
@@ -3112,7 +3112,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/refresh_dr_plan.py.html>`__ to see an example of how to use refresh_dr_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/refresh_dr_plan.py.html>`__ to see an example of how to use refresh_dr_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanId']
@@ -3234,7 +3234,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/resume_dr_plan_execution.py.html>`__ to see an example of how to use resume_dr_plan_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/resume_dr_plan_execution.py.html>`__ to see an example of how to use resume_dr_plan_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanExecutionId']
@@ -3356,7 +3356,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/retry_dr_plan_execution.py.html>`__ to see an example of how to use retry_dr_plan_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/retry_dr_plan_execution.py.html>`__ to see an example of how to use retry_dr_plan_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanExecutionId']
@@ -3471,7 +3471,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/update_dr_plan.py.html>`__ to see an example of how to use update_dr_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/update_dr_plan.py.html>`__ to see an example of how to use update_dr_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanId']
@@ -3583,7 +3583,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/update_dr_plan_execution.py.html>`__ to see an example of how to use update_dr_plan_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/update_dr_plan_execution.py.html>`__ to see an example of how to use update_dr_plan_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanExecutionId']
@@ -3695,7 +3695,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/update_dr_protection_group.py.html>`__ to see an example of how to use update_dr_protection_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/update_dr_protection_group.py.html>`__ to see an example of how to use update_dr_protection_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drProtectionGroupId']
@@ -3814,7 +3814,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/update_dr_protection_group_role.py.html>`__ to see an example of how to use update_dr_protection_group_role API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/update_dr_protection_group_role.py.html>`__ to see an example of how to use update_dr_protection_group_role API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drProtectionGroupId']
@@ -3936,7 +3936,7 @@ class DisasterRecoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/disasterrecovery/verify_dr_plan.py.html>`__ to see an example of how to use verify_dr_plan API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/disasterrecovery/verify_dr_plan.py.html>`__ to see an example of how to use verify_dr_plan API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['drPlanId']

@@ -162,7 +162,7 @@ class SubscribersClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/apigateway/change_subscriber_compartment.py.html>`__ to see an example of how to use change_subscriber_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/apigateway/change_subscriber_compartment.py.html>`__ to see an example of how to use change_subscriber_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriberId']
@@ -270,7 +270,7 @@ class SubscribersClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/apigateway/create_subscriber.py.html>`__ to see an example of how to use create_subscriber API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/apigateway/create_subscriber.py.html>`__ to see an example of how to use create_subscriber API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -368,7 +368,7 @@ class SubscribersClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/apigateway/delete_subscriber.py.html>`__ to see an example of how to use delete_subscriber API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/apigateway/delete_subscriber.py.html>`__ to see an example of how to use delete_subscriber API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriberId']
@@ -464,7 +464,7 @@ class SubscribersClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/apigateway/get_subscriber.py.html>`__ to see an example of how to use get_subscriber API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/apigateway/get_subscriber.py.html>`__ to see an example of how to use get_subscriber API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriberId']
@@ -592,7 +592,7 @@ class SubscribersClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/apigateway/list_subscribers.py.html>`__ to see an example of how to use list_subscribers API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/apigateway/list_subscribers.py.html>`__ to see an example of how to use list_subscribers API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -728,7 +728,7 @@ class SubscribersClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/apigateway/update_subscriber.py.html>`__ to see an example of how to use update_subscriber API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/apigateway/update_subscriber.py.html>`__ to see an example of how to use update_subscriber API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriberId']

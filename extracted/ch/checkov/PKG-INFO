@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: checkov
-Version: 3.2.415
+Version: 3.2.416
 Summary: Infrastructure as code static analysis
 Home-page: https://github.com/bridgecrewio/checkov
 Author: bridgecrew

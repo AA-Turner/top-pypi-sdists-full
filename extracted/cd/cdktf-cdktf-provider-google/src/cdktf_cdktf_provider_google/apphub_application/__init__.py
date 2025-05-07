@@ -1,7 +1,7 @@
 r'''
 # `google_apphub_application`
 
-Refer to the Terraform Registry for docs: [`google_apphub_application`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application).
+Refer to the Terraform Registry for docs: [`google_apphub_application`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApphubApplication(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.apphubApplication.ApphubApplication",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application google_apphub_application}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application google_apphub_application}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class ApphubApplication(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application google_apphub_application} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application google_apphub_application} Resource.
 
         :param scope_: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param application_id: Required. The Application identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#application_id ApphubApplication#application_id}
-        :param location: Part of 'parent'. See documentation of 'projectsId'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#location ApphubApplication#location}
-        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#scope ApphubApplication#scope}
-        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#attributes ApphubApplication#attributes}
-        :param description: Optional. User-defined description of an Application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#description ApphubApplication#description}
-        :param display_name: Optional. User-defined name for the Application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#display_name ApphubApplication#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#id ApphubApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#project ApphubApplication#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#timeouts ApphubApplication#timeouts}
+        :param application_id: Required. The Application identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#application_id ApphubApplication#application_id}
+        :param location: Part of 'parent'. See documentation of 'projectsId'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#location ApphubApplication#location}
+        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#scope ApphubApplication#scope}
+        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#attributes ApphubApplication#attributes}
+        :param description: Optional. User-defined description of an Application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#description ApphubApplication#description}
+        :param display_name: Optional. User-defined name for the Application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#display_name ApphubApplication#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#id ApphubApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#project ApphubApplication#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#timeouts ApphubApplication#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class ApphubApplication(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApphubApplication to import.
-        :param import_from_id: The id of the existing ApphubApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApphubApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApphubApplication to import is found.
         '''
         if __debug__:
@@ -149,11 +149,11 @@ class ApphubApplication(
         operator_owners: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ApphubApplicationAttributesOperatorOwners", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param business_owners: business_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#business_owners ApphubApplication#business_owners}
-        :param criticality: criticality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#criticality ApphubApplication#criticality}
-        :param developer_owners: developer_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#developer_owners ApphubApplication#developer_owners}
-        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#environment ApphubApplication#environment}
-        :param operator_owners: operator_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#operator_owners ApphubApplication#operator_owners}
+        :param business_owners: business_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#business_owners ApphubApplication#business_owners}
+        :param criticality: criticality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#criticality ApphubApplication#criticality}
+        :param developer_owners: developer_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#developer_owners ApphubApplication#developer_owners}
+        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#environment ApphubApplication#environment}
+        :param operator_owners: operator_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#operator_owners ApphubApplication#operator_owners}
         '''
         value = ApphubApplicationAttributes(
             business_owners=business_owners,
@@ -168,7 +168,7 @@ class ApphubApplication(
     @jsii.member(jsii_name="putScope")
     def put_scope(self, *, type: builtins.str) -> None:
         '''
-        :param type: Required. Scope Type. Possible values: REGIONAL GLOBAL Possible values: ["REGIONAL", "GLOBAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#type ApphubApplication#type}
+        :param type: Required. Scope Type. Possible values: REGIONAL GLOBAL Possible values: ["REGIONAL", "GLOBAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#type ApphubApplication#type}
         '''
         value = ApphubApplicationScope(type=type)
 
@@ -183,9 +183,9 @@ class ApphubApplication(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#create ApphubApplication#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#delete ApphubApplication#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#update ApphubApplication#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#create ApphubApplication#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#delete ApphubApplication#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#update ApphubApplication#update}.
         '''
         value = ApphubApplicationTimeouts(create=create, delete=delete, update=update)
 
@@ -410,11 +410,11 @@ class ApphubApplicationAttributes:
         operator_owners: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ApphubApplicationAttributesOperatorOwners", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param business_owners: business_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#business_owners ApphubApplication#business_owners}
-        :param criticality: criticality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#criticality ApphubApplication#criticality}
-        :param developer_owners: developer_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#developer_owners ApphubApplication#developer_owners}
-        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#environment ApphubApplication#environment}
-        :param operator_owners: operator_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#operator_owners ApphubApplication#operator_owners}
+        :param business_owners: business_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#business_owners ApphubApplication#business_owners}
+        :param criticality: criticality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#criticality ApphubApplication#criticality}
+        :param developer_owners: developer_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#developer_owners ApphubApplication#developer_owners}
+        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#environment ApphubApplication#environment}
+        :param operator_owners: operator_owners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#operator_owners ApphubApplication#operator_owners}
         '''
         if isinstance(criticality, dict):
             criticality = ApphubApplicationAttributesCriticality(**criticality)
@@ -445,7 +445,7 @@ class ApphubApplicationAttributes:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApphubApplicationAttributesBusinessOwners"]]]:
         '''business_owners block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#business_owners ApphubApplication#business_owners}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#business_owners ApphubApplication#business_owners}
         '''
         result = self._values.get("business_owners")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApphubApplicationAttributesBusinessOwners"]]], result)
@@ -454,7 +454,7 @@ class ApphubApplicationAttributes:
     def criticality(self) -> typing.Optional["ApphubApplicationAttributesCriticality"]:
         '''criticality block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#criticality ApphubApplication#criticality}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#criticality ApphubApplication#criticality}
         '''
         result = self._values.get("criticality")
         return typing.cast(typing.Optional["ApphubApplicationAttributesCriticality"], result)
@@ -465,7 +465,7 @@ class ApphubApplicationAttributes:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApphubApplicationAttributesDeveloperOwners"]]]:
         '''developer_owners block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#developer_owners ApphubApplication#developer_owners}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#developer_owners ApphubApplication#developer_owners}
         '''
         result = self._values.get("developer_owners")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApphubApplicationAttributesDeveloperOwners"]]], result)
@@ -474,7 +474,7 @@ class ApphubApplicationAttributes:
     def environment(self) -> typing.Optional["ApphubApplicationAttributesEnvironment"]:
         '''environment block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#environment ApphubApplication#environment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#environment ApphubApplication#environment}
         '''
         result = self._values.get("environment")
         return typing.cast(typing.Optional["ApphubApplicationAttributesEnvironment"], result)
@@ -485,7 +485,7 @@ class ApphubApplicationAttributes:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApphubApplicationAttributesOperatorOwners"]]]:
         '''operator_owners block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#operator_owners ApphubApplication#operator_owners}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#operator_owners ApphubApplication#operator_owners}
         '''
         result = self._values.get("operator_owners")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApphubApplicationAttributesOperatorOwners"]]], result)
@@ -515,8 +515,8 @@ class ApphubApplicationAttributesBusinessOwners:
         display_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email: Required. Email address of the contacts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#email ApphubApplication#email}
-        :param display_name: Optional. Contact's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#display_name ApphubApplication#display_name}
+        :param email: Required. Email address of the contacts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#email ApphubApplication#email}
+        :param display_name: Optional. Contact's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#display_name ApphubApplication#display_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9ccac1ede5906e889fabc2bd595946aa69dfa54fa4bfb7015f3e86daff992579)
@@ -532,7 +532,7 @@ class ApphubApplicationAttributesBusinessOwners:
     def email(self) -> builtins.str:
         '''Required. Email address of the contacts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#email ApphubApplication#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#email ApphubApplication#email}
         '''
         result = self._values.get("email")
         assert result is not None, "Required property 'email' is missing"
@@ -542,7 +542,7 @@ class ApphubApplicationAttributesBusinessOwners:
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Optional. Contact's name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#display_name ApphubApplication#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#display_name ApphubApplication#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -742,7 +742,7 @@ class ApphubApplicationAttributesBusinessOwnersOutputReference(
 class ApphubApplicationAttributesCriticality:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Criticality type. Possible values: ["MISSION_CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#type ApphubApplication#type}
+        :param type: Criticality type. Possible values: ["MISSION_CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#type ApphubApplication#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__20b9f98c5b453902835df61fc87b170f5a17cc31bf6180069c80c911babae679)
@@ -755,7 +755,7 @@ class ApphubApplicationAttributesCriticality:
     def type(self) -> builtins.str:
         '''Criticality type. Possible values: ["MISSION_CRITICAL", "HIGH", "MEDIUM", "LOW"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#type ApphubApplication#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#type ApphubApplication#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -839,8 +839,8 @@ class ApphubApplicationAttributesDeveloperOwners:
         display_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email: Required. Email address of the contacts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#email ApphubApplication#email}
-        :param display_name: Optional. Contact's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#display_name ApphubApplication#display_name}
+        :param email: Required. Email address of the contacts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#email ApphubApplication#email}
+        :param display_name: Optional. Contact's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#display_name ApphubApplication#display_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__df9ffdd1ee18219f7be94a27da921d36a5de999bcb7914e1ef7e659807bf2ac1)
@@ -856,7 +856,7 @@ class ApphubApplicationAttributesDeveloperOwners:
     def email(self) -> builtins.str:
         '''Required. Email address of the contacts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#email ApphubApplication#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#email ApphubApplication#email}
         '''
         result = self._values.get("email")
         assert result is not None, "Required property 'email' is missing"
@@ -866,7 +866,7 @@ class ApphubApplicationAttributesDeveloperOwners:
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Optional. Contact's name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#display_name ApphubApplication#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#display_name ApphubApplication#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1066,7 +1066,7 @@ class ApphubApplicationAttributesDeveloperOwnersOutputReference(
 class ApphubApplicationAttributesEnvironment:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Environment type. Possible values: ["PRODUCTION", "STAGING", "TEST", "DEVELOPMENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#type ApphubApplication#type}
+        :param type: Environment type. Possible values: ["PRODUCTION", "STAGING", "TEST", "DEVELOPMENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#type ApphubApplication#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__981b74b5ac5f7b835fc20c8f734478f0f3ed16dd454c8dfb0ce938b291d29379)
@@ -1079,7 +1079,7 @@ class ApphubApplicationAttributesEnvironment:
     def type(self) -> builtins.str:
         '''Environment type. Possible values: ["PRODUCTION", "STAGING", "TEST", "DEVELOPMENT"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#type ApphubApplication#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#type ApphubApplication#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -1163,8 +1163,8 @@ class ApphubApplicationAttributesOperatorOwners:
         display_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email: Required. Email address of the contacts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#email ApphubApplication#email}
-        :param display_name: Optional. Contact's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#display_name ApphubApplication#display_name}
+        :param email: Required. Email address of the contacts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#email ApphubApplication#email}
+        :param display_name: Optional. Contact's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#display_name ApphubApplication#display_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d75d53a1bbde7b346d71db64086c32041fe13776c53f82d549dbe03b1d2895d7)
@@ -1180,7 +1180,7 @@ class ApphubApplicationAttributesOperatorOwners:
     def email(self) -> builtins.str:
         '''Required. Email address of the contacts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#email ApphubApplication#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#email ApphubApplication#email}
         '''
         result = self._values.get("email")
         assert result is not None, "Required property 'email' is missing"
@@ -1190,7 +1190,7 @@ class ApphubApplicationAttributesOperatorOwners:
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Optional. Contact's name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#display_name ApphubApplication#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#display_name ApphubApplication#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1418,7 +1418,7 @@ class ApphubApplicationAttributesOutputReference(
     @jsii.member(jsii_name="putCriticality")
     def put_criticality(self, *, type: builtins.str) -> None:
         '''
-        :param type: Criticality type. Possible values: ["MISSION_CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#type ApphubApplication#type}
+        :param type: Criticality type. Possible values: ["MISSION_CRITICAL", "HIGH", "MEDIUM", "LOW"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#type ApphubApplication#type}
         '''
         value = ApphubApplicationAttributesCriticality(type=type)
 
@@ -1440,7 +1440,7 @@ class ApphubApplicationAttributesOutputReference(
     @jsii.member(jsii_name="putEnvironment")
     def put_environment(self, *, type: builtins.str) -> None:
         '''
-        :param type: Environment type. Possible values: ["PRODUCTION", "STAGING", "TEST", "DEVELOPMENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#type ApphubApplication#type}
+        :param type: Environment type. Possible values: ["PRODUCTION", "STAGING", "TEST", "DEVELOPMENT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#type ApphubApplication#type}
         '''
         value = ApphubApplicationAttributesEnvironment(type=type)
 
@@ -1606,15 +1606,15 @@ class ApphubApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param application_id: Required. The Application identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#application_id ApphubApplication#application_id}
-        :param location: Part of 'parent'. See documentation of 'projectsId'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#location ApphubApplication#location}
-        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#scope ApphubApplication#scope}
-        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#attributes ApphubApplication#attributes}
-        :param description: Optional. User-defined description of an Application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#description ApphubApplication#description}
-        :param display_name: Optional. User-defined name for the Application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#display_name ApphubApplication#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#id ApphubApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#project ApphubApplication#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#timeouts ApphubApplication#timeouts}
+        :param application_id: Required. The Application identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#application_id ApphubApplication#application_id}
+        :param location: Part of 'parent'. See documentation of 'projectsId'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#location ApphubApplication#location}
+        :param scope: scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#scope ApphubApplication#scope}
+        :param attributes: attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#attributes ApphubApplication#attributes}
+        :param description: Optional. User-defined description of an Application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#description ApphubApplication#description}
+        :param display_name: Optional. User-defined name for the Application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#display_name ApphubApplication#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#id ApphubApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#project ApphubApplication#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#timeouts ApphubApplication#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1742,7 +1742,7 @@ class ApphubApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def application_id(self) -> builtins.str:
         '''Required. The Application identifier.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#application_id ApphubApplication#application_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#application_id ApphubApplication#application_id}
         '''
         result = self._values.get("application_id")
         assert result is not None, "Required property 'application_id' is missing"
@@ -1752,7 +1752,7 @@ class ApphubApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Part of 'parent'. See documentation of 'projectsId'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#location ApphubApplication#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#location ApphubApplication#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1762,7 +1762,7 @@ class ApphubApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def scope(self) -> "ApphubApplicationScope":
         '''scope block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#scope ApphubApplication#scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#scope ApphubApplication#scope}
         '''
         result = self._values.get("scope")
         assert result is not None, "Required property 'scope' is missing"
@@ -1772,7 +1772,7 @@ class ApphubApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def attributes(self) -> typing.Optional[ApphubApplicationAttributes]:
         '''attributes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#attributes ApphubApplication#attributes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#attributes ApphubApplication#attributes}
         '''
         result = self._values.get("attributes")
         return typing.cast(typing.Optional[ApphubApplicationAttributes], result)
@@ -1781,7 +1781,7 @@ class ApphubApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Optional. User-defined description of an Application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#description ApphubApplication#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#description ApphubApplication#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1790,14 +1790,14 @@ class ApphubApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Optional. User-defined name for the Application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#display_name ApphubApplication#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#display_name ApphubApplication#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#id ApphubApplication#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#id ApphubApplication#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1807,7 +1807,7 @@ class ApphubApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#project ApphubApplication#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#project ApphubApplication#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1815,7 +1815,7 @@ class ApphubApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApphubApplicationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#timeouts ApphubApplication#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#timeouts ApphubApplication#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApphubApplicationTimeouts"], result)
@@ -1840,7 +1840,7 @@ class ApphubApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class ApphubApplicationScope:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Required. Scope Type. Possible values: REGIONAL GLOBAL Possible values: ["REGIONAL", "GLOBAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#type ApphubApplication#type}
+        :param type: Required. Scope Type. Possible values: REGIONAL GLOBAL Possible values: ["REGIONAL", "GLOBAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#type ApphubApplication#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3127f75fc5507b0cc5b272305ce44f9d045960986ae7f706cc12e6d72debd599)
@@ -1853,7 +1853,7 @@ class ApphubApplicationScope:
     def type(self) -> builtins.str:
         '''Required. Scope Type.   Possible values: REGIONAL GLOBAL Possible values: ["REGIONAL", "GLOBAL"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#type ApphubApplication#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#type ApphubApplication#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -1935,9 +1935,9 @@ class ApphubApplicationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#create ApphubApplication#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#delete ApphubApplication#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#update ApphubApplication#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#create ApphubApplication#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#delete ApphubApplication#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#update ApphubApplication#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4fb009f54a1138b034c5e3f9829995f31ac2813cf99885cab0309861b56d24bb)
@@ -1954,19 +1954,19 @@ class ApphubApplicationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#create ApphubApplication#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#create ApphubApplication#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#delete ApphubApplication#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#delete ApphubApplication#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/apphub_application#update ApphubApplication#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/apphub_application#update ApphubApplication#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

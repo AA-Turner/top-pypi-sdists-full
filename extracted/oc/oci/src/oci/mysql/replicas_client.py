@@ -153,7 +153,7 @@ class ReplicasClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/mysql/create_replica.py.html>`__ to see an example of how to use create_replica API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/mysql/create_replica.py.html>`__ to see an example of how to use create_replica API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -255,7 +255,7 @@ class ReplicasClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/mysql/delete_replica.py.html>`__ to see an example of how to use delete_replica API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/mysql/delete_replica.py.html>`__ to see an example of how to use delete_replica API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['replicaId']
@@ -364,7 +364,7 @@ class ReplicasClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/mysql/get_replica.py.html>`__ to see an example of how to use get_replica API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/mysql/get_replica.py.html>`__ to see an example of how to use get_replica API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['replicaId']
@@ -516,7 +516,7 @@ class ReplicasClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/mysql/list_replicas.py.html>`__ to see an example of how to use list_replicas API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/mysql/list_replicas.py.html>`__ to see an example of how to use list_replicas API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -664,7 +664,7 @@ class ReplicasClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/mysql/update_replica.py.html>`__ to see an example of how to use update_replica API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/mysql/update_replica.py.html>`__ to see an example of how to use update_replica API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['replicaId']

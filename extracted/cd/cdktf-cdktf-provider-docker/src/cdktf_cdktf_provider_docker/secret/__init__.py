@@ -1,7 +1,7 @@
 r'''
 # `docker_secret`
 
-Refer to the Terraform Registry for docs: [`docker_secret`](https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret).
+Refer to the Terraform Registry for docs: [`docker_secret`](https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Secret(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-docker.secret.Secret",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret docker_secret}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret docker_secret}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class Secret(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret docker_secret} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret docker_secret} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param data: Base64-url-safe-encoded secret data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret#data Secret#data}
-        :param name: User-defined name of the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret#name Secret#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret#id Secret#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret#labels Secret#labels}
+        :param data: Base64-url-safe-encoded secret data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret#data Secret#data}
+        :param name: User-defined name of the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret#name Secret#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret#id Secret#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret#labels Secret#labels}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class Secret(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Secret to import.
-        :param import_from_id: The id of the existing Secret that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Secret that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Secret to import is found.
         '''
         if __debug__:
@@ -262,10 +262,10 @@ class SecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param data: Base64-url-safe-encoded secret data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret#data Secret#data}
-        :param name: User-defined name of the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret#name Secret#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret#id Secret#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret#labels Secret#labels}
+        :param data: Base64-url-safe-encoded secret data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret#data Secret#data}
+        :param name: User-defined name of the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret#name Secret#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret#id Secret#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret#labels Secret#labels}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -373,7 +373,7 @@ class SecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def data(self) -> builtins.str:
         '''Base64-url-safe-encoded secret data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret#data Secret#data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret#data Secret#data}
         '''
         result = self._values.get("data")
         assert result is not None, "Required property 'data' is missing"
@@ -383,7 +383,7 @@ class SecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''User-defined name of the secret.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret#name Secret#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret#name Secret#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -391,7 +391,7 @@ class SecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret#id Secret#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret#id Secret#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -405,7 +405,7 @@ class SecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecretLabels"]]]:
         '''labels block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret#labels Secret#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret#labels Secret#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecretLabels"]]], result)
@@ -430,8 +430,8 @@ class SecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class SecretLabels:
     def __init__(self, *, label: builtins.str, value: builtins.str) -> None:
         '''
-        :param label: Name of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret#label Secret#label}
-        :param value: Value of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret#value Secret#value}
+        :param label: Name of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret#label Secret#label}
+        :param value: Value of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret#value Secret#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0a0e9b7fad3eb62a61942e66eb5f71f8010de37b5fe72d9891f08bc39daa8255)
@@ -446,7 +446,7 @@ class SecretLabels:
     def label(self) -> builtins.str:
         '''Name of the label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret#label Secret#label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret#label Secret#label}
         '''
         result = self._values.get("label")
         assert result is not None, "Required property 'label' is missing"
@@ -456,7 +456,7 @@ class SecretLabels:
     def value(self) -> builtins.str:
         '''Value of the label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/secret#value Secret#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/secret#value Secret#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"

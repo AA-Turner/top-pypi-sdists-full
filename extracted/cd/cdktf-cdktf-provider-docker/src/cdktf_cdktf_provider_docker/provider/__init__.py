@@ -1,7 +1,7 @@
 r'''
 # `provider`
 
-Refer to the Terraform Registry for docs: [`docker`](https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs).
+Refer to the Terraform Registry for docs: [`docker`](https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DockerProvider(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-docker.provider.DockerProvider",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs docker}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs docker}.'''
 
     def __init__(
         self,
@@ -62,20 +62,20 @@ class DockerProvider(
         registry_auth: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DockerProviderRegistryAuth", typing.Dict[builtins.str, typing.Any]]]]] = None,
         ssh_opts: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs docker} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs docker} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#alias DockerProvider#alias}
-        :param ca_material: PEM-encoded content of Docker host CA certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#ca_material DockerProvider#ca_material}
-        :param cert_material: PEM-encoded content of Docker client certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#cert_material DockerProvider#cert_material}
-        :param cert_path: Path to directory with Docker TLS config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#cert_path DockerProvider#cert_path}
-        :param context: The name of the Docker context to use. Can also be set via ``DOCKER_CONTEXT`` environment variable. Overrides the ``host`` if set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#context DockerProvider#context}
-        :param disable_docker_daemon_check: If set to ``true``, the provider will not check if the Docker daemon is running. This is useful for resources/data_sourcess that do not require a running Docker daemon, such as the data source ``docker_registry_image``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#disable_docker_daemon_check DockerProvider#disable_docker_daemon_check}
-        :param host: The Docker daemon address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#host DockerProvider#host}
-        :param key_material: PEM-encoded content of Docker client private key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#key_material DockerProvider#key_material}
-        :param registry_auth: registry_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#registry_auth DockerProvider#registry_auth}
-        :param ssh_opts: Additional SSH option flags to be appended when using ``ssh://`` protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#ssh_opts DockerProvider#ssh_opts}
+        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#alias DockerProvider#alias}
+        :param ca_material: PEM-encoded content of Docker host CA certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#ca_material DockerProvider#ca_material}
+        :param cert_material: PEM-encoded content of Docker client certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#cert_material DockerProvider#cert_material}
+        :param cert_path: Path to directory with Docker TLS config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#cert_path DockerProvider#cert_path}
+        :param context: The name of the Docker context to use. Can also be set via ``DOCKER_CONTEXT`` environment variable. Overrides the ``host`` if set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#context DockerProvider#context}
+        :param disable_docker_daemon_check: If set to ``true``, the provider will not check if the Docker daemon is running. This is useful for resources/data_sourcess that do not require a running Docker daemon, such as the data source ``docker_registry_image``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#disable_docker_daemon_check DockerProvider#disable_docker_daemon_check}
+        :param host: The Docker daemon address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#host DockerProvider#host}
+        :param key_material: PEM-encoded content of Docker client private key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#key_material DockerProvider#key_material}
+        :param registry_auth: registry_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#registry_auth DockerProvider#registry_auth}
+        :param ssh_opts: Additional SSH option flags to be appended when using ``ssh://`` protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#ssh_opts DockerProvider#ssh_opts}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__da705188ecca01a700ef94fd2de8d6f53c7cfd16da3f4ca09db4e6e6b05f171a)
@@ -109,7 +109,7 @@ class DockerProvider(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DockerProvider to import.
-        :param import_from_id: The id of the existing DockerProvider that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DockerProvider that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DockerProvider to import is found.
         '''
         if __debug__:
@@ -390,16 +390,16 @@ class DockerProviderConfig:
         ssh_opts: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#alias DockerProvider#alias}
-        :param ca_material: PEM-encoded content of Docker host CA certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#ca_material DockerProvider#ca_material}
-        :param cert_material: PEM-encoded content of Docker client certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#cert_material DockerProvider#cert_material}
-        :param cert_path: Path to directory with Docker TLS config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#cert_path DockerProvider#cert_path}
-        :param context: The name of the Docker context to use. Can also be set via ``DOCKER_CONTEXT`` environment variable. Overrides the ``host`` if set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#context DockerProvider#context}
-        :param disable_docker_daemon_check: If set to ``true``, the provider will not check if the Docker daemon is running. This is useful for resources/data_sourcess that do not require a running Docker daemon, such as the data source ``docker_registry_image``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#disable_docker_daemon_check DockerProvider#disable_docker_daemon_check}
-        :param host: The Docker daemon address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#host DockerProvider#host}
-        :param key_material: PEM-encoded content of Docker client private key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#key_material DockerProvider#key_material}
-        :param registry_auth: registry_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#registry_auth DockerProvider#registry_auth}
-        :param ssh_opts: Additional SSH option flags to be appended when using ``ssh://`` protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#ssh_opts DockerProvider#ssh_opts}
+        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#alias DockerProvider#alias}
+        :param ca_material: PEM-encoded content of Docker host CA certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#ca_material DockerProvider#ca_material}
+        :param cert_material: PEM-encoded content of Docker client certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#cert_material DockerProvider#cert_material}
+        :param cert_path: Path to directory with Docker TLS config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#cert_path DockerProvider#cert_path}
+        :param context: The name of the Docker context to use. Can also be set via ``DOCKER_CONTEXT`` environment variable. Overrides the ``host`` if set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#context DockerProvider#context}
+        :param disable_docker_daemon_check: If set to ``true``, the provider will not check if the Docker daemon is running. This is useful for resources/data_sourcess that do not require a running Docker daemon, such as the data source ``docker_registry_image``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#disable_docker_daemon_check DockerProvider#disable_docker_daemon_check}
+        :param host: The Docker daemon address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#host DockerProvider#host}
+        :param key_material: PEM-encoded content of Docker client private key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#key_material DockerProvider#key_material}
+        :param registry_auth: registry_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#registry_auth DockerProvider#registry_auth}
+        :param ssh_opts: Additional SSH option flags to be appended when using ``ssh://`` protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#ssh_opts DockerProvider#ssh_opts}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dcbe7a4e906bed7b4d543285ccc96150e24451a9e97c513028a5551dd9a9d691)
@@ -439,7 +439,7 @@ class DockerProviderConfig:
     def alias(self) -> typing.Optional[builtins.str]:
         '''Alias name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#alias DockerProvider#alias}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#alias DockerProvider#alias}
         '''
         result = self._values.get("alias")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -448,7 +448,7 @@ class DockerProviderConfig:
     def ca_material(self) -> typing.Optional[builtins.str]:
         '''PEM-encoded content of Docker host CA certificate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#ca_material DockerProvider#ca_material}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#ca_material DockerProvider#ca_material}
         '''
         result = self._values.get("ca_material")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -457,7 +457,7 @@ class DockerProviderConfig:
     def cert_material(self) -> typing.Optional[builtins.str]:
         '''PEM-encoded content of Docker client certificate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#cert_material DockerProvider#cert_material}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#cert_material DockerProvider#cert_material}
         '''
         result = self._values.get("cert_material")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -466,7 +466,7 @@ class DockerProviderConfig:
     def cert_path(self) -> typing.Optional[builtins.str]:
         '''Path to directory with Docker TLS config.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#cert_path DockerProvider#cert_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#cert_path DockerProvider#cert_path}
         '''
         result = self._values.get("cert_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -477,7 +477,7 @@ class DockerProviderConfig:
 
         Can also be set via ``DOCKER_CONTEXT`` environment variable. Overrides the ``host`` if set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#context DockerProvider#context}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#context DockerProvider#context}
         '''
         result = self._values.get("context")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -490,7 +490,7 @@ class DockerProviderConfig:
 
         This is useful for resources/data_sourcess that do not require a running Docker daemon, such as the data source ``docker_registry_image``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#disable_docker_daemon_check DockerProvider#disable_docker_daemon_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#disable_docker_daemon_check DockerProvider#disable_docker_daemon_check}
         '''
         result = self._values.get("disable_docker_daemon_check")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -499,7 +499,7 @@ class DockerProviderConfig:
     def host(self) -> typing.Optional[builtins.str]:
         '''The Docker daemon address.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#host DockerProvider#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#host DockerProvider#host}
         '''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -508,7 +508,7 @@ class DockerProviderConfig:
     def key_material(self) -> typing.Optional[builtins.str]:
         '''PEM-encoded content of Docker client private key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#key_material DockerProvider#key_material}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#key_material DockerProvider#key_material}
         '''
         result = self._values.get("key_material")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -519,7 +519,7 @@ class DockerProviderConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DockerProviderRegistryAuth"]]]:
         '''registry_auth block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#registry_auth DockerProvider#registry_auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#registry_auth DockerProvider#registry_auth}
         '''
         result = self._values.get("registry_auth")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DockerProviderRegistryAuth"]]], result)
@@ -528,7 +528,7 @@ class DockerProviderConfig:
     def ssh_opts(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Additional SSH option flags to be appended when using ``ssh://`` protocol.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#ssh_opts DockerProvider#ssh_opts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#ssh_opts DockerProvider#ssh_opts}
         '''
         result = self._values.get("ssh_opts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -569,12 +569,12 @@ class DockerProviderRegistryAuth:
         username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param address: Address of the registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#address DockerProvider#address}
-        :param auth_disabled: Setting this to ``true`` will tell the provider that this registry does not need authentication. Due to the docker internals, the provider will use dummy credentials (see https://github.com/kreuzwerker/terraform-provider-docker/issues/470 for more information). Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#auth_disabled DockerProvider#auth_disabled}
-        :param config_file: Path to docker json file for registry auth. Defaults to ``~/.docker/config.json``. If ``DOCKER_CONFIG`` is set, the value of ``DOCKER_CONFIG`` is used as the path. ``config_file`` has predencen over all other options. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#config_file DockerProvider#config_file}
-        :param config_file_content: Plain content of the docker json file for registry auth. ``config_file_content`` has precedence over username/password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#config_file_content DockerProvider#config_file_content}
-        :param password: Password for the registry. Defaults to ``DOCKER_REGISTRY_PASS`` env variable if set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#password DockerProvider#password}
-        :param username: Username for the registry. Defaults to ``DOCKER_REGISTRY_USER`` env variable if set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#username DockerProvider#username}
+        :param address: Address of the registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#address DockerProvider#address}
+        :param auth_disabled: Setting this to ``true`` will tell the provider that this registry does not need authentication. Due to the docker internals, the provider will use dummy credentials (see https://github.com/kreuzwerker/terraform-provider-docker/issues/470 for more information). Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#auth_disabled DockerProvider#auth_disabled}
+        :param config_file: Path to docker json file for registry auth. Defaults to ``~/.docker/config.json``. If ``DOCKER_CONFIG`` is set, the value of ``DOCKER_CONFIG`` is used as the path. ``config_file`` has predencen over all other options. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#config_file DockerProvider#config_file}
+        :param config_file_content: Plain content of the docker json file for registry auth. ``config_file_content`` has precedence over username/password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#config_file_content DockerProvider#config_file_content}
+        :param password: Password for the registry. Defaults to ``DOCKER_REGISTRY_PASS`` env variable if set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#password DockerProvider#password}
+        :param username: Username for the registry. Defaults to ``DOCKER_REGISTRY_USER`` env variable if set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#username DockerProvider#username}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aeba38e4892015607d46c384ab0174b5e367ad501cdc0a696caab0ab8548ec1b)
@@ -602,7 +602,7 @@ class DockerProviderRegistryAuth:
     def address(self) -> builtins.str:
         '''Address of the registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#address DockerProvider#address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#address DockerProvider#address}
         '''
         result = self._values.get("address")
         assert result is not None, "Required property 'address' is missing"
@@ -616,7 +616,7 @@ class DockerProviderRegistryAuth:
 
         Due to the docker internals, the provider will use dummy credentials (see https://github.com/kreuzwerker/terraform-provider-docker/issues/470 for more information). Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#auth_disabled DockerProvider#auth_disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#auth_disabled DockerProvider#auth_disabled}
         '''
         result = self._values.get("auth_disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -627,7 +627,7 @@ class DockerProviderRegistryAuth:
 
         Defaults to ``~/.docker/config.json``. If ``DOCKER_CONFIG`` is set, the value of ``DOCKER_CONFIG`` is used as the path. ``config_file`` has predencen over all other options.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#config_file DockerProvider#config_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#config_file DockerProvider#config_file}
         '''
         result = self._values.get("config_file")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -636,7 +636,7 @@ class DockerProviderRegistryAuth:
     def config_file_content(self) -> typing.Optional[builtins.str]:
         '''Plain content of the docker json file for registry auth. ``config_file_content`` has precedence over username/password.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#config_file_content DockerProvider#config_file_content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#config_file_content DockerProvider#config_file_content}
         '''
         result = self._values.get("config_file_content")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -645,7 +645,7 @@ class DockerProviderRegistryAuth:
     def password(self) -> typing.Optional[builtins.str]:
         '''Password for the registry. Defaults to ``DOCKER_REGISTRY_PASS`` env variable if set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#password DockerProvider#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#password DockerProvider#password}
         '''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -654,7 +654,7 @@ class DockerProviderRegistryAuth:
     def username(self) -> typing.Optional[builtins.str]:
         '''Username for the registry. Defaults to ``DOCKER_REGISTRY_USER`` env variable if set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs#username DockerProvider#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs#username DockerProvider#username}
         '''
         result = self._values.get("username")
         return typing.cast(typing.Optional[builtins.str], result)

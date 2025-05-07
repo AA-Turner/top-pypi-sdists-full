@@ -369,9 +369,8 @@ class UnderscoreRoot(Underscore):
             return if_false
         ```
 
-        Unlike a Python if/else, all three inputs `(condition, if_true, if_false)` are evaluated
-        in parallel for all rows, and then the correct side is selected based on the result of
-        the condition expression.
+        The input `condition` is always evaluated first. The `if_true` and `if_false` expressions
+        are only evaluated if the condition is true or false, respectively.
 
         Examples
         --------

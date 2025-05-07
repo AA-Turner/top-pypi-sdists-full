@@ -1,7 +1,7 @@
 r'''
 # `google_redis_cluster`
 
-Refer to the Terraform Registry for docs: [`google_redis_cluster`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster).
+Refer to the Terraform Registry for docs: [`google_redis_cluster`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RedisCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.redisCluster.RedisCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster google_redis_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster google_redis_cluster}.'''
 
     def __init__(
         self,
@@ -80,31 +80,31 @@ class RedisCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster google_redis_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster google_redis_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param shard_count: Required. Number of shards for the Redis cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#shard_count RedisCluster#shard_count}
-        :param authorization_mode: Optional. The authorization mode of the Redis cluster. If not provided, auth feature is disabled for the cluster. Default value: "AUTH_MODE_DISABLED" Possible values: ["AUTH_MODE_UNSPECIFIED", "AUTH_MODE_IAM_AUTH", "AUTH_MODE_DISABLED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#authorization_mode RedisCluster#authorization_mode}
-        :param automated_backup_config: automated_backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#automated_backup_config RedisCluster#automated_backup_config}
-        :param cross_cluster_replication_config: cross_cluster_replication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#cross_cluster_replication_config RedisCluster#cross_cluster_replication_config}
-        :param deletion_protection_enabled: Optional. Indicates if the cluster is deletion protected or not. If the value if set to true, any delete cluster operation will fail. Default value is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#deletion_protection_enabled RedisCluster#deletion_protection_enabled}
-        :param gcs_source: gcs_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#gcs_source RedisCluster#gcs_source}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#id RedisCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key: The KMS key used to encrypt the at-rest data of the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#kms_key RedisCluster#kms_key}
-        :param maintenance_policy: maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#maintenance_policy RedisCluster#maintenance_policy}
-        :param managed_backup_source: managed_backup_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#managed_backup_source RedisCluster#managed_backup_source}
-        :param name: Unique name of the resource in this scope including project and location using the form: projects/{projectId}/locations/{locationId}/clusters/{clusterId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#name RedisCluster#name}
-        :param node_type: The nodeType for the Redis cluster. If not provided, REDIS_HIGHMEM_MEDIUM will be used as default Possible values: ["REDIS_SHARED_CORE_NANO", "REDIS_HIGHMEM_MEDIUM", "REDIS_HIGHMEM_XLARGE", "REDIS_STANDARD_SMALL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#node_type RedisCluster#node_type}
-        :param persistence_config: persistence_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#persistence_config RedisCluster#persistence_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#project RedisCluster#project}.
-        :param psc_configs: psc_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#psc_configs RedisCluster#psc_configs}
-        :param redis_configs: Configure Redis Cluster behavior using a subset of native Redis configuration parameters. Please check Memorystore documentation for the list of supported parameters: https://cloud.google.com/memorystore/docs/cluster/supported-instance-configurations Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#redis_configs RedisCluster#redis_configs}
-        :param region: The name of the region of the Redis cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#region RedisCluster#region}
-        :param replica_count: Optional. The number of replica nodes per shard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#replica_count RedisCluster#replica_count}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#timeouts RedisCluster#timeouts}
-        :param transit_encryption_mode: Optional. The in-transit encryption for the Redis cluster. If not provided, encryption is disabled for the cluster. Default value: "TRANSIT_ENCRYPTION_MODE_DISABLED" Possible values: ["TRANSIT_ENCRYPTION_MODE_UNSPECIFIED", "TRANSIT_ENCRYPTION_MODE_DISABLED", "TRANSIT_ENCRYPTION_MODE_SERVER_AUTHENTICATION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#transit_encryption_mode RedisCluster#transit_encryption_mode}
-        :param zone_distribution_config: zone_distribution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#zone_distribution_config RedisCluster#zone_distribution_config}
+        :param shard_count: Required. Number of shards for the Redis cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#shard_count RedisCluster#shard_count}
+        :param authorization_mode: Optional. The authorization mode of the Redis cluster. If not provided, auth feature is disabled for the cluster. Default value: "AUTH_MODE_DISABLED" Possible values: ["AUTH_MODE_UNSPECIFIED", "AUTH_MODE_IAM_AUTH", "AUTH_MODE_DISABLED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#authorization_mode RedisCluster#authorization_mode}
+        :param automated_backup_config: automated_backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#automated_backup_config RedisCluster#automated_backup_config}
+        :param cross_cluster_replication_config: cross_cluster_replication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#cross_cluster_replication_config RedisCluster#cross_cluster_replication_config}
+        :param deletion_protection_enabled: Optional. Indicates if the cluster is deletion protected or not. If the value if set to true, any delete cluster operation will fail. Default value is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#deletion_protection_enabled RedisCluster#deletion_protection_enabled}
+        :param gcs_source: gcs_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#gcs_source RedisCluster#gcs_source}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#id RedisCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key: The KMS key used to encrypt the at-rest data of the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#kms_key RedisCluster#kms_key}
+        :param maintenance_policy: maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#maintenance_policy RedisCluster#maintenance_policy}
+        :param managed_backup_source: managed_backup_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#managed_backup_source RedisCluster#managed_backup_source}
+        :param name: Unique name of the resource in this scope including project and location using the form: projects/{projectId}/locations/{locationId}/clusters/{clusterId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#name RedisCluster#name}
+        :param node_type: The nodeType for the Redis cluster. If not provided, REDIS_HIGHMEM_MEDIUM will be used as default Possible values: ["REDIS_SHARED_CORE_NANO", "REDIS_HIGHMEM_MEDIUM", "REDIS_HIGHMEM_XLARGE", "REDIS_STANDARD_SMALL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#node_type RedisCluster#node_type}
+        :param persistence_config: persistence_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#persistence_config RedisCluster#persistence_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#project RedisCluster#project}.
+        :param psc_configs: psc_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#psc_configs RedisCluster#psc_configs}
+        :param redis_configs: Configure Redis Cluster behavior using a subset of native Redis configuration parameters. Please check Memorystore documentation for the list of supported parameters: https://cloud.google.com/memorystore/docs/cluster/supported-instance-configurations Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#redis_configs RedisCluster#redis_configs}
+        :param region: The name of the region of the Redis cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#region RedisCluster#region}
+        :param replica_count: Optional. The number of replica nodes per shard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#replica_count RedisCluster#replica_count}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#timeouts RedisCluster#timeouts}
+        :param transit_encryption_mode: Optional. The in-transit encryption for the Redis cluster. If not provided, encryption is disabled for the cluster. Default value: "TRANSIT_ENCRYPTION_MODE_DISABLED" Possible values: ["TRANSIT_ENCRYPTION_MODE_UNSPECIFIED", "TRANSIT_ENCRYPTION_MODE_DISABLED", "TRANSIT_ENCRYPTION_MODE_SERVER_AUTHENTICATION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#transit_encryption_mode RedisCluster#transit_encryption_mode}
+        :param zone_distribution_config: zone_distribution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#zone_distribution_config RedisCluster#zone_distribution_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -163,7 +163,7 @@ class RedisCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RedisCluster to import.
-        :param import_from_id: The id of the existing RedisCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RedisCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RedisCluster to import is found.
         '''
         if __debug__:
@@ -182,8 +182,8 @@ class RedisCluster(
         retention: builtins.str,
     ) -> None:
         '''
-        :param fixed_frequency_schedule: fixed_frequency_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#fixed_frequency_schedule RedisCluster#fixed_frequency_schedule}
-        :param retention: How long to keep automated backups before the backups are deleted. The value should be between 1 day and 365 days. If not specified, the default value is 35 days. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#retention RedisCluster#retention}
+        :param fixed_frequency_schedule: fixed_frequency_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#fixed_frequency_schedule RedisCluster#fixed_frequency_schedule}
+        :param retention: How long to keep automated backups before the backups are deleted. The value should be between 1 day and 365 days. If not specified, the default value is 35 days. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#retention RedisCluster#retention}
         '''
         value = RedisClusterAutomatedBackupConfig(
             fixed_frequency_schedule=fixed_frequency_schedule, retention=retention
@@ -200,9 +200,9 @@ class RedisCluster(
         secondary_clusters: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["RedisClusterCrossClusterReplicationConfigSecondaryClusters", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param cluster_role: The role of the cluster in cross cluster replication. Supported values are:. 1. 'CLUSTER_ROLE_UNSPECIFIED': This is an independent cluster that has never participated in cross cluster replication. It allows both reads and writes. 1. 'NONE': This is an independent cluster that previously participated in cross cluster replication(either as a 'PRIMARY' or 'SECONDARY' cluster). It allows both reads and writes. 1. 'PRIMARY': This cluster serves as the replication source for secondary clusters that are replicating from it. Any data written to it is automatically replicated to its secondary clusters. It allows both reads and writes. 1. 'SECONDARY': This cluster replicates data from the primary cluster. It allows only reads. Possible values: ["CLUSTER_ROLE_UNSPECIFIED", "NONE", "PRIMARY", "SECONDARY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#cluster_role RedisCluster#cluster_role}
-        :param primary_cluster: primary_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#primary_cluster RedisCluster#primary_cluster}
-        :param secondary_clusters: secondary_clusters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#secondary_clusters RedisCluster#secondary_clusters}
+        :param cluster_role: The role of the cluster in cross cluster replication. Supported values are:. 1. 'CLUSTER_ROLE_UNSPECIFIED': This is an independent cluster that has never participated in cross cluster replication. It allows both reads and writes. 1. 'NONE': This is an independent cluster that previously participated in cross cluster replication(either as a 'PRIMARY' or 'SECONDARY' cluster). It allows both reads and writes. 1. 'PRIMARY': This cluster serves as the replication source for secondary clusters that are replicating from it. Any data written to it is automatically replicated to its secondary clusters. It allows both reads and writes. 1. 'SECONDARY': This cluster replicates data from the primary cluster. It allows only reads. Possible values: ["CLUSTER_ROLE_UNSPECIFIED", "NONE", "PRIMARY", "SECONDARY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#cluster_role RedisCluster#cluster_role}
+        :param primary_cluster: primary_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#primary_cluster RedisCluster#primary_cluster}
+        :param secondary_clusters: secondary_clusters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#secondary_clusters RedisCluster#secondary_clusters}
         '''
         value = RedisClusterCrossClusterReplicationConfig(
             cluster_role=cluster_role,
@@ -215,7 +215,7 @@ class RedisCluster(
     @jsii.member(jsii_name="putGcsSource")
     def put_gcs_source(self, *, uris: typing.Sequence[builtins.str]) -> None:
         '''
-        :param uris: URIs of the GCS objects to import. Example: gs://bucket1/object1, gs://bucket2/folder2/object2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#uris RedisCluster#uris}
+        :param uris: URIs of the GCS objects to import. Example: gs://bucket1/object1, gs://bucket2/folder2/object2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#uris RedisCluster#uris}
         '''
         value = RedisClusterGcsSource(uris=uris)
 
@@ -228,7 +228,7 @@ class RedisCluster(
         weekly_maintenance_window: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["RedisClusterMaintenancePolicyWeeklyMaintenanceWindow", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param weekly_maintenance_window: weekly_maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#weekly_maintenance_window RedisCluster#weekly_maintenance_window}
+        :param weekly_maintenance_window: weekly_maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#weekly_maintenance_window RedisCluster#weekly_maintenance_window}
         '''
         value = RedisClusterMaintenancePolicy(
             weekly_maintenance_window=weekly_maintenance_window
@@ -239,7 +239,7 @@ class RedisCluster(
     @jsii.member(jsii_name="putManagedBackupSource")
     def put_managed_backup_source(self, *, backup: builtins.str) -> None:
         '''
-        :param backup: Example: //redis.googleapis.com/projects/{project}/locations/{location}/backupCollections/{collection}/backups/{backup} A shorter version (without the prefix) of the backup name is also supported, like projects/{project}/locations/{location}/backupCollections/{collection}/backups/{backupId}. In this case, it assumes the backup is under redis.googleapis.com. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#backup RedisCluster#backup}
+        :param backup: Example: //redis.googleapis.com/projects/{project}/locations/{location}/backupCollections/{collection}/backups/{backup} A shorter version (without the prefix) of the backup name is also supported, like projects/{project}/locations/{location}/backupCollections/{collection}/backups/{backupId}. In this case, it assumes the backup is under redis.googleapis.com. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#backup RedisCluster#backup}
         '''
         value = RedisClusterManagedBackupSource(backup=backup)
 
@@ -254,9 +254,9 @@ class RedisCluster(
         rdb_config: typing.Optional[typing.Union["RedisClusterPersistenceConfigRdbConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param aof_config: aof_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#aof_config RedisCluster#aof_config}
-        :param mode: Optional. Controls whether Persistence features are enabled. If not provided, the existing value will be used. - DISABLED: Persistence (both backup and restore) is disabled for the cluster. - RDB: RDB based Persistence is enabled. - AOF: AOF based Persistence is enabled. Possible values: ["PERSISTENCE_MODE_UNSPECIFIED", "DISABLED", "RDB", "AOF"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#mode RedisCluster#mode}
-        :param rdb_config: rdb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#rdb_config RedisCluster#rdb_config}
+        :param aof_config: aof_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#aof_config RedisCluster#aof_config}
+        :param mode: Optional. Controls whether Persistence features are enabled. If not provided, the existing value will be used. - DISABLED: Persistence (both backup and restore) is disabled for the cluster. - RDB: RDB based Persistence is enabled. - AOF: AOF based Persistence is enabled. Possible values: ["PERSISTENCE_MODE_UNSPECIFIED", "DISABLED", "RDB", "AOF"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#mode RedisCluster#mode}
+        :param rdb_config: rdb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#rdb_config RedisCluster#rdb_config}
         '''
         value = RedisClusterPersistenceConfig(
             aof_config=aof_config, mode=mode, rdb_config=rdb_config
@@ -286,9 +286,9 @@ class RedisCluster(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#create RedisCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#delete RedisCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#update RedisCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#create RedisCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#delete RedisCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#update RedisCluster#update}.
         '''
         value = RedisClusterTimeouts(create=create, delete=delete, update=update)
 
@@ -302,8 +302,8 @@ class RedisCluster(
         zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param mode: Immutable. The mode for zone distribution for Memorystore Redis cluster. If not provided, MULTI_ZONE will be used as default Possible values: ["MULTI_ZONE", "SINGLE_ZONE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#mode RedisCluster#mode}
-        :param zone: Immutable. The zone for single zone Memorystore Redis cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#zone RedisCluster#zone}
+        :param mode: Immutable. The mode for zone distribution for Memorystore Redis cluster. If not provided, MULTI_ZONE will be used as default Possible values: ["MULTI_ZONE", "SINGLE_ZONE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#mode RedisCluster#mode}
+        :param zone: Immutable. The zone for single zone Memorystore Redis cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#zone RedisCluster#zone}
         '''
         value = RedisClusterZoneDistributionConfig(mode=mode, zone=zone)
 
@@ -799,8 +799,8 @@ class RedisClusterAutomatedBackupConfig:
         retention: builtins.str,
     ) -> None:
         '''
-        :param fixed_frequency_schedule: fixed_frequency_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#fixed_frequency_schedule RedisCluster#fixed_frequency_schedule}
-        :param retention: How long to keep automated backups before the backups are deleted. The value should be between 1 day and 365 days. If not specified, the default value is 35 days. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#retention RedisCluster#retention}
+        :param fixed_frequency_schedule: fixed_frequency_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#fixed_frequency_schedule RedisCluster#fixed_frequency_schedule}
+        :param retention: How long to keep automated backups before the backups are deleted. The value should be between 1 day and 365 days. If not specified, the default value is 35 days. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#retention RedisCluster#retention}
         '''
         if isinstance(fixed_frequency_schedule, dict):
             fixed_frequency_schedule = RedisClusterAutomatedBackupConfigFixedFrequencySchedule(**fixed_frequency_schedule)
@@ -819,7 +819,7 @@ class RedisClusterAutomatedBackupConfig:
     ) -> "RedisClusterAutomatedBackupConfigFixedFrequencySchedule":
         '''fixed_frequency_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#fixed_frequency_schedule RedisCluster#fixed_frequency_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#fixed_frequency_schedule RedisCluster#fixed_frequency_schedule}
         '''
         result = self._values.get("fixed_frequency_schedule")
         assert result is not None, "Required property 'fixed_frequency_schedule' is missing"
@@ -832,7 +832,7 @@ class RedisClusterAutomatedBackupConfig:
         The value should be between 1 day and 365 days. If not specified, the default value is 35 days.
         A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#retention RedisCluster#retention}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#retention RedisCluster#retention}
         '''
         result = self._values.get("retention")
         assert result is not None, "Required property 'retention' is missing"
@@ -862,7 +862,7 @@ class RedisClusterAutomatedBackupConfigFixedFrequencySchedule:
         start_time: typing.Union["RedisClusterAutomatedBackupConfigFixedFrequencyScheduleStartTime", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#start_time RedisCluster#start_time}
+        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#start_time RedisCluster#start_time}
         '''
         if isinstance(start_time, dict):
             start_time = RedisClusterAutomatedBackupConfigFixedFrequencyScheduleStartTime(**start_time)
@@ -879,7 +879,7 @@ class RedisClusterAutomatedBackupConfigFixedFrequencySchedule:
     ) -> "RedisClusterAutomatedBackupConfigFixedFrequencyScheduleStartTime":
         '''start_time block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#start_time RedisCluster#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#start_time RedisCluster#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -920,7 +920,7 @@ class RedisClusterAutomatedBackupConfigFixedFrequencyScheduleOutputReference(
     @jsii.member(jsii_name="putStartTime")
     def put_start_time(self, *, hours: jsii.Number) -> None:
         '''
-        :param hours: Hours of a day in 24 hour format. Must be greater than or equal to 0 and typically must be less than or equal to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#hours RedisCluster#hours}
+        :param hours: Hours of a day in 24 hour format. Must be greater than or equal to 0 and typically must be less than or equal to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#hours RedisCluster#hours}
         '''
         value = RedisClusterAutomatedBackupConfigFixedFrequencyScheduleStartTime(
             hours=hours
@@ -968,7 +968,7 @@ class RedisClusterAutomatedBackupConfigFixedFrequencyScheduleOutputReference(
 class RedisClusterAutomatedBackupConfigFixedFrequencyScheduleStartTime:
     def __init__(self, *, hours: jsii.Number) -> None:
         '''
-        :param hours: Hours of a day in 24 hour format. Must be greater than or equal to 0 and typically must be less than or equal to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#hours RedisCluster#hours}
+        :param hours: Hours of a day in 24 hour format. Must be greater than or equal to 0 and typically must be less than or equal to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#hours RedisCluster#hours}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c0e879ce83171dd84fc0310ee5acb026397c22c1adb73f4c99933048bc632b56)
@@ -984,7 +984,7 @@ class RedisClusterAutomatedBackupConfigFixedFrequencyScheduleStartTime:
         Must be greater than or equal to 0 and typically must be less than or equal to 23.
         An API may choose to allow the value "24:00:00" for scenarios like business closing time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#hours RedisCluster#hours}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#hours RedisCluster#hours}
         '''
         result = self._values.get("hours")
         assert result is not None, "Required property 'hours' is missing"
@@ -1084,7 +1084,7 @@ class RedisClusterAutomatedBackupConfigOutputReference(
         start_time: typing.Union[RedisClusterAutomatedBackupConfigFixedFrequencyScheduleStartTime, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#start_time RedisCluster#start_time}
+        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#start_time RedisCluster#start_time}
         '''
         value = RedisClusterAutomatedBackupConfigFixedFrequencySchedule(
             start_time=start_time
@@ -1214,27 +1214,27 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param shard_count: Required. Number of shards for the Redis cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#shard_count RedisCluster#shard_count}
-        :param authorization_mode: Optional. The authorization mode of the Redis cluster. If not provided, auth feature is disabled for the cluster. Default value: "AUTH_MODE_DISABLED" Possible values: ["AUTH_MODE_UNSPECIFIED", "AUTH_MODE_IAM_AUTH", "AUTH_MODE_DISABLED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#authorization_mode RedisCluster#authorization_mode}
-        :param automated_backup_config: automated_backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#automated_backup_config RedisCluster#automated_backup_config}
-        :param cross_cluster_replication_config: cross_cluster_replication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#cross_cluster_replication_config RedisCluster#cross_cluster_replication_config}
-        :param deletion_protection_enabled: Optional. Indicates if the cluster is deletion protected or not. If the value if set to true, any delete cluster operation will fail. Default value is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#deletion_protection_enabled RedisCluster#deletion_protection_enabled}
-        :param gcs_source: gcs_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#gcs_source RedisCluster#gcs_source}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#id RedisCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key: The KMS key used to encrypt the at-rest data of the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#kms_key RedisCluster#kms_key}
-        :param maintenance_policy: maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#maintenance_policy RedisCluster#maintenance_policy}
-        :param managed_backup_source: managed_backup_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#managed_backup_source RedisCluster#managed_backup_source}
-        :param name: Unique name of the resource in this scope including project and location using the form: projects/{projectId}/locations/{locationId}/clusters/{clusterId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#name RedisCluster#name}
-        :param node_type: The nodeType for the Redis cluster. If not provided, REDIS_HIGHMEM_MEDIUM will be used as default Possible values: ["REDIS_SHARED_CORE_NANO", "REDIS_HIGHMEM_MEDIUM", "REDIS_HIGHMEM_XLARGE", "REDIS_STANDARD_SMALL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#node_type RedisCluster#node_type}
-        :param persistence_config: persistence_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#persistence_config RedisCluster#persistence_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#project RedisCluster#project}.
-        :param psc_configs: psc_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#psc_configs RedisCluster#psc_configs}
-        :param redis_configs: Configure Redis Cluster behavior using a subset of native Redis configuration parameters. Please check Memorystore documentation for the list of supported parameters: https://cloud.google.com/memorystore/docs/cluster/supported-instance-configurations Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#redis_configs RedisCluster#redis_configs}
-        :param region: The name of the region of the Redis cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#region RedisCluster#region}
-        :param replica_count: Optional. The number of replica nodes per shard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#replica_count RedisCluster#replica_count}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#timeouts RedisCluster#timeouts}
-        :param transit_encryption_mode: Optional. The in-transit encryption for the Redis cluster. If not provided, encryption is disabled for the cluster. Default value: "TRANSIT_ENCRYPTION_MODE_DISABLED" Possible values: ["TRANSIT_ENCRYPTION_MODE_UNSPECIFIED", "TRANSIT_ENCRYPTION_MODE_DISABLED", "TRANSIT_ENCRYPTION_MODE_SERVER_AUTHENTICATION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#transit_encryption_mode RedisCluster#transit_encryption_mode}
-        :param zone_distribution_config: zone_distribution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#zone_distribution_config RedisCluster#zone_distribution_config}
+        :param shard_count: Required. Number of shards for the Redis cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#shard_count RedisCluster#shard_count}
+        :param authorization_mode: Optional. The authorization mode of the Redis cluster. If not provided, auth feature is disabled for the cluster. Default value: "AUTH_MODE_DISABLED" Possible values: ["AUTH_MODE_UNSPECIFIED", "AUTH_MODE_IAM_AUTH", "AUTH_MODE_DISABLED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#authorization_mode RedisCluster#authorization_mode}
+        :param automated_backup_config: automated_backup_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#automated_backup_config RedisCluster#automated_backup_config}
+        :param cross_cluster_replication_config: cross_cluster_replication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#cross_cluster_replication_config RedisCluster#cross_cluster_replication_config}
+        :param deletion_protection_enabled: Optional. Indicates if the cluster is deletion protected or not. If the value if set to true, any delete cluster operation will fail. Default value is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#deletion_protection_enabled RedisCluster#deletion_protection_enabled}
+        :param gcs_source: gcs_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#gcs_source RedisCluster#gcs_source}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#id RedisCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key: The KMS key used to encrypt the at-rest data of the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#kms_key RedisCluster#kms_key}
+        :param maintenance_policy: maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#maintenance_policy RedisCluster#maintenance_policy}
+        :param managed_backup_source: managed_backup_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#managed_backup_source RedisCluster#managed_backup_source}
+        :param name: Unique name of the resource in this scope including project and location using the form: projects/{projectId}/locations/{locationId}/clusters/{clusterId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#name RedisCluster#name}
+        :param node_type: The nodeType for the Redis cluster. If not provided, REDIS_HIGHMEM_MEDIUM will be used as default Possible values: ["REDIS_SHARED_CORE_NANO", "REDIS_HIGHMEM_MEDIUM", "REDIS_HIGHMEM_XLARGE", "REDIS_STANDARD_SMALL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#node_type RedisCluster#node_type}
+        :param persistence_config: persistence_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#persistence_config RedisCluster#persistence_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#project RedisCluster#project}.
+        :param psc_configs: psc_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#psc_configs RedisCluster#psc_configs}
+        :param redis_configs: Configure Redis Cluster behavior using a subset of native Redis configuration parameters. Please check Memorystore documentation for the list of supported parameters: https://cloud.google.com/memorystore/docs/cluster/supported-instance-configurations Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#redis_configs RedisCluster#redis_configs}
+        :param region: The name of the region of the Redis cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#region RedisCluster#region}
+        :param replica_count: Optional. The number of replica nodes per shard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#replica_count RedisCluster#replica_count}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#timeouts RedisCluster#timeouts}
+        :param transit_encryption_mode: Optional. The in-transit encryption for the Redis cluster. If not provided, encryption is disabled for the cluster. Default value: "TRANSIT_ENCRYPTION_MODE_DISABLED" Possible values: ["TRANSIT_ENCRYPTION_MODE_UNSPECIFIED", "TRANSIT_ENCRYPTION_MODE_DISABLED", "TRANSIT_ENCRYPTION_MODE_SERVER_AUTHENTICATION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#transit_encryption_mode RedisCluster#transit_encryption_mode}
+        :param zone_distribution_config: zone_distribution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#zone_distribution_config RedisCluster#zone_distribution_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1410,7 +1410,7 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def shard_count(self) -> jsii.Number:
         '''Required. Number of shards for the Redis cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#shard_count RedisCluster#shard_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#shard_count RedisCluster#shard_count}
         '''
         result = self._values.get("shard_count")
         assert result is not None, "Required property 'shard_count' is missing"
@@ -1422,7 +1422,7 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The authorization mode of the Redis cluster. If not provided, auth feature is disabled for the cluster. Default value: "AUTH_MODE_DISABLED" Possible values: ["AUTH_MODE_UNSPECIFIED", "AUTH_MODE_IAM_AUTH", "AUTH_MODE_DISABLED"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#authorization_mode RedisCluster#authorization_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#authorization_mode RedisCluster#authorization_mode}
         '''
         result = self._values.get("authorization_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1433,7 +1433,7 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[RedisClusterAutomatedBackupConfig]:
         '''automated_backup_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#automated_backup_config RedisCluster#automated_backup_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#automated_backup_config RedisCluster#automated_backup_config}
         '''
         result = self._values.get("automated_backup_config")
         return typing.cast(typing.Optional[RedisClusterAutomatedBackupConfig], result)
@@ -1444,7 +1444,7 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["RedisClusterCrossClusterReplicationConfig"]:
         '''cross_cluster_replication_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#cross_cluster_replication_config RedisCluster#cross_cluster_replication_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#cross_cluster_replication_config RedisCluster#cross_cluster_replication_config}
         '''
         result = self._values.get("cross_cluster_replication_config")
         return typing.cast(typing.Optional["RedisClusterCrossClusterReplicationConfig"], result)
@@ -1459,7 +1459,7 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         If the value if set to true, any delete cluster operation will fail.
         Default value is true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#deletion_protection_enabled RedisCluster#deletion_protection_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#deletion_protection_enabled RedisCluster#deletion_protection_enabled}
         '''
         result = self._values.get("deletion_protection_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1468,14 +1468,14 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def gcs_source(self) -> typing.Optional["RedisClusterGcsSource"]:
         '''gcs_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#gcs_source RedisCluster#gcs_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#gcs_source RedisCluster#gcs_source}
         '''
         result = self._values.get("gcs_source")
         return typing.cast(typing.Optional["RedisClusterGcsSource"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#id RedisCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#id RedisCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1487,7 +1487,7 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def kms_key(self) -> typing.Optional[builtins.str]:
         '''The KMS key used to encrypt the at-rest data of the cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#kms_key RedisCluster#kms_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#kms_key RedisCluster#kms_key}
         '''
         result = self._values.get("kms_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1496,7 +1496,7 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def maintenance_policy(self) -> typing.Optional["RedisClusterMaintenancePolicy"]:
         '''maintenance_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#maintenance_policy RedisCluster#maintenance_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#maintenance_policy RedisCluster#maintenance_policy}
         '''
         result = self._values.get("maintenance_policy")
         return typing.cast(typing.Optional["RedisClusterMaintenancePolicy"], result)
@@ -1507,7 +1507,7 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["RedisClusterManagedBackupSource"]:
         '''managed_backup_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#managed_backup_source RedisCluster#managed_backup_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#managed_backup_source RedisCluster#managed_backup_source}
         '''
         result = self._values.get("managed_backup_source")
         return typing.cast(typing.Optional["RedisClusterManagedBackupSource"], result)
@@ -1516,7 +1516,7 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''Unique name of the resource in this scope including project and location using the form: projects/{projectId}/locations/{locationId}/clusters/{clusterId}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#name RedisCluster#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#name RedisCluster#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1527,7 +1527,7 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If not provided, REDIS_HIGHMEM_MEDIUM will be used as default Possible values: ["REDIS_SHARED_CORE_NANO", "REDIS_HIGHMEM_MEDIUM", "REDIS_HIGHMEM_XLARGE", "REDIS_STANDARD_SMALL"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#node_type RedisCluster#node_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#node_type RedisCluster#node_type}
         '''
         result = self._values.get("node_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1536,14 +1536,14 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def persistence_config(self) -> typing.Optional["RedisClusterPersistenceConfig"]:
         '''persistence_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#persistence_config RedisCluster#persistence_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#persistence_config RedisCluster#persistence_config}
         '''
         result = self._values.get("persistence_config")
         return typing.cast(typing.Optional["RedisClusterPersistenceConfig"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#project RedisCluster#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#project RedisCluster#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1553,7 +1553,7 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RedisClusterPscConfigs"]]]:
         '''psc_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#psc_configs RedisCluster#psc_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#psc_configs RedisCluster#psc_configs}
         '''
         result = self._values.get("psc_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RedisClusterPscConfigs"]]], result)
@@ -1567,7 +1567,7 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Please check Memorystore documentation for the list of supported parameters:
         https://cloud.google.com/memorystore/docs/cluster/supported-instance-configurations
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#redis_configs RedisCluster#redis_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#redis_configs RedisCluster#redis_configs}
         '''
         result = self._values.get("redis_configs")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1576,7 +1576,7 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''The name of the region of the Redis cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#region RedisCluster#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#region RedisCluster#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1585,7 +1585,7 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def replica_count(self) -> typing.Optional[jsii.Number]:
         '''Optional. The number of replica nodes per shard.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#replica_count RedisCluster#replica_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#replica_count RedisCluster#replica_count}
         '''
         result = self._values.get("replica_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1594,7 +1594,7 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["RedisClusterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#timeouts RedisCluster#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#timeouts RedisCluster#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["RedisClusterTimeouts"], result)
@@ -1606,7 +1606,7 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         The in-transit encryption for the Redis cluster.
         If not provided, encryption is disabled for the cluster. Default value: "TRANSIT_ENCRYPTION_MODE_DISABLED" Possible values: ["TRANSIT_ENCRYPTION_MODE_UNSPECIFIED", "TRANSIT_ENCRYPTION_MODE_DISABLED", "TRANSIT_ENCRYPTION_MODE_SERVER_AUTHENTICATION"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#transit_encryption_mode RedisCluster#transit_encryption_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#transit_encryption_mode RedisCluster#transit_encryption_mode}
         '''
         result = self._values.get("transit_encryption_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1617,7 +1617,7 @@ class RedisClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["RedisClusterZoneDistributionConfig"]:
         '''zone_distribution_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#zone_distribution_config RedisCluster#zone_distribution_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#zone_distribution_config RedisCluster#zone_distribution_config}
         '''
         result = self._values.get("zone_distribution_config")
         return typing.cast(typing.Optional["RedisClusterZoneDistributionConfig"], result)
@@ -1652,9 +1652,9 @@ class RedisClusterCrossClusterReplicationConfig:
         secondary_clusters: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["RedisClusterCrossClusterReplicationConfigSecondaryClusters", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param cluster_role: The role of the cluster in cross cluster replication. Supported values are:. 1. 'CLUSTER_ROLE_UNSPECIFIED': This is an independent cluster that has never participated in cross cluster replication. It allows both reads and writes. 1. 'NONE': This is an independent cluster that previously participated in cross cluster replication(either as a 'PRIMARY' or 'SECONDARY' cluster). It allows both reads and writes. 1. 'PRIMARY': This cluster serves as the replication source for secondary clusters that are replicating from it. Any data written to it is automatically replicated to its secondary clusters. It allows both reads and writes. 1. 'SECONDARY': This cluster replicates data from the primary cluster. It allows only reads. Possible values: ["CLUSTER_ROLE_UNSPECIFIED", "NONE", "PRIMARY", "SECONDARY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#cluster_role RedisCluster#cluster_role}
-        :param primary_cluster: primary_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#primary_cluster RedisCluster#primary_cluster}
-        :param secondary_clusters: secondary_clusters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#secondary_clusters RedisCluster#secondary_clusters}
+        :param cluster_role: The role of the cluster in cross cluster replication. Supported values are:. 1. 'CLUSTER_ROLE_UNSPECIFIED': This is an independent cluster that has never participated in cross cluster replication. It allows both reads and writes. 1. 'NONE': This is an independent cluster that previously participated in cross cluster replication(either as a 'PRIMARY' or 'SECONDARY' cluster). It allows both reads and writes. 1. 'PRIMARY': This cluster serves as the replication source for secondary clusters that are replicating from it. Any data written to it is automatically replicated to its secondary clusters. It allows both reads and writes. 1. 'SECONDARY': This cluster replicates data from the primary cluster. It allows only reads. Possible values: ["CLUSTER_ROLE_UNSPECIFIED", "NONE", "PRIMARY", "SECONDARY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#cluster_role RedisCluster#cluster_role}
+        :param primary_cluster: primary_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#primary_cluster RedisCluster#primary_cluster}
+        :param secondary_clusters: secondary_clusters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#secondary_clusters RedisCluster#secondary_clusters}
         '''
         if isinstance(primary_cluster, dict):
             primary_cluster = RedisClusterCrossClusterReplicationConfigPrimaryCluster(**primary_cluster)
@@ -1680,7 +1680,7 @@ class RedisClusterCrossClusterReplicationConfig:
         3. 'PRIMARY': This cluster serves as the replication source for secondary clusters that are replicating from it. Any data written to it is automatically replicated to its secondary clusters. It allows both reads and writes.
         4. 'SECONDARY': This cluster replicates data from the primary cluster. It allows only reads. Possible values: ["CLUSTER_ROLE_UNSPECIFIED", "NONE", "PRIMARY", "SECONDARY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#cluster_role RedisCluster#cluster_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#cluster_role RedisCluster#cluster_role}
         '''
         result = self._values.get("cluster_role")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1691,7 +1691,7 @@ class RedisClusterCrossClusterReplicationConfig:
     ) -> typing.Optional["RedisClusterCrossClusterReplicationConfigPrimaryCluster"]:
         '''primary_cluster block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#primary_cluster RedisCluster#primary_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#primary_cluster RedisCluster#primary_cluster}
         '''
         result = self._values.get("primary_cluster")
         return typing.cast(typing.Optional["RedisClusterCrossClusterReplicationConfigPrimaryCluster"], result)
@@ -1702,7 +1702,7 @@ class RedisClusterCrossClusterReplicationConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RedisClusterCrossClusterReplicationConfigSecondaryClusters"]]]:
         '''secondary_clusters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#secondary_clusters RedisCluster#secondary_clusters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#secondary_clusters RedisCluster#secondary_clusters}
         '''
         result = self._values.get("secondary_clusters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RedisClusterCrossClusterReplicationConfigSecondaryClusters"]]], result)
@@ -2203,7 +2203,7 @@ class RedisClusterCrossClusterReplicationConfigOutputReference(
         cluster: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cluster: The full resource path of the primary cluster in the format: projects/{project}/locations/{region}/clusters/{cluster-id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#cluster RedisCluster#cluster}
+        :param cluster: The full resource path of the primary cluster in the format: projects/{project}/locations/{region}/clusters/{cluster-id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#cluster RedisCluster#cluster}
         '''
         value = RedisClusterCrossClusterReplicationConfigPrimaryCluster(
             cluster=cluster
@@ -2317,7 +2317,7 @@ class RedisClusterCrossClusterReplicationConfigOutputReference(
 class RedisClusterCrossClusterReplicationConfigPrimaryCluster:
     def __init__(self, *, cluster: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param cluster: The full resource path of the primary cluster in the format: projects/{project}/locations/{region}/clusters/{cluster-id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#cluster RedisCluster#cluster}
+        :param cluster: The full resource path of the primary cluster in the format: projects/{project}/locations/{region}/clusters/{cluster-id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#cluster RedisCluster#cluster}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__706b9649d12aefac50254ba78e2f80eb387226d76b3289a47f5221c62fd40900)
@@ -2330,7 +2330,7 @@ class RedisClusterCrossClusterReplicationConfigPrimaryCluster:
     def cluster(self) -> typing.Optional[builtins.str]:
         '''The full resource path of the primary cluster in the format: projects/{project}/locations/{region}/clusters/{cluster-id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#cluster RedisCluster#cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#cluster RedisCluster#cluster}
         '''
         result = self._values.get("cluster")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2419,7 +2419,7 @@ class RedisClusterCrossClusterReplicationConfigPrimaryClusterOutputReference(
 class RedisClusterCrossClusterReplicationConfigSecondaryClusters:
     def __init__(self, *, cluster: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param cluster: The full resource path of the secondary cluster in the format: projects/{project}/locations/{region}/clusters/{cluster-id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#cluster RedisCluster#cluster}
+        :param cluster: The full resource path of the secondary cluster in the format: projects/{project}/locations/{region}/clusters/{cluster-id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#cluster RedisCluster#cluster}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9ed4ef696017f4fa2747c2fd1d6c020004561590c05dfed3ee16a982ae27e32c)
@@ -2432,7 +2432,7 @@ class RedisClusterCrossClusterReplicationConfigSecondaryClusters:
     def cluster(self) -> typing.Optional[builtins.str]:
         '''The full resource path of the secondary cluster in the format: projects/{project}/locations/{region}/clusters/{cluster-id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#cluster RedisCluster#cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#cluster RedisCluster#cluster}
         '''
         result = self._values.get("cluster")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2920,7 +2920,7 @@ class RedisClusterDiscoveryEndpointsPscConfigOutputReference(
 class RedisClusterGcsSource:
     def __init__(self, *, uris: typing.Sequence[builtins.str]) -> None:
         '''
-        :param uris: URIs of the GCS objects to import. Example: gs://bucket1/object1, gs://bucket2/folder2/object2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#uris RedisCluster#uris}
+        :param uris: URIs of the GCS objects to import. Example: gs://bucket1/object1, gs://bucket2/folder2/object2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#uris RedisCluster#uris}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8ef2cd4659c147aebe1a9043c0f27f0795a1c80e5bcc24c48656a980681efa28)
@@ -2933,7 +2933,7 @@ class RedisClusterGcsSource:
     def uris(self) -> typing.List[builtins.str]:
         '''URIs of the GCS objects to import. Example: gs://bucket1/object1, gs://bucket2/folder2/object2.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#uris RedisCluster#uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#uris RedisCluster#uris}
         '''
         result = self._values.get("uris")
         assert result is not None, "Required property 'uris' is missing"
@@ -3013,7 +3013,7 @@ class RedisClusterMaintenancePolicy:
         weekly_maintenance_window: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["RedisClusterMaintenancePolicyWeeklyMaintenanceWindow", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param weekly_maintenance_window: weekly_maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#weekly_maintenance_window RedisCluster#weekly_maintenance_window}
+        :param weekly_maintenance_window: weekly_maintenance_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#weekly_maintenance_window RedisCluster#weekly_maintenance_window}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c624e870cb374b5ce5adad818175edf368bf2bdd5f1ef2e45eaf02f00745dfba)
@@ -3028,7 +3028,7 @@ class RedisClusterMaintenancePolicy:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RedisClusterMaintenancePolicyWeeklyMaintenanceWindow"]]]:
         '''weekly_maintenance_window block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#weekly_maintenance_window RedisCluster#weekly_maintenance_window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#weekly_maintenance_window RedisCluster#weekly_maintenance_window}
         '''
         result = self._values.get("weekly_maintenance_window")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RedisClusterMaintenancePolicyWeeklyMaintenanceWindow"]]], result)
@@ -3135,8 +3135,8 @@ class RedisClusterMaintenancePolicyWeeklyMaintenanceWindow:
         start_time: typing.Union["RedisClusterMaintenancePolicyWeeklyMaintenanceWindowStartTime", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param day: Required. The day of week that maintenance updates occur. - DAY_OF_WEEK_UNSPECIFIED: The day of the week is unspecified. - MONDAY: Monday - TUESDAY: Tuesday - WEDNESDAY: Wednesday - THURSDAY: Thursday - FRIDAY: Friday - SATURDAY: Saturday - SUNDAY: Sunday Possible values: ["DAY_OF_WEEK_UNSPECIFIED", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#day RedisCluster#day}
-        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#start_time RedisCluster#start_time}
+        :param day: Required. The day of week that maintenance updates occur. - DAY_OF_WEEK_UNSPECIFIED: The day of the week is unspecified. - MONDAY: Monday - TUESDAY: Tuesday - WEDNESDAY: Wednesday - THURSDAY: Thursday - FRIDAY: Friday - SATURDAY: Saturday - SUNDAY: Sunday Possible values: ["DAY_OF_WEEK_UNSPECIFIED", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#day RedisCluster#day}
+        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#start_time RedisCluster#start_time}
         '''
         if isinstance(start_time, dict):
             start_time = RedisClusterMaintenancePolicyWeeklyMaintenanceWindowStartTime(**start_time)
@@ -3162,7 +3162,7 @@ class RedisClusterMaintenancePolicyWeeklyMaintenanceWindow:
         - SATURDAY: Saturday
         - SUNDAY: Sunday Possible values: ["DAY_OF_WEEK_UNSPECIFIED", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#day RedisCluster#day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#day RedisCluster#day}
         '''
         result = self._values.get("day")
         assert result is not None, "Required property 'day' is missing"
@@ -3174,7 +3174,7 @@ class RedisClusterMaintenancePolicyWeeklyMaintenanceWindow:
     ) -> "RedisClusterMaintenancePolicyWeeklyMaintenanceWindowStartTime":
         '''start_time block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#start_time RedisCluster#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#start_time RedisCluster#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -3321,10 +3321,10 @@ class RedisClusterMaintenancePolicyWeeklyMaintenanceWindowOutputReference(
         seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#hours RedisCluster#hours}
-        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#minutes RedisCluster#minutes}
-        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#nanos RedisCluster#nanos}
-        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. An API may allow the value 60 if it allows leap-seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#seconds RedisCluster#seconds}
+        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#hours RedisCluster#hours}
+        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#minutes RedisCluster#minutes}
+        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#nanos RedisCluster#nanos}
+        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. An API may allow the value 60 if it allows leap-seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#seconds RedisCluster#seconds}
         '''
         value = RedisClusterMaintenancePolicyWeeklyMaintenanceWindowStartTime(
             hours=hours, minutes=minutes, nanos=nanos, seconds=seconds
@@ -3406,10 +3406,10 @@ class RedisClusterMaintenancePolicyWeeklyMaintenanceWindowStartTime:
         seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#hours RedisCluster#hours}
-        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#minutes RedisCluster#minutes}
-        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#nanos RedisCluster#nanos}
-        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. An API may allow the value 60 if it allows leap-seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#seconds RedisCluster#seconds}
+        :param hours: Hours of day in 24 hour format. Should be from 0 to 23. An API may choose to allow the value "24:00:00" for scenarios like business closing time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#hours RedisCluster#hours}
+        :param minutes: Minutes of hour of day. Must be from 0 to 59. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#minutes RedisCluster#minutes}
+        :param nanos: Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#nanos RedisCluster#nanos}
+        :param seconds: Seconds of minutes of the time. Must normally be from 0 to 59. An API may allow the value 60 if it allows leap-seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#seconds RedisCluster#seconds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7ee21c5cc668116d803adcae8dea31d906c005f85a71706b9775aa72aeccea8b)
@@ -3434,7 +3434,7 @@ class RedisClusterMaintenancePolicyWeeklyMaintenanceWindowStartTime:
         Should be from 0 to 23.
         An API may choose to allow the value "24:00:00" for scenarios like business closing time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#hours RedisCluster#hours}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#hours RedisCluster#hours}
         '''
         result = self._values.get("hours")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3443,7 +3443,7 @@ class RedisClusterMaintenancePolicyWeeklyMaintenanceWindowStartTime:
     def minutes(self) -> typing.Optional[jsii.Number]:
         '''Minutes of hour of day. Must be from 0 to 59.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#minutes RedisCluster#minutes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#minutes RedisCluster#minutes}
         '''
         result = self._values.get("minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3452,7 +3452,7 @@ class RedisClusterMaintenancePolicyWeeklyMaintenanceWindowStartTime:
     def nanos(self) -> typing.Optional[jsii.Number]:
         '''Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#nanos RedisCluster#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#nanos RedisCluster#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3464,7 +3464,7 @@ class RedisClusterMaintenancePolicyWeeklyMaintenanceWindowStartTime:
         Must normally be from 0 to 59.
         An API may allow the value 60 if it allows leap-seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#seconds RedisCluster#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#seconds RedisCluster#seconds}
         '''
         result = self._values.get("seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3765,7 +3765,7 @@ class RedisClusterMaintenanceScheduleOutputReference(
 class RedisClusterManagedBackupSource:
     def __init__(self, *, backup: builtins.str) -> None:
         '''
-        :param backup: Example: //redis.googleapis.com/projects/{project}/locations/{location}/backupCollections/{collection}/backups/{backup} A shorter version (without the prefix) of the backup name is also supported, like projects/{project}/locations/{location}/backupCollections/{collection}/backups/{backupId}. In this case, it assumes the backup is under redis.googleapis.com. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#backup RedisCluster#backup}
+        :param backup: Example: //redis.googleapis.com/projects/{project}/locations/{location}/backupCollections/{collection}/backups/{backup} A shorter version (without the prefix) of the backup name is also supported, like projects/{project}/locations/{location}/backupCollections/{collection}/backups/{backupId}. In this case, it assumes the backup is under redis.googleapis.com. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#backup RedisCluster#backup}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4f183743dbbafc18e16216b039c957df141e3884e7e655c68be89d9dfa1ef06e)
@@ -3778,7 +3778,7 @@ class RedisClusterManagedBackupSource:
     def backup(self) -> builtins.str:
         '''Example: //redis.googleapis.com/projects/{project}/locations/{location}/backupCollections/{collection}/backups/{backup} A shorter version (without the prefix) of the backup name is also supported, like projects/{project}/locations/{location}/backupCollections/{collection}/backups/{backupId}. In this case, it assumes the backup is under redis.googleapis.com.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#backup RedisCluster#backup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#backup RedisCluster#backup}
         '''
         result = self._values.get("backup")
         assert result is not None, "Required property 'backup' is missing"
@@ -3867,9 +3867,9 @@ class RedisClusterPersistenceConfig:
         rdb_config: typing.Optional[typing.Union["RedisClusterPersistenceConfigRdbConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param aof_config: aof_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#aof_config RedisCluster#aof_config}
-        :param mode: Optional. Controls whether Persistence features are enabled. If not provided, the existing value will be used. - DISABLED: Persistence (both backup and restore) is disabled for the cluster. - RDB: RDB based Persistence is enabled. - AOF: AOF based Persistence is enabled. Possible values: ["PERSISTENCE_MODE_UNSPECIFIED", "DISABLED", "RDB", "AOF"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#mode RedisCluster#mode}
-        :param rdb_config: rdb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#rdb_config RedisCluster#rdb_config}
+        :param aof_config: aof_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#aof_config RedisCluster#aof_config}
+        :param mode: Optional. Controls whether Persistence features are enabled. If not provided, the existing value will be used. - DISABLED: Persistence (both backup and restore) is disabled for the cluster. - RDB: RDB based Persistence is enabled. - AOF: AOF based Persistence is enabled. Possible values: ["PERSISTENCE_MODE_UNSPECIFIED", "DISABLED", "RDB", "AOF"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#mode RedisCluster#mode}
+        :param rdb_config: rdb_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#rdb_config RedisCluster#rdb_config}
         '''
         if isinstance(aof_config, dict):
             aof_config = RedisClusterPersistenceConfigAofConfig(**aof_config)
@@ -3892,7 +3892,7 @@ class RedisClusterPersistenceConfig:
     def aof_config(self) -> typing.Optional["RedisClusterPersistenceConfigAofConfig"]:
         '''aof_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#aof_config RedisCluster#aof_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#aof_config RedisCluster#aof_config}
         '''
         result = self._values.get("aof_config")
         return typing.cast(typing.Optional["RedisClusterPersistenceConfigAofConfig"], result)
@@ -3905,7 +3905,7 @@ class RedisClusterPersistenceConfig:
         - RDB: RDB based Persistence is enabled.
         - AOF: AOF based Persistence is enabled. Possible values: ["PERSISTENCE_MODE_UNSPECIFIED", "DISABLED", "RDB", "AOF"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#mode RedisCluster#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#mode RedisCluster#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3914,7 +3914,7 @@ class RedisClusterPersistenceConfig:
     def rdb_config(self) -> typing.Optional["RedisClusterPersistenceConfigRdbConfig"]:
         '''rdb_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#rdb_config RedisCluster#rdb_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#rdb_config RedisCluster#rdb_config}
         '''
         result = self._values.get("rdb_config")
         return typing.cast(typing.Optional["RedisClusterPersistenceConfigRdbConfig"], result)
@@ -3939,7 +3939,7 @@ class RedisClusterPersistenceConfig:
 class RedisClusterPersistenceConfigAofConfig:
     def __init__(self, *, append_fsync: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param append_fsync: Optional. Available fsync modes. - NO - Do not explicitly call fsync(). Rely on OS defaults. - EVERYSEC - Call fsync() once per second in a background thread. A balance between performance and durability. - ALWAYS - Call fsync() for earch write command. Possible values: ["APPEND_FSYNC_UNSPECIFIED", "NO", "EVERYSEC", "ALWAYS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#append_fsync RedisCluster#append_fsync}
+        :param append_fsync: Optional. Available fsync modes. - NO - Do not explicitly call fsync(). Rely on OS defaults. - EVERYSEC - Call fsync() once per second in a background thread. A balance between performance and durability. - ALWAYS - Call fsync() for earch write command. Possible values: ["APPEND_FSYNC_UNSPECIFIED", "NO", "EVERYSEC", "ALWAYS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#append_fsync RedisCluster#append_fsync}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e643344fe3ff0dda94af918e9eba991358a43854a9dfedf080c5400d2bd3d254)
@@ -3956,7 +3956,7 @@ class RedisClusterPersistenceConfigAofConfig:
         - EVERYSEC - Call fsync() once per second in a background thread. A balance between performance and durability.
         - ALWAYS - Call fsync() for earch write command. Possible values: ["APPEND_FSYNC_UNSPECIFIED", "NO", "EVERYSEC", "ALWAYS"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#append_fsync RedisCluster#append_fsync}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#append_fsync RedisCluster#append_fsync}
         '''
         result = self._values.get("append_fsync")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4057,7 +4057,7 @@ class RedisClusterPersistenceConfigOutputReference(
         append_fsync: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param append_fsync: Optional. Available fsync modes. - NO - Do not explicitly call fsync(). Rely on OS defaults. - EVERYSEC - Call fsync() once per second in a background thread. A balance between performance and durability. - ALWAYS - Call fsync() for earch write command. Possible values: ["APPEND_FSYNC_UNSPECIFIED", "NO", "EVERYSEC", "ALWAYS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#append_fsync RedisCluster#append_fsync}
+        :param append_fsync: Optional. Available fsync modes. - NO - Do not explicitly call fsync(). Rely on OS defaults. - EVERYSEC - Call fsync() once per second in a background thread. A balance between performance and durability. - ALWAYS - Call fsync() for earch write command. Possible values: ["APPEND_FSYNC_UNSPECIFIED", "NO", "EVERYSEC", "ALWAYS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#append_fsync RedisCluster#append_fsync}
         '''
         value = RedisClusterPersistenceConfigAofConfig(append_fsync=append_fsync)
 
@@ -4071,8 +4071,8 @@ class RedisClusterPersistenceConfigOutputReference(
         rdb_snapshot_start_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rdb_snapshot_period: Optional. Available snapshot periods for scheduling. - ONE_HOUR: Snapshot every 1 hour. - SIX_HOURS: Snapshot every 6 hours. - TWELVE_HOURS: Snapshot every 12 hours. - TWENTY_FOUR_HOURS: Snapshot every 24 hours. Possible values: ["SNAPSHOT_PERIOD_UNSPECIFIED", "ONE_HOUR", "SIX_HOURS", "TWELVE_HOURS", "TWENTY_FOUR_HOURS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#rdb_snapshot_period RedisCluster#rdb_snapshot_period}
-        :param rdb_snapshot_start_time: The time that the first snapshot was/will be attempted, and to which future snapshots will be aligned. If not provided, the current time will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#rdb_snapshot_start_time RedisCluster#rdb_snapshot_start_time}
+        :param rdb_snapshot_period: Optional. Available snapshot periods for scheduling. - ONE_HOUR: Snapshot every 1 hour. - SIX_HOURS: Snapshot every 6 hours. - TWELVE_HOURS: Snapshot every 12 hours. - TWENTY_FOUR_HOURS: Snapshot every 24 hours. Possible values: ["SNAPSHOT_PERIOD_UNSPECIFIED", "ONE_HOUR", "SIX_HOURS", "TWELVE_HOURS", "TWENTY_FOUR_HOURS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#rdb_snapshot_period RedisCluster#rdb_snapshot_period}
+        :param rdb_snapshot_start_time: The time that the first snapshot was/will be attempted, and to which future snapshots will be aligned. If not provided, the current time will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#rdb_snapshot_start_time RedisCluster#rdb_snapshot_start_time}
         '''
         value = RedisClusterPersistenceConfigRdbConfig(
             rdb_snapshot_period=rdb_snapshot_period,
@@ -4166,8 +4166,8 @@ class RedisClusterPersistenceConfigRdbConfig:
         rdb_snapshot_start_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rdb_snapshot_period: Optional. Available snapshot periods for scheduling. - ONE_HOUR: Snapshot every 1 hour. - SIX_HOURS: Snapshot every 6 hours. - TWELVE_HOURS: Snapshot every 12 hours. - TWENTY_FOUR_HOURS: Snapshot every 24 hours. Possible values: ["SNAPSHOT_PERIOD_UNSPECIFIED", "ONE_HOUR", "SIX_HOURS", "TWELVE_HOURS", "TWENTY_FOUR_HOURS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#rdb_snapshot_period RedisCluster#rdb_snapshot_period}
-        :param rdb_snapshot_start_time: The time that the first snapshot was/will be attempted, and to which future snapshots will be aligned. If not provided, the current time will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#rdb_snapshot_start_time RedisCluster#rdb_snapshot_start_time}
+        :param rdb_snapshot_period: Optional. Available snapshot periods for scheduling. - ONE_HOUR: Snapshot every 1 hour. - SIX_HOURS: Snapshot every 6 hours. - TWELVE_HOURS: Snapshot every 12 hours. - TWENTY_FOUR_HOURS: Snapshot every 24 hours. Possible values: ["SNAPSHOT_PERIOD_UNSPECIFIED", "ONE_HOUR", "SIX_HOURS", "TWELVE_HOURS", "TWENTY_FOUR_HOURS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#rdb_snapshot_period RedisCluster#rdb_snapshot_period}
+        :param rdb_snapshot_start_time: The time that the first snapshot was/will be attempted, and to which future snapshots will be aligned. If not provided, the current time will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#rdb_snapshot_start_time RedisCluster#rdb_snapshot_start_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__279942e90a3ca1209ec1f59fa14d88f968fc9042699307f41bf816412ae94bf0)
@@ -4188,7 +4188,7 @@ class RedisClusterPersistenceConfigRdbConfig:
         - TWELVE_HOURS:	Snapshot every 12 hours.
         - TWENTY_FOUR_HOURS:	Snapshot every 24 hours. Possible values: ["SNAPSHOT_PERIOD_UNSPECIFIED", "ONE_HOUR", "SIX_HOURS", "TWELVE_HOURS", "TWENTY_FOUR_HOURS"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#rdb_snapshot_period RedisCluster#rdb_snapshot_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#rdb_snapshot_period RedisCluster#rdb_snapshot_period}
         '''
         result = self._values.get("rdb_snapshot_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4199,7 +4199,7 @@ class RedisClusterPersistenceConfigRdbConfig:
 
         If not provided, the current time will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#rdb_snapshot_start_time RedisCluster#rdb_snapshot_start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#rdb_snapshot_start_time RedisCluster#rdb_snapshot_start_time}
         '''
         result = self._values.get("rdb_snapshot_start_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4302,7 +4302,7 @@ class RedisClusterPersistenceConfigRdbConfigOutputReference(
 class RedisClusterPscConfigs:
     def __init__(self, *, network: builtins.str) -> None:
         '''
-        :param network: Required. The consumer network where the network address of the discovery endpoint will be reserved, in the form of projects/{network_project_id_or_number}/global/networks/{network_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#network RedisCluster#network}
+        :param network: Required. The consumer network where the network address of the discovery endpoint will be reserved, in the form of projects/{network_project_id_or_number}/global/networks/{network_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#network RedisCluster#network}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__de49c8bb81e1ab61bf816c864e73c59f5c0f21f65f596fa1ed7bea5cdd6d0c71)
@@ -4315,7 +4315,7 @@ class RedisClusterPscConfigs:
     def network(self) -> builtins.str:
         '''Required. The consumer network where the network address of the discovery endpoint will be reserved, in the form of projects/{network_project_id_or_number}/global/networks/{network_id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#network RedisCluster#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#network RedisCluster#network}
         '''
         result = self._values.get("network")
         assert result is not None, "Required property 'network' is missing"
@@ -5095,9 +5095,9 @@ class RedisClusterTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#create RedisCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#delete RedisCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#update RedisCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#create RedisCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#delete RedisCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#update RedisCluster#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d7f7a96b542d0edf0cf08d04da3a1548eaeea01dc7de6309b9bb4a71f518a4ab)
@@ -5114,19 +5114,19 @@ class RedisClusterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#create RedisCluster#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#create RedisCluster#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#delete RedisCluster#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#delete RedisCluster#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#update RedisCluster#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#update RedisCluster#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5256,8 +5256,8 @@ class RedisClusterZoneDistributionConfig:
         zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param mode: Immutable. The mode for zone distribution for Memorystore Redis cluster. If not provided, MULTI_ZONE will be used as default Possible values: ["MULTI_ZONE", "SINGLE_ZONE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#mode RedisCluster#mode}
-        :param zone: Immutable. The zone for single zone Memorystore Redis cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#zone RedisCluster#zone}
+        :param mode: Immutable. The mode for zone distribution for Memorystore Redis cluster. If not provided, MULTI_ZONE will be used as default Possible values: ["MULTI_ZONE", "SINGLE_ZONE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#mode RedisCluster#mode}
+        :param zone: Immutable. The zone for single zone Memorystore Redis cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#zone RedisCluster#zone}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__721ae4062cdf34992370a344616853368db826fb221ebd33fc91c31ef0e7f492)
@@ -5276,7 +5276,7 @@ class RedisClusterZoneDistributionConfig:
         The mode for zone distribution for Memorystore Redis cluster.
         If not provided, MULTI_ZONE will be used as default Possible values: ["MULTI_ZONE", "SINGLE_ZONE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#mode RedisCluster#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#mode RedisCluster#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5285,7 +5285,7 @@ class RedisClusterZoneDistributionConfig:
     def zone(self) -> typing.Optional[builtins.str]:
         '''Immutable. The zone for single zone Memorystore Redis cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/redis_cluster#zone RedisCluster#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/redis_cluster#zone RedisCluster#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)

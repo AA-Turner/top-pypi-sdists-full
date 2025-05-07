@@ -150,7 +150,7 @@ class OfferClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/marketplacepublisher/create_offer.py.html>`__ to see an example of how to use create_offer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/marketplacepublisher/create_offer.py.html>`__ to see an example of how to use create_offer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -248,7 +248,7 @@ class OfferClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/marketplacepublisher/delete_offer.py.html>`__ to see an example of how to use delete_offer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/marketplacepublisher/delete_offer.py.html>`__ to see an example of how to use delete_offer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['offerId']
@@ -346,7 +346,7 @@ class OfferClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/marketplacepublisher/get_offer.py.html>`__ to see an example of how to use get_offer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/marketplacepublisher/get_offer.py.html>`__ to see an example of how to use get_offer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['offerId']
@@ -444,7 +444,7 @@ class OfferClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/marketplacepublisher/get_offer_internal_detail.py.html>`__ to see an example of how to use get_offer_internal_detail API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/marketplacepublisher/get_offer_internal_detail.py.html>`__ to see an example of how to use get_offer_internal_detail API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['offerId']
@@ -572,7 +572,7 @@ class OfferClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/marketplacepublisher/list_offers.py.html>`__ to see an example of how to use list_offers API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/marketplacepublisher/list_offers.py.html>`__ to see an example of how to use list_offers API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -713,7 +713,7 @@ class OfferClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/marketplacepublisher/update_offer.py.html>`__ to see an example of how to use update_offer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/marketplacepublisher/update_offer.py.html>`__ to see an example of how to use update_offer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['offerId']

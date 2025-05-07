@@ -1,6 +1,8 @@
 """Setup MongoDB repro environment."""
 
+import json
 import os
+import pathlib
 import re
 from typing import List, NamedTuple, Optional, Set
 
@@ -31,6 +33,7 @@ from db_contrib_tool.setup_repro_env.request_models import (
     DownloadRequest,
     RequestTarget,
     RequestType,
+    EvgUrlsInfo,
 )
 from db_contrib_tool.utils import is_windows
 
@@ -138,7 +141,15 @@ class SetupReproOrchestrator:
         request_type = RequestType.GIT_COMMIT
         identifier = version
 
-        if version in [LTS_RELEASE_ALIAS, CONTINUOUS_RELEASE_ALIAS]:
+        if version.endswith(".json") and pathlib.Path(version).is_file():
+            request_type = RequestType.VERSIONS_FILE
+            identifier = version
+            if bin_suffix is not None:
+                LOGGER.warning(
+                    "Binary suffix is ignored when using an existing versions file.",
+                    bin_suffix=bin_suffix,
+                )
+        elif version in [LTS_RELEASE_ALIAS, CONTINUOUS_RELEASE_ALIAS]:
             request_type = RequestType.MONGO_RELEASE_VERSION
             identifier = self._get_release_version(version)
         elif version in KNOWN_BRANCHES or BRANCH_RE.match(version):
@@ -239,6 +250,18 @@ class SetupReproOrchestrator:
 
         for discovery_request in discovery_request_list:
             LOGGER.info("Setting up request", request=discovery_request)
+
+            if discovery_request.request_type == RequestType.VERSIONS_FILE:
+                LOGGER.info("Using download URLs from provided versions file")
+                with open(discovery_request.identifier, "r") as fh:
+                    versions = json.load(fh)
+                    for bin_suffix, info in versions.items():
+                        evg_urls_info: Optional[EvgUrlsInfo] = EvgUrlsInfo(**info)
+                        download_request = DownloadRequest(
+                            bin_suffix, discovery_request, evg_urls_info, None
+                        )
+                        download_request_set.add(download_request)
+                continue
 
             try:
                 LOGGER.info("Fetching download URLs from Evergreen")

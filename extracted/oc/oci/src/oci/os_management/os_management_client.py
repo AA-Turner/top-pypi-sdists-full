@@ -147,14 +147,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/add_packages_to_software_source.py.html>`__ to see an example of how to use add_packages_to_software_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/add_packages_to_software_source.py.html>`__ to see an example of how to use add_packages_to_software_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
         resource_path = "/softwareSources/{softwareSourceId}/actions/addPackages"
         method = "POST"
         operation_name = "add_packages_to_software_source"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/SoftwareSource/AddPackagesToSoftwareSource"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -255,14 +255,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/attach_child_software_source_to_managed_instance.py.html>`__ to see an example of how to use attach_child_software_source_to_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/attach_child_software_source_to_managed_instance.py.html>`__ to see an example of how to use attach_child_software_source_to_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
         resource_path = "/managedInstances/{managedInstanceId}/actions/attachChildSoftwareSource"
         method = "POST"
         operation_name = "attach_child_software_source_to_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/AttachChildSoftwareSourceToManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -367,14 +367,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/attach_managed_instance_to_managed_instance_group.py.html>`__ to see an example of how to use attach_managed_instance_to_managed_instance_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/attach_managed_instance_to_managed_instance_group.py.html>`__ to see an example of how to use attach_managed_instance_to_managed_instance_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceGroupId', 'managedInstanceId']
         resource_path = "/managedInstanceGroups/{managedInstanceGroupId}/actions/attachManagedInstance"
         method = "POST"
         operation_name = "attach_managed_instance_to_managed_instance_group"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstanceGroup/AttachManagedInstanceToManagedInstanceGroup"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -484,14 +484,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/attach_parent_software_source_to_managed_instance.py.html>`__ to see an example of how to use attach_parent_software_source_to_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/attach_parent_software_source_to_managed_instance.py.html>`__ to see an example of how to use attach_parent_software_source_to_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
         resource_path = "/managedInstances/{managedInstanceId}/actions/attachParentSoftwareSource"
         method = "POST"
         operation_name = "attach_parent_software_source_to_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/AttachParentSoftwareSourceToManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -601,14 +601,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/change_managed_instance_group_compartment.py.html>`__ to see an example of how to use change_managed_instance_group_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/change_managed_instance_group_compartment.py.html>`__ to see an example of how to use change_managed_instance_group_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceGroupId']
         resource_path = "/managedInstanceGroups/{managedInstanceGroupId}/actions/changeCompartment"
         method = "POST"
         operation_name = "change_managed_instance_group_compartment"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstanceGroup/ChangeManagedInstanceGroupCompartment"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -720,14 +720,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/change_scheduled_job_compartment.py.html>`__ to see an example of how to use change_scheduled_job_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/change_scheduled_job_compartment.py.html>`__ to see an example of how to use change_scheduled_job_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['scheduledJobId']
         resource_path = "/scheduledJobs/{scheduledJobId}/actions/changeCompartment"
         method = "POST"
         operation_name = "change_scheduled_job_compartment"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ScheduledJob/ChangeScheduledJobCompartment"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -839,14 +839,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/change_software_source_compartment.py.html>`__ to see an example of how to use change_software_source_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/change_software_source_compartment.py.html>`__ to see an example of how to use change_software_source_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
         resource_path = "/softwareSources/{softwareSourceId}/actions/changeCompartment"
         method = "POST"
         operation_name = "change_software_source_compartment"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/SoftwareSource/ChangeSoftwareSourceCompartment"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -949,14 +949,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/create_managed_instance_group.py.html>`__ to see an example of how to use create_managed_instance_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/create_managed_instance_group.py.html>`__ to see an example of how to use create_managed_instance_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/managedInstanceGroups"
         method = "POST"
         operation_name = "create_managed_instance_group"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstanceGroup/CreateManagedInstanceGroup"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1048,14 +1048,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/create_scheduled_job.py.html>`__ to see an example of how to use create_scheduled_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/create_scheduled_job.py.html>`__ to see an example of how to use create_scheduled_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/scheduledJobs"
         method = "POST"
         operation_name = "create_scheduled_job"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ScheduledJob/CreateScheduledJob"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1146,14 +1146,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/create_software_source.py.html>`__ to see an example of how to use create_software_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/create_software_source.py.html>`__ to see an example of how to use create_software_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/softwareSources"
         method = "POST"
         operation_name = "create_software_source"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/SoftwareSource/CreateSoftwareSource"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1242,14 +1242,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/delete_managed_instance_group.py.html>`__ to see an example of how to use delete_managed_instance_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/delete_managed_instance_group.py.html>`__ to see an example of how to use delete_managed_instance_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceGroupId']
         resource_path = "/managedInstanceGroups/{managedInstanceGroupId}"
         method = "DELETE"
         operation_name = "delete_managed_instance_group"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstanceGroup/DeleteManagedInstanceGroup"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1345,14 +1345,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/delete_scheduled_job.py.html>`__ to see an example of how to use delete_scheduled_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/delete_scheduled_job.py.html>`__ to see an example of how to use delete_scheduled_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['scheduledJobId']
         resource_path = "/scheduledJobs/{scheduledJobId}"
         method = "DELETE"
         operation_name = "delete_scheduled_job"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ScheduledJob/DeleteScheduledJob"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1448,14 +1448,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/delete_software_source.py.html>`__ to see an example of how to use delete_software_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/delete_software_source.py.html>`__ to see an example of how to use delete_software_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
         resource_path = "/softwareSources/{softwareSourceId}"
         method = "DELETE"
         operation_name = "delete_software_source"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/SoftwareSource/DeleteSoftwareSource"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1555,14 +1555,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/detach_child_software_source_from_managed_instance.py.html>`__ to see an example of how to use detach_child_software_source_from_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/detach_child_software_source_from_managed_instance.py.html>`__ to see an example of how to use detach_child_software_source_from_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
         resource_path = "/managedInstances/{managedInstanceId}/actions/detachChildSoftwareSource"
         method = "POST"
         operation_name = "detach_child_software_source_from_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/DetachChildSoftwareSourceFromManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1664,14 +1664,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/detach_managed_instance_from_managed_instance_group.py.html>`__ to see an example of how to use detach_managed_instance_from_managed_instance_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/detach_managed_instance_from_managed_instance_group.py.html>`__ to see an example of how to use detach_managed_instance_from_managed_instance_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceGroupId', 'managedInstanceId']
         resource_path = "/managedInstanceGroups/{managedInstanceGroupId}/actions/detachManagedInstance"
         method = "POST"
         operation_name = "detach_managed_instance_from_managed_instance_group"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstanceGroup/DetachManagedInstanceFromManagedInstanceGroup"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1779,14 +1779,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/detach_parent_software_source_from_managed_instance.py.html>`__ to see an example of how to use detach_parent_software_source_from_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/detach_parent_software_source_from_managed_instance.py.html>`__ to see an example of how to use detach_parent_software_source_from_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
         resource_path = "/managedInstances/{managedInstanceId}/actions/detachParentSoftwareSource"
         method = "POST"
         operation_name = "detach_parent_software_source_from_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/DetachParentSoftwareSourceFromManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1902,14 +1902,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/disable_module_stream_on_managed_instance.py.html>`__ to see an example of how to use disable_module_stream_on_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/disable_module_stream_on_managed_instance.py.html>`__ to see an example of how to use disable_module_stream_on_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId', 'moduleName']
         resource_path = "/managedInstances/{managedInstanceId}/actions/moduleStreams/disable"
         method = "POST"
         operation_name = "disable_module_stream_on_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ModuleStreamDetails/DisableModuleStreamOnManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -2035,14 +2035,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/enable_module_stream_on_managed_instance.py.html>`__ to see an example of how to use enable_module_stream_on_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/enable_module_stream_on_managed_instance.py.html>`__ to see an example of how to use enable_module_stream_on_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId', 'moduleName']
         resource_path = "/managedInstances/{managedInstanceId}/actions/moduleStreams/enable"
         method = "POST"
         operation_name = "enable_module_stream_on_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ModuleStreamDetails/EnableModuleStreamOnManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -2143,14 +2143,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/get_erratum.py.html>`__ to see an example of how to use get_erratum API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/get_erratum.py.html>`__ to see an example of how to use get_erratum API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['erratumId']
         resource_path = "/errata/{erratumId}"
         method = "GET"
         operation_name = "get_erratum"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/Erratum/GetErratum"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -2239,14 +2239,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/get_managed_instance.py.html>`__ to see an example of how to use get_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/get_managed_instance.py.html>`__ to see an example of how to use get_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
         resource_path = "/managedInstances/{managedInstanceId}"
         method = "GET"
         operation_name = "get_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/GetManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -2335,14 +2335,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/get_managed_instance_group.py.html>`__ to see an example of how to use get_managed_instance_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/get_managed_instance_group.py.html>`__ to see an example of how to use get_managed_instance_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceGroupId']
         resource_path = "/managedInstanceGroups/{managedInstanceGroupId}"
         method = "GET"
         operation_name = "get_managed_instance_group"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstanceGroup/GetManagedInstanceGroup"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -2437,14 +2437,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/get_module_stream.py.html>`__ to see an example of how to use get_module_stream API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/get_module_stream.py.html>`__ to see an example of how to use get_module_stream API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId', 'moduleName', 'streamName']
         resource_path = "/softwareSources/{softwareSourceId}/modules/{moduleName}/streams/{streamName}"
         method = "GET"
         operation_name = "get_module_stream"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ModuleStream/GetModuleStream"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -2544,14 +2544,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/get_module_stream_profile.py.html>`__ to see an example of how to use get_module_stream_profile API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/get_module_stream_profile.py.html>`__ to see an example of how to use get_module_stream_profile API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId', 'moduleName', 'streamName', 'profileName']
         resource_path = "/softwareSources/{softwareSourceId}/modules/{moduleName}/streams/{streamName}/profiles/{profileName}"
         method = "GET"
         operation_name = "get_module_stream_profile"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ModuleStreamProfile/GetModuleStreamProfile"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -2643,14 +2643,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/get_scheduled_job.py.html>`__ to see an example of how to use get_scheduled_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/get_scheduled_job.py.html>`__ to see an example of how to use get_scheduled_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['scheduledJobId']
         resource_path = "/scheduledJobs/{scheduledJobId}"
         method = "GET"
         operation_name = "get_scheduled_job"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ScheduledJob/GetScheduledJob"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -2742,14 +2742,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/get_software_package.py.html>`__ to see an example of how to use get_software_package API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/get_software_package.py.html>`__ to see an example of how to use get_software_package API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId', 'softwarePackageName']
         resource_path = "/softwareSources/{softwareSourceId}/softwarePackages/{softwarePackageName}"
         method = "GET"
         operation_name = "get_software_package"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/SoftwareSource/GetSoftwarePackage"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -2839,14 +2839,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/get_software_source.py.html>`__ to see an example of how to use get_software_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/get_software_source.py.html>`__ to see an example of how to use get_software_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
         resource_path = "/softwareSources/{softwareSourceId}"
         method = "GET"
         operation_name = "get_software_source"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/SoftwareSource/GetSoftwareSource"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -2935,14 +2935,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/get_windows_update.py.html>`__ to see an example of how to use get_windows_update API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/get_windows_update.py.html>`__ to see an example of how to use get_windows_update API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['windowsUpdate']
         resource_path = "/updates/{windowsUpdate}"
         method = "GET"
         operation_name = "get_windows_update"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/WindowsUpdate/GetWindowsUpdate"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -3031,14 +3031,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
         resource_path = "/workRequests/{workRequestId}"
         method = "GET"
         operation_name = "get_work_request"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/WorkRequest/GetWorkRequest"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -3139,14 +3139,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/install_all_package_updates_on_managed_instance.py.html>`__ to see an example of how to use install_all_package_updates_on_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/install_all_package_updates_on_managed_instance.py.html>`__ to see an example of how to use install_all_package_updates_on_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
         resource_path = "/managedInstances/{managedInstanceId}/actions/packages/updateAll"
         method = "POST"
         operation_name = "install_all_package_updates_on_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/InstallAllPackageUpdatesOnManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -3263,14 +3263,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/install_all_updates_on_managed_instance_group.py.html>`__ to see an example of how to use install_all_updates_on_managed_instance_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/install_all_updates_on_managed_instance_group.py.html>`__ to see an example of how to use install_all_updates_on_managed_instance_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceGroupId']
         resource_path = "/managedInstanceGroups/{managedInstanceGroupId}/actions/updates/installAll"
         method = "POST"
         operation_name = "install_all_updates_on_managed_instance_group"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstanceGroup/InstallAllUpdatesOnManagedInstanceGroup"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -3387,14 +3387,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/install_all_windows_updates_on_managed_instance.py.html>`__ to see an example of how to use install_all_windows_updates_on_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/install_all_windows_updates_on_managed_instance.py.html>`__ to see an example of how to use install_all_windows_updates_on_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
         resource_path = "/managedInstances/{managedInstanceId}/actions/updates/installAll"
         method = "POST"
         operation_name = "install_all_windows_updates_on_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/InstallAllWindowsUpdatesOnManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -3525,14 +3525,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/install_module_stream_profile_on_managed_instance.py.html>`__ to see an example of how to use install_module_stream_profile_on_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/install_module_stream_profile_on_managed_instance.py.html>`__ to see an example of how to use install_module_stream_profile_on_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId', 'moduleName']
         resource_path = "/managedInstances/{managedInstanceId}/actions/streamProfiles/install"
         method = "POST"
         operation_name = "install_module_stream_profile_on_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ModuleStreamProfileDetails/InstallModuleStreamProfileOnManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -3645,14 +3645,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/install_package_on_managed_instance.py.html>`__ to see an example of how to use install_package_on_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/install_package_on_managed_instance.py.html>`__ to see an example of how to use install_package_on_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId', 'softwarePackageName']
         resource_path = "/managedInstances/{managedInstanceId}/actions/packages/install"
         method = "POST"
         operation_name = "install_package_on_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/InstallPackageOnManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -3759,14 +3759,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/install_package_update_on_managed_instance.py.html>`__ to see an example of how to use install_package_update_on_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/install_package_update_on_managed_instance.py.html>`__ to see an example of how to use install_package_update_on_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId', 'softwarePackageName']
         resource_path = "/managedInstances/{managedInstanceId}/actions/packages/update"
         method = "POST"
         operation_name = "install_package_update_on_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/InstallPackageUpdateOnManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -3875,14 +3875,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/install_windows_update_on_managed_instance.py.html>`__ to see an example of how to use install_windows_update_on_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/install_windows_update_on_managed_instance.py.html>`__ to see an example of how to use install_windows_update_on_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId', 'windowsUpdateName']
         resource_path = "/managedInstances/{managedInstanceId}/actions/updates/install"
         method = "POST"
         operation_name = "install_windows_update_on_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/InstallWindowsUpdateOnManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -4003,14 +4003,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_available_packages_for_managed_instance.py.html>`__ to see an example of how to use list_available_packages_for_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_available_packages_for_managed_instance.py.html>`__ to see an example of how to use list_available_packages_for_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
         resource_path = "/managedInstances/{managedInstanceId}/packages/available"
         method = "GET"
         operation_name = "list_available_packages_for_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/ListAvailablePackagesForManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -4155,14 +4155,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_available_software_sources_for_managed_instance.py.html>`__ to see an example of how to use list_available_software_sources_for_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_available_software_sources_for_managed_instance.py.html>`__ to see an example of how to use list_available_software_sources_for_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
         resource_path = "/managedInstances/{managedInstanceId}/availableSoftwareSources"
         method = "GET"
         operation_name = "list_available_software_sources_for_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/ListAvailableSoftwareSourcesForManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -4307,14 +4307,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_available_updates_for_managed_instance.py.html>`__ to see an example of how to use list_available_updates_for_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_available_updates_for_managed_instance.py.html>`__ to see an example of how to use list_available_updates_for_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
         resource_path = "/managedInstances/{managedInstanceId}/packages/updates"
         method = "GET"
         operation_name = "list_available_updates_for_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/ListAvailableUpdatesForManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -4464,14 +4464,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_available_windows_updates_for_managed_instance.py.html>`__ to see an example of how to use list_available_windows_updates_for_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_available_windows_updates_for_managed_instance.py.html>`__ to see an example of how to use list_available_windows_updates_for_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
         resource_path = "/managedInstances/{managedInstanceId}/updates/available"
         method = "GET"
         operation_name = "list_available_windows_updates_for_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/ListAvailableWindowsUpdatesForManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -4635,14 +4635,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_errata.py.html>`__ to see an example of how to use list_errata API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_errata.py.html>`__ to see an example of how to use list_errata API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/errata"
         method = "GET"
         operation_name = "list_errata"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ErratumSummary/ListErrata"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -4781,14 +4781,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_managed_instance_errata.py.html>`__ to see an example of how to use list_managed_instance_errata API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_managed_instance_errata.py.html>`__ to see an example of how to use list_managed_instance_errata API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
         resource_path = "/managedInstances/{managedInstanceId}/errata"
         method = "GET"
         operation_name = "list_managed_instance_errata"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/ListManagedInstanceErrata"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -4940,14 +4940,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_managed_instance_groups.py.html>`__ to see an example of how to use list_managed_instance_groups API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_managed_instance_groups.py.html>`__ to see an example of how to use list_managed_instance_groups API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
         resource_path = "/managedInstanceGroups"
         method = "GET"
         operation_name = "list_managed_instance_groups"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstanceGroupSummary/ListManagedInstanceGroups"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -5099,14 +5099,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_managed_instances.py.html>`__ to see an example of how to use list_managed_instances API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_managed_instances.py.html>`__ to see an example of how to use list_managed_instances API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
         resource_path = "/managedInstances"
         method = "GET"
         operation_name = "list_managed_instances"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstanceSummary/ListManagedInstances"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -5265,14 +5265,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_module_stream_profiles.py.html>`__ to see an example of how to use list_module_stream_profiles API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_module_stream_profiles.py.html>`__ to see an example of how to use list_module_stream_profiles API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
         resource_path = "/softwareSources/{softwareSourceId}/streamProfiles"
         method = "GET"
         operation_name = "list_module_stream_profiles"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ModuleStreamProfileSummary/ListModuleStreamProfiles"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -5461,14 +5461,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_module_stream_profiles_on_managed_instance.py.html>`__ to see an example of how to use list_module_stream_profiles_on_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_module_stream_profiles_on_managed_instance.py.html>`__ to see an example of how to use list_module_stream_profiles_on_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
         resource_path = "/managedInstances/{managedInstanceId}/streamProfiles"
         method = "GET"
         operation_name = "list_module_stream_profiles_on_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/ListModuleStreamProfilesOnManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -5645,14 +5645,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_module_streams.py.html>`__ to see an example of how to use list_module_streams API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_module_streams.py.html>`__ to see an example of how to use list_module_streams API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
         resource_path = "/softwareSources/{softwareSourceId}/moduleStreams"
         method = "GET"
         operation_name = "list_module_streams"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ModuleStreamSummary/ListModuleStreams"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -5840,14 +5840,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_module_streams_on_managed_instance.py.html>`__ to see an example of how to use list_module_streams_on_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_module_streams_on_managed_instance.py.html>`__ to see an example of how to use list_module_streams_on_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
         resource_path = "/managedInstances/{managedInstanceId}/moduleStreams"
         method = "GET"
         operation_name = "list_module_streams_on_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/ListModuleStreamsOnManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -6003,14 +6003,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_packages_installed_on_managed_instance.py.html>`__ to see an example of how to use list_packages_installed_on_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_packages_installed_on_managed_instance.py.html>`__ to see an example of how to use list_packages_installed_on_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
         resource_path = "/managedInstances/{managedInstanceId}/packages"
         method = "GET"
         operation_name = "list_packages_installed_on_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/ListPackagesInstalledOnManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -6176,14 +6176,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_scheduled_jobs.py.html>`__ to see an example of how to use list_scheduled_jobs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_scheduled_jobs.py.html>`__ to see an example of how to use list_scheduled_jobs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
         resource_path = "/scheduledJobs"
         method = "GET"
         operation_name = "list_scheduled_jobs"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ScheduledJob/ListScheduledJobs"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -6348,14 +6348,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_software_source_packages.py.html>`__ to see an example of how to use list_software_source_packages API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_software_source_packages.py.html>`__ to see an example of how to use list_software_source_packages API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
         resource_path = "/softwareSources/{softwareSourceId}/softwarePackages"
         method = "GET"
         operation_name = "list_software_source_packages"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/SoftwareSource/ListSoftwareSourcePackages"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -6502,14 +6502,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_software_sources.py.html>`__ to see an example of how to use list_software_sources API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_software_sources.py.html>`__ to see an example of how to use list_software_sources API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
         resource_path = "/softwareSources"
         method = "GET"
         operation_name = "list_software_sources"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/SoftwareSourceSummary/ListSoftwareSources"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -6668,14 +6668,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_upcoming_scheduled_jobs.py.html>`__ to see an example of how to use list_upcoming_scheduled_jobs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_upcoming_scheduled_jobs.py.html>`__ to see an example of how to use list_upcoming_scheduled_jobs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'timeEnd']
         resource_path = "/scheduledJobs/upcomingSchedules"
         method = "GET"
         operation_name = "list_upcoming_scheduled_jobs"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ScheduledJob/ListUpcomingScheduledJobs"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -6827,14 +6827,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_windows_updates.py.html>`__ to see an example of how to use list_windows_updates API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_windows_updates.py.html>`__ to see an example of how to use list_windows_updates API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/updates"
         method = "GET"
         operation_name = "list_windows_updates"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/WindowsUpdateSummary/ListWindowsUpdates"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -6967,14 +6967,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_windows_updates_installed_on_managed_instance.py.html>`__ to see an example of how to use list_windows_updates_installed_on_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_windows_updates_installed_on_managed_instance.py.html>`__ to see an example of how to use list_windows_updates_installed_on_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
         resource_path = "/managedInstances/{managedInstanceId}/updates/installed"
         method = "GET"
         operation_name = "list_windows_updates_installed_on_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/ListWindowsUpdatesInstalledOnManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -7111,14 +7111,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
         resource_path = "/workRequests/{workRequestId}/errors"
         method = "GET"
         operation_name = "list_work_request_errors"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/WorkRequest/ListWorkRequestErrors"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -7251,14 +7251,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
         resource_path = "/workRequests/{workRequestId}/logs"
         method = "GET"
         operation_name = "list_work_request_logs"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/WorkRequest/ListWorkRequestLogs"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -7404,14 +7404,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
         resource_path = "/workRequests"
         method = "GET"
         operation_name = "list_work_requests"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/WorkRequestSummary/ListWorkRequests"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -7606,14 +7606,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/manage_module_streams_on_managed_instance.py.html>`__ to see an example of how to use manage_module_streams_on_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/manage_module_streams_on_managed_instance.py.html>`__ to see an example of how to use manage_module_streams_on_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
         resource_path = "/managedInstances/{managedInstanceId}/actions/moduleStreams/manage"
         method = "POST"
         operation_name = "manage_module_streams_on_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/ManageModuleStreamsOnManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -7733,14 +7733,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/remove_module_stream_profile_from_managed_instance.py.html>`__ to see an example of how to use remove_module_stream_profile_from_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/remove_module_stream_profile_from_managed_instance.py.html>`__ to see an example of how to use remove_module_stream_profile_from_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId', 'moduleName']
         resource_path = "/managedInstances/{managedInstanceId}/actions/streamProfiles/remove"
         method = "POST"
         operation_name = "remove_module_stream_profile_from_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ModuleStreamProfileDetails/RemoveModuleStreamProfileFromManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -7853,14 +7853,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/remove_package_from_managed_instance.py.html>`__ to see an example of how to use remove_package_from_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/remove_package_from_managed_instance.py.html>`__ to see an example of how to use remove_package_from_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId', 'softwarePackageName']
         resource_path = "/managedInstances/{managedInstanceId}/actions/packages/remove"
         method = "POST"
         operation_name = "remove_package_from_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstance/RemovePackageFromManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -7960,14 +7960,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/remove_packages_from_software_source.py.html>`__ to see an example of how to use remove_packages_from_software_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/remove_packages_from_software_source.py.html>`__ to see an example of how to use remove_packages_from_software_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
         resource_path = "/softwareSources/{softwareSourceId}/actions/removePackages"
         method = "POST"
         operation_name = "remove_packages_from_software_source"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/SoftwareSource/RemovePackagesFromSoftwareSource"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -8071,14 +8071,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/run_scheduled_job_now.py.html>`__ to see an example of how to use run_scheduled_job_now API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/run_scheduled_job_now.py.html>`__ to see an example of how to use run_scheduled_job_now API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['scheduledJobId']
         resource_path = "/scheduledJobs/{scheduledJobId}/actions/runNow"
         method = "POST"
         operation_name = "run_scheduled_job_now"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ScheduledJob/RunScheduledJobNow"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -8196,14 +8196,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/search_software_packages.py.html>`__ to see an example of how to use search_software_packages API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/search_software_packages.py.html>`__ to see an example of how to use search_software_packages API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/softwareSources/softwarePackages"
         method = "GET"
         operation_name = "search_software_packages"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/SoftwareSource/SearchSoftwarePackages"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -8329,14 +8329,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/skip_next_scheduled_job_execution.py.html>`__ to see an example of how to use skip_next_scheduled_job_execution API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/skip_next_scheduled_job_execution.py.html>`__ to see an example of how to use skip_next_scheduled_job_execution API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['scheduledJobId']
         resource_path = "/scheduledJobs/{scheduledJobId}/actions/skipNextExecution"
         method = "POST"
         operation_name = "skip_next_scheduled_job_execution"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ScheduledJob/SkipNextScheduledJobExecution"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -8452,14 +8452,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/switch_module_stream_on_managed_instance.py.html>`__ to see an example of how to use switch_module_stream_on_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/switch_module_stream_on_managed_instance.py.html>`__ to see an example of how to use switch_module_stream_on_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId', 'moduleName']
         resource_path = "/managedInstances/{managedInstanceId}/actions/moduleStreams/switch"
         method = "POST"
         operation_name = "switch_module_stream_on_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ModuleStreamDetails/SwitchModuleStreamOnManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -8570,14 +8570,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/update_managed_instance.py.html>`__ to see an example of how to use update_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/update_managed_instance.py.html>`__ to see an example of how to use update_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
         resource_path = "/managedInstances/{managedInstanceId}"
         method = "PUT"
         operation_name = "update_managed_instance"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/UpdateManagedInstanceDetails/UpdateManagedInstance"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -8680,14 +8680,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/update_managed_instance_group.py.html>`__ to see an example of how to use update_managed_instance_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/update_managed_instance_group.py.html>`__ to see an example of how to use update_managed_instance_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceGroupId']
         resource_path = "/managedInstanceGroups/{managedInstanceGroupId}"
         method = "PUT"
         operation_name = "update_managed_instance_group"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ManagedInstanceGroup/UpdateManagedInstanceGroup"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -8790,14 +8790,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/update_scheduled_job.py.html>`__ to see an example of how to use update_scheduled_job API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/update_scheduled_job.py.html>`__ to see an example of how to use update_scheduled_job API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['scheduledJobId']
         resource_path = "/scheduledJobs/{scheduledJobId}"
         method = "PUT"
         operation_name = "update_scheduled_job"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/ScheduledJob/UpdateScheduledJob"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -8900,14 +8900,14 @@ class OsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/osmanagement/update_software_source.py.html>`__ to see an example of how to use update_software_source API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/osmanagement/update_software_source.py.html>`__ to see an example of how to use update_software_source API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['softwareSourceId']
         resource_path = "/softwareSources/{softwareSourceId}"
         method = "PUT"
         operation_name = "update_software_source"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/os-management/20190801/SoftwareSource/UpdateSoftwareSource"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [

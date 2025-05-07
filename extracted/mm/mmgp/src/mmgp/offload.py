@@ -1,4 +1,4 @@
-# ------------------ Memory Management 3.4.2 for the GPU Poor by DeepBeepMeep (mmgp)------------------
+# ------------------ Memory Management 3.4.3 for the GPU Poor by DeepBeepMeep (mmgp)------------------
 #
 # This module contains multiples optimisations so that models such as Flux (and derived), Mochi, CogView, HunyuanVideo, ...  can run smoothly on a 24 GB GPU limited card. 
 # This a replacement for the accelerate library that should in theory manage offloading, but doesn't work properly with models that are loaded / unloaded several
@@ -619,7 +619,7 @@ def _welcome():
     if welcome_displayed:
          return 
     welcome_displayed = True
-    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.4.1) by DeepBeepMeep ************{ENDC}{UNBOLD}")
+    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.4.3) by DeepBeepMeep ************{ENDC}{UNBOLD}")
 
 def change_dtype(model, new_dtype, exclude_buffers = False):
     for submodule_name, submodule in model.named_modules():  
@@ -1749,7 +1749,7 @@ class offload:
     @torch.compiler.disable()
     def gpu_unload_blocks(self, model_id, blocks_name):
         # cl = clock.start()
-        if blocks_name != None:
+        if blocks_name != None and blocks_name == self.loaded_blocks[model_id]:
             self.loaded_blocks[model_id] = None 
 
 
@@ -1805,7 +1805,13 @@ class offload:
 
             loaded_block = self.loaded_blocks[model_id]
             if loaded_block != None:
-                self.gpu_unload_blocks(model_id, loaded_block)      
+                self.gpu_unload_blocks(model_id, loaded_block)
+                entry_name = model_id + "/" + loaded_block
+                next_blocks_entry = self.next_blocks_names[entry_name] if entry_name in self.next_blocks_names else None
+                if next_blocks_entry != None:
+                    pos = next_blocks_entry.rfind("/")
+                    torch.cuda.synchronize()
+                    self.gpu_unload_blocks(model_id, next_blocks_entry[pos+1:])      
                 self.loaded_blocks[model_id] = None  
  
         self.active_models = []
@@ -2297,6 +2303,8 @@ def all(pipe_or_dict_of_modules, pinnedMemory = False, pinnedPEFTLora = False, p
                         if model_dtype== None:
                             model_dtype = dtype
                         else:
+                            if model_dtype != dtype:
+                                pass
                             assert model_dtype == dtype
                     current_model_size +=  torch.numel(p.data) * p.data.element_size()
                 current_model._dtype = model_dtype

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dynaconf
-Version: 3.2.10
+Version: 3.2.11
 Summary: The dynamic configurator for your Python Project
 Home-page: https://github.com/dynaconf/dynaconf
 Author: Bruno Rocha
@@ -21,6 +21,8 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Utilities
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules

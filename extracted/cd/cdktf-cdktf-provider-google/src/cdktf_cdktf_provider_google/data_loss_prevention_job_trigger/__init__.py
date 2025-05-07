@@ -1,7 +1,7 @@
 r'''
 # `google_data_loss_prevention_job_trigger`
 
-Refer to the Terraform Registry for docs: [`google_data_loss_prevention_job_trigger`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger).
+Refer to the Terraform Registry for docs: [`google_data_loss_prevention_job_trigger`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataLossPreventionJobTrigger(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataLossPreventionJobTrigger.DataLossPreventionJobTrigger",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger google_data_loss_prevention_job_trigger}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger google_data_loss_prevention_job_trigger}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class DataLossPreventionJobTrigger(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger google_data_loss_prevention_job_trigger} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger google_data_loss_prevention_job_trigger} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param parent: The parent of the trigger, either in the format 'projects/{{project}}' or 'projects/{{project}}/locations/{{location}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#parent DataLossPreventionJobTrigger#parent}
-        :param triggers: triggers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#triggers DataLossPreventionJobTrigger#triggers}
-        :param description: A description of the job trigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#description DataLossPreventionJobTrigger#description}
-        :param display_name: User set display name of the job trigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#display_name DataLossPreventionJobTrigger#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#id DataLossPreventionJobTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param inspect_job: inspect_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#inspect_job DataLossPreventionJobTrigger#inspect_job}
-        :param status: Whether the trigger is currently active. Default value: "HEALTHY" Possible values: ["PAUSED", "HEALTHY", "CANCELLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#status DataLossPreventionJobTrigger#status}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#timeouts DataLossPreventionJobTrigger#timeouts}
-        :param trigger_id: The trigger id can contain uppercase and lowercase letters, numbers, and hyphens; that is, it must match the regular expression: [a-zA-Z\\d-_]+. The maximum length is 100 characters. Can be empty to allow the system to generate one. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#trigger_id DataLossPreventionJobTrigger#trigger_id}
+        :param parent: The parent of the trigger, either in the format 'projects/{{project}}' or 'projects/{{project}}/locations/{{location}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#parent DataLossPreventionJobTrigger#parent}
+        :param triggers: triggers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#triggers DataLossPreventionJobTrigger#triggers}
+        :param description: A description of the job trigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#description DataLossPreventionJobTrigger#description}
+        :param display_name: User set display name of the job trigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#display_name DataLossPreventionJobTrigger#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#id DataLossPreventionJobTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param inspect_job: inspect_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#inspect_job DataLossPreventionJobTrigger#inspect_job}
+        :param status: Whether the trigger is currently active. Default value: "HEALTHY" Possible values: ["PAUSED", "HEALTHY", "CANCELLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#status DataLossPreventionJobTrigger#status}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#timeouts DataLossPreventionJobTrigger#timeouts}
+        :param trigger_id: The trigger id can contain uppercase and lowercase letters, numbers, and hyphens; that is, it must match the regular expression: [a-zA-Z\\d-_]+. The maximum length is 100 characters. Can be empty to allow the system to generate one. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#trigger_id DataLossPreventionJobTrigger#trigger_id}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class DataLossPreventionJobTrigger(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataLossPreventionJobTrigger to import.
-        :param import_from_id: The id of the existing DataLossPreventionJobTrigger that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataLossPreventionJobTrigger that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataLossPreventionJobTrigger to import is found.
         '''
         if __debug__:
@@ -148,10 +148,10 @@ class DataLossPreventionJobTrigger(
         inspect_template_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param storage_config: storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#storage_config DataLossPreventionJobTrigger#storage_config}
-        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#actions DataLossPreventionJobTrigger#actions}
-        :param inspect_config: inspect_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#inspect_config DataLossPreventionJobTrigger#inspect_config}
-        :param inspect_template_name: The name of the template to run when this job is triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#inspect_template_name DataLossPreventionJobTrigger#inspect_template_name}
+        :param storage_config: storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#storage_config DataLossPreventionJobTrigger#storage_config}
+        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#actions DataLossPreventionJobTrigger#actions}
+        :param inspect_config: inspect_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#inspect_config DataLossPreventionJobTrigger#inspect_config}
+        :param inspect_template_name: The name of the template to run when this job is triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#inspect_template_name DataLossPreventionJobTrigger#inspect_template_name}
         '''
         value = DataLossPreventionJobTriggerInspectJob(
             storage_config=storage_config,
@@ -171,9 +171,9 @@ class DataLossPreventionJobTrigger(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#create DataLossPreventionJobTrigger#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#delete DataLossPreventionJobTrigger#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#update DataLossPreventionJobTrigger#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#create DataLossPreventionJobTrigger#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#delete DataLossPreventionJobTrigger#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#update DataLossPreventionJobTrigger#update}.
         '''
         value = DataLossPreventionJobTriggerTimeouts(
             create=create, delete=delete, update=update
@@ -445,15 +445,15 @@ class DataLossPreventionJobTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param parent: The parent of the trigger, either in the format 'projects/{{project}}' or 'projects/{{project}}/locations/{{location}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#parent DataLossPreventionJobTrigger#parent}
-        :param triggers: triggers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#triggers DataLossPreventionJobTrigger#triggers}
-        :param description: A description of the job trigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#description DataLossPreventionJobTrigger#description}
-        :param display_name: User set display name of the job trigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#display_name DataLossPreventionJobTrigger#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#id DataLossPreventionJobTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param inspect_job: inspect_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#inspect_job DataLossPreventionJobTrigger#inspect_job}
-        :param status: Whether the trigger is currently active. Default value: "HEALTHY" Possible values: ["PAUSED", "HEALTHY", "CANCELLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#status DataLossPreventionJobTrigger#status}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#timeouts DataLossPreventionJobTrigger#timeouts}
-        :param trigger_id: The trigger id can contain uppercase and lowercase letters, numbers, and hyphens; that is, it must match the regular expression: [a-zA-Z\\d-_]+. The maximum length is 100 characters. Can be empty to allow the system to generate one. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#trigger_id DataLossPreventionJobTrigger#trigger_id}
+        :param parent: The parent of the trigger, either in the format 'projects/{{project}}' or 'projects/{{project}}/locations/{{location}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#parent DataLossPreventionJobTrigger#parent}
+        :param triggers: triggers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#triggers DataLossPreventionJobTrigger#triggers}
+        :param description: A description of the job trigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#description DataLossPreventionJobTrigger#description}
+        :param display_name: User set display name of the job trigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#display_name DataLossPreventionJobTrigger#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#id DataLossPreventionJobTrigger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param inspect_job: inspect_job block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#inspect_job DataLossPreventionJobTrigger#inspect_job}
+        :param status: Whether the trigger is currently active. Default value: "HEALTHY" Possible values: ["PAUSED", "HEALTHY", "CANCELLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#status DataLossPreventionJobTrigger#status}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#timeouts DataLossPreventionJobTrigger#timeouts}
+        :param trigger_id: The trigger id can contain uppercase and lowercase letters, numbers, and hyphens; that is, it must match the regular expression: [a-zA-Z\\d-_]+. The maximum length is 100 characters. Can be empty to allow the system to generate one. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#trigger_id DataLossPreventionJobTrigger#trigger_id}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -580,7 +580,7 @@ class DataLossPreventionJobTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def parent(self) -> builtins.str:
         '''The parent of the trigger, either in the format 'projects/{{project}}' or 'projects/{{project}}/locations/{{location}}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#parent DataLossPreventionJobTrigger#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#parent DataLossPreventionJobTrigger#parent}
         '''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
@@ -592,7 +592,7 @@ class DataLossPreventionJobTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerTriggers"]]:
         '''triggers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#triggers DataLossPreventionJobTrigger#triggers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#triggers DataLossPreventionJobTrigger#triggers}
         '''
         result = self._values.get("triggers")
         assert result is not None, "Required property 'triggers' is missing"
@@ -602,7 +602,7 @@ class DataLossPreventionJobTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of the job trigger.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#description DataLossPreventionJobTrigger#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#description DataLossPreventionJobTrigger#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -611,14 +611,14 @@ class DataLossPreventionJobTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def display_name(self) -> typing.Optional[builtins.str]:
         '''User set display name of the job trigger.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#display_name DataLossPreventionJobTrigger#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#display_name DataLossPreventionJobTrigger#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#id DataLossPreventionJobTrigger#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#id DataLossPreventionJobTrigger#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -630,7 +630,7 @@ class DataLossPreventionJobTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def inspect_job(self) -> typing.Optional["DataLossPreventionJobTriggerInspectJob"]:
         '''inspect_job block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#inspect_job DataLossPreventionJobTrigger#inspect_job}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#inspect_job DataLossPreventionJobTrigger#inspect_job}
         '''
         result = self._values.get("inspect_job")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJob"], result)
@@ -639,7 +639,7 @@ class DataLossPreventionJobTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def status(self) -> typing.Optional[builtins.str]:
         '''Whether the trigger is currently active. Default value: "HEALTHY" Possible values: ["PAUSED", "HEALTHY", "CANCELLED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#status DataLossPreventionJobTrigger#status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#status DataLossPreventionJobTrigger#status}
         '''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -648,7 +648,7 @@ class DataLossPreventionJobTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def timeouts(self) -> typing.Optional["DataLossPreventionJobTriggerTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#timeouts DataLossPreventionJobTrigger#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#timeouts DataLossPreventionJobTrigger#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerTimeouts"], result)
@@ -660,7 +660,7 @@ class DataLossPreventionJobTriggerConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         that is, it must match the regular expression: [a-zA-Z\\d-_]+.
         The maximum length is 100 characters. Can be empty to allow the system to generate one.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#trigger_id DataLossPreventionJobTrigger#trigger_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#trigger_id DataLossPreventionJobTrigger#trigger_id}
         '''
         result = self._values.get("trigger_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -697,10 +697,10 @@ class DataLossPreventionJobTriggerInspectJob:
         inspect_template_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param storage_config: storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#storage_config DataLossPreventionJobTrigger#storage_config}
-        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#actions DataLossPreventionJobTrigger#actions}
-        :param inspect_config: inspect_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#inspect_config DataLossPreventionJobTrigger#inspect_config}
-        :param inspect_template_name: The name of the template to run when this job is triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#inspect_template_name DataLossPreventionJobTrigger#inspect_template_name}
+        :param storage_config: storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#storage_config DataLossPreventionJobTrigger#storage_config}
+        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#actions DataLossPreventionJobTrigger#actions}
+        :param inspect_config: inspect_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#inspect_config DataLossPreventionJobTrigger#inspect_config}
+        :param inspect_template_name: The name of the template to run when this job is triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#inspect_template_name DataLossPreventionJobTrigger#inspect_template_name}
         '''
         if isinstance(storage_config, dict):
             storage_config = DataLossPreventionJobTriggerInspectJobStorageConfig(**storage_config)
@@ -726,7 +726,7 @@ class DataLossPreventionJobTriggerInspectJob:
     def storage_config(self) -> "DataLossPreventionJobTriggerInspectJobStorageConfig":
         '''storage_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#storage_config DataLossPreventionJobTrigger#storage_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#storage_config DataLossPreventionJobTrigger#storage_config}
         '''
         result = self._values.get("storage_config")
         assert result is not None, "Required property 'storage_config' is missing"
@@ -738,7 +738,7 @@ class DataLossPreventionJobTriggerInspectJob:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobActions"]]]:
         '''actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#actions DataLossPreventionJobTrigger#actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#actions DataLossPreventionJobTrigger#actions}
         '''
         result = self._values.get("actions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobActions"]]], result)
@@ -749,7 +749,7 @@ class DataLossPreventionJobTriggerInspectJob:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfig"]:
         '''inspect_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#inspect_config DataLossPreventionJobTrigger#inspect_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#inspect_config DataLossPreventionJobTrigger#inspect_config}
         '''
         result = self._values.get("inspect_config")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfig"], result)
@@ -758,7 +758,7 @@ class DataLossPreventionJobTriggerInspectJob:
     def inspect_template_name(self) -> typing.Optional[builtins.str]:
         '''The name of the template to run when this job is triggered.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#inspect_template_name DataLossPreventionJobTrigger#inspect_template_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#inspect_template_name DataLossPreventionJobTrigger#inspect_template_name}
         '''
         result = self._values.get("inspect_template_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -801,13 +801,13 @@ class DataLossPreventionJobTriggerInspectJobActions:
         save_findings: typing.Optional[typing.Union["DataLossPreventionJobTriggerInspectJobActionsSaveFindings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param deidentify: deidentify block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#deidentify DataLossPreventionJobTrigger#deidentify}
-        :param job_notification_emails: job_notification_emails block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#job_notification_emails DataLossPreventionJobTrigger#job_notification_emails}
-        :param publish_findings_to_cloud_data_catalog: publish_findings_to_cloud_data_catalog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#publish_findings_to_cloud_data_catalog DataLossPreventionJobTrigger#publish_findings_to_cloud_data_catalog}
-        :param publish_summary_to_cscc: publish_summary_to_cscc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#publish_summary_to_cscc DataLossPreventionJobTrigger#publish_summary_to_cscc}
-        :param publish_to_stackdriver: publish_to_stackdriver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#publish_to_stackdriver DataLossPreventionJobTrigger#publish_to_stackdriver}
-        :param pub_sub: pub_sub block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#pub_sub DataLossPreventionJobTrigger#pub_sub}
-        :param save_findings: save_findings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#save_findings DataLossPreventionJobTrigger#save_findings}
+        :param deidentify: deidentify block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#deidentify DataLossPreventionJobTrigger#deidentify}
+        :param job_notification_emails: job_notification_emails block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#job_notification_emails DataLossPreventionJobTrigger#job_notification_emails}
+        :param publish_findings_to_cloud_data_catalog: publish_findings_to_cloud_data_catalog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#publish_findings_to_cloud_data_catalog DataLossPreventionJobTrigger#publish_findings_to_cloud_data_catalog}
+        :param publish_summary_to_cscc: publish_summary_to_cscc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#publish_summary_to_cscc DataLossPreventionJobTrigger#publish_summary_to_cscc}
+        :param publish_to_stackdriver: publish_to_stackdriver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#publish_to_stackdriver DataLossPreventionJobTrigger#publish_to_stackdriver}
+        :param pub_sub: pub_sub block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#pub_sub DataLossPreventionJobTrigger#pub_sub}
+        :param save_findings: save_findings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#save_findings DataLossPreventionJobTrigger#save_findings}
         '''
         if isinstance(deidentify, dict):
             deidentify = DataLossPreventionJobTriggerInspectJobActionsDeidentify(**deidentify)
@@ -854,7 +854,7 @@ class DataLossPreventionJobTriggerInspectJobActions:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobActionsDeidentify"]:
         '''deidentify block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#deidentify DataLossPreventionJobTrigger#deidentify}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#deidentify DataLossPreventionJobTrigger#deidentify}
         '''
         result = self._values.get("deidentify")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobActionsDeidentify"], result)
@@ -865,7 +865,7 @@ class DataLossPreventionJobTriggerInspectJobActions:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobActionsJobNotificationEmails"]:
         '''job_notification_emails block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#job_notification_emails DataLossPreventionJobTrigger#job_notification_emails}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#job_notification_emails DataLossPreventionJobTrigger#job_notification_emails}
         '''
         result = self._values.get("job_notification_emails")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobActionsJobNotificationEmails"], result)
@@ -876,7 +876,7 @@ class DataLossPreventionJobTriggerInspectJobActions:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobActionsPublishFindingsToCloudDataCatalog"]:
         '''publish_findings_to_cloud_data_catalog block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#publish_findings_to_cloud_data_catalog DataLossPreventionJobTrigger#publish_findings_to_cloud_data_catalog}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#publish_findings_to_cloud_data_catalog DataLossPreventionJobTrigger#publish_findings_to_cloud_data_catalog}
         '''
         result = self._values.get("publish_findings_to_cloud_data_catalog")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobActionsPublishFindingsToCloudDataCatalog"], result)
@@ -887,7 +887,7 @@ class DataLossPreventionJobTriggerInspectJobActions:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobActionsPublishSummaryToCscc"]:
         '''publish_summary_to_cscc block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#publish_summary_to_cscc DataLossPreventionJobTrigger#publish_summary_to_cscc}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#publish_summary_to_cscc DataLossPreventionJobTrigger#publish_summary_to_cscc}
         '''
         result = self._values.get("publish_summary_to_cscc")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobActionsPublishSummaryToCscc"], result)
@@ -898,7 +898,7 @@ class DataLossPreventionJobTriggerInspectJobActions:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobActionsPublishToStackdriver"]:
         '''publish_to_stackdriver block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#publish_to_stackdriver DataLossPreventionJobTrigger#publish_to_stackdriver}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#publish_to_stackdriver DataLossPreventionJobTrigger#publish_to_stackdriver}
         '''
         result = self._values.get("publish_to_stackdriver")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobActionsPublishToStackdriver"], result)
@@ -909,7 +909,7 @@ class DataLossPreventionJobTriggerInspectJobActions:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobActionsPubSub"]:
         '''pub_sub block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#pub_sub DataLossPreventionJobTrigger#pub_sub}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#pub_sub DataLossPreventionJobTrigger#pub_sub}
         '''
         result = self._values.get("pub_sub")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobActionsPubSub"], result)
@@ -920,7 +920,7 @@ class DataLossPreventionJobTriggerInspectJobActions:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobActionsSaveFindings"]:
         '''save_findings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#save_findings DataLossPreventionJobTrigger#save_findings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#save_findings DataLossPreventionJobTrigger#save_findings}
         '''
         result = self._values.get("save_findings")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobActionsSaveFindings"], result)
@@ -957,10 +957,10 @@ class DataLossPreventionJobTriggerInspectJobActionsDeidentify:
         transformation_details_storage_config: typing.Optional[typing.Union["DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationDetailsStorageConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloud_storage_output: User settable Cloud Storage bucket and folders to store de-identified files. This field must be set for cloud storage deidentification. The output Cloud Storage bucket must be different from the input bucket. De-identified files will overwrite files in the output path. Form of: gs://bucket/folder/ or gs://bucket Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_output DataLossPreventionJobTrigger#cloud_storage_output}
-        :param file_types_to_transform: List of user-specified file type groups to transform. If specified, only the files with these filetypes will be transformed. If empty, all supported files will be transformed. Supported types may be automatically added over time. If a file type is set in this field that isn't supported by the Deidentify action then the job will fail and will not be successfully created/started. Possible values: ["IMAGE", "TEXT_FILE", "CSV", "TSV"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#file_types_to_transform DataLossPreventionJobTrigger#file_types_to_transform}
-        :param transformation_config: transformation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#transformation_config DataLossPreventionJobTrigger#transformation_config}
-        :param transformation_details_storage_config: transformation_details_storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#transformation_details_storage_config DataLossPreventionJobTrigger#transformation_details_storage_config}
+        :param cloud_storage_output: User settable Cloud Storage bucket and folders to store de-identified files. This field must be set for cloud storage deidentification. The output Cloud Storage bucket must be different from the input bucket. De-identified files will overwrite files in the output path. Form of: gs://bucket/folder/ or gs://bucket Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_output DataLossPreventionJobTrigger#cloud_storage_output}
+        :param file_types_to_transform: List of user-specified file type groups to transform. If specified, only the files with these filetypes will be transformed. If empty, all supported files will be transformed. Supported types may be automatically added over time. If a file type is set in this field that isn't supported by the Deidentify action then the job will fail and will not be successfully created/started. Possible values: ["IMAGE", "TEXT_FILE", "CSV", "TSV"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#file_types_to_transform DataLossPreventionJobTrigger#file_types_to_transform}
+        :param transformation_config: transformation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#transformation_config DataLossPreventionJobTrigger#transformation_config}
+        :param transformation_details_storage_config: transformation_details_storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#transformation_details_storage_config DataLossPreventionJobTrigger#transformation_details_storage_config}
         '''
         if isinstance(transformation_config, dict):
             transformation_config = DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationConfig(**transformation_config)
@@ -994,7 +994,7 @@ class DataLossPreventionJobTriggerInspectJobActionsDeidentify:
 
         Form of: gs://bucket/folder/ or gs://bucket
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_output DataLossPreventionJobTrigger#cloud_storage_output}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_output DataLossPreventionJobTrigger#cloud_storage_output}
         '''
         result = self._values.get("cloud_storage_output")
         assert result is not None, "Required property 'cloud_storage_output' is missing"
@@ -1008,7 +1008,7 @@ class DataLossPreventionJobTriggerInspectJobActionsDeidentify:
 
         If a file type is set in this field that isn't supported by the Deidentify action then the job will fail and will not be successfully created/started. Possible values: ["IMAGE", "TEXT_FILE", "CSV", "TSV"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#file_types_to_transform DataLossPreventionJobTrigger#file_types_to_transform}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#file_types_to_transform DataLossPreventionJobTrigger#file_types_to_transform}
         '''
         result = self._values.get("file_types_to_transform")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1019,7 +1019,7 @@ class DataLossPreventionJobTriggerInspectJobActionsDeidentify:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationConfig"]:
         '''transformation_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#transformation_config DataLossPreventionJobTrigger#transformation_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#transformation_config DataLossPreventionJobTrigger#transformation_config}
         '''
         result = self._values.get("transformation_config")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationConfig"], result)
@@ -1030,7 +1030,7 @@ class DataLossPreventionJobTriggerInspectJobActionsDeidentify:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationDetailsStorageConfig"]:
         '''transformation_details_storage_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#transformation_details_storage_config DataLossPreventionJobTrigger#transformation_details_storage_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#transformation_details_storage_config DataLossPreventionJobTrigger#transformation_details_storage_config}
         '''
         result = self._values.get("transformation_details_storage_config")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationDetailsStorageConfig"], result)
@@ -1076,9 +1076,9 @@ class DataLossPreventionJobTriggerInspectJobActionsDeidentifyOutputReference(
         structured_deidentify_template: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param deidentify_template: If this template is specified, it will serve as the default de-identify template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#deidentify_template DataLossPreventionJobTrigger#deidentify_template}
-        :param image_redact_template: If this template is specified, it will serve as the de-identify template for images. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#image_redact_template DataLossPreventionJobTrigger#image_redact_template}
-        :param structured_deidentify_template: If this template is specified, it will serve as the de-identify template for structured content such as delimited files and tables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#structured_deidentify_template DataLossPreventionJobTrigger#structured_deidentify_template}
+        :param deidentify_template: If this template is specified, it will serve as the default de-identify template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#deidentify_template DataLossPreventionJobTrigger#deidentify_template}
+        :param image_redact_template: If this template is specified, it will serve as the de-identify template for images. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#image_redact_template DataLossPreventionJobTrigger#image_redact_template}
+        :param structured_deidentify_template: If this template is specified, it will serve as the de-identify template for structured content such as delimited files and tables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#structured_deidentify_template DataLossPreventionJobTrigger#structured_deidentify_template}
         '''
         value = DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationConfig(
             deidentify_template=deidentify_template,
@@ -1095,7 +1095,7 @@ class DataLossPreventionJobTriggerInspectJobActionsDeidentifyOutputReference(
         table: typing.Union["DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationDetailsStorageConfigTable", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param table: table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table DataLossPreventionJobTrigger#table}
+        :param table: table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table DataLossPreventionJobTrigger#table}
         '''
         value = DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationDetailsStorageConfig(
             table=table
@@ -1215,9 +1215,9 @@ class DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationConfi
         structured_deidentify_template: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param deidentify_template: If this template is specified, it will serve as the default de-identify template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#deidentify_template DataLossPreventionJobTrigger#deidentify_template}
-        :param image_redact_template: If this template is specified, it will serve as the de-identify template for images. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#image_redact_template DataLossPreventionJobTrigger#image_redact_template}
-        :param structured_deidentify_template: If this template is specified, it will serve as the de-identify template for structured content such as delimited files and tables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#structured_deidentify_template DataLossPreventionJobTrigger#structured_deidentify_template}
+        :param deidentify_template: If this template is specified, it will serve as the default de-identify template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#deidentify_template DataLossPreventionJobTrigger#deidentify_template}
+        :param image_redact_template: If this template is specified, it will serve as the de-identify template for images. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#image_redact_template DataLossPreventionJobTrigger#image_redact_template}
+        :param structured_deidentify_template: If this template is specified, it will serve as the de-identify template for structured content such as delimited files and tables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#structured_deidentify_template DataLossPreventionJobTrigger#structured_deidentify_template}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cf38e329e3b87997c12dfd2097a8dd5b2cf9462529037b97cbc6b23fd2544106)
@@ -1236,7 +1236,7 @@ class DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationConfi
     def deidentify_template(self) -> typing.Optional[builtins.str]:
         '''If this template is specified, it will serve as the default de-identify template.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#deidentify_template DataLossPreventionJobTrigger#deidentify_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#deidentify_template DataLossPreventionJobTrigger#deidentify_template}
         '''
         result = self._values.get("deidentify_template")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1245,7 +1245,7 @@ class DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationConfi
     def image_redact_template(self) -> typing.Optional[builtins.str]:
         '''If this template is specified, it will serve as the de-identify template for images.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#image_redact_template DataLossPreventionJobTrigger#image_redact_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#image_redact_template DataLossPreventionJobTrigger#image_redact_template}
         '''
         result = self._values.get("image_redact_template")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1254,7 +1254,7 @@ class DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationConfi
     def structured_deidentify_template(self) -> typing.Optional[builtins.str]:
         '''If this template is specified, it will serve as the de-identify template for structured content such as delimited files and tables.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#structured_deidentify_template DataLossPreventionJobTrigger#structured_deidentify_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#structured_deidentify_template DataLossPreventionJobTrigger#structured_deidentify_template}
         '''
         result = self._values.get("structured_deidentify_template")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1384,7 +1384,7 @@ class DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationDetai
         table: typing.Union["DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationDetailsStorageConfigTable", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param table: table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table DataLossPreventionJobTrigger#table}
+        :param table: table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table DataLossPreventionJobTrigger#table}
         '''
         if isinstance(table, dict):
             table = DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationDetailsStorageConfigTable(**table)
@@ -1401,7 +1401,7 @@ class DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationDetai
     ) -> "DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationDetailsStorageConfigTable":
         '''table block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table DataLossPreventionJobTrigger#table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table DataLossPreventionJobTrigger#table}
         '''
         result = self._values.get("table")
         assert result is not None, "Required property 'table' is missing"
@@ -1448,9 +1448,9 @@ class DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationDetai
         table_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#dataset_id DataLossPreventionJobTrigger#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
-        :param table_id: The ID of the table. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 1,024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table_id DataLossPreventionJobTrigger#table_id}
+        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#dataset_id DataLossPreventionJobTrigger#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
+        :param table_id: The ID of the table. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 1,024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table_id DataLossPreventionJobTrigger#table_id}
         '''
         value = DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationDetailsStorageConfigTable(
             dataset_id=dataset_id, project_id=project_id, table_id=table_id
@@ -1508,9 +1508,9 @@ class DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationDetai
         table_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#dataset_id DataLossPreventionJobTrigger#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
-        :param table_id: The ID of the table. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 1,024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table_id DataLossPreventionJobTrigger#table_id}
+        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#dataset_id DataLossPreventionJobTrigger#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
+        :param table_id: The ID of the table. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 1,024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table_id DataLossPreventionJobTrigger#table_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d322a4f5e596feb12a11c86899606683e443fa0ffdd8d709d5412f7b2bf1183f)
@@ -1528,7 +1528,7 @@ class DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationDetai
     def dataset_id(self) -> builtins.str:
         '''The ID of the dataset containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#dataset_id DataLossPreventionJobTrigger#dataset_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#dataset_id DataLossPreventionJobTrigger#dataset_id}
         '''
         result = self._values.get("dataset_id")
         assert result is not None, "Required property 'dataset_id' is missing"
@@ -1538,7 +1538,7 @@ class DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationDetai
     def project_id(self) -> builtins.str:
         '''The ID of the project containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
         '''
         result = self._values.get("project_id")
         assert result is not None, "Required property 'project_id' is missing"
@@ -1552,7 +1552,7 @@ class DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationDetai
         A-Z), numbers (0-9), or underscores (_). The maximum length
         is 1,024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table_id DataLossPreventionJobTrigger#table_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table_id DataLossPreventionJobTrigger#table_id}
         '''
         result = self._values.get("table_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1850,10 +1850,10 @@ class DataLossPreventionJobTriggerInspectJobActionsOutputReference(
         transformation_details_storage_config: typing.Optional[typing.Union[DataLossPreventionJobTriggerInspectJobActionsDeidentifyTransformationDetailsStorageConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloud_storage_output: User settable Cloud Storage bucket and folders to store de-identified files. This field must be set for cloud storage deidentification. The output Cloud Storage bucket must be different from the input bucket. De-identified files will overwrite files in the output path. Form of: gs://bucket/folder/ or gs://bucket Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_output DataLossPreventionJobTrigger#cloud_storage_output}
-        :param file_types_to_transform: List of user-specified file type groups to transform. If specified, only the files with these filetypes will be transformed. If empty, all supported files will be transformed. Supported types may be automatically added over time. If a file type is set in this field that isn't supported by the Deidentify action then the job will fail and will not be successfully created/started. Possible values: ["IMAGE", "TEXT_FILE", "CSV", "TSV"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#file_types_to_transform DataLossPreventionJobTrigger#file_types_to_transform}
-        :param transformation_config: transformation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#transformation_config DataLossPreventionJobTrigger#transformation_config}
-        :param transformation_details_storage_config: transformation_details_storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#transformation_details_storage_config DataLossPreventionJobTrigger#transformation_details_storage_config}
+        :param cloud_storage_output: User settable Cloud Storage bucket and folders to store de-identified files. This field must be set for cloud storage deidentification. The output Cloud Storage bucket must be different from the input bucket. De-identified files will overwrite files in the output path. Form of: gs://bucket/folder/ or gs://bucket Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_output DataLossPreventionJobTrigger#cloud_storage_output}
+        :param file_types_to_transform: List of user-specified file type groups to transform. If specified, only the files with these filetypes will be transformed. If empty, all supported files will be transformed. Supported types may be automatically added over time. If a file type is set in this field that isn't supported by the Deidentify action then the job will fail and will not be successfully created/started. Possible values: ["IMAGE", "TEXT_FILE", "CSV", "TSV"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#file_types_to_transform DataLossPreventionJobTrigger#file_types_to_transform}
+        :param transformation_config: transformation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#transformation_config DataLossPreventionJobTrigger#transformation_config}
+        :param transformation_details_storage_config: transformation_details_storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#transformation_details_storage_config DataLossPreventionJobTrigger#transformation_details_storage_config}
         '''
         value = DataLossPreventionJobTriggerInspectJobActionsDeidentify(
             cloud_storage_output=cloud_storage_output,
@@ -1891,7 +1891,7 @@ class DataLossPreventionJobTriggerInspectJobActionsOutputReference(
     @jsii.member(jsii_name="putPubSub")
     def put_pub_sub(self, *, topic: builtins.str) -> None:
         '''
-        :param topic: Cloud Pub/Sub topic to send notifications to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#topic DataLossPreventionJobTrigger#topic}
+        :param topic: Cloud Pub/Sub topic to send notifications to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#topic DataLossPreventionJobTrigger#topic}
         '''
         value = DataLossPreventionJobTriggerInspectJobActionsPubSub(topic=topic)
 
@@ -1904,7 +1904,7 @@ class DataLossPreventionJobTriggerInspectJobActionsOutputReference(
         output_config: typing.Union["DataLossPreventionJobTriggerInspectJobActionsSaveFindingsOutputConfig", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param output_config: output_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#output_config DataLossPreventionJobTrigger#output_config}
+        :param output_config: output_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#output_config DataLossPreventionJobTrigger#output_config}
         '''
         value = DataLossPreventionJobTriggerInspectJobActionsSaveFindings(
             output_config=output_config
@@ -2064,7 +2064,7 @@ class DataLossPreventionJobTriggerInspectJobActionsOutputReference(
 class DataLossPreventionJobTriggerInspectJobActionsPubSub:
     def __init__(self, *, topic: builtins.str) -> None:
         '''
-        :param topic: Cloud Pub/Sub topic to send notifications to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#topic DataLossPreventionJobTrigger#topic}
+        :param topic: Cloud Pub/Sub topic to send notifications to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#topic DataLossPreventionJobTrigger#topic}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e10399479716dc20e9f0772fe8ce418e4e7f69d64947bb29390ec99360ac3b8e)
@@ -2077,7 +2077,7 @@ class DataLossPreventionJobTriggerInspectJobActionsPubSub:
     def topic(self) -> builtins.str:
         '''Cloud Pub/Sub topic to send notifications to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#topic DataLossPreventionJobTrigger#topic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#topic DataLossPreventionJobTrigger#topic}
         '''
         result = self._values.get("topic")
         assert result is not None, "Required property 'topic' is missing"
@@ -2339,7 +2339,7 @@ class DataLossPreventionJobTriggerInspectJobActionsSaveFindings:
         output_config: typing.Union["DataLossPreventionJobTriggerInspectJobActionsSaveFindingsOutputConfig", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param output_config: output_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#output_config DataLossPreventionJobTrigger#output_config}
+        :param output_config: output_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#output_config DataLossPreventionJobTrigger#output_config}
         '''
         if isinstance(output_config, dict):
             output_config = DataLossPreventionJobTriggerInspectJobActionsSaveFindingsOutputConfig(**output_config)
@@ -2356,7 +2356,7 @@ class DataLossPreventionJobTriggerInspectJobActionsSaveFindings:
     ) -> "DataLossPreventionJobTriggerInspectJobActionsSaveFindingsOutputConfig":
         '''output_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#output_config DataLossPreventionJobTrigger#output_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#output_config DataLossPreventionJobTrigger#output_config}
         '''
         result = self._values.get("output_config")
         assert result is not None, "Required property 'output_config' is missing"
@@ -2387,8 +2387,8 @@ class DataLossPreventionJobTriggerInspectJobActionsSaveFindingsOutputConfig:
         output_schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param table: table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table DataLossPreventionJobTrigger#table}
-        :param output_schema: Schema used for writing the findings for Inspect jobs. This field is only used for Inspect and must be unspecified for Risk jobs. Columns are derived from the Finding object. If appending to an existing table, any columns from the predefined schema that are missing will be added. No columns in the existing table will be deleted. If unspecified, then all available columns will be used for a new table or an (existing) table with no schema, and no changes will be made to an existing table that has a schema. Only for use with external storage. Possible values: ["BASIC_COLUMNS", "GCS_COLUMNS", "DATASTORE_COLUMNS", "BIG_QUERY_COLUMNS", "ALL_COLUMNS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#output_schema DataLossPreventionJobTrigger#output_schema}
+        :param table: table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table DataLossPreventionJobTrigger#table}
+        :param output_schema: Schema used for writing the findings for Inspect jobs. This field is only used for Inspect and must be unspecified for Risk jobs. Columns are derived from the Finding object. If appending to an existing table, any columns from the predefined schema that are missing will be added. No columns in the existing table will be deleted. If unspecified, then all available columns will be used for a new table or an (existing) table with no schema, and no changes will be made to an existing table that has a schema. Only for use with external storage. Possible values: ["BASIC_COLUMNS", "GCS_COLUMNS", "DATASTORE_COLUMNS", "BIG_QUERY_COLUMNS", "ALL_COLUMNS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#output_schema DataLossPreventionJobTrigger#output_schema}
         '''
         if isinstance(table, dict):
             table = DataLossPreventionJobTriggerInspectJobActionsSaveFindingsOutputConfigTable(**table)
@@ -2408,7 +2408,7 @@ class DataLossPreventionJobTriggerInspectJobActionsSaveFindingsOutputConfig:
     ) -> "DataLossPreventionJobTriggerInspectJobActionsSaveFindingsOutputConfigTable":
         '''table block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table DataLossPreventionJobTrigger#table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table DataLossPreventionJobTrigger#table}
         '''
         result = self._values.get("table")
         assert result is not None, "Required property 'table' is missing"
@@ -2427,7 +2427,7 @@ class DataLossPreventionJobTriggerInspectJobActionsSaveFindingsOutputConfig:
         table with no schema, and no changes will be made to an existing table that has a schema.
         Only for use with external storage. Possible values: ["BASIC_COLUMNS", "GCS_COLUMNS", "DATASTORE_COLUMNS", "BIG_QUERY_COLUMNS", "ALL_COLUMNS"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#output_schema DataLossPreventionJobTrigger#output_schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#output_schema DataLossPreventionJobTrigger#output_schema}
         '''
         result = self._values.get("output_schema")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2473,9 +2473,9 @@ class DataLossPreventionJobTriggerInspectJobActionsSaveFindingsOutputConfigOutpu
         table_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataset_id: Dataset ID of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#dataset_id DataLossPreventionJobTrigger#dataset_id}
-        :param project_id: The Google Cloud Platform project ID of the project containing the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
-        :param table_id: Name of the table. If is not set a new one will be generated for you with the following format: 'dlp_googleapis_yyyy_mm_dd_[dlp_job_id]'. Pacific timezone will be used for generating the date details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table_id DataLossPreventionJobTrigger#table_id}
+        :param dataset_id: Dataset ID of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#dataset_id DataLossPreventionJobTrigger#dataset_id}
+        :param project_id: The Google Cloud Platform project ID of the project containing the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
+        :param table_id: Name of the table. If is not set a new one will be generated for you with the following format: 'dlp_googleapis_yyyy_mm_dd_[dlp_job_id]'. Pacific timezone will be used for generating the date details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table_id DataLossPreventionJobTrigger#table_id}
         '''
         value = DataLossPreventionJobTriggerInspectJobActionsSaveFindingsOutputConfigTable(
             dataset_id=dataset_id, project_id=project_id, table_id=table_id
@@ -2554,9 +2554,9 @@ class DataLossPreventionJobTriggerInspectJobActionsSaveFindingsOutputConfigTable
         table_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataset_id: Dataset ID of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#dataset_id DataLossPreventionJobTrigger#dataset_id}
-        :param project_id: The Google Cloud Platform project ID of the project containing the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
-        :param table_id: Name of the table. If is not set a new one will be generated for you with the following format: 'dlp_googleapis_yyyy_mm_dd_[dlp_job_id]'. Pacific timezone will be used for generating the date details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table_id DataLossPreventionJobTrigger#table_id}
+        :param dataset_id: Dataset ID of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#dataset_id DataLossPreventionJobTrigger#dataset_id}
+        :param project_id: The Google Cloud Platform project ID of the project containing the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
+        :param table_id: Name of the table. If is not set a new one will be generated for you with the following format: 'dlp_googleapis_yyyy_mm_dd_[dlp_job_id]'. Pacific timezone will be used for generating the date details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table_id DataLossPreventionJobTrigger#table_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7fadde11ebc41936b614223ce3e252c36eb5fef6253ec2cb325a482c5139b959)
@@ -2574,7 +2574,7 @@ class DataLossPreventionJobTriggerInspectJobActionsSaveFindingsOutputConfigTable
     def dataset_id(self) -> builtins.str:
         '''Dataset ID of the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#dataset_id DataLossPreventionJobTrigger#dataset_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#dataset_id DataLossPreventionJobTrigger#dataset_id}
         '''
         result = self._values.get("dataset_id")
         assert result is not None, "Required property 'dataset_id' is missing"
@@ -2584,7 +2584,7 @@ class DataLossPreventionJobTriggerInspectJobActionsSaveFindingsOutputConfigTable
     def project_id(self) -> builtins.str:
         '''The Google Cloud Platform project ID of the project containing the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
         '''
         result = self._values.get("project_id")
         assert result is not None, "Required property 'project_id' is missing"
@@ -2597,7 +2597,7 @@ class DataLossPreventionJobTriggerInspectJobActionsSaveFindingsOutputConfigTable
         If is not set a new one will be generated for you with the following format:
         'dlp_googleapis_yyyy_mm_dd_[dlp_job_id]'. Pacific timezone will be used for generating the date details.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table_id DataLossPreventionJobTrigger#table_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table_id DataLossPreventionJobTrigger#table_id}
         '''
         result = self._values.get("table_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2735,8 +2735,8 @@ class DataLossPreventionJobTriggerInspectJobActionsSaveFindingsOutputReference(
         output_schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param table: table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table DataLossPreventionJobTrigger#table}
-        :param output_schema: Schema used for writing the findings for Inspect jobs. This field is only used for Inspect and must be unspecified for Risk jobs. Columns are derived from the Finding object. If appending to an existing table, any columns from the predefined schema that are missing will be added. No columns in the existing table will be deleted. If unspecified, then all available columns will be used for a new table or an (existing) table with no schema, and no changes will be made to an existing table that has a schema. Only for use with external storage. Possible values: ["BASIC_COLUMNS", "GCS_COLUMNS", "DATASTORE_COLUMNS", "BIG_QUERY_COLUMNS", "ALL_COLUMNS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#output_schema DataLossPreventionJobTrigger#output_schema}
+        :param table: table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table DataLossPreventionJobTrigger#table}
+        :param output_schema: Schema used for writing the findings for Inspect jobs. This field is only used for Inspect and must be unspecified for Risk jobs. Columns are derived from the Finding object. If appending to an existing table, any columns from the predefined schema that are missing will be added. No columns in the existing table will be deleted. If unspecified, then all available columns will be used for a new table or an (existing) table with no schema, and no changes will be made to an existing table that has a schema. Only for use with external storage. Possible values: ["BASIC_COLUMNS", "GCS_COLUMNS", "DATASTORE_COLUMNS", "BIG_QUERY_COLUMNS", "ALL_COLUMNS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#output_schema DataLossPreventionJobTrigger#output_schema}
         '''
         value = DataLossPreventionJobTriggerInspectJobActionsSaveFindingsOutputConfig(
             table=table, output_schema=output_schema
@@ -2802,13 +2802,13 @@ class DataLossPreventionJobTriggerInspectJobInspectConfig:
         rule_set: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSet", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_info_types: custom_info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#custom_info_types DataLossPreventionJobTrigger#custom_info_types}
-        :param exclude_info_types: When true, excludes type information of the findings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#exclude_info_types DataLossPreventionJobTrigger#exclude_info_types}
-        :param include_quote: When true, a contextual quote from the data that triggered a finding is included in the response. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#include_quote DataLossPreventionJobTrigger#include_quote}
-        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#info_types DataLossPreventionJobTrigger#info_types}
-        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#limits DataLossPreventionJobTrigger#limits}
-        :param min_likelihood: Only returns findings equal or above this threshold. See https://cloud.google.com/dlp/docs/likelihood for more info Default value: "POSSIBLE" Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#min_likelihood DataLossPreventionJobTrigger#min_likelihood}
-        :param rule_set: rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#rule_set DataLossPreventionJobTrigger#rule_set}
+        :param custom_info_types: custom_info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#custom_info_types DataLossPreventionJobTrigger#custom_info_types}
+        :param exclude_info_types: When true, excludes type information of the findings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#exclude_info_types DataLossPreventionJobTrigger#exclude_info_types}
+        :param include_quote: When true, a contextual quote from the data that triggered a finding is included in the response. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#include_quote DataLossPreventionJobTrigger#include_quote}
+        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#info_types DataLossPreventionJobTrigger#info_types}
+        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#limits DataLossPreventionJobTrigger#limits}
+        :param min_likelihood: Only returns findings equal or above this threshold. See https://cloud.google.com/dlp/docs/likelihood for more info Default value: "POSSIBLE" Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#min_likelihood DataLossPreventionJobTrigger#min_likelihood}
+        :param rule_set: rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#rule_set DataLossPreventionJobTrigger#rule_set}
         '''
         if isinstance(limits, dict):
             limits = DataLossPreventionJobTriggerInspectJobInspectConfigLimits(**limits)
@@ -2843,7 +2843,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypes"]]]:
         '''custom_info_types block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#custom_info_types DataLossPreventionJobTrigger#custom_info_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#custom_info_types DataLossPreventionJobTrigger#custom_info_types}
         '''
         result = self._values.get("custom_info_types")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypes"]]], result)
@@ -2854,7 +2854,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When true, excludes type information of the findings.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#exclude_info_types DataLossPreventionJobTrigger#exclude_info_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#exclude_info_types DataLossPreventionJobTrigger#exclude_info_types}
         '''
         result = self._values.get("exclude_info_types")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2865,7 +2865,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When true, a contextual quote from the data that triggered a finding is included in the response.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#include_quote DataLossPreventionJobTrigger#include_quote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#include_quote DataLossPreventionJobTrigger#include_quote}
         '''
         result = self._values.get("include_quote")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2876,7 +2876,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobInspectConfigInfoTypes"]]]:
         '''info_types block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#info_types DataLossPreventionJobTrigger#info_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#info_types DataLossPreventionJobTrigger#info_types}
         '''
         result = self._values.get("info_types")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobInspectConfigInfoTypes"]]], result)
@@ -2887,7 +2887,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfig:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigLimits"]:
         '''limits block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#limits DataLossPreventionJobTrigger#limits}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#limits DataLossPreventionJobTrigger#limits}
         '''
         result = self._values.get("limits")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigLimits"], result)
@@ -2898,7 +2898,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfig:
 
         See https://cloud.google.com/dlp/docs/likelihood for more info Default value: "POSSIBLE" Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#min_likelihood DataLossPreventionJobTrigger#min_likelihood}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#min_likelihood DataLossPreventionJobTrigger#min_likelihood}
         '''
         result = self._values.get("min_likelihood")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2909,7 +2909,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSet"]]]:
         '''rule_set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#rule_set DataLossPreventionJobTrigger#rule_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#rule_set DataLossPreventionJobTrigger#rule_set}
         '''
         result = self._values.get("rule_set")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSet"]]], result)
@@ -2954,14 +2954,14 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypes:
         surrogate_type: typing.Optional[typing.Union["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesSurrogateType", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param info_type: info_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#info_type DataLossPreventionJobTrigger#info_type}
-        :param dictionary: dictionary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#dictionary DataLossPreventionJobTrigger#dictionary}
-        :param exclusion_type: If set to EXCLUSION_TYPE_EXCLUDE this infoType will not cause a finding to be returned. It still can be used for rules matching. Possible values: ["EXCLUSION_TYPE_EXCLUDE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#exclusion_type DataLossPreventionJobTrigger#exclusion_type}
-        :param likelihood: Likelihood to return for this CustomInfoType. This base value can be altered by a detection rule if the finding meets the criteria specified by the rule. Default value: "VERY_LIKELY" Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#likelihood DataLossPreventionJobTrigger#likelihood}
-        :param regex: regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#regex DataLossPreventionJobTrigger#regex}
-        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
-        :param stored_type: stored_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#stored_type DataLossPreventionJobTrigger#stored_type}
-        :param surrogate_type: surrogate_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#surrogate_type DataLossPreventionJobTrigger#surrogate_type}
+        :param info_type: info_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#info_type DataLossPreventionJobTrigger#info_type}
+        :param dictionary: dictionary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#dictionary DataLossPreventionJobTrigger#dictionary}
+        :param exclusion_type: If set to EXCLUSION_TYPE_EXCLUDE this infoType will not cause a finding to be returned. It still can be used for rules matching. Possible values: ["EXCLUSION_TYPE_EXCLUDE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#exclusion_type DataLossPreventionJobTrigger#exclusion_type}
+        :param likelihood: Likelihood to return for this CustomInfoType. This base value can be altered by a detection rule if the finding meets the criteria specified by the rule. Default value: "VERY_LIKELY" Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#likelihood DataLossPreventionJobTrigger#likelihood}
+        :param regex: regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#regex DataLossPreventionJobTrigger#regex}
+        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
+        :param stored_type: stored_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#stored_type DataLossPreventionJobTrigger#stored_type}
+        :param surrogate_type: surrogate_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#surrogate_type DataLossPreventionJobTrigger#surrogate_type}
         '''
         if isinstance(info_type, dict):
             info_type = DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesInfoType(**info_type)
@@ -3009,7 +3009,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypes:
     ) -> "DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesInfoType":
         '''info_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#info_type DataLossPreventionJobTrigger#info_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#info_type DataLossPreventionJobTrigger#info_type}
         '''
         result = self._values.get("info_type")
         assert result is not None, "Required property 'info_type' is missing"
@@ -3021,7 +3021,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypes:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictionary"]:
         '''dictionary block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#dictionary DataLossPreventionJobTrigger#dictionary}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#dictionary DataLossPreventionJobTrigger#dictionary}
         '''
         result = self._values.get("dictionary")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictionary"], result)
@@ -3032,7 +3032,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypes:
 
         It still can be used for rules matching. Possible values: ["EXCLUSION_TYPE_EXCLUDE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#exclusion_type DataLossPreventionJobTrigger#exclusion_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#exclusion_type DataLossPreventionJobTrigger#exclusion_type}
         '''
         result = self._values.get("exclusion_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3044,7 +3044,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypes:
         This base value can be altered by a detection rule if the finding meets the criteria
         specified by the rule. Default value: "VERY_LIKELY" Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#likelihood DataLossPreventionJobTrigger#likelihood}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#likelihood DataLossPreventionJobTrigger#likelihood}
         '''
         result = self._values.get("likelihood")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3055,7 +3055,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypes:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesRegex"]:
         '''regex block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#regex DataLossPreventionJobTrigger#regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#regex DataLossPreventionJobTrigger#regex}
         '''
         result = self._values.get("regex")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesRegex"], result)
@@ -3066,7 +3066,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypes:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesSensitivityScore"]:
         '''sensitivity_score block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
         '''
         result = self._values.get("sensitivity_score")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesSensitivityScore"], result)
@@ -3077,7 +3077,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypes:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesStoredType"]:
         '''stored_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#stored_type DataLossPreventionJobTrigger#stored_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#stored_type DataLossPreventionJobTrigger#stored_type}
         '''
         result = self._values.get("stored_type")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesStoredType"], result)
@@ -3088,7 +3088,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypes:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesSurrogateType"]:
         '''surrogate_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#surrogate_type DataLossPreventionJobTrigger#surrogate_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#surrogate_type DataLossPreventionJobTrigger#surrogate_type}
         '''
         result = self._values.get("surrogate_type")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesSurrogateType"], result)
@@ -3118,8 +3118,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictiona
         word_list: typing.Optional[typing.Union["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictionaryWordListStruct", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloud_storage_path: cloud_storage_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_path DataLossPreventionJobTrigger#cloud_storage_path}
-        :param word_list: word_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#word_list DataLossPreventionJobTrigger#word_list}
+        :param cloud_storage_path: cloud_storage_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_path DataLossPreventionJobTrigger#cloud_storage_path}
+        :param word_list: word_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#word_list DataLossPreventionJobTrigger#word_list}
         '''
         if isinstance(cloud_storage_path, dict):
             cloud_storage_path = DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictionaryCloudStoragePath(**cloud_storage_path)
@@ -3141,7 +3141,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictiona
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictionaryCloudStoragePath"]:
         '''cloud_storage_path block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_path DataLossPreventionJobTrigger#cloud_storage_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_path DataLossPreventionJobTrigger#cloud_storage_path}
         '''
         result = self._values.get("cloud_storage_path")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictionaryCloudStoragePath"], result)
@@ -3152,7 +3152,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictiona
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictionaryWordListStruct"]:
         '''word_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#word_list DataLossPreventionJobTrigger#word_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#word_list DataLossPreventionJobTrigger#word_list}
         '''
         result = self._values.get("word_list")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictionaryWordListStruct"], result)
@@ -3177,7 +3177,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictiona
 class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictionaryCloudStoragePath:
     def __init__(self, *, path: builtins.str) -> None:
         '''
-        :param path: A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#path DataLossPreventionJobTrigger#path}
+        :param path: A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#path DataLossPreventionJobTrigger#path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__509c561e2e00962deb67c2c6242246b623eba48d9697e26b33f7c400e77ccb9d)
@@ -3190,7 +3190,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictiona
     def path(self) -> builtins.str:
         '''A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#path DataLossPreventionJobTrigger#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#path DataLossPreventionJobTrigger#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -3286,7 +3286,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictiona
     @jsii.member(jsii_name="putCloudStoragePath")
     def put_cloud_storage_path(self, *, path: builtins.str) -> None:
         '''
-        :param path: A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#path DataLossPreventionJobTrigger#path}
+        :param path: A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#path DataLossPreventionJobTrigger#path}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictionaryCloudStoragePath(
             path=path
@@ -3297,7 +3297,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictiona
     @jsii.member(jsii_name="putWordList")
     def put_word_list(self, *, words: typing.Sequence[builtins.str]) -> None:
         '''
-        :param words: Words or phrases defining the dictionary. The dictionary must contain at least one phrase and every phrase must contain at least 2 characters that are letters or digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#words DataLossPreventionJobTrigger#words}
+        :param words: Words or phrases defining the dictionary. The dictionary must contain at least one phrase and every phrase must contain at least 2 characters that are letters or digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#words DataLossPreventionJobTrigger#words}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictionaryWordListStruct(
             words=words
@@ -3367,7 +3367,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictiona
 class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictionaryWordListStruct:
     def __init__(self, *, words: typing.Sequence[builtins.str]) -> None:
         '''
-        :param words: Words or phrases defining the dictionary. The dictionary must contain at least one phrase and every phrase must contain at least 2 characters that are letters or digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#words DataLossPreventionJobTrigger#words}
+        :param words: Words or phrases defining the dictionary. The dictionary must contain at least one phrase and every phrase must contain at least 2 characters that are letters or digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#words DataLossPreventionJobTrigger#words}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__45e93939b41a3e56fad19a18a89c16496cad975f645aa8653a03e1d0acce6c6a)
@@ -3383,7 +3383,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictiona
         The dictionary must contain at least one
         phrase and every phrase must contain at least 2 characters that are letters or digits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#words DataLossPreventionJobTrigger#words}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#words DataLossPreventionJobTrigger#words}
         '''
         result = self._values.get("words")
         assert result is not None, "Required property 'words' is missing"
@@ -3474,9 +3474,9 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesInfoType
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
-        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
-        :param version: Version of the information type to use. By default, the version is set to stable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
+        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
+        :param version: Version of the information type to use. By default, the version is set to stable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
         '''
         if isinstance(sensitivity_score, dict):
             sensitivity_score = DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesInfoTypeSensitivityScore(**sensitivity_score)
@@ -3500,7 +3500,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesInfoType
         Either a name of your choosing when creating a CustomInfoType, or one of the names
         listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -3512,7 +3512,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesInfoType
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesInfoTypeSensitivityScore"]:
         '''sensitivity_score block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
         '''
         result = self._values.get("sensitivity_score")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesInfoTypeSensitivityScore"], result)
@@ -3521,7 +3521,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesInfoType
     def version(self) -> typing.Optional[builtins.str]:
         '''Version of the information type to use. By default, the version is set to stable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3561,7 +3561,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesInfoType
     @jsii.member(jsii_name="putSensitivityScore")
     def put_sensitivity_score(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesInfoTypeSensitivityScore(
             score=score
@@ -3651,7 +3651,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesInfoType
 class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesInfoTypeSensitivityScore:
     def __init__(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e1434bf435d60f06813f89b3bba8dda5a68b830fc95d2968b22fe7018ff09d24)
@@ -3664,7 +3664,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesInfoType
     def score(self) -> builtins.str:
         '''The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
         '''
         result = self._values.get("score")
         assert result is not None, "Required property 'score' is missing"
@@ -3864,8 +3864,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesOutputRe
         word_list: typing.Optional[typing.Union[DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictionaryWordListStruct, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloud_storage_path: cloud_storage_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_path DataLossPreventionJobTrigger#cloud_storage_path}
-        :param word_list: word_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#word_list DataLossPreventionJobTrigger#word_list}
+        :param cloud_storage_path: cloud_storage_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_path DataLossPreventionJobTrigger#cloud_storage_path}
+        :param word_list: word_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#word_list DataLossPreventionJobTrigger#word_list}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesDictionary(
             cloud_storage_path=cloud_storage_path, word_list=word_list
@@ -3882,9 +3882,9 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesOutputRe
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
-        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
-        :param version: Version of the information type to use. By default, the version is set to stable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
+        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
+        :param version: Version of the information type to use. By default, the version is set to stable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesInfoType(
             name=name, sensitivity_score=sensitivity_score, version=version
@@ -3900,8 +3900,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesOutputRe
         group_indexes: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
-        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
+        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
+        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesRegex(
             pattern=pattern, group_indexes=group_indexes
@@ -3912,7 +3912,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesOutputRe
     @jsii.member(jsii_name="putSensitivityScore")
     def put_sensitivity_score(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesSensitivityScore(
             score=score
@@ -3923,7 +3923,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesOutputRe
     @jsii.member(jsii_name="putStoredType")
     def put_stored_type(self, *, name: builtins.str) -> None:
         '''
-        :param name: Resource name of the requested StoredInfoType, for example 'organizations/433245324/storedInfoTypes/432452342' or 'projects/project-id/storedInfoTypes/432452342'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        :param name: Resource name of the requested StoredInfoType, for example 'organizations/433245324/storedInfoTypes/432452342' or 'projects/project-id/storedInfoTypes/432452342'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesStoredType(
             name=name
@@ -4114,8 +4114,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesRegex:
         group_indexes: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
-        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
+        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
+        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b1bf8d67022760d1c61560700ca2e0192d2e226d470fbf7f12cf5990f5865300)
@@ -4131,7 +4131,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesRegex:
     def pattern(self) -> builtins.str:
         '''Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
         '''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
@@ -4143,7 +4143,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesRegex:
 
         When not specified, the entire match is returned. No more than 3 may be included.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
         '''
         result = self._values.get("group_indexes")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -4244,7 +4244,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesRegexOut
 class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesSensitivityScore:
     def __init__(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__133305467162b53fe8d13d5f1b65fe845eff04ad2086b2be23975fd739bfa732)
@@ -4257,7 +4257,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesSensitiv
     def score(self) -> builtins.str:
         '''The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
         '''
         result = self._values.get("score")
         assert result is not None, "Required property 'score' is missing"
@@ -4338,7 +4338,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesSensitiv
 class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesStoredType:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Resource name of the requested StoredInfoType, for example 'organizations/433245324/storedInfoTypes/432452342' or 'projects/project-id/storedInfoTypes/432452342'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        :param name: Resource name of the requested StoredInfoType, for example 'organizations/433245324/storedInfoTypes/432452342' or 'projects/project-id/storedInfoTypes/432452342'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__350c83a51f73b43ff1a8718b9fd8ca6c6f6b00bd0039445fbe344825bbbe5525)
@@ -4351,7 +4351,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigCustomInfoTypesStoredTy
     def name(self) -> builtins.str:
         '''Resource name of the requested StoredInfoType, for example 'organizations/433245324/storedInfoTypes/432452342' or 'projects/project-id/storedInfoTypes/432452342'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -4506,9 +4506,9 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigInfoTypes:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
-        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
-        :param version: Version of the information type to use. By default, the version is set to stable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
+        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
+        :param version: Version of the information type to use. By default, the version is set to stable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
         '''
         if isinstance(sensitivity_score, dict):
             sensitivity_score = DataLossPreventionJobTriggerInspectJobInspectConfigInfoTypesSensitivityScore(**sensitivity_score)
@@ -4532,7 +4532,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigInfoTypes:
         Either a name of your choosing when creating a CustomInfoType, or one of the names listed
         at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -4544,7 +4544,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigInfoTypes:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigInfoTypesSensitivityScore"]:
         '''sensitivity_score block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
         '''
         result = self._values.get("sensitivity_score")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigInfoTypesSensitivityScore"], result)
@@ -4553,7 +4553,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigInfoTypes:
     def version(self) -> typing.Optional[builtins.str]:
         '''Version of the information type to use. By default, the version is set to stable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4692,7 +4692,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigInfoTypesOutputReferenc
     @jsii.member(jsii_name="putSensitivityScore")
     def put_sensitivity_score(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigInfoTypesSensitivityScore(
             score=score
@@ -4782,7 +4782,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigInfoTypesOutputReferenc
 class DataLossPreventionJobTriggerInspectJobInspectConfigInfoTypesSensitivityScore:
     def __init__(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3c9f469ca568416cac2ef31fa785d46ccf6f810b69881d8f199a175a30e26d18)
@@ -4795,7 +4795,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigInfoTypesSensitivitySco
     def score(self) -> builtins.str:
         '''The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
         '''
         result = self._values.get("score")
         assert result is not None, "Required property 'score' is missing"
@@ -4886,9 +4886,9 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigLimits:
         max_findings_per_request: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_findings_per_info_type: max_findings_per_info_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#max_findings_per_info_type DataLossPreventionJobTrigger#max_findings_per_info_type}
-        :param max_findings_per_item: Max number of findings that will be returned for each item scanned. The maximum returned is 2000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#max_findings_per_item DataLossPreventionJobTrigger#max_findings_per_item}
-        :param max_findings_per_request: Max number of findings that will be returned per request/job. The maximum returned is 2000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#max_findings_per_request DataLossPreventionJobTrigger#max_findings_per_request}
+        :param max_findings_per_info_type: max_findings_per_info_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#max_findings_per_info_type DataLossPreventionJobTrigger#max_findings_per_info_type}
+        :param max_findings_per_item: Max number of findings that will be returned for each item scanned. The maximum returned is 2000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#max_findings_per_item DataLossPreventionJobTrigger#max_findings_per_item}
+        :param max_findings_per_request: Max number of findings that will be returned per request/job. The maximum returned is 2000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#max_findings_per_request DataLossPreventionJobTrigger#max_findings_per_request}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f1fd422a7953954fd55dcf8e668dd54e6bfed487b71d500e985fa897d4463cf)
@@ -4909,7 +4909,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigLimits:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInfoType"]]]:
         '''max_findings_per_info_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#max_findings_per_info_type DataLossPreventionJobTrigger#max_findings_per_info_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#max_findings_per_info_type DataLossPreventionJobTrigger#max_findings_per_info_type}
         '''
         result = self._values.get("max_findings_per_info_type")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInfoType"]]], result)
@@ -4918,7 +4918,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigLimits:
     def max_findings_per_item(self) -> typing.Optional[jsii.Number]:
         '''Max number of findings that will be returned for each item scanned. The maximum returned is 2000.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#max_findings_per_item DataLossPreventionJobTrigger#max_findings_per_item}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#max_findings_per_item DataLossPreventionJobTrigger#max_findings_per_item}
         '''
         result = self._values.get("max_findings_per_item")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4927,7 +4927,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigLimits:
     def max_findings_per_request(self) -> typing.Optional[jsii.Number]:
         '''Max number of findings that will be returned per request/job. The maximum returned is 2000.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#max_findings_per_request DataLossPreventionJobTrigger#max_findings_per_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#max_findings_per_request DataLossPreventionJobTrigger#max_findings_per_request}
         '''
         result = self._values.get("max_findings_per_request")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4957,8 +4957,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInf
         max_findings: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param info_type: info_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#info_type DataLossPreventionJobTrigger#info_type}
-        :param max_findings: Max findings limit for the given infoType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#max_findings DataLossPreventionJobTrigger#max_findings}
+        :param info_type: info_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#info_type DataLossPreventionJobTrigger#info_type}
+        :param max_findings: Max findings limit for the given infoType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#max_findings DataLossPreventionJobTrigger#max_findings}
         '''
         if isinstance(info_type, dict):
             info_type = DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInfoTypeInfoType(**info_type)
@@ -4978,7 +4978,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInf
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInfoTypeInfoType"]:
         '''info_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#info_type DataLossPreventionJobTrigger#info_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#info_type DataLossPreventionJobTrigger#info_type}
         '''
         result = self._values.get("info_type")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInfoTypeInfoType"], result)
@@ -4987,7 +4987,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInf
     def max_findings(self) -> typing.Optional[jsii.Number]:
         '''Max findings limit for the given infoType.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#max_findings DataLossPreventionJobTrigger#max_findings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#max_findings DataLossPreventionJobTrigger#max_findings}
         '''
         result = self._values.get("max_findings")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5022,9 +5022,9 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInf
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
-        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
-        :param version: Version of the information type to use. By default, the version is set to stable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
+        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
+        :param version: Version of the information type to use. By default, the version is set to stable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
         '''
         if isinstance(sensitivity_score, dict):
             sensitivity_score = DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInfoTypeInfoTypeSensitivityScore(**sensitivity_score)
@@ -5048,7 +5048,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInf
         Either a name of your choosing when creating a CustomInfoType, or one of the names listed
         at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -5060,7 +5060,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInf
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInfoTypeInfoTypeSensitivityScore"]:
         '''sensitivity_score block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
         '''
         result = self._values.get("sensitivity_score")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInfoTypeInfoTypeSensitivityScore"], result)
@@ -5069,7 +5069,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInf
     def version(self) -> typing.Optional[builtins.str]:
         '''Version of the information type to use. By default, the version is set to stable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5109,7 +5109,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInf
     @jsii.member(jsii_name="putSensitivityScore")
     def put_sensitivity_score(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInfoTypeInfoTypeSensitivityScore(
             score=score
@@ -5199,7 +5199,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInf
 class DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInfoTypeInfoTypeSensitivityScore:
     def __init__(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__099d0c4ce71f569198577b2ba0c8173fe6fa9d28f1f94eb22f66d15d1dc95807)
@@ -5212,7 +5212,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInf
     def score(self) -> builtins.str:
         '''The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
         '''
         result = self._values.get("score")
         assert result is not None, "Required property 'score' is missing"
@@ -5413,9 +5413,9 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInf
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
-        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
-        :param version: Version of the information type to use. By default, the version is set to stable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
+        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
+        :param version: Version of the information type to use. By default, the version is set to stable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigLimitsMaxFindingsPerInfoTypeInfoType(
             name=name, sensitivity_score=sensitivity_score, version=version
@@ -5646,9 +5646,9 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigOutputReference(
         max_findings_per_request: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_findings_per_info_type: max_findings_per_info_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#max_findings_per_info_type DataLossPreventionJobTrigger#max_findings_per_info_type}
-        :param max_findings_per_item: Max number of findings that will be returned for each item scanned. The maximum returned is 2000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#max_findings_per_item DataLossPreventionJobTrigger#max_findings_per_item}
-        :param max_findings_per_request: Max number of findings that will be returned per request/job. The maximum returned is 2000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#max_findings_per_request DataLossPreventionJobTrigger#max_findings_per_request}
+        :param max_findings_per_info_type: max_findings_per_info_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#max_findings_per_info_type DataLossPreventionJobTrigger#max_findings_per_info_type}
+        :param max_findings_per_item: Max number of findings that will be returned for each item scanned. The maximum returned is 2000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#max_findings_per_item DataLossPreventionJobTrigger#max_findings_per_item}
+        :param max_findings_per_request: Max number of findings that will be returned per request/job. The maximum returned is 2000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#max_findings_per_request DataLossPreventionJobTrigger#max_findings_per_request}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigLimits(
             max_findings_per_info_type=max_findings_per_info_type,
@@ -5849,8 +5849,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSet:
         info_types: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetInfoTypes", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#rules DataLossPreventionJobTrigger#rules}
-        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#info_types DataLossPreventionJobTrigger#info_types}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#rules DataLossPreventionJobTrigger#rules}
+        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#info_types DataLossPreventionJobTrigger#info_types}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__efb54ef9648d7f06a768b88be856c93ba3db798ba4eeb79468cbdb8d2e3f34f1)
@@ -5868,7 +5868,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSet:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRules"]]:
         '''rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#rules DataLossPreventionJobTrigger#rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#rules DataLossPreventionJobTrigger#rules}
         '''
         result = self._values.get("rules")
         assert result is not None, "Required property 'rules' is missing"
@@ -5880,7 +5880,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetInfoTypes"]]]:
         '''info_types block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#info_types DataLossPreventionJobTrigger#info_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#info_types DataLossPreventionJobTrigger#info_types}
         '''
         result = self._values.get("info_types")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetInfoTypes"]]], result)
@@ -5915,9 +5915,9 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetInfoTypes:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
-        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
-        :param version: Version of the information type to use. By default, the version is set to stable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
+        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
+        :param version: Version of the information type to use. By default, the version is set to stable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
         '''
         if isinstance(sensitivity_score, dict):
             sensitivity_score = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetInfoTypesSensitivityScore(**sensitivity_score)
@@ -5941,7 +5941,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetInfoTypes:
         Either a name of your choosing when creating a CustomInfoType, or one of the names listed
         at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -5953,7 +5953,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetInfoTypes:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetInfoTypesSensitivityScore"]:
         '''sensitivity_score block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
         '''
         result = self._values.get("sensitivity_score")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetInfoTypesSensitivityScore"], result)
@@ -5962,7 +5962,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetInfoTypes:
     def version(self) -> typing.Optional[builtins.str]:
         '''Version of the information type to use. By default, the version is set to stable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6101,7 +6101,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetInfoTypesOutputR
     @jsii.member(jsii_name="putSensitivityScore")
     def put_sensitivity_score(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetInfoTypesSensitivityScore(
             score=score
@@ -6191,7 +6191,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetInfoTypesOutputR
 class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetInfoTypesSensitivityScore:
     def __init__(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__397ac3b4bb5415c083fbd503bb2dfb828ba78ea9636670ae42cc5f2558975603)
@@ -6204,7 +6204,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetInfoTypesSensiti
     def score(self) -> builtins.str:
         '''The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
         '''
         result = self._values.get("score")
         assert result is not None, "Required property 'score' is missing"
@@ -6485,8 +6485,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRules:
         hotword_rule: typing.Optional[typing.Union["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param exclusion_rule: exclusion_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#exclusion_rule DataLossPreventionJobTrigger#exclusion_rule}
-        :param hotword_rule: hotword_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#hotword_rule DataLossPreventionJobTrigger#hotword_rule}
+        :param exclusion_rule: exclusion_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#exclusion_rule DataLossPreventionJobTrigger#exclusion_rule}
+        :param hotword_rule: hotword_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#hotword_rule DataLossPreventionJobTrigger#hotword_rule}
         '''
         if isinstance(exclusion_rule, dict):
             exclusion_rule = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRule(**exclusion_rule)
@@ -6508,7 +6508,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRules:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRule"]:
         '''exclusion_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#exclusion_rule DataLossPreventionJobTrigger#exclusion_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#exclusion_rule DataLossPreventionJobTrigger#exclusion_rule}
         '''
         result = self._values.get("exclusion_rule")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRule"], result)
@@ -6519,7 +6519,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRules:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule"]:
         '''hotword_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#hotword_rule DataLossPreventionJobTrigger#hotword_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#hotword_rule DataLossPreventionJobTrigger#hotword_rule}
         '''
         result = self._values.get("hotword_rule")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule"], result)
@@ -6558,11 +6558,11 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
         regex: typing.Optional[typing.Union["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleRegex", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param matching_type: How the rule is applied. See the documentation for more information: https://cloud.google.com/dlp/docs/reference/rest/v2/InspectConfig#MatchingType Possible values: ["MATCHING_TYPE_FULL_MATCH", "MATCHING_TYPE_PARTIAL_MATCH", "MATCHING_TYPE_INVERSE_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#matching_type DataLossPreventionJobTrigger#matching_type}
-        :param dictionary: dictionary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#dictionary DataLossPreventionJobTrigger#dictionary}
-        :param exclude_by_hotword: exclude_by_hotword block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#exclude_by_hotword DataLossPreventionJobTrigger#exclude_by_hotword}
-        :param exclude_info_types: exclude_info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#exclude_info_types DataLossPreventionJobTrigger#exclude_info_types}
-        :param regex: regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#regex DataLossPreventionJobTrigger#regex}
+        :param matching_type: How the rule is applied. See the documentation for more information: https://cloud.google.com/dlp/docs/reference/rest/v2/InspectConfig#MatchingType Possible values: ["MATCHING_TYPE_FULL_MATCH", "MATCHING_TYPE_PARTIAL_MATCH", "MATCHING_TYPE_INVERSE_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#matching_type DataLossPreventionJobTrigger#matching_type}
+        :param dictionary: dictionary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#dictionary DataLossPreventionJobTrigger#dictionary}
+        :param exclude_by_hotword: exclude_by_hotword block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#exclude_by_hotword DataLossPreventionJobTrigger#exclude_by_hotword}
+        :param exclude_info_types: exclude_info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#exclude_info_types DataLossPreventionJobTrigger#exclude_info_types}
+        :param regex: regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#regex DataLossPreventionJobTrigger#regex}
         '''
         if isinstance(dictionary, dict):
             dictionary = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleDictionary(**dictionary)
@@ -6595,7 +6595,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     def matching_type(self) -> builtins.str:
         '''How the rule is applied. See the documentation for more information: https://cloud.google.com/dlp/docs/reference/rest/v2/InspectConfig#MatchingType Possible values: ["MATCHING_TYPE_FULL_MATCH", "MATCHING_TYPE_PARTIAL_MATCH", "MATCHING_TYPE_INVERSE_MATCH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#matching_type DataLossPreventionJobTrigger#matching_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#matching_type DataLossPreventionJobTrigger#matching_type}
         '''
         result = self._values.get("matching_type")
         assert result is not None, "Required property 'matching_type' is missing"
@@ -6607,7 +6607,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleDictionary"]:
         '''dictionary block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#dictionary DataLossPreventionJobTrigger#dictionary}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#dictionary DataLossPreventionJobTrigger#dictionary}
         '''
         result = self._values.get("dictionary")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleDictionary"], result)
@@ -6618,7 +6618,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeByHotword"]:
         '''exclude_by_hotword block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#exclude_by_hotword DataLossPreventionJobTrigger#exclude_by_hotword}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#exclude_by_hotword DataLossPreventionJobTrigger#exclude_by_hotword}
         '''
         result = self._values.get("exclude_by_hotword")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeByHotword"], result)
@@ -6629,7 +6629,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypes"]:
         '''exclude_info_types block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#exclude_info_types DataLossPreventionJobTrigger#exclude_info_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#exclude_info_types DataLossPreventionJobTrigger#exclude_info_types}
         '''
         result = self._values.get("exclude_info_types")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypes"], result)
@@ -6640,7 +6640,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleRegex"]:
         '''regex block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#regex DataLossPreventionJobTrigger#regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#regex DataLossPreventionJobTrigger#regex}
         '''
         result = self._values.get("regex")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleRegex"], result)
@@ -6670,8 +6670,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
         word_list: typing.Optional[typing.Union["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleDictionaryWordListStruct", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloud_storage_path: cloud_storage_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_path DataLossPreventionJobTrigger#cloud_storage_path}
-        :param word_list: word_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#word_list DataLossPreventionJobTrigger#word_list}
+        :param cloud_storage_path: cloud_storage_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_path DataLossPreventionJobTrigger#cloud_storage_path}
+        :param word_list: word_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#word_list DataLossPreventionJobTrigger#word_list}
         '''
         if isinstance(cloud_storage_path, dict):
             cloud_storage_path = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleDictionaryCloudStoragePath(**cloud_storage_path)
@@ -6693,7 +6693,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleDictionaryCloudStoragePath"]:
         '''cloud_storage_path block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_path DataLossPreventionJobTrigger#cloud_storage_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_path DataLossPreventionJobTrigger#cloud_storage_path}
         '''
         result = self._values.get("cloud_storage_path")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleDictionaryCloudStoragePath"], result)
@@ -6704,7 +6704,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleDictionaryWordListStruct"]:
         '''word_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#word_list DataLossPreventionJobTrigger#word_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#word_list DataLossPreventionJobTrigger#word_list}
         '''
         result = self._values.get("word_list")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleDictionaryWordListStruct"], result)
@@ -6729,7 +6729,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
 class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleDictionaryCloudStoragePath:
     def __init__(self, *, path: builtins.str) -> None:
         '''
-        :param path: A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#path DataLossPreventionJobTrigger#path}
+        :param path: A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#path DataLossPreventionJobTrigger#path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0495313097caab622fcb9db9621056f320658208b43fbc8e1ecc2b4fbdb5fc7)
@@ -6742,7 +6742,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     def path(self) -> builtins.str:
         '''A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#path DataLossPreventionJobTrigger#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#path DataLossPreventionJobTrigger#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -6838,7 +6838,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     @jsii.member(jsii_name="putCloudStoragePath")
     def put_cloud_storage_path(self, *, path: builtins.str) -> None:
         '''
-        :param path: A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#path DataLossPreventionJobTrigger#path}
+        :param path: A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#path DataLossPreventionJobTrigger#path}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleDictionaryCloudStoragePath(
             path=path
@@ -6849,7 +6849,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     @jsii.member(jsii_name="putWordList")
     def put_word_list(self, *, words: typing.Sequence[builtins.str]) -> None:
         '''
-        :param words: Words or phrases defining the dictionary. The dictionary must contain at least one phrase and every phrase must contain at least 2 characters that are letters or digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#words DataLossPreventionJobTrigger#words}
+        :param words: Words or phrases defining the dictionary. The dictionary must contain at least one phrase and every phrase must contain at least 2 characters that are letters or digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#words DataLossPreventionJobTrigger#words}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleDictionaryWordListStruct(
             words=words
@@ -6919,7 +6919,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
 class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleDictionaryWordListStruct:
     def __init__(self, *, words: typing.Sequence[builtins.str]) -> None:
         '''
-        :param words: Words or phrases defining the dictionary. The dictionary must contain at least one phrase and every phrase must contain at least 2 characters that are letters or digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#words DataLossPreventionJobTrigger#words}
+        :param words: Words or phrases defining the dictionary. The dictionary must contain at least one phrase and every phrase must contain at least 2 characters that are letters or digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#words DataLossPreventionJobTrigger#words}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__511cb828e74fa8eba8c13c29a4bfab3f18b3e615ac58e23d64d316951f66ffcd)
@@ -6935,7 +6935,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
         The dictionary must contain at least one
         phrase and every phrase must contain at least 2 characters that are letters or digits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#words DataLossPreventionJobTrigger#words}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#words DataLossPreventionJobTrigger#words}
         '''
         result = self._values.get("words")
         assert result is not None, "Required property 'words' is missing"
@@ -7021,8 +7021,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
         proximity: typing.Optional[typing.Union["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeByHotwordProximity", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param hotword_regex: hotword_regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#hotword_regex DataLossPreventionJobTrigger#hotword_regex}
-        :param proximity: proximity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#proximity DataLossPreventionJobTrigger#proximity}
+        :param hotword_regex: hotword_regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#hotword_regex DataLossPreventionJobTrigger#hotword_regex}
+        :param proximity: proximity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#proximity DataLossPreventionJobTrigger#proximity}
         '''
         if isinstance(hotword_regex, dict):
             hotword_regex = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeByHotwordHotwordRegex(**hotword_regex)
@@ -7044,7 +7044,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeByHotwordHotwordRegex"]:
         '''hotword_regex block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#hotword_regex DataLossPreventionJobTrigger#hotword_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#hotword_regex DataLossPreventionJobTrigger#hotword_regex}
         '''
         result = self._values.get("hotword_regex")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeByHotwordHotwordRegex"], result)
@@ -7055,7 +7055,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeByHotwordProximity"]:
         '''proximity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#proximity DataLossPreventionJobTrigger#proximity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#proximity DataLossPreventionJobTrigger#proximity}
         '''
         result = self._values.get("proximity")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeByHotwordProximity"], result)
@@ -7085,8 +7085,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
         pattern: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
-        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
+        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
+        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c04693a54f36e21c96d425002cb96289e2a4a8193148bdd71e25df979884358)
@@ -7105,7 +7105,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
         When not specified,
         the entire match is returned. No more than 3 may be included.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
         '''
         result = self._values.get("group_indexes")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -7114,7 +7114,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     def pattern(self) -> typing.Optional[builtins.str]:
         '''Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
         '''
         result = self._values.get("pattern")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7239,8 +7239,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
         pattern: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
-        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
+        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
+        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeByHotwordHotwordRegex(
             group_indexes=group_indexes, pattern=pattern
@@ -7256,8 +7256,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
         window_before: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param window_after: Number of characters after the finding to consider. Either this or window_before must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#window_after DataLossPreventionJobTrigger#window_after}
-        :param window_before: Number of characters before the finding to consider. Either this or window_after must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#window_before DataLossPreventionJobTrigger#window_before}
+        :param window_after: Number of characters after the finding to consider. Either this or window_before must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#window_after DataLossPreventionJobTrigger#window_after}
+        :param window_before: Number of characters before the finding to consider. Either this or window_after must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#window_before DataLossPreventionJobTrigger#window_before}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeByHotwordProximity(
             window_after=window_after, window_before=window_before
@@ -7332,8 +7332,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
         window_before: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param window_after: Number of characters after the finding to consider. Either this or window_before must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#window_after DataLossPreventionJobTrigger#window_after}
-        :param window_before: Number of characters before the finding to consider. Either this or window_after must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#window_before DataLossPreventionJobTrigger#window_before}
+        :param window_after: Number of characters after the finding to consider. Either this or window_before must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#window_after DataLossPreventionJobTrigger#window_after}
+        :param window_before: Number of characters before the finding to consider. Either this or window_after must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#window_before DataLossPreventionJobTrigger#window_before}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__311486ead1fb7f8065d7bfdc315419db6bf5c90d201b4c6717b37d5099fd111f)
@@ -7349,7 +7349,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     def window_after(self) -> typing.Optional[jsii.Number]:
         '''Number of characters after the finding to consider. Either this or window_before must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#window_after DataLossPreventionJobTrigger#window_after}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#window_after DataLossPreventionJobTrigger#window_after}
         '''
         result = self._values.get("window_after")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7358,7 +7358,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     def window_before(self) -> typing.Optional[jsii.Number]:
         '''Number of characters before the finding to consider. Either this or window_after must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#window_before DataLossPreventionJobTrigger#window_before}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#window_before DataLossPreventionJobTrigger#window_before}
         '''
         result = self._values.get("window_before")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7467,7 +7467,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
         info_types: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypesInfoTypes", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#info_types DataLossPreventionJobTrigger#info_types}
+        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#info_types DataLossPreventionJobTrigger#info_types}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__57e5155b24183f83eb6f8ffcc251577c1618c9d1f883c5046d1e9ab4a0768732)
@@ -7482,7 +7482,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypesInfoTypes"]]:
         '''info_types block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#info_types DataLossPreventionJobTrigger#info_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#info_types DataLossPreventionJobTrigger#info_types}
         '''
         result = self._values.get("info_types")
         assert result is not None, "Required property 'info_types' is missing"
@@ -7518,9 +7518,9 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
-        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
-        :param version: Version of the information type to use. By default, the version is set to stable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
+        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
+        :param version: Version of the information type to use. By default, the version is set to stable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
         '''
         if isinstance(sensitivity_score, dict):
             sensitivity_score = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypesInfoTypesSensitivityScore(**sensitivity_score)
@@ -7544,7 +7544,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
         Either a name of your choosing when creating a CustomInfoType, or one of the names listed
         at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -7556,7 +7556,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypesInfoTypesSensitivityScore"]:
         '''sensitivity_score block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sensitivity_score DataLossPreventionJobTrigger#sensitivity_score}
         '''
         result = self._values.get("sensitivity_score")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypesInfoTypesSensitivityScore"], result)
@@ -7565,7 +7565,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     def version(self) -> typing.Optional[builtins.str]:
         '''Version of the information type to use. By default, the version is set to stable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#version DataLossPreventionJobTrigger#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7704,7 +7704,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     @jsii.member(jsii_name="putSensitivityScore")
     def put_sensitivity_score(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypesInfoTypesSensitivityScore(
             score=score
@@ -7794,7 +7794,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
 class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypesInfoTypesSensitivityScore:
     def __init__(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c7a3ee04f9359bfca2107226e5abd2309ae90d1058370eff75a52e013aaeec89)
@@ -7807,7 +7807,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     def score(self) -> builtins.str:
         '''The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#score DataLossPreventionJobTrigger#score}
         '''
         result = self._values.get("score")
         assert result is not None, "Required property 'score' is missing"
@@ -7973,8 +7973,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
         word_list: typing.Optional[typing.Union[DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleDictionaryWordListStruct, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloud_storage_path: cloud_storage_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_path DataLossPreventionJobTrigger#cloud_storage_path}
-        :param word_list: word_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#word_list DataLossPreventionJobTrigger#word_list}
+        :param cloud_storage_path: cloud_storage_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_path DataLossPreventionJobTrigger#cloud_storage_path}
+        :param word_list: word_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#word_list DataLossPreventionJobTrigger#word_list}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleDictionary(
             cloud_storage_path=cloud_storage_path, word_list=word_list
@@ -7990,8 +7990,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
         proximity: typing.Optional[typing.Union[DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeByHotwordProximity, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param hotword_regex: hotword_regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#hotword_regex DataLossPreventionJobTrigger#hotword_regex}
-        :param proximity: proximity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#proximity DataLossPreventionJobTrigger#proximity}
+        :param hotword_regex: hotword_regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#hotword_regex DataLossPreventionJobTrigger#hotword_regex}
+        :param proximity: proximity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#proximity DataLossPreventionJobTrigger#proximity}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeByHotword(
             hotword_regex=hotword_regex, proximity=proximity
@@ -8006,7 +8006,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
         info_types: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypesInfoTypes, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#info_types DataLossPreventionJobTrigger#info_types}
+        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#info_types DataLossPreventionJobTrigger#info_types}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypes(
             info_types=info_types
@@ -8022,8 +8022,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
         group_indexes: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
-        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
+        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
+        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleRegex(
             pattern=pattern, group_indexes=group_indexes
@@ -8151,8 +8151,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
         group_indexes: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
-        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
+        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
+        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__64561f008526c9dfa704c8fc01a40b0a97967055194490f23fb98800f275d634)
@@ -8168,7 +8168,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
     def pattern(self) -> builtins.str:
         '''Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
         '''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
@@ -8180,7 +8180,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRu
 
         When not specified, the entire match is returned. No more than 3 may be included.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
         '''
         result = self._values.get("group_indexes")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -8291,9 +8291,9 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule
         proximity: typing.Optional[typing.Union["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRuleProximity", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param hotword_regex: hotword_regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#hotword_regex DataLossPreventionJobTrigger#hotword_regex}
-        :param likelihood_adjustment: likelihood_adjustment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#likelihood_adjustment DataLossPreventionJobTrigger#likelihood_adjustment}
-        :param proximity: proximity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#proximity DataLossPreventionJobTrigger#proximity}
+        :param hotword_regex: hotword_regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#hotword_regex DataLossPreventionJobTrigger#hotword_regex}
+        :param likelihood_adjustment: likelihood_adjustment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#likelihood_adjustment DataLossPreventionJobTrigger#likelihood_adjustment}
+        :param proximity: proximity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#proximity DataLossPreventionJobTrigger#proximity}
         '''
         if isinstance(hotword_regex, dict):
             hotword_regex = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRuleHotwordRegex(**hotword_regex)
@@ -8320,7 +8320,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRuleHotwordRegex"]:
         '''hotword_regex block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#hotword_regex DataLossPreventionJobTrigger#hotword_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#hotword_regex DataLossPreventionJobTrigger#hotword_regex}
         '''
         result = self._values.get("hotword_regex")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRuleHotwordRegex"], result)
@@ -8331,7 +8331,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRuleLikelihoodAdjustment"]:
         '''likelihood_adjustment block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#likelihood_adjustment DataLossPreventionJobTrigger#likelihood_adjustment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#likelihood_adjustment DataLossPreventionJobTrigger#likelihood_adjustment}
         '''
         result = self._values.get("likelihood_adjustment")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRuleLikelihoodAdjustment"], result)
@@ -8342,7 +8342,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRuleProximity"]:
         '''proximity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#proximity DataLossPreventionJobTrigger#proximity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#proximity DataLossPreventionJobTrigger#proximity}
         '''
         result = self._values.get("proximity")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRuleProximity"], result)
@@ -8372,8 +8372,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule
         pattern: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
-        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
+        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
+        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__232a0a93ca8d5279e99d650eb95c179472c96d41e9643604209d3e78f425c69d)
@@ -8392,7 +8392,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule
         When not specified,
         the entire match is returned. No more than 3 may be included.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
         '''
         result = self._values.get("group_indexes")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -8401,7 +8401,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule
     def pattern(self) -> typing.Optional[builtins.str]:
         '''Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
         '''
         result = self._values.get("pattern")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8514,8 +8514,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule
         relative_likelihood: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fixed_likelihood: Set the likelihood of a finding to a fixed value. Either this or relative_likelihood can be set. Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#fixed_likelihood DataLossPreventionJobTrigger#fixed_likelihood}
-        :param relative_likelihood: Increase or decrease the likelihood by the specified number of levels. For example, if a finding would be POSSIBLE without the detection rule and relativeLikelihood is 1, then it is upgraded to LIKELY, while a value of -1 would downgrade it to UNLIKELY. Likelihood may never drop below VERY_UNLIKELY or exceed VERY_LIKELY, so applying an adjustment of 1 followed by an adjustment of -1 when base likelihood is VERY_LIKELY will result in a final likelihood of LIKELY. Either this or fixed_likelihood can be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#relative_likelihood DataLossPreventionJobTrigger#relative_likelihood}
+        :param fixed_likelihood: Set the likelihood of a finding to a fixed value. Either this or relative_likelihood can be set. Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#fixed_likelihood DataLossPreventionJobTrigger#fixed_likelihood}
+        :param relative_likelihood: Increase or decrease the likelihood by the specified number of levels. For example, if a finding would be POSSIBLE without the detection rule and relativeLikelihood is 1, then it is upgraded to LIKELY, while a value of -1 would downgrade it to UNLIKELY. Likelihood may never drop below VERY_UNLIKELY or exceed VERY_LIKELY, so applying an adjustment of 1 followed by an adjustment of -1 when base likelihood is VERY_LIKELY will result in a final likelihood of LIKELY. Either this or fixed_likelihood can be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#relative_likelihood DataLossPreventionJobTrigger#relative_likelihood}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bd97bbb9fe4818a97072f9be69ea77ec08ebd12733b4b2e1b460f24ce6cb21c1)
@@ -8533,7 +8533,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule
 
         Either this or relative_likelihood can be set. Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#fixed_likelihood DataLossPreventionJobTrigger#fixed_likelihood}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#fixed_likelihood DataLossPreventionJobTrigger#fixed_likelihood}
         '''
         result = self._values.get("fixed_likelihood")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8549,7 +8549,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule
         adjustment of 1 followed by an adjustment of -1 when base likelihood is VERY_LIKELY
         will result in a final likelihood of LIKELY. Either this or fixed_likelihood can be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#relative_likelihood DataLossPreventionJobTrigger#relative_likelihood}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#relative_likelihood DataLossPreventionJobTrigger#relative_likelihood}
         '''
         result = self._values.get("relative_likelihood")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8674,8 +8674,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule
         pattern: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
-        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
+        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#group_indexes DataLossPreventionJobTrigger#group_indexes}
+        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#pattern DataLossPreventionJobTrigger#pattern}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRuleHotwordRegex(
             group_indexes=group_indexes, pattern=pattern
@@ -8691,8 +8691,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule
         relative_likelihood: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fixed_likelihood: Set the likelihood of a finding to a fixed value. Either this or relative_likelihood can be set. Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#fixed_likelihood DataLossPreventionJobTrigger#fixed_likelihood}
-        :param relative_likelihood: Increase or decrease the likelihood by the specified number of levels. For example, if a finding would be POSSIBLE without the detection rule and relativeLikelihood is 1, then it is upgraded to LIKELY, while a value of -1 would downgrade it to UNLIKELY. Likelihood may never drop below VERY_UNLIKELY or exceed VERY_LIKELY, so applying an adjustment of 1 followed by an adjustment of -1 when base likelihood is VERY_LIKELY will result in a final likelihood of LIKELY. Either this or fixed_likelihood can be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#relative_likelihood DataLossPreventionJobTrigger#relative_likelihood}
+        :param fixed_likelihood: Set the likelihood of a finding to a fixed value. Either this or relative_likelihood can be set. Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#fixed_likelihood DataLossPreventionJobTrigger#fixed_likelihood}
+        :param relative_likelihood: Increase or decrease the likelihood by the specified number of levels. For example, if a finding would be POSSIBLE without the detection rule and relativeLikelihood is 1, then it is upgraded to LIKELY, while a value of -1 would downgrade it to UNLIKELY. Likelihood may never drop below VERY_UNLIKELY or exceed VERY_LIKELY, so applying an adjustment of 1 followed by an adjustment of -1 when base likelihood is VERY_LIKELY will result in a final likelihood of LIKELY. Either this or fixed_likelihood can be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#relative_likelihood DataLossPreventionJobTrigger#relative_likelihood}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRuleLikelihoodAdjustment(
             fixed_likelihood=fixed_likelihood, relative_likelihood=relative_likelihood
@@ -8708,8 +8708,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule
         window_before: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param window_after: Number of characters after the finding to consider. Either this or window_before must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#window_after DataLossPreventionJobTrigger#window_after}
-        :param window_before: Number of characters before the finding to consider. Either this or window_after must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#window_before DataLossPreventionJobTrigger#window_before}
+        :param window_after: Number of characters after the finding to consider. Either this or window_before must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#window_after DataLossPreventionJobTrigger#window_after}
+        :param window_before: Number of characters before the finding to consider. Either this or window_after must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#window_before DataLossPreventionJobTrigger#window_before}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRuleProximity(
             window_after=window_after, window_before=window_before
@@ -8802,8 +8802,8 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule
         window_before: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param window_after: Number of characters after the finding to consider. Either this or window_before must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#window_after DataLossPreventionJobTrigger#window_after}
-        :param window_before: Number of characters before the finding to consider. Either this or window_after must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#window_before DataLossPreventionJobTrigger#window_before}
+        :param window_after: Number of characters after the finding to consider. Either this or window_before must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#window_after DataLossPreventionJobTrigger#window_after}
+        :param window_before: Number of characters before the finding to consider. Either this or window_after must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#window_before DataLossPreventionJobTrigger#window_before}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5056326d50e95bd147ae0e77500a4795659cfe15ee2272cd95cc8ef1190fa5ac)
@@ -8819,7 +8819,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule
     def window_after(self) -> typing.Optional[jsii.Number]:
         '''Number of characters after the finding to consider. Either this or window_before must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#window_after DataLossPreventionJobTrigger#window_after}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#window_after DataLossPreventionJobTrigger#window_after}
         '''
         result = self._values.get("window_after")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8828,7 +8828,7 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule
     def window_before(self) -> typing.Optional[jsii.Number]:
         '''Number of characters before the finding to consider. Either this or window_after must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#window_before DataLossPreventionJobTrigger#window_before}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#window_before DataLossPreventionJobTrigger#window_before}
         '''
         result = self._values.get("window_before")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -9055,11 +9055,11 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesOutputRefer
         regex: typing.Optional[typing.Union[DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRuleRegex, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param matching_type: How the rule is applied. See the documentation for more information: https://cloud.google.com/dlp/docs/reference/rest/v2/InspectConfig#MatchingType Possible values: ["MATCHING_TYPE_FULL_MATCH", "MATCHING_TYPE_PARTIAL_MATCH", "MATCHING_TYPE_INVERSE_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#matching_type DataLossPreventionJobTrigger#matching_type}
-        :param dictionary: dictionary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#dictionary DataLossPreventionJobTrigger#dictionary}
-        :param exclude_by_hotword: exclude_by_hotword block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#exclude_by_hotword DataLossPreventionJobTrigger#exclude_by_hotword}
-        :param exclude_info_types: exclude_info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#exclude_info_types DataLossPreventionJobTrigger#exclude_info_types}
-        :param regex: regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#regex DataLossPreventionJobTrigger#regex}
+        :param matching_type: How the rule is applied. See the documentation for more information: https://cloud.google.com/dlp/docs/reference/rest/v2/InspectConfig#MatchingType Possible values: ["MATCHING_TYPE_FULL_MATCH", "MATCHING_TYPE_PARTIAL_MATCH", "MATCHING_TYPE_INVERSE_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#matching_type DataLossPreventionJobTrigger#matching_type}
+        :param dictionary: dictionary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#dictionary DataLossPreventionJobTrigger#dictionary}
+        :param exclude_by_hotword: exclude_by_hotword block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#exclude_by_hotword DataLossPreventionJobTrigger#exclude_by_hotword}
+        :param exclude_info_types: exclude_info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#exclude_info_types DataLossPreventionJobTrigger#exclude_info_types}
+        :param regex: regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#regex DataLossPreventionJobTrigger#regex}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesExclusionRule(
             matching_type=matching_type,
@@ -9080,9 +9080,9 @@ class DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesOutputRefer
         proximity: typing.Optional[typing.Union[DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRuleProximity, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param hotword_regex: hotword_regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#hotword_regex DataLossPreventionJobTrigger#hotword_regex}
-        :param likelihood_adjustment: likelihood_adjustment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#likelihood_adjustment DataLossPreventionJobTrigger#likelihood_adjustment}
-        :param proximity: proximity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#proximity DataLossPreventionJobTrigger#proximity}
+        :param hotword_regex: hotword_regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#hotword_regex DataLossPreventionJobTrigger#hotword_regex}
+        :param likelihood_adjustment: likelihood_adjustment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#likelihood_adjustment DataLossPreventionJobTrigger#likelihood_adjustment}
+        :param proximity: proximity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#proximity DataLossPreventionJobTrigger#proximity}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfigRuleSetRulesHotwordRule(
             hotword_regex=hotword_regex,
@@ -9192,13 +9192,13 @@ class DataLossPreventionJobTriggerInspectJobOutputReference(
         rule_set: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataLossPreventionJobTriggerInspectJobInspectConfigRuleSet, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param custom_info_types: custom_info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#custom_info_types DataLossPreventionJobTrigger#custom_info_types}
-        :param exclude_info_types: When true, excludes type information of the findings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#exclude_info_types DataLossPreventionJobTrigger#exclude_info_types}
-        :param include_quote: When true, a contextual quote from the data that triggered a finding is included in the response. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#include_quote DataLossPreventionJobTrigger#include_quote}
-        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#info_types DataLossPreventionJobTrigger#info_types}
-        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#limits DataLossPreventionJobTrigger#limits}
-        :param min_likelihood: Only returns findings equal or above this threshold. See https://cloud.google.com/dlp/docs/likelihood for more info Default value: "POSSIBLE" Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#min_likelihood DataLossPreventionJobTrigger#min_likelihood}
-        :param rule_set: rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#rule_set DataLossPreventionJobTrigger#rule_set}
+        :param custom_info_types: custom_info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#custom_info_types DataLossPreventionJobTrigger#custom_info_types}
+        :param exclude_info_types: When true, excludes type information of the findings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#exclude_info_types DataLossPreventionJobTrigger#exclude_info_types}
+        :param include_quote: When true, a contextual quote from the data that triggered a finding is included in the response. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#include_quote DataLossPreventionJobTrigger#include_quote}
+        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#info_types DataLossPreventionJobTrigger#info_types}
+        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#limits DataLossPreventionJobTrigger#limits}
+        :param min_likelihood: Only returns findings equal or above this threshold. See https://cloud.google.com/dlp/docs/likelihood for more info Default value: "POSSIBLE" Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#min_likelihood DataLossPreventionJobTrigger#min_likelihood}
+        :param rule_set: rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#rule_set DataLossPreventionJobTrigger#rule_set}
         '''
         value = DataLossPreventionJobTriggerInspectJobInspectConfig(
             custom_info_types=custom_info_types,
@@ -9223,11 +9223,11 @@ class DataLossPreventionJobTriggerInspectJobOutputReference(
         timespan_config: typing.Optional[typing.Union["DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param big_query_options: big_query_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#big_query_options DataLossPreventionJobTrigger#big_query_options}
-        :param cloud_storage_options: cloud_storage_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_options DataLossPreventionJobTrigger#cloud_storage_options}
-        :param datastore_options: datastore_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#datastore_options DataLossPreventionJobTrigger#datastore_options}
-        :param hybrid_options: hybrid_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#hybrid_options DataLossPreventionJobTrigger#hybrid_options}
-        :param timespan_config: timespan_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#timespan_config DataLossPreventionJobTrigger#timespan_config}
+        :param big_query_options: big_query_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#big_query_options DataLossPreventionJobTrigger#big_query_options}
+        :param cloud_storage_options: cloud_storage_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_options DataLossPreventionJobTrigger#cloud_storage_options}
+        :param datastore_options: datastore_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#datastore_options DataLossPreventionJobTrigger#datastore_options}
+        :param hybrid_options: hybrid_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#hybrid_options DataLossPreventionJobTrigger#hybrid_options}
+        :param timespan_config: timespan_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#timespan_config DataLossPreventionJobTrigger#timespan_config}
         '''
         value = DataLossPreventionJobTriggerInspectJobStorageConfig(
             big_query_options=big_query_options,
@@ -9346,11 +9346,11 @@ class DataLossPreventionJobTriggerInspectJobStorageConfig:
         timespan_config: typing.Optional[typing.Union["DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param big_query_options: big_query_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#big_query_options DataLossPreventionJobTrigger#big_query_options}
-        :param cloud_storage_options: cloud_storage_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_options DataLossPreventionJobTrigger#cloud_storage_options}
-        :param datastore_options: datastore_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#datastore_options DataLossPreventionJobTrigger#datastore_options}
-        :param hybrid_options: hybrid_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#hybrid_options DataLossPreventionJobTrigger#hybrid_options}
-        :param timespan_config: timespan_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#timespan_config DataLossPreventionJobTrigger#timespan_config}
+        :param big_query_options: big_query_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#big_query_options DataLossPreventionJobTrigger#big_query_options}
+        :param cloud_storage_options: cloud_storage_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_options DataLossPreventionJobTrigger#cloud_storage_options}
+        :param datastore_options: datastore_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#datastore_options DataLossPreventionJobTrigger#datastore_options}
+        :param hybrid_options: hybrid_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#hybrid_options DataLossPreventionJobTrigger#hybrid_options}
+        :param timespan_config: timespan_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#timespan_config DataLossPreventionJobTrigger#timespan_config}
         '''
         if isinstance(big_query_options, dict):
             big_query_options = DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptions(**big_query_options)
@@ -9387,7 +9387,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfig:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptions"]:
         '''big_query_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#big_query_options DataLossPreventionJobTrigger#big_query_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#big_query_options DataLossPreventionJobTrigger#big_query_options}
         '''
         result = self._values.get("big_query_options")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptions"], result)
@@ -9398,7 +9398,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfig:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptions"]:
         '''cloud_storage_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_options DataLossPreventionJobTrigger#cloud_storage_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#cloud_storage_options DataLossPreventionJobTrigger#cloud_storage_options}
         '''
         result = self._values.get("cloud_storage_options")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptions"], result)
@@ -9409,7 +9409,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfig:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptions"]:
         '''datastore_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#datastore_options DataLossPreventionJobTrigger#datastore_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#datastore_options DataLossPreventionJobTrigger#datastore_options}
         '''
         result = self._values.get("datastore_options")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptions"], result)
@@ -9420,7 +9420,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfig:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptions"]:
         '''hybrid_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#hybrid_options DataLossPreventionJobTrigger#hybrid_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#hybrid_options DataLossPreventionJobTrigger#hybrid_options}
         '''
         result = self._values.get("hybrid_options")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptions"], result)
@@ -9431,7 +9431,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfig:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfig"]:
         '''timespan_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#timespan_config DataLossPreventionJobTrigger#timespan_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#timespan_config DataLossPreventionJobTrigger#timespan_config}
         '''
         result = self._values.get("timespan_config")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfig"], result)
@@ -9474,13 +9474,13 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptions:
         sample_method: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param table_reference: table_reference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table_reference DataLossPreventionJobTrigger#table_reference}
-        :param excluded_fields: excluded_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#excluded_fields DataLossPreventionJobTrigger#excluded_fields}
-        :param identifying_fields: identifying_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#identifying_fields DataLossPreventionJobTrigger#identifying_fields}
-        :param included_fields: included_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#included_fields DataLossPreventionJobTrigger#included_fields}
-        :param rows_limit: Max number of rows to scan. If the table has more rows than this value, the rest of the rows are omitted. If not set, or if set to 0, all rows will be scanned. Only one of rowsLimit and rowsLimitPercent can be specified. Cannot be used in conjunction with TimespanConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#rows_limit DataLossPreventionJobTrigger#rows_limit}
-        :param rows_limit_percent: Max percentage of rows to scan. The rest are omitted. The number of rows scanned is rounded down. Must be between 0 and 100, inclusively. Both 0 and 100 means no limit. Defaults to 0. Only one of rowsLimit and rowsLimitPercent can be specified. Cannot be used in conjunction with TimespanConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#rows_limit_percent DataLossPreventionJobTrigger#rows_limit_percent}
-        :param sample_method: How to sample rows if not all rows are scanned. Meaningful only when used in conjunction with either rowsLimit or rowsLimitPercent. If not specified, rows are scanned in the order BigQuery reads them. If TimespanConfig is set, set this to an empty string to avoid using the default value. Default value: "TOP" Possible values: ["TOP", "RANDOM_START"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sample_method DataLossPreventionJobTrigger#sample_method}
+        :param table_reference: table_reference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table_reference DataLossPreventionJobTrigger#table_reference}
+        :param excluded_fields: excluded_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#excluded_fields DataLossPreventionJobTrigger#excluded_fields}
+        :param identifying_fields: identifying_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#identifying_fields DataLossPreventionJobTrigger#identifying_fields}
+        :param included_fields: included_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#included_fields DataLossPreventionJobTrigger#included_fields}
+        :param rows_limit: Max number of rows to scan. If the table has more rows than this value, the rest of the rows are omitted. If not set, or if set to 0, all rows will be scanned. Only one of rowsLimit and rowsLimitPercent can be specified. Cannot be used in conjunction with TimespanConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#rows_limit DataLossPreventionJobTrigger#rows_limit}
+        :param rows_limit_percent: Max percentage of rows to scan. The rest are omitted. The number of rows scanned is rounded down. Must be between 0 and 100, inclusively. Both 0 and 100 means no limit. Defaults to 0. Only one of rowsLimit and rowsLimitPercent can be specified. Cannot be used in conjunction with TimespanConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#rows_limit_percent DataLossPreventionJobTrigger#rows_limit_percent}
+        :param sample_method: How to sample rows if not all rows are scanned. Meaningful only when used in conjunction with either rowsLimit or rowsLimitPercent. If not specified, rows are scanned in the order BigQuery reads them. If TimespanConfig is set, set this to an empty string to avoid using the default value. Default value: "TOP" Possible values: ["TOP", "RANDOM_START"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sample_method DataLossPreventionJobTrigger#sample_method}
         '''
         if isinstance(table_reference, dict):
             table_reference = DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsTableReference(**table_reference)
@@ -9515,7 +9515,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptions:
     ) -> "DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsTableReference":
         '''table_reference block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table_reference DataLossPreventionJobTrigger#table_reference}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table_reference DataLossPreventionJobTrigger#table_reference}
         '''
         result = self._values.get("table_reference")
         assert result is not None, "Required property 'table_reference' is missing"
@@ -9527,7 +9527,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsExcludedFields"]]]:
         '''excluded_fields block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#excluded_fields DataLossPreventionJobTrigger#excluded_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#excluded_fields DataLossPreventionJobTrigger#excluded_fields}
         '''
         result = self._values.get("excluded_fields")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsExcludedFields"]]], result)
@@ -9538,7 +9538,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsIdentifyingFields"]]]:
         '''identifying_fields block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#identifying_fields DataLossPreventionJobTrigger#identifying_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#identifying_fields DataLossPreventionJobTrigger#identifying_fields}
         '''
         result = self._values.get("identifying_fields")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsIdentifyingFields"]]], result)
@@ -9549,7 +9549,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsIncludedFields"]]]:
         '''included_fields block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#included_fields DataLossPreventionJobTrigger#included_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#included_fields DataLossPreventionJobTrigger#included_fields}
         '''
         result = self._values.get("included_fields")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsIncludedFields"]]], result)
@@ -9562,7 +9562,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptions:
         If not set, or if set to 0, all rows will be scanned. Only one of rowsLimit and rowsLimitPercent can be
         specified. Cannot be used in conjunction with TimespanConfig.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#rows_limit DataLossPreventionJobTrigger#rows_limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#rows_limit DataLossPreventionJobTrigger#rows_limit}
         '''
         result = self._values.get("rows_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -9575,7 +9575,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptions:
         Must be between 0 and 100, inclusively. Both 0 and 100 means no limit. Defaults to 0. Only one of
         rowsLimit and rowsLimitPercent can be specified. Cannot be used in conjunction with TimespanConfig.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#rows_limit_percent DataLossPreventionJobTrigger#rows_limit_percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#rows_limit_percent DataLossPreventionJobTrigger#rows_limit_percent}
         '''
         result = self._values.get("rows_limit_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -9588,7 +9588,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptions:
         rowsLimit or rowsLimitPercent. If not specified, rows are scanned in the order BigQuery reads them.
         If TimespanConfig is set, set this to an empty string to avoid using the default value. Default value: "TOP" Possible values: ["TOP", "RANDOM_START"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sample_method DataLossPreventionJobTrigger#sample_method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sample_method DataLossPreventionJobTrigger#sample_method}
         '''
         result = self._values.get("sample_method")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9613,7 +9613,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptions:
 class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsExcludedFields:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Name describing the field excluded from scanning. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        :param name: Name describing the field excluded from scanning. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d44df9c250d0ab0232018c2053f448cb5892c7b8b051bd871883269519bfbbf1)
@@ -9626,7 +9626,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsExcluded
     def name(self) -> builtins.str:
         '''Name describing the field excluded from scanning.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -9806,7 +9806,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsExcluded
 class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsIdentifyingFields:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Name of a BigQuery field to be returned with the findings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        :param name: Name of a BigQuery field to be returned with the findings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a8aed41bc5dcdaf15f587e0dfb1016882d57229899784baaf59295ca1b776043)
@@ -9819,7 +9819,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsIdentify
     def name(self) -> builtins.str:
         '''Name of a BigQuery field to be returned with the findings.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -9999,7 +9999,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsIdentify
 class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsIncludedFields:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Name describing the field to which scanning is limited. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        :param name: Name describing the field to which scanning is limited. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__826741c544bcdc3838ca7f483b6e1049c86bf5f902cc039cde2bc42c6c17cf9d)
@@ -10012,7 +10012,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsIncluded
     def name(self) -> builtins.str:
         '''Name describing the field to which scanning is limited.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -10252,9 +10252,9 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsOutputRe
         table_id: builtins.str,
     ) -> None:
         '''
-        :param dataset_id: The dataset ID of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#dataset_id DataLossPreventionJobTrigger#dataset_id}
-        :param project_id: The Google Cloud Platform project ID of the project containing the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
-        :param table_id: The name of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table_id DataLossPreventionJobTrigger#table_id}
+        :param dataset_id: The dataset ID of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#dataset_id DataLossPreventionJobTrigger#dataset_id}
+        :param project_id: The Google Cloud Platform project ID of the project containing the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
+        :param table_id: The name of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table_id DataLossPreventionJobTrigger#table_id}
         '''
         value = DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsTableReference(
             dataset_id=dataset_id, project_id=project_id, table_id=table_id
@@ -10429,9 +10429,9 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsTableRef
         table_id: builtins.str,
     ) -> None:
         '''
-        :param dataset_id: The dataset ID of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#dataset_id DataLossPreventionJobTrigger#dataset_id}
-        :param project_id: The Google Cloud Platform project ID of the project containing the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
-        :param table_id: The name of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table_id DataLossPreventionJobTrigger#table_id}
+        :param dataset_id: The dataset ID of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#dataset_id DataLossPreventionJobTrigger#dataset_id}
+        :param project_id: The Google Cloud Platform project ID of the project containing the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
+        :param table_id: The name of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table_id DataLossPreventionJobTrigger#table_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a565838b92a3f8f8968616b733e807ad977c20a9566c89b7f4dba910ec6df33e)
@@ -10448,7 +10448,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsTableRef
     def dataset_id(self) -> builtins.str:
         '''The dataset ID of the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#dataset_id DataLossPreventionJobTrigger#dataset_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#dataset_id DataLossPreventionJobTrigger#dataset_id}
         '''
         result = self._values.get("dataset_id")
         assert result is not None, "Required property 'dataset_id' is missing"
@@ -10458,7 +10458,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsTableRef
     def project_id(self) -> builtins.str:
         '''The Google Cloud Platform project ID of the project containing the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
         '''
         result = self._values.get("project_id")
         assert result is not None, "Required property 'project_id' is missing"
@@ -10468,7 +10468,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptionsTableRef
     def table_id(self) -> builtins.str:
         '''The name of the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table_id DataLossPreventionJobTrigger#table_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table_id DataLossPreventionJobTrigger#table_id}
         '''
         result = self._values.get("table_id")
         assert result is not None, "Required property 'table_id' is missing"
@@ -10599,12 +10599,12 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptions:
         sample_method: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param file_set: file_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#file_set DataLossPreventionJobTrigger#file_set}
-        :param bytes_limit_per_file: Max number of bytes to scan from a file. If a scanned file's size is bigger than this value then the rest of the bytes are omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#bytes_limit_per_file DataLossPreventionJobTrigger#bytes_limit_per_file}
-        :param bytes_limit_per_file_percent: Max percentage of bytes to scan from a file. The rest are omitted. The number of bytes scanned is rounded down. Must be between 0 and 100, inclusively. Both 0 and 100 means no limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#bytes_limit_per_file_percent DataLossPreventionJobTrigger#bytes_limit_per_file_percent}
-        :param files_limit_percent: Limits the number of files to scan to this percentage of the input FileSet. Number of files scanned is rounded down. Must be between 0 and 100, inclusively. Both 0 and 100 means no limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#files_limit_percent DataLossPreventionJobTrigger#files_limit_percent}
-        :param file_types: List of file type groups to include in the scan. If empty, all files are scanned and available data format processors are applied. In addition, the binary content of the selected files is always scanned as well. Images are scanned only as binary if the specified region does not support image inspection and no fileTypes were specified. Possible values: ["BINARY_FILE", "TEXT_FILE", "IMAGE", "WORD", "PDF", "AVRO", "CSV", "TSV", "POWERPOINT", "EXCEL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#file_types DataLossPreventionJobTrigger#file_types}
-        :param sample_method: How to sample bytes if not all bytes are scanned. Meaningful only when used in conjunction with bytesLimitPerFile. If not specified, scanning would start from the top. Possible values: ["TOP", "RANDOM_START"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sample_method DataLossPreventionJobTrigger#sample_method}
+        :param file_set: file_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#file_set DataLossPreventionJobTrigger#file_set}
+        :param bytes_limit_per_file: Max number of bytes to scan from a file. If a scanned file's size is bigger than this value then the rest of the bytes are omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#bytes_limit_per_file DataLossPreventionJobTrigger#bytes_limit_per_file}
+        :param bytes_limit_per_file_percent: Max percentage of bytes to scan from a file. The rest are omitted. The number of bytes scanned is rounded down. Must be between 0 and 100, inclusively. Both 0 and 100 means no limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#bytes_limit_per_file_percent DataLossPreventionJobTrigger#bytes_limit_per_file_percent}
+        :param files_limit_percent: Limits the number of files to scan to this percentage of the input FileSet. Number of files scanned is rounded down. Must be between 0 and 100, inclusively. Both 0 and 100 means no limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#files_limit_percent DataLossPreventionJobTrigger#files_limit_percent}
+        :param file_types: List of file type groups to include in the scan. If empty, all files are scanned and available data format processors are applied. In addition, the binary content of the selected files is always scanned as well. Images are scanned only as binary if the specified region does not support image inspection and no fileTypes were specified. Possible values: ["BINARY_FILE", "TEXT_FILE", "IMAGE", "WORD", "PDF", "AVRO", "CSV", "TSV", "POWERPOINT", "EXCEL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#file_types DataLossPreventionJobTrigger#file_types}
+        :param sample_method: How to sample bytes if not all bytes are scanned. Meaningful only when used in conjunction with bytesLimitPerFile. If not specified, scanning would start from the top. Possible values: ["TOP", "RANDOM_START"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sample_method DataLossPreventionJobTrigger#sample_method}
         '''
         if isinstance(file_set, dict):
             file_set = DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptionsFileSet(**file_set)
@@ -10636,7 +10636,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptions:
     ) -> "DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptionsFileSet":
         '''file_set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#file_set DataLossPreventionJobTrigger#file_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#file_set DataLossPreventionJobTrigger#file_set}
         '''
         result = self._values.get("file_set")
         assert result is not None, "Required property 'file_set' is missing"
@@ -10649,7 +10649,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptions:
         If a scanned file's size is bigger than this value
         then the rest of the bytes are omitted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#bytes_limit_per_file DataLossPreventionJobTrigger#bytes_limit_per_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#bytes_limit_per_file DataLossPreventionJobTrigger#bytes_limit_per_file}
         '''
         result = self._values.get("bytes_limit_per_file")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -10661,7 +10661,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptions:
         The rest are omitted. The number of bytes scanned is rounded down.
         Must be between 0 and 100, inclusively. Both 0 and 100 means no limit.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#bytes_limit_per_file_percent DataLossPreventionJobTrigger#bytes_limit_per_file_percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#bytes_limit_per_file_percent DataLossPreventionJobTrigger#bytes_limit_per_file_percent}
         '''
         result = self._values.get("bytes_limit_per_file_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -10673,7 +10673,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptions:
         Number of files scanned is rounded down.
         Must be between 0 and 100, inclusively. Both 0 and 100 means no limit.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#files_limit_percent DataLossPreventionJobTrigger#files_limit_percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#files_limit_percent DataLossPreventionJobTrigger#files_limit_percent}
         '''
         result = self._values.get("files_limit_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -10686,7 +10686,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptions:
         format processors are applied. In addition, the binary content of the selected files is always scanned as well.
         Images are scanned only as binary if the specified region does not support image inspection and no fileTypes were specified. Possible values: ["BINARY_FILE", "TEXT_FILE", "IMAGE", "WORD", "PDF", "AVRO", "CSV", "TSV", "POWERPOINT", "EXCEL"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#file_types DataLossPreventionJobTrigger#file_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#file_types DataLossPreventionJobTrigger#file_types}
         '''
         result = self._values.get("file_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -10698,7 +10698,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptions:
         Meaningful only when used in conjunction with bytesLimitPerFile.
         If not specified, scanning would start from the top. Possible values: ["TOP", "RANDOM_START"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sample_method DataLossPreventionJobTrigger#sample_method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sample_method DataLossPreventionJobTrigger#sample_method}
         '''
         result = self._values.get("sample_method")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10728,8 +10728,8 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptionsFile
         url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param regex_file_set: regex_file_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#regex_file_set DataLossPreventionJobTrigger#regex_file_set}
-        :param url: The Cloud Storage url of the file(s) to scan, in the format 'gs:///'. Trailing wildcard in the path is allowed. If the url ends in a trailing slash, the bucket or directory represented by the url will be scanned non-recursively (content in sub-directories will not be scanned). This means that 'gs://mybucket/' is equivalent to 'gs://mybucket/*', and 'gs://mybucket/directory/' is equivalent to 'gs://mybucket/directory/*'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#url DataLossPreventionJobTrigger#url}
+        :param regex_file_set: regex_file_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#regex_file_set DataLossPreventionJobTrigger#regex_file_set}
+        :param url: The Cloud Storage url of the file(s) to scan, in the format 'gs:///'. Trailing wildcard in the path is allowed. If the url ends in a trailing slash, the bucket or directory represented by the url will be scanned non-recursively (content in sub-directories will not be scanned). This means that 'gs://mybucket/' is equivalent to 'gs://mybucket/*', and 'gs://mybucket/directory/' is equivalent to 'gs://mybucket/directory/*'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#url DataLossPreventionJobTrigger#url}
         '''
         if isinstance(regex_file_set, dict):
             regex_file_set = DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptionsFileSetRegexFileSet(**regex_file_set)
@@ -10749,7 +10749,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptionsFile
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptionsFileSetRegexFileSet"]:
         '''regex_file_set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#regex_file_set DataLossPreventionJobTrigger#regex_file_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#regex_file_set DataLossPreventionJobTrigger#regex_file_set}
         '''
         result = self._values.get("regex_file_set")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptionsFileSetRegexFileSet"], result)
@@ -10762,7 +10762,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptionsFile
         non-recursively (content in sub-directories will not be scanned). This means that 'gs://mybucket/' is
         equivalent to 'gs://mybucket/*', and 'gs://mybucket/directory/' is equivalent to 'gs://mybucket/directory/*'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#url DataLossPreventionJobTrigger#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#url DataLossPreventionJobTrigger#url}
         '''
         result = self._values.get("url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10808,9 +10808,9 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptionsFile
         include_regex: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param bucket_name: The name of a Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#bucket_name DataLossPreventionJobTrigger#bucket_name}
-        :param exclude_regex: A list of regular expressions matching file paths to exclude. All files in the bucket that match at least one of these regular expressions will be excluded from the scan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#exclude_regex DataLossPreventionJobTrigger#exclude_regex}
-        :param include_regex: A list of regular expressions matching file paths to include. All files in the bucket that match at least one of these regular expressions will be included in the set of files, except for those that also match an item in excludeRegex. Leaving this field empty will match all files by default (this is equivalent to including .* in the list) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#include_regex DataLossPreventionJobTrigger#include_regex}
+        :param bucket_name: The name of a Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#bucket_name DataLossPreventionJobTrigger#bucket_name}
+        :param exclude_regex: A list of regular expressions matching file paths to exclude. All files in the bucket that match at least one of these regular expressions will be excluded from the scan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#exclude_regex DataLossPreventionJobTrigger#exclude_regex}
+        :param include_regex: A list of regular expressions matching file paths to include. All files in the bucket that match at least one of these regular expressions will be included in the set of files, except for those that also match an item in excludeRegex. Leaving this field empty will match all files by default (this is equivalent to including .* in the list) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#include_regex DataLossPreventionJobTrigger#include_regex}
         '''
         value = DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptionsFileSetRegexFileSet(
             bucket_name=bucket_name,
@@ -10895,9 +10895,9 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptionsFile
         include_regex: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param bucket_name: The name of a Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#bucket_name DataLossPreventionJobTrigger#bucket_name}
-        :param exclude_regex: A list of regular expressions matching file paths to exclude. All files in the bucket that match at least one of these regular expressions will be excluded from the scan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#exclude_regex DataLossPreventionJobTrigger#exclude_regex}
-        :param include_regex: A list of regular expressions matching file paths to include. All files in the bucket that match at least one of these regular expressions will be included in the set of files, except for those that also match an item in excludeRegex. Leaving this field empty will match all files by default (this is equivalent to including .* in the list) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#include_regex DataLossPreventionJobTrigger#include_regex}
+        :param bucket_name: The name of a Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#bucket_name DataLossPreventionJobTrigger#bucket_name}
+        :param exclude_regex: A list of regular expressions matching file paths to exclude. All files in the bucket that match at least one of these regular expressions will be excluded from the scan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#exclude_regex DataLossPreventionJobTrigger#exclude_regex}
+        :param include_regex: A list of regular expressions matching file paths to include. All files in the bucket that match at least one of these regular expressions will be included in the set of files, except for those that also match an item in excludeRegex. Leaving this field empty will match all files by default (this is equivalent to including .* in the list) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#include_regex DataLossPreventionJobTrigger#include_regex}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c543a2260660828e712ac7a10f46f30c6003cca98a4a4ffd2d6b153c25ed4e77)
@@ -10916,7 +10916,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptionsFile
     def bucket_name(self) -> builtins.str:
         '''The name of a Cloud Storage bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#bucket_name DataLossPreventionJobTrigger#bucket_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#bucket_name DataLossPreventionJobTrigger#bucket_name}
         '''
         result = self._values.get("bucket_name")
         assert result is not None, "Required property 'bucket_name' is missing"
@@ -10929,7 +10929,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptionsFile
         All files in the bucket that match at
         least one of these regular expressions will be excluded from the scan.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#exclude_regex DataLossPreventionJobTrigger#exclude_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#exclude_regex DataLossPreventionJobTrigger#exclude_regex}
         '''
         result = self._values.get("exclude_regex")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -10943,7 +10943,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptionsFile
         except for those that also match an item in excludeRegex. Leaving this field empty will
         match all files by default (this is equivalent to including .* in the list)
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#include_regex DataLossPreventionJobTrigger#include_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#include_regex DataLossPreventionJobTrigger#include_regex}
         '''
         result = self._values.get("include_regex")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -11085,8 +11085,8 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptionsOutp
         url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param regex_file_set: regex_file_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#regex_file_set DataLossPreventionJobTrigger#regex_file_set}
-        :param url: The Cloud Storage url of the file(s) to scan, in the format 'gs:///'. Trailing wildcard in the path is allowed. If the url ends in a trailing slash, the bucket or directory represented by the url will be scanned non-recursively (content in sub-directories will not be scanned). This means that 'gs://mybucket/' is equivalent to 'gs://mybucket/*', and 'gs://mybucket/directory/' is equivalent to 'gs://mybucket/directory/*'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#url DataLossPreventionJobTrigger#url}
+        :param regex_file_set: regex_file_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#regex_file_set DataLossPreventionJobTrigger#regex_file_set}
+        :param url: The Cloud Storage url of the file(s) to scan, in the format 'gs:///'. Trailing wildcard in the path is allowed. If the url ends in a trailing slash, the bucket or directory represented by the url will be scanned non-recursively (content in sub-directories will not be scanned). This means that 'gs://mybucket/' is equivalent to 'gs://mybucket/*', and 'gs://mybucket/directory/' is equivalent to 'gs://mybucket/directory/*'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#url DataLossPreventionJobTrigger#url}
         '''
         value = DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptionsFileSet(
             regex_file_set=regex_file_set, url=url
@@ -11244,8 +11244,8 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptions:
         partition_id: typing.Union["DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptionsPartitionId", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param kind: kind block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#kind DataLossPreventionJobTrigger#kind}
-        :param partition_id: partition_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#partition_id DataLossPreventionJobTrigger#partition_id}
+        :param kind: kind block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#kind DataLossPreventionJobTrigger#kind}
+        :param partition_id: partition_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#partition_id DataLossPreventionJobTrigger#partition_id}
         '''
         if isinstance(kind, dict):
             kind = DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptionsKind(**kind)
@@ -11266,7 +11266,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptions:
     ) -> "DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptionsKind":
         '''kind block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#kind DataLossPreventionJobTrigger#kind}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#kind DataLossPreventionJobTrigger#kind}
         '''
         result = self._values.get("kind")
         assert result is not None, "Required property 'kind' is missing"
@@ -11278,7 +11278,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptions:
     ) -> "DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptionsPartitionId":
         '''partition_id block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#partition_id DataLossPreventionJobTrigger#partition_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#partition_id DataLossPreventionJobTrigger#partition_id}
         '''
         result = self._values.get("partition_id")
         assert result is not None, "Required property 'partition_id' is missing"
@@ -11304,7 +11304,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptions:
 class DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptionsKind:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: The name of the Datastore kind. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        :param name: The name of the Datastore kind. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c2446ff69bd94fed85e96731f806044fd5a7085b477122d3691dc978c6ca077d)
@@ -11317,7 +11317,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptionsKind:
     def name(self) -> builtins.str:
         '''The name of the Datastore kind.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -11413,7 +11413,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptionsOutputR
     @jsii.member(jsii_name="putKind")
     def put_kind(self, *, name: builtins.str) -> None:
         '''
-        :param name: The name of the Datastore kind. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        :param name: The name of the Datastore kind. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         value = DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptionsKind(
             name=name
@@ -11429,8 +11429,8 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptionsOutputR
         namespace_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param project_id: The ID of the project to which the entities belong. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
-        :param namespace_id: If not empty, the ID of the namespace to which the entities belong. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#namespace_id DataLossPreventionJobTrigger#namespace_id}
+        :param project_id: The ID of the project to which the entities belong. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
+        :param namespace_id: If not empty, the ID of the namespace to which the entities belong. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#namespace_id DataLossPreventionJobTrigger#namespace_id}
         '''
         value = DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptionsPartitionId(
             project_id=project_id, namespace_id=namespace_id
@@ -11497,8 +11497,8 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptionsPartiti
         namespace_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param project_id: The ID of the project to which the entities belong. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
-        :param namespace_id: If not empty, the ID of the namespace to which the entities belong. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#namespace_id DataLossPreventionJobTrigger#namespace_id}
+        :param project_id: The ID of the project to which the entities belong. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
+        :param namespace_id: If not empty, the ID of the namespace to which the entities belong. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#namespace_id DataLossPreventionJobTrigger#namespace_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__980cee053092abf3a2639c25ff1c0df72af1d7d701b292647b59bfcb033d9d20)
@@ -11514,7 +11514,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptionsPartiti
     def project_id(self) -> builtins.str:
         '''The ID of the project to which the entities belong.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#project_id DataLossPreventionJobTrigger#project_id}
         '''
         result = self._values.get("project_id")
         assert result is not None, "Required property 'project_id' is missing"
@@ -11524,7 +11524,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptionsPartiti
     def namespace_id(self) -> typing.Optional[builtins.str]:
         '''If not empty, the ID of the namespace to which the entities belong.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#namespace_id DataLossPreventionJobTrigger#namespace_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#namespace_id DataLossPreventionJobTrigger#namespace_id}
         '''
         result = self._values.get("namespace_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11637,10 +11637,10 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptions:
         table_options: typing.Optional[typing.Union["DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptionsTableOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param description: A short description of where the data is coming from. Will be stored once in the job. 256 max length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#description DataLossPreventionJobTrigger#description}
-        :param labels: To organize findings, these labels will be added to each finding. Label keys must be between 1 and 63 characters long and must conform to the following regular expression: '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?'. Label values must be between 0 and 63 characters long and must conform to the regular expression '(`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?)?'. No more than 10 labels can be associated with a given finding. Examples: - '"environment" : "production"' - '"pipeline" : "etl"' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#labels DataLossPreventionJobTrigger#labels}
-        :param required_finding_label_keys: These are labels that each inspection request must include within their 'finding_labels' map. Request may contain others, but any missing one of these will be rejected. Label keys must be between 1 and 63 characters long and must conform to the following regular expression: '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?'. No more than 10 keys can be required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#required_finding_label_keys DataLossPreventionJobTrigger#required_finding_label_keys}
-        :param table_options: table_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table_options DataLossPreventionJobTrigger#table_options}
+        :param description: A short description of where the data is coming from. Will be stored once in the job. 256 max length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#description DataLossPreventionJobTrigger#description}
+        :param labels: To organize findings, these labels will be added to each finding. Label keys must be between 1 and 63 characters long and must conform to the following regular expression: '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?'. Label values must be between 0 and 63 characters long and must conform to the regular expression '(`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?)?'. No more than 10 labels can be associated with a given finding. Examples: - '"environment" : "production"' - '"pipeline" : "etl"' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#labels DataLossPreventionJobTrigger#labels}
+        :param required_finding_label_keys: These are labels that each inspection request must include within their 'finding_labels' map. Request may contain others, but any missing one of these will be rejected. Label keys must be between 1 and 63 characters long and must conform to the following regular expression: '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?'. No more than 10 keys can be required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#required_finding_label_keys DataLossPreventionJobTrigger#required_finding_label_keys}
+        :param table_options: table_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table_options DataLossPreventionJobTrigger#table_options}
         '''
         if isinstance(table_options, dict):
             table_options = DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptionsTableOptions(**table_options)
@@ -11666,7 +11666,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptions:
 
         Will be stored once in the job. 256 max length.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#description DataLossPreventionJobTrigger#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#description DataLossPreventionJobTrigger#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11686,7 +11686,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptions:
         - '"environment" : "production"'
         - '"pipeline" : "etl"'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#labels DataLossPreventionJobTrigger#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#labels DataLossPreventionJobTrigger#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -11702,7 +11702,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptions:
 
         No more than 10 keys can be required.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#required_finding_label_keys DataLossPreventionJobTrigger#required_finding_label_keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#required_finding_label_keys DataLossPreventionJobTrigger#required_finding_label_keys}
         '''
         result = self._values.get("required_finding_label_keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -11713,7 +11713,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptions:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptionsTableOptions"]:
         '''table_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table_options DataLossPreventionJobTrigger#table_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table_options DataLossPreventionJobTrigger#table_options}
         '''
         result = self._values.get("table_options")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptionsTableOptions"], result)
@@ -11757,7 +11757,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptionsOutputRefe
         identifying_fields: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptionsTableOptionsIdentifyingFields", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param identifying_fields: identifying_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#identifying_fields DataLossPreventionJobTrigger#identifying_fields}
+        :param identifying_fields: identifying_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#identifying_fields DataLossPreventionJobTrigger#identifying_fields}
         '''
         value = DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptionsTableOptions(
             identifying_fields=identifying_fields
@@ -11880,7 +11880,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptionsTableOptio
         identifying_fields: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptionsTableOptionsIdentifyingFields", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param identifying_fields: identifying_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#identifying_fields DataLossPreventionJobTrigger#identifying_fields}
+        :param identifying_fields: identifying_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#identifying_fields DataLossPreventionJobTrigger#identifying_fields}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cdca56af2b7f921fa142ac69161f7b1a6ab779e8257dbc912411e151239748dc)
@@ -11895,7 +11895,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptionsTableOptio
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptionsTableOptionsIdentifyingFields"]]]:
         '''identifying_fields block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#identifying_fields DataLossPreventionJobTrigger#identifying_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#identifying_fields DataLossPreventionJobTrigger#identifying_fields}
         '''
         result = self._values.get("identifying_fields")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptionsTableOptionsIdentifyingFields"]]], result)
@@ -11920,7 +11920,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptionsTableOptio
 class DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptionsTableOptionsIdentifyingFields:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Name describing the field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        :param name: Name describing the field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3d254baf430b3932c0e751fbcc09c8b8be76688a3635f8c776ce0838ce410bfc)
@@ -11933,7 +11933,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptionsTableOptio
     def name(self) -> builtins.str:
         '''Name describing the field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -12207,13 +12207,13 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigOutputReference(
         sample_method: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param table_reference: table_reference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table_reference DataLossPreventionJobTrigger#table_reference}
-        :param excluded_fields: excluded_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#excluded_fields DataLossPreventionJobTrigger#excluded_fields}
-        :param identifying_fields: identifying_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#identifying_fields DataLossPreventionJobTrigger#identifying_fields}
-        :param included_fields: included_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#included_fields DataLossPreventionJobTrigger#included_fields}
-        :param rows_limit: Max number of rows to scan. If the table has more rows than this value, the rest of the rows are omitted. If not set, or if set to 0, all rows will be scanned. Only one of rowsLimit and rowsLimitPercent can be specified. Cannot be used in conjunction with TimespanConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#rows_limit DataLossPreventionJobTrigger#rows_limit}
-        :param rows_limit_percent: Max percentage of rows to scan. The rest are omitted. The number of rows scanned is rounded down. Must be between 0 and 100, inclusively. Both 0 and 100 means no limit. Defaults to 0. Only one of rowsLimit and rowsLimitPercent can be specified. Cannot be used in conjunction with TimespanConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#rows_limit_percent DataLossPreventionJobTrigger#rows_limit_percent}
-        :param sample_method: How to sample rows if not all rows are scanned. Meaningful only when used in conjunction with either rowsLimit or rowsLimitPercent. If not specified, rows are scanned in the order BigQuery reads them. If TimespanConfig is set, set this to an empty string to avoid using the default value. Default value: "TOP" Possible values: ["TOP", "RANDOM_START"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sample_method DataLossPreventionJobTrigger#sample_method}
+        :param table_reference: table_reference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table_reference DataLossPreventionJobTrigger#table_reference}
+        :param excluded_fields: excluded_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#excluded_fields DataLossPreventionJobTrigger#excluded_fields}
+        :param identifying_fields: identifying_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#identifying_fields DataLossPreventionJobTrigger#identifying_fields}
+        :param included_fields: included_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#included_fields DataLossPreventionJobTrigger#included_fields}
+        :param rows_limit: Max number of rows to scan. If the table has more rows than this value, the rest of the rows are omitted. If not set, or if set to 0, all rows will be scanned. Only one of rowsLimit and rowsLimitPercent can be specified. Cannot be used in conjunction with TimespanConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#rows_limit DataLossPreventionJobTrigger#rows_limit}
+        :param rows_limit_percent: Max percentage of rows to scan. The rest are omitted. The number of rows scanned is rounded down. Must be between 0 and 100, inclusively. Both 0 and 100 means no limit. Defaults to 0. Only one of rowsLimit and rowsLimitPercent can be specified. Cannot be used in conjunction with TimespanConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#rows_limit_percent DataLossPreventionJobTrigger#rows_limit_percent}
+        :param sample_method: How to sample rows if not all rows are scanned. Meaningful only when used in conjunction with either rowsLimit or rowsLimitPercent. If not specified, rows are scanned in the order BigQuery reads them. If TimespanConfig is set, set this to an empty string to avoid using the default value. Default value: "TOP" Possible values: ["TOP", "RANDOM_START"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sample_method DataLossPreventionJobTrigger#sample_method}
         '''
         value = DataLossPreventionJobTriggerInspectJobStorageConfigBigQueryOptions(
             table_reference=table_reference,
@@ -12239,12 +12239,12 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigOutputReference(
         sample_method: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param file_set: file_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#file_set DataLossPreventionJobTrigger#file_set}
-        :param bytes_limit_per_file: Max number of bytes to scan from a file. If a scanned file's size is bigger than this value then the rest of the bytes are omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#bytes_limit_per_file DataLossPreventionJobTrigger#bytes_limit_per_file}
-        :param bytes_limit_per_file_percent: Max percentage of bytes to scan from a file. The rest are omitted. The number of bytes scanned is rounded down. Must be between 0 and 100, inclusively. Both 0 and 100 means no limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#bytes_limit_per_file_percent DataLossPreventionJobTrigger#bytes_limit_per_file_percent}
-        :param files_limit_percent: Limits the number of files to scan to this percentage of the input FileSet. Number of files scanned is rounded down. Must be between 0 and 100, inclusively. Both 0 and 100 means no limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#files_limit_percent DataLossPreventionJobTrigger#files_limit_percent}
-        :param file_types: List of file type groups to include in the scan. If empty, all files are scanned and available data format processors are applied. In addition, the binary content of the selected files is always scanned as well. Images are scanned only as binary if the specified region does not support image inspection and no fileTypes were specified. Possible values: ["BINARY_FILE", "TEXT_FILE", "IMAGE", "WORD", "PDF", "AVRO", "CSV", "TSV", "POWERPOINT", "EXCEL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#file_types DataLossPreventionJobTrigger#file_types}
-        :param sample_method: How to sample bytes if not all bytes are scanned. Meaningful only when used in conjunction with bytesLimitPerFile. If not specified, scanning would start from the top. Possible values: ["TOP", "RANDOM_START"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#sample_method DataLossPreventionJobTrigger#sample_method}
+        :param file_set: file_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#file_set DataLossPreventionJobTrigger#file_set}
+        :param bytes_limit_per_file: Max number of bytes to scan from a file. If a scanned file's size is bigger than this value then the rest of the bytes are omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#bytes_limit_per_file DataLossPreventionJobTrigger#bytes_limit_per_file}
+        :param bytes_limit_per_file_percent: Max percentage of bytes to scan from a file. The rest are omitted. The number of bytes scanned is rounded down. Must be between 0 and 100, inclusively. Both 0 and 100 means no limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#bytes_limit_per_file_percent DataLossPreventionJobTrigger#bytes_limit_per_file_percent}
+        :param files_limit_percent: Limits the number of files to scan to this percentage of the input FileSet. Number of files scanned is rounded down. Must be between 0 and 100, inclusively. Both 0 and 100 means no limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#files_limit_percent DataLossPreventionJobTrigger#files_limit_percent}
+        :param file_types: List of file type groups to include in the scan. If empty, all files are scanned and available data format processors are applied. In addition, the binary content of the selected files is always scanned as well. Images are scanned only as binary if the specified region does not support image inspection and no fileTypes were specified. Possible values: ["BINARY_FILE", "TEXT_FILE", "IMAGE", "WORD", "PDF", "AVRO", "CSV", "TSV", "POWERPOINT", "EXCEL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#file_types DataLossPreventionJobTrigger#file_types}
+        :param sample_method: How to sample bytes if not all bytes are scanned. Meaningful only when used in conjunction with bytesLimitPerFile. If not specified, scanning would start from the top. Possible values: ["TOP", "RANDOM_START"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#sample_method DataLossPreventionJobTrigger#sample_method}
         '''
         value = DataLossPreventionJobTriggerInspectJobStorageConfigCloudStorageOptions(
             file_set=file_set,
@@ -12265,8 +12265,8 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigOutputReference(
         partition_id: typing.Union[DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptionsPartitionId, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param kind: kind block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#kind DataLossPreventionJobTrigger#kind}
-        :param partition_id: partition_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#partition_id DataLossPreventionJobTrigger#partition_id}
+        :param kind: kind block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#kind DataLossPreventionJobTrigger#kind}
+        :param partition_id: partition_id block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#partition_id DataLossPreventionJobTrigger#partition_id}
         '''
         value = DataLossPreventionJobTriggerInspectJobStorageConfigDatastoreOptions(
             kind=kind, partition_id=partition_id
@@ -12284,10 +12284,10 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigOutputReference(
         table_options: typing.Optional[typing.Union[DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptionsTableOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param description: A short description of where the data is coming from. Will be stored once in the job. 256 max length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#description DataLossPreventionJobTrigger#description}
-        :param labels: To organize findings, these labels will be added to each finding. Label keys must be between 1 and 63 characters long and must conform to the following regular expression: '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?'. Label values must be between 0 and 63 characters long and must conform to the regular expression '(`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?)?'. No more than 10 labels can be associated with a given finding. Examples: - '"environment" : "production"' - '"pipeline" : "etl"' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#labels DataLossPreventionJobTrigger#labels}
-        :param required_finding_label_keys: These are labels that each inspection request must include within their 'finding_labels' map. Request may contain others, but any missing one of these will be rejected. Label keys must be between 1 and 63 characters long and must conform to the following regular expression: '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?'. No more than 10 keys can be required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#required_finding_label_keys DataLossPreventionJobTrigger#required_finding_label_keys}
-        :param table_options: table_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#table_options DataLossPreventionJobTrigger#table_options}
+        :param description: A short description of where the data is coming from. Will be stored once in the job. 256 max length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#description DataLossPreventionJobTrigger#description}
+        :param labels: To organize findings, these labels will be added to each finding. Label keys must be between 1 and 63 characters long and must conform to the following regular expression: '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?'. Label values must be between 0 and 63 characters long and must conform to the regular expression '(`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?)?'. No more than 10 labels can be associated with a given finding. Examples: - '"environment" : "production"' - '"pipeline" : "etl"' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#labels DataLossPreventionJobTrigger#labels}
+        :param required_finding_label_keys: These are labels that each inspection request must include within their 'finding_labels' map. Request may contain others, but any missing one of these will be rejected. Label keys must be between 1 and 63 characters long and must conform to the following regular expression: '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?'. No more than 10 keys can be required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#required_finding_label_keys DataLossPreventionJobTrigger#required_finding_label_keys}
+        :param table_options: table_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#table_options DataLossPreventionJobTrigger#table_options}
         '''
         value = DataLossPreventionJobTriggerInspectJobStorageConfigHybridOptions(
             description=description,
@@ -12308,10 +12308,10 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigOutputReference(
         timestamp_field: typing.Optional[typing.Union["DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfigTimestampField", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param enable_auto_population_of_timespan_config: When the job is started by a JobTrigger we will automatically figure out a valid startTime to avoid scanning files that have not been modified since the last time the JobTrigger executed. This will be based on the time of the execution of the last run of the JobTrigger or the timespan endTime used in the last run of the JobTrigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#enable_auto_population_of_timespan_config DataLossPreventionJobTrigger#enable_auto_population_of_timespan_config}
-        :param end_time: Exclude files, tables, or rows newer than this value. If not set, no upper time limit is applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#end_time DataLossPreventionJobTrigger#end_time}
-        :param start_time: Exclude files, tables, or rows older than this value. If not set, no lower time limit is applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#start_time DataLossPreventionJobTrigger#start_time}
-        :param timestamp_field: timestamp_field block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#timestamp_field DataLossPreventionJobTrigger#timestamp_field}
+        :param enable_auto_population_of_timespan_config: When the job is started by a JobTrigger we will automatically figure out a valid startTime to avoid scanning files that have not been modified since the last time the JobTrigger executed. This will be based on the time of the execution of the last run of the JobTrigger or the timespan endTime used in the last run of the JobTrigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#enable_auto_population_of_timespan_config DataLossPreventionJobTrigger#enable_auto_population_of_timespan_config}
+        :param end_time: Exclude files, tables, or rows newer than this value. If not set, no upper time limit is applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#end_time DataLossPreventionJobTrigger#end_time}
+        :param start_time: Exclude files, tables, or rows older than this value. If not set, no lower time limit is applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#start_time DataLossPreventionJobTrigger#start_time}
+        :param timestamp_field: timestamp_field block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#timestamp_field DataLossPreventionJobTrigger#timestamp_field}
         '''
         value = DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfig(
             enable_auto_population_of_timespan_config=enable_auto_population_of_timespan_config,
@@ -12450,10 +12450,10 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfig:
         timestamp_field: typing.Optional[typing.Union["DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfigTimestampField", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param enable_auto_population_of_timespan_config: When the job is started by a JobTrigger we will automatically figure out a valid startTime to avoid scanning files that have not been modified since the last time the JobTrigger executed. This will be based on the time of the execution of the last run of the JobTrigger or the timespan endTime used in the last run of the JobTrigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#enable_auto_population_of_timespan_config DataLossPreventionJobTrigger#enable_auto_population_of_timespan_config}
-        :param end_time: Exclude files, tables, or rows newer than this value. If not set, no upper time limit is applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#end_time DataLossPreventionJobTrigger#end_time}
-        :param start_time: Exclude files, tables, or rows older than this value. If not set, no lower time limit is applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#start_time DataLossPreventionJobTrigger#start_time}
-        :param timestamp_field: timestamp_field block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#timestamp_field DataLossPreventionJobTrigger#timestamp_field}
+        :param enable_auto_population_of_timespan_config: When the job is started by a JobTrigger we will automatically figure out a valid startTime to avoid scanning files that have not been modified since the last time the JobTrigger executed. This will be based on the time of the execution of the last run of the JobTrigger or the timespan endTime used in the last run of the JobTrigger. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#enable_auto_population_of_timespan_config DataLossPreventionJobTrigger#enable_auto_population_of_timespan_config}
+        :param end_time: Exclude files, tables, or rows newer than this value. If not set, no upper time limit is applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#end_time DataLossPreventionJobTrigger#end_time}
+        :param start_time: Exclude files, tables, or rows older than this value. If not set, no lower time limit is applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#start_time DataLossPreventionJobTrigger#start_time}
+        :param timestamp_field: timestamp_field block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#timestamp_field DataLossPreventionJobTrigger#timestamp_field}
         '''
         if isinstance(timestamp_field, dict):
             timestamp_field = DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfigTimestampField(**timestamp_field)
@@ -12483,7 +12483,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfig:
         be based on the time of the execution of the last run of the JobTrigger or the timespan endTime
         used in the last run of the JobTrigger.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#enable_auto_population_of_timespan_config DataLossPreventionJobTrigger#enable_auto_population_of_timespan_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#enable_auto_population_of_timespan_config DataLossPreventionJobTrigger#enable_auto_population_of_timespan_config}
         '''
         result = self._values.get("enable_auto_population_of_timespan_config")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -12492,7 +12492,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfig:
     def end_time(self) -> typing.Optional[builtins.str]:
         '''Exclude files, tables, or rows newer than this value. If not set, no upper time limit is applied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#end_time DataLossPreventionJobTrigger#end_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#end_time DataLossPreventionJobTrigger#end_time}
         '''
         result = self._values.get("end_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -12501,7 +12501,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfig:
     def start_time(self) -> typing.Optional[builtins.str]:
         '''Exclude files, tables, or rows older than this value. If not set, no lower time limit is applied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#start_time DataLossPreventionJobTrigger#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#start_time DataLossPreventionJobTrigger#start_time}
         '''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -12512,7 +12512,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfig:
     ) -> typing.Optional["DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfigTimestampField"]:
         '''timestamp_field block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#timestamp_field DataLossPreventionJobTrigger#timestamp_field}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#timestamp_field DataLossPreventionJobTrigger#timestamp_field}
         '''
         result = self._values.get("timestamp_field")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfigTimestampField"], result)
@@ -12552,7 +12552,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfigOutputRef
     @jsii.member(jsii_name="putTimestampField")
     def put_timestamp_field(self, *, name: builtins.str) -> None:
         '''
-        :param name: Specification of the field containing the timestamp of scanned items. Used for data sources like Datastore and BigQuery. For BigQuery: Required to filter out rows based on the given start and end times. If not specified and the table was modified between the given start and end times, the entire table will be scanned. The valid data types of the timestamp field are: INTEGER, DATE, TIMESTAMP, or DATETIME BigQuery column. For Datastore. Valid data types of the timestamp field are: TIMESTAMP. Datastore entity will be scanned if the timestamp property does not exist or its value is empty or invalid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        :param name: Specification of the field containing the timestamp of scanned items. Used for data sources like Datastore and BigQuery. For BigQuery: Required to filter out rows based on the given start and end times. If not specified and the table was modified between the given start and end times, the entire table will be scanned. The valid data types of the timestamp field are: INTEGER, DATE, TIMESTAMP, or DATETIME BigQuery column. For Datastore. Valid data types of the timestamp field are: TIMESTAMP. Datastore entity will be scanned if the timestamp property does not exist or its value is empty or invalid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         value = DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfigTimestampField(
             name=name
@@ -12674,7 +12674,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfigOutputRef
 class DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfigTimestampField:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Specification of the field containing the timestamp of scanned items. Used for data sources like Datastore and BigQuery. For BigQuery: Required to filter out rows based on the given start and end times. If not specified and the table was modified between the given start and end times, the entire table will be scanned. The valid data types of the timestamp field are: INTEGER, DATE, TIMESTAMP, or DATETIME BigQuery column. For Datastore. Valid data types of the timestamp field are: TIMESTAMP. Datastore entity will be scanned if the timestamp property does not exist or its value is empty or invalid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        :param name: Specification of the field containing the timestamp of scanned items. Used for data sources like Datastore and BigQuery. For BigQuery: Required to filter out rows based on the given start and end times. If not specified and the table was modified between the given start and end times, the entire table will be scanned. The valid data types of the timestamp field are: INTEGER, DATE, TIMESTAMP, or DATETIME BigQuery column. For Datastore. Valid data types of the timestamp field are: TIMESTAMP. Datastore entity will be scanned if the timestamp property does not exist or its value is empty or invalid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d785c106fab21fdc70503ec411596e3f113c44500598483e34e5ba3bb8d4e5f8)
@@ -12694,7 +12694,7 @@ class DataLossPreventionJobTriggerInspectJobStorageConfigTimespanConfigTimestamp
         For Datastore. Valid data types of the timestamp field are: TIMESTAMP. Datastore entity will be scanned if the
         timestamp property does not exist or its value is empty or invalid.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#name DataLossPreventionJobTrigger#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -12781,9 +12781,9 @@ class DataLossPreventionJobTriggerTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#create DataLossPreventionJobTrigger#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#delete DataLossPreventionJobTrigger#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#update DataLossPreventionJobTrigger#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#create DataLossPreventionJobTrigger#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#delete DataLossPreventionJobTrigger#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#update DataLossPreventionJobTrigger#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7f44c62f805b7a3d2a4ff38a48416261b2af018cf0c92da11f00b61c7a1fada0)
@@ -12800,19 +12800,19 @@ class DataLossPreventionJobTriggerTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#create DataLossPreventionJobTrigger#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#create DataLossPreventionJobTrigger#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#delete DataLossPreventionJobTrigger#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#delete DataLossPreventionJobTrigger#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#update DataLossPreventionJobTrigger#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#update DataLossPreventionJobTrigger#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -12942,8 +12942,8 @@ class DataLossPreventionJobTriggerTriggers:
         schedule: typing.Optional[typing.Union["DataLossPreventionJobTriggerTriggersSchedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param manual: manual block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#manual DataLossPreventionJobTrigger#manual}
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#schedule DataLossPreventionJobTrigger#schedule}
+        :param manual: manual block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#manual DataLossPreventionJobTrigger#manual}
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#schedule DataLossPreventionJobTrigger#schedule}
         '''
         if isinstance(manual, dict):
             manual = DataLossPreventionJobTriggerTriggersManual(**manual)
@@ -12963,7 +12963,7 @@ class DataLossPreventionJobTriggerTriggers:
     def manual(self) -> typing.Optional["DataLossPreventionJobTriggerTriggersManual"]:
         '''manual block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#manual DataLossPreventionJobTrigger#manual}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#manual DataLossPreventionJobTrigger#manual}
         '''
         result = self._values.get("manual")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerTriggersManual"], result)
@@ -12974,7 +12974,7 @@ class DataLossPreventionJobTriggerTriggers:
     ) -> typing.Optional["DataLossPreventionJobTriggerTriggersSchedule"]:
         '''schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#schedule DataLossPreventionJobTrigger#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#schedule DataLossPreventionJobTrigger#schedule}
         '''
         result = self._values.get("schedule")
         return typing.cast(typing.Optional["DataLossPreventionJobTriggerTriggersSchedule"], result)
@@ -13182,7 +13182,7 @@ class DataLossPreventionJobTriggerTriggersOutputReference(
         recurrence_period_duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param recurrence_period_duration: With this option a job is started a regular periodic basis. For example: every day (86400 seconds). A scheduled start time will be skipped if the previous execution has not ended when its scheduled time occurs. This value must be set to a time duration greater than or equal to 1 day and can be no longer than 60 days. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#recurrence_period_duration DataLossPreventionJobTrigger#recurrence_period_duration}
+        :param recurrence_period_duration: With this option a job is started a regular periodic basis. For example: every day (86400 seconds). A scheduled start time will be skipped if the previous execution has not ended when its scheduled time occurs. This value must be set to a time duration greater than or equal to 1 day and can be no longer than 60 days. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#recurrence_period_duration DataLossPreventionJobTrigger#recurrence_period_duration}
         '''
         value = DataLossPreventionJobTriggerTriggersSchedule(
             recurrence_period_duration=recurrence_period_duration
@@ -13252,7 +13252,7 @@ class DataLossPreventionJobTriggerTriggersSchedule:
         recurrence_period_duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param recurrence_period_duration: With this option a job is started a regular periodic basis. For example: every day (86400 seconds). A scheduled start time will be skipped if the previous execution has not ended when its scheduled time occurs. This value must be set to a time duration greater than or equal to 1 day and can be no longer than 60 days. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#recurrence_period_duration DataLossPreventionJobTrigger#recurrence_period_duration}
+        :param recurrence_period_duration: With this option a job is started a regular periodic basis. For example: every day (86400 seconds). A scheduled start time will be skipped if the previous execution has not ended when its scheduled time occurs. This value must be set to a time duration greater than or equal to 1 day and can be no longer than 60 days. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#recurrence_period_duration DataLossPreventionJobTrigger#recurrence_period_duration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e8b26d9b508c6a2ee3e10b1fe1bb7abaf9236b0d6cc47fc250401201ee5ae692)
@@ -13271,7 +13271,7 @@ class DataLossPreventionJobTriggerTriggersSchedule:
 
         A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_job_trigger#recurrence_period_duration DataLossPreventionJobTrigger#recurrence_period_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_job_trigger#recurrence_period_duration DataLossPreventionJobTrigger#recurrence_period_duration}
         '''
         result = self._values.get("recurrence_period_duration")
         return typing.cast(typing.Optional[builtins.str], result)

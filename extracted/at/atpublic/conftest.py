@@ -1,6 +1,13 @@
 import os
 import sys
 
+from importlib import import_module
+try:
+    # Python < 3.12
+    from importlib_resources import files
+except ImportError:
+    from importlib.resources import files
+
 from contextlib import ExitStack, contextmanager
 from doctest import ELLIPSIS, REPORT_NDIFF, NORMALIZE_WHITESPACE
 from sybil import Sybil
@@ -52,6 +59,23 @@ def example():
         yield ExampleModule(path)
 
 
+def import_example(filename):
+    # This assumes the file is relative to the docs/ directory.
+    path = files() / 'docs' / filename
+    with path.open(encoding='utf-8') as fp:
+        contents = fp.read()
+
+    with ExitStack() as resources:
+        tmpdir = resources.enter_context(TemporaryDirectory())
+        resources.enter_context(sysmodules())
+        resources.enter_context(syspath(tmpdir))
+        path = os.path.join(tmpdir, 'example.py')
+        with open(path, 'w', encoding='utf-8') as fp:
+            fp.write(contents)
+
+        return import_module('example')
+
+
 class DoctestNamespace:
     def setup(self, namespace):
         # The doctests in .rst files require that they mimic being executed in
@@ -89,6 +113,7 @@ class DoctestNamespace:
 
         reset()
         namespace['reset'] = reset
+        namespace['import_example'] = import_example
 
     def teardown(self, namespace):
         del sys.modules[self._testmod.__name__]

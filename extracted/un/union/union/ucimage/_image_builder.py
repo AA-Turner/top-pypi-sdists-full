@@ -3,6 +3,7 @@
 This plugin is loaded by flytekit, so any imports to unionai can lead to circular imports.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -15,16 +16,20 @@ from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from importlib.metadata import version
 from pathlib import Path
-from typing import ClassVar, Optional, Tuple
+from typing import ClassVar, List, Optional, Tuple
 
 import click
 from flytekit import Labels
+from flytekit.configuration import SerializationSettings
 from flytekit.constants import CopyFileDetection
 from flytekit.exceptions.user import FlyteEntityNotExistException
 from flytekit.image_spec.image_spec import _F_IMG_ID, ImageBuildEngine, ImageSpec, ImageSpecBuilder
+from flytekit.models import security
+from flytekit.models import task as task_models
 from flytekit.models.core import execution as core_execution_models
+from flytekit.models.core.identifier import Identifier, ResourceType
 from flytekit.models.filters import ValueIn
-from flytekit.remote import FlyteRemote, FlyteWorkflowExecution
+from flytekit.remote import FlyteRemote, FlyteTask, FlyteWorkflowExecution
 from flytekit.remote.remote import MOST_RECENT_FIRST
 from flytekit.tools.ignore import DockerIgnore, GitIgnore, IgnoreGroup, StandardIgnore
 from flytekit.tools.script_mode import ls_files
@@ -34,6 +39,13 @@ from union._utils import _sanitize_label
 
 RECOVER_EXECUTION_PAGE_LIMIT = 1_000
 UNIONAI_IMAGE_NAME_KEY = "unionai_image_name"
+
+# Task suffix used to append to build-image task template.
+# Used when we we are required to change the build-image task template
+_BUILD_IMAGE_SUFFIX = "exec"
+
+_BUILD_IMAGE_SUFFIX_HASH_ALGORITHM = "sha256"
+_BUILD_IMAGE_SUFFIX_HASH_LENGTH = 8
 
 _PACKAGE_NAME_RE = re.compile(r"^[\w-]+")
 _IMAGE_BUILDER_PROJECT_DOMAIN = {"project": "system", "domain": "production"}
@@ -73,7 +85,123 @@ def _get_fully_qualified_image_name(remote, execution):
     return execution.outputs["fully_qualified_image"]
 
 
-def _build(spec: Path, context: Optional[Path], target_image: str) -> str:
+def _build_image_exec_version(components: List[str]) -> str:
+    """
+    Generate a consistent version, hash-based, for the build-image task.
+
+    Args:
+        components: List of strings to hash
+        algorithm: Hash algorithm to use (md5, sha1, sha256, etc.)
+        length: Optional length to truncate the hash to
+
+    Returns:
+        A hash string representing the array content
+    """
+    if not components:
+        return hashlib.new(_BUILD_IMAGE_SUFFIX_HASH_ALGORITHM, b"").hexdigest()
+
+    # Sort to ensure consistent order regardless of input order
+    sorted_array = sorted(components)
+
+    # Join with a delimiter that's unlikely to appear in the strings
+    # Use unit separator (ASCII 31) as delimiter
+    joined_string = "\u001f".join(sorted_array).encode("utf-8")
+
+    hash_obj = hashlib.new(_BUILD_IMAGE_SUFFIX_HASH_ALGORITHM, joined_string)
+    hash_result = hash_obj.hexdigest()
+
+    if _BUILD_IMAGE_SUFFIX_HASH_LENGTH < len(hash_result):
+        return hash_result[:_BUILD_IMAGE_SUFFIX_HASH_LENGTH]
+
+    return hash_result
+
+
+def _sanitize_image_name(image_name: str) -> str:
+    """Sanitizes a Docker image name to be used as a Kubernetes label.
+
+    Ensures the image name meets Kubernetes label requirements by sanitizing it.
+    If the sanitized name exceeds 63 characters (Kubernetes label limit), it shortens
+    the name by extracting just the image name and tag components.
+
+    Args:
+        image_name (str): The original Docker image name (may include registry, repository, name and tag)
+
+    Returns:
+        str: A sanitized image name that complies with Kubernetes label restrictions
+    """
+
+    # Shorten target_image if it exceeds 63 characters
+    sanitized_target_image = _sanitize_label(image_name)
+    if len(sanitized_target_image) > 63:
+        # Parse the FQIN components
+        parts = image_name.split("/")
+        image_and_tag = parts[-1].split(":")
+        image_name = image_and_tag[0]
+        tag = image_and_tag[1] if len(image_and_tag) > 1 else "latest"
+
+        # Just use image name and tag
+        shortened_target = f"{image_name}:{tag}"
+        sanitized_target_image = _sanitize_label(shortened_target)
+    return sanitized_target_image
+
+
+def _apply_task_template_changes(
+    remote: FlyteRemote, task: FlyteTask, imagepull_secret_name: Optional[str]
+) -> FlyteTask:
+    """Creates a new task with image pull secret configuration.
+
+    Takes an existing Flyte task and creates a new version of it with an image pull
+    secret added to its security context. This allows the task to pull images from
+    private registries during execution.
+
+    Args:
+        remote (FlyteRemote): The Flyte remote connection to use for registration
+        task (FlyteTask): The original task to modify
+        imagepull_secret_name (Optional[str]): The name of the image pull secret to add
+
+    Returns:
+        FlyteTask: A new task with the image pull secret configured, or the original
+                   task if no imagepull_secret_name was provided
+    """
+    # Return the reference task if no imagepull secret is provided
+    if not imagepull_secret_name:
+        return task
+
+    # Register the updated task with a new version
+    name = f"{task.name}-{_BUILD_IMAGE_SUFFIX}"
+    version = _build_image_exec_version([imagepull_secret_name])
+
+    try:
+        task = remote.fetch_task(name=name, version=version)
+        click.secho(f"{task.name} already exists. Skipping registration.", fg="blue")
+        return task
+    except FlyteEntityNotExistException:
+        click.secho(f"Task {name} does not exist. Registering a new version.", fg="blue")
+
+        new_task_id = Identifier(
+            resource_type=ResourceType.TASK,
+            project=remote.default_project,
+            domain=remote.default_domain,
+            name=name,
+            version=version,
+        )
+
+        template = task.template
+        template._id = new_task_id
+        template._security_context = security.SecurityContext(
+            secrets=[
+                security.Secret(key=imagepull_secret_name, mount_requirement=security.Secret.MountType.FILE),
+            ]
+        )
+        task_spec = task_models.TaskSpec(template=template)
+        new_task_id = remote.raw_register(task_spec, SerializationSettings(image_config=None), version)
+
+        new_task = remote.fetch_task(name=new_task_id.name, version=new_task_id.version)
+
+        return new_task
+
+
+def _build(spec: Path, context: Optional[Path], target_image: str, imagepull_secret_name: Optional[str]) -> str:
     """Build image using UnionAI."""
 
     remote = _get_remote()
@@ -82,13 +210,13 @@ def _build(spec: Path, context: Optional[Path], target_image: str) -> str:
     context_url = "" if context is None else remote.upload_file(context)[1]
 
     spec_url = remote.upload_file(spec)[1]
-    entity = remote.fetch_task(name="build-image")
-
+    entity = _apply_task_template_changes(remote, remote.fetch_task(name="build-image"), imagepull_secret_name)
+    sanitized_name = _sanitize_image_name(target_image)
     execution = remote.execute(
         entity,
         inputs={"spec": spec_url, "context": context_url, "target_image": target_image},
         options=Options(
-            labels=Labels(values={UNIONAI_IMAGE_NAME_KEY: _sanitize_label(target_image)}),
+            labels=Labels(values={UNIONAI_IMAGE_NAME_KEY: sanitized_name}),
         ),
         overwrite_cache=True,
     )
@@ -162,6 +290,7 @@ class UCImageSpecBuilder(ImageSpecBuilder):
     _SUPPORTED_UNIVERSAL_PARAMETERS: ClassVar = {
         "name",
         "builder",
+        "builder_options",
         "source_root",
         "env",
         "packages",
@@ -173,6 +302,7 @@ class UCImageSpecBuilder(ImageSpecBuilder):
         "conda_packages",
         "conda_channels",
         "source_copy_mode",
+        "registry",
     }
 
     _SUPPORTED_CUSTOM_BASE_IMAGE_PARAMETERS = _SUPPORTED_UNIVERSAL_PARAMETERS | {
@@ -192,21 +322,25 @@ class UCImageSpecBuilder(ImageSpecBuilder):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
-            spec_path, archive_path = self._validate_configuration(image_spec, tmp_path, image_name)
-            return _build(spec_path, archive_path, image_name)
+            spec_path, archive_path, imagepull_secret_name = self._validate_configuration(
+                image_spec, tmp_path, image_name
+            )
+            return _build(spec_path, archive_path, image_name, imagepull_secret_name)
+
+    def _print_submitting_new_build(self) -> bool:
+        click.secho("🐳 Submitting a new build...", bold=True, fg="blue")
+        return True
 
     def should_build(self, image_spec: ImageSpec) -> bool:
         """Check whether the image should be built."""
-        if image_spec.registry is not None:
-            raise ValueError(
-                "You cannot specify a registry when using the 'union' builder. "
-                "Union will automatically use the container registry provided by your cloud provider."
-            )
-
         image_name = image_spec.image_name()
         remote = _get_remote()
 
         _check_image_builder_enabled(remote)
+
+        if image_spec.registry:
+            click.secho(f"{image_name} configured with external registry.")
+            return self._print_submitting_new_build()
 
         try:
             ImageBuildEngine._IMAGE_NAME_TO_REAL_NAME[image_name] = remote._get_image_fqin(image_name)
@@ -214,12 +348,11 @@ class UCImageSpecBuilder(ImageSpecBuilder):
             return False
         except FlyteEntityNotExistException:
             click.secho(f"Image {image_name} was not found or has expired.", fg="blue")
-            click.secho("🐳 Submitting a new build...", bold=True, fg="blue")
-            return True
+            return self._print_submitting_new_build()
 
     def _validate_configuration(
         self, image_spec: ImageSpec, tmp_path: Path, image_name: str
-    ) -> Tuple[Path, Optional[Path]]:
+    ) -> Tuple[Path, Optional[Path], Optional[str]]:
         """Validate and write configuration for builder."""
         field_names = [f.name for f in fields(ImageSpec) if not f.name.startswith("_")]
 
@@ -343,7 +476,9 @@ class UCImageSpecBuilder(ImageSpecBuilder):
         with spec_path.open("w") as f:
             json.dump(spec, f)
 
-        return (spec_path, archive_path)
+        builder_options = image_spec.builder_options or {}
+
+        return (spec_path, archive_path, builder_options.get("imagepull_secret_name"))
 
     @staticmethod
     def _prepare_for_uv_lock(image_spec: ImageSpec, context_path: Path):

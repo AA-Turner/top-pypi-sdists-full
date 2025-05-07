@@ -1,7 +1,7 @@
 r'''
 # `docker_tag`
 
-Refer to the Terraform Registry for docs: [`docker_tag`](https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/tag).
+Refer to the Terraform Registry for docs: [`docker_tag`](https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/tag).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Tag(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-docker.tag.Tag",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/tag docker_tag}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/tag docker_tag}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class Tag(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/tag docker_tag} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/tag docker_tag} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param source_image: Name of the source image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/tag#source_image Tag#source_image}
-        :param target_image: Name of the target image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/tag#target_image Tag#target_image}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/tag#id Tag#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tag_triggers: List of values which cause the tag to be (re)created. This is useful for triggering a new tag when the source image changes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/tag#tag_triggers Tag#tag_triggers}
+        :param source_image: Name of the source image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/tag#source_image Tag#source_image}
+        :param target_image: Name of the target image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/tag#target_image Tag#target_image}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/tag#id Tag#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tag_triggers: List of values which cause the tag to be (re)created. This is useful for triggering a new tag when the source image changes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/tag#tag_triggers Tag#tag_triggers}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class Tag(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Tag to import.
-        :param import_from_id: The id of the existing Tag that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/tag#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Tag that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/tag#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Tag to import is found.
         '''
         if __debug__:
@@ -259,10 +259,10 @@ class TagConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param source_image: Name of the source image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/tag#source_image Tag#source_image}
-        :param target_image: Name of the target image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/tag#target_image Tag#target_image}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/tag#id Tag#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tag_triggers: List of values which cause the tag to be (re)created. This is useful for triggering a new tag when the source image changes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/tag#tag_triggers Tag#tag_triggers}
+        :param source_image: Name of the source image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/tag#source_image Tag#source_image}
+        :param target_image: Name of the target image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/tag#target_image Tag#target_image}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/tag#id Tag#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tag_triggers: List of values which cause the tag to be (re)created. This is useful for triggering a new tag when the source image changes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/tag#tag_triggers Tag#tag_triggers}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -370,7 +370,7 @@ class TagConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_image(self) -> builtins.str:
         '''Name of the source image.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/tag#source_image Tag#source_image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/tag#source_image Tag#source_image}
         '''
         result = self._values.get("source_image")
         assert result is not None, "Required property 'source_image' is missing"
@@ -380,7 +380,7 @@ class TagConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target_image(self) -> builtins.str:
         '''Name of the target image.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/tag#target_image Tag#target_image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/tag#target_image Tag#target_image}
         '''
         result = self._values.get("target_image")
         assert result is not None, "Required property 'target_image' is missing"
@@ -388,7 +388,7 @@ class TagConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/tag#id Tag#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/tag#id Tag#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -402,7 +402,7 @@ class TagConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This is useful for triggering a new tag when the source image changes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/tag#tag_triggers Tag#tag_triggers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/tag#tag_triggers Tag#tag_triggers}
         '''
         result = self._values.get("tag_triggers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

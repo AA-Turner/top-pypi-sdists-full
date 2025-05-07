@@ -1,7 +1,7 @@
 r'''
 # `google_deployment_manager_deployment`
 
-Refer to the Terraform Registry for docs: [`google_deployment_manager_deployment`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment).
+Refer to the Terraform Registry for docs: [`google_deployment_manager_deployment`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DeploymentManagerDeployment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.deploymentManagerDeployment.DeploymentManagerDeployment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment google_deployment_manager_deployment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment google_deployment_manager_deployment}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class DeploymentManagerDeployment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment google_deployment_manager_deployment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment google_deployment_manager_deployment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Unique name for the deployment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#name DeploymentManagerDeployment#name}
-        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#target DeploymentManagerDeployment#target}
-        :param create_policy: Set the policy to use for creating new resources. Only used on create and update. Valid values are 'CREATE_OR_ACQUIRE' (default) or 'ACQUIRE'. If set to 'ACQUIRE' and resources do not already exist, the deployment will fail. Note that updating this field does not actually affect the deployment, just how it is updated. Default value: "CREATE_OR_ACQUIRE" Possible values: ["ACQUIRE", "CREATE_OR_ACQUIRE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#create_policy DeploymentManagerDeployment#create_policy}
-        :param delete_policy: Set the policy to use for deleting new resources on update/delete. Valid values are 'DELETE' (default) or 'ABANDON'. If 'DELETE', resource is deleted after removal from Deployment Manager. If 'ABANDON', the resource is only removed from Deployment Manager and is not actually deleted. Note that updating this field does not actually change the deployment, just how it is updated. Default value: "DELETE" Possible values: ["ABANDON", "DELETE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#delete_policy DeploymentManagerDeployment#delete_policy}
-        :param description: Optional user-provided description of deployment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#description DeploymentManagerDeployment#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#id DeploymentManagerDeployment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#labels DeploymentManagerDeployment#labels}
-        :param preview: If set to true, a deployment is created with "shell" resources that are not actually instantiated. This allows you to preview a deployment. It can be updated to false to actually deploy with real resources. ~>**NOTE:** Deployment Manager does not allow update of a deployment in preview (unless updating to preview=false). Thus, Terraform will force-recreate deployments if either preview is updated to true or if other fields are updated while preview is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#preview DeploymentManagerDeployment#preview}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#project DeploymentManagerDeployment#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#timeouts DeploymentManagerDeployment#timeouts}
+        :param name: Unique name for the deployment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#name DeploymentManagerDeployment#name}
+        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#target DeploymentManagerDeployment#target}
+        :param create_policy: Set the policy to use for creating new resources. Only used on create and update. Valid values are 'CREATE_OR_ACQUIRE' (default) or 'ACQUIRE'. If set to 'ACQUIRE' and resources do not already exist, the deployment will fail. Note that updating this field does not actually affect the deployment, just how it is updated. Default value: "CREATE_OR_ACQUIRE" Possible values: ["ACQUIRE", "CREATE_OR_ACQUIRE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#create_policy DeploymentManagerDeployment#create_policy}
+        :param delete_policy: Set the policy to use for deleting new resources on update/delete. Valid values are 'DELETE' (default) or 'ABANDON'. If 'DELETE', resource is deleted after removal from Deployment Manager. If 'ABANDON', the resource is only removed from Deployment Manager and is not actually deleted. Note that updating this field does not actually change the deployment, just how it is updated. Default value: "DELETE" Possible values: ["ABANDON", "DELETE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#delete_policy DeploymentManagerDeployment#delete_policy}
+        :param description: Optional user-provided description of deployment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#description DeploymentManagerDeployment#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#id DeploymentManagerDeployment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#labels DeploymentManagerDeployment#labels}
+        :param preview: If set to true, a deployment is created with "shell" resources that are not actually instantiated. This allows you to preview a deployment. It can be updated to false to actually deploy with real resources. ~>**NOTE:** Deployment Manager does not allow update of a deployment in preview (unless updating to preview=false). Thus, Terraform will force-recreate deployments if either preview is updated to true or if other fields are updated while preview is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#preview DeploymentManagerDeployment#preview}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#project DeploymentManagerDeployment#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#timeouts DeploymentManagerDeployment#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class DeploymentManagerDeployment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DeploymentManagerDeployment to import.
-        :param import_from_id: The id of the existing DeploymentManagerDeployment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DeploymentManagerDeployment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DeploymentManagerDeployment to import is found.
         '''
         if __debug__:
@@ -162,8 +162,8 @@ class DeploymentManagerDeployment(
         imports: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DeploymentManagerDeploymentTargetImports", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#config DeploymentManagerDeployment#config}
-        :param imports: imports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#imports DeploymentManagerDeployment#imports}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#config DeploymentManagerDeployment#config}
+        :param imports: imports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#imports DeploymentManagerDeployment#imports}
         '''
         value = DeploymentManagerDeploymentTarget(config=config, imports=imports)
 
@@ -178,9 +178,9 @@ class DeploymentManagerDeployment(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#create DeploymentManagerDeployment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#delete DeploymentManagerDeployment#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#update DeploymentManagerDeployment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#create DeploymentManagerDeployment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#delete DeploymentManagerDeployment#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#update DeploymentManagerDeployment#update}.
         '''
         value = DeploymentManagerDeploymentTimeouts(
             create=create, delete=delete, update=update
@@ -460,16 +460,16 @@ class DeploymentManagerDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Unique name for the deployment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#name DeploymentManagerDeployment#name}
-        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#target DeploymentManagerDeployment#target}
-        :param create_policy: Set the policy to use for creating new resources. Only used on create and update. Valid values are 'CREATE_OR_ACQUIRE' (default) or 'ACQUIRE'. If set to 'ACQUIRE' and resources do not already exist, the deployment will fail. Note that updating this field does not actually affect the deployment, just how it is updated. Default value: "CREATE_OR_ACQUIRE" Possible values: ["ACQUIRE", "CREATE_OR_ACQUIRE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#create_policy DeploymentManagerDeployment#create_policy}
-        :param delete_policy: Set the policy to use for deleting new resources on update/delete. Valid values are 'DELETE' (default) or 'ABANDON'. If 'DELETE', resource is deleted after removal from Deployment Manager. If 'ABANDON', the resource is only removed from Deployment Manager and is not actually deleted. Note that updating this field does not actually change the deployment, just how it is updated. Default value: "DELETE" Possible values: ["ABANDON", "DELETE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#delete_policy DeploymentManagerDeployment#delete_policy}
-        :param description: Optional user-provided description of deployment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#description DeploymentManagerDeployment#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#id DeploymentManagerDeployment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#labels DeploymentManagerDeployment#labels}
-        :param preview: If set to true, a deployment is created with "shell" resources that are not actually instantiated. This allows you to preview a deployment. It can be updated to false to actually deploy with real resources. ~>**NOTE:** Deployment Manager does not allow update of a deployment in preview (unless updating to preview=false). Thus, Terraform will force-recreate deployments if either preview is updated to true or if other fields are updated while preview is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#preview DeploymentManagerDeployment#preview}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#project DeploymentManagerDeployment#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#timeouts DeploymentManagerDeployment#timeouts}
+        :param name: Unique name for the deployment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#name DeploymentManagerDeployment#name}
+        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#target DeploymentManagerDeployment#target}
+        :param create_policy: Set the policy to use for creating new resources. Only used on create and update. Valid values are 'CREATE_OR_ACQUIRE' (default) or 'ACQUIRE'. If set to 'ACQUIRE' and resources do not already exist, the deployment will fail. Note that updating this field does not actually affect the deployment, just how it is updated. Default value: "CREATE_OR_ACQUIRE" Possible values: ["ACQUIRE", "CREATE_OR_ACQUIRE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#create_policy DeploymentManagerDeployment#create_policy}
+        :param delete_policy: Set the policy to use for deleting new resources on update/delete. Valid values are 'DELETE' (default) or 'ABANDON'. If 'DELETE', resource is deleted after removal from Deployment Manager. If 'ABANDON', the resource is only removed from Deployment Manager and is not actually deleted. Note that updating this field does not actually change the deployment, just how it is updated. Default value: "DELETE" Possible values: ["ABANDON", "DELETE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#delete_policy DeploymentManagerDeployment#delete_policy}
+        :param description: Optional user-provided description of deployment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#description DeploymentManagerDeployment#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#id DeploymentManagerDeployment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#labels DeploymentManagerDeployment#labels}
+        :param preview: If set to true, a deployment is created with "shell" resources that are not actually instantiated. This allows you to preview a deployment. It can be updated to false to actually deploy with real resources. ~>**NOTE:** Deployment Manager does not allow update of a deployment in preview (unless updating to preview=false). Thus, Terraform will force-recreate deployments if either preview is updated to true or if other fields are updated while preview is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#preview DeploymentManagerDeployment#preview}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#project DeploymentManagerDeployment#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#timeouts DeploymentManagerDeployment#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -599,7 +599,7 @@ class DeploymentManagerDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Unique name for the deployment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#name DeploymentManagerDeployment#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#name DeploymentManagerDeployment#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -609,7 +609,7 @@ class DeploymentManagerDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target(self) -> "DeploymentManagerDeploymentTarget":
         '''target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#target DeploymentManagerDeployment#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#target DeploymentManagerDeployment#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -625,7 +625,7 @@ class DeploymentManagerDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         the deployment will fail. Note that updating this field does not
         actually affect the deployment, just how it is updated. Default value: "CREATE_OR_ACQUIRE" Possible values: ["ACQUIRE", "CREATE_OR_ACQUIRE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#create_policy DeploymentManagerDeployment#create_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#create_policy DeploymentManagerDeployment#create_policy}
         '''
         result = self._values.get("create_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -640,7 +640,7 @@ class DeploymentManagerDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         and is not actually deleted. Note that updating this field does not
         actually change the deployment, just how it is updated. Default value: "DELETE" Possible values: ["ABANDON", "DELETE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#delete_policy DeploymentManagerDeployment#delete_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#delete_policy DeploymentManagerDeployment#delete_policy}
         '''
         result = self._values.get("delete_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -649,14 +649,14 @@ class DeploymentManagerDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Optional user-provided description of deployment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#description DeploymentManagerDeployment#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#description DeploymentManagerDeployment#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#id DeploymentManagerDeployment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#id DeploymentManagerDeployment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -670,7 +670,7 @@ class DeploymentManagerDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DeploymentManagerDeploymentLabels"]]]:
         '''labels block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#labels DeploymentManagerDeployment#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#labels DeploymentManagerDeployment#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DeploymentManagerDeploymentLabels"]]], result)
@@ -689,14 +689,14 @@ class DeploymentManagerDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Terraform will force-recreate deployments if either preview is updated
         to true or if other fields are updated while preview is true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#preview DeploymentManagerDeployment#preview}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#preview DeploymentManagerDeployment#preview}
         '''
         result = self._values.get("preview")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#project DeploymentManagerDeployment#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#project DeploymentManagerDeployment#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -704,7 +704,7 @@ class DeploymentManagerDeploymentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DeploymentManagerDeploymentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#timeouts DeploymentManagerDeployment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#timeouts DeploymentManagerDeployment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DeploymentManagerDeploymentTimeouts"], result)
@@ -734,8 +734,8 @@ class DeploymentManagerDeploymentLabels:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key: Key for label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#key DeploymentManagerDeployment#key}
-        :param value: Value of label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#value DeploymentManagerDeployment#value}
+        :param key: Key for label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#key DeploymentManagerDeployment#key}
+        :param value: Value of label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#value DeploymentManagerDeployment#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5c4f6199ac5d3cc0c47714c9a2f5923bcdedde18f9e7633ce8b3078cd1ea2c6e)
@@ -751,7 +751,7 @@ class DeploymentManagerDeploymentLabels:
     def key(self) -> typing.Optional[builtins.str]:
         '''Key for label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#key DeploymentManagerDeployment#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#key DeploymentManagerDeployment#key}
         '''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -760,7 +760,7 @@ class DeploymentManagerDeploymentLabels:
     def value(self) -> typing.Optional[builtins.str]:
         '''Value of label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#value DeploymentManagerDeployment#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#value DeploymentManagerDeployment#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -969,8 +969,8 @@ class DeploymentManagerDeploymentTarget:
         imports: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DeploymentManagerDeploymentTargetImports", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#config DeploymentManagerDeployment#config}
-        :param imports: imports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#imports DeploymentManagerDeployment#imports}
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#config DeploymentManagerDeployment#config}
+        :param imports: imports block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#imports DeploymentManagerDeployment#imports}
         '''
         if isinstance(config, dict):
             config = DeploymentManagerDeploymentTargetConfig(**config)
@@ -988,7 +988,7 @@ class DeploymentManagerDeploymentTarget:
     def config(self) -> "DeploymentManagerDeploymentTargetConfig":
         '''config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#config DeploymentManagerDeployment#config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#config DeploymentManagerDeployment#config}
         '''
         result = self._values.get("config")
         assert result is not None, "Required property 'config' is missing"
@@ -1000,7 +1000,7 @@ class DeploymentManagerDeploymentTarget:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DeploymentManagerDeploymentTargetImports"]]]:
         '''imports block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#imports DeploymentManagerDeployment#imports}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#imports DeploymentManagerDeployment#imports}
         '''
         result = self._values.get("imports")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DeploymentManagerDeploymentTargetImports"]]], result)
@@ -1025,7 +1025,7 @@ class DeploymentManagerDeploymentTarget:
 class DeploymentManagerDeploymentTargetConfig:
     def __init__(self, *, content: builtins.str) -> None:
         '''
-        :param content: The full YAML contents of your configuration file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#content DeploymentManagerDeployment#content}
+        :param content: The full YAML contents of your configuration file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#content DeploymentManagerDeployment#content}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4095705eea1e8ca390fac668d74b6aae0074cfef8cda7dc72d32d2bb9deeac7f)
@@ -1038,7 +1038,7 @@ class DeploymentManagerDeploymentTargetConfig:
     def content(self) -> builtins.str:
         '''The full YAML contents of your configuration file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#content DeploymentManagerDeployment#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#content DeploymentManagerDeployment#content}
         '''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
@@ -1124,8 +1124,8 @@ class DeploymentManagerDeploymentTargetImports:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param content: The full contents of the template that you want to import. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#content DeploymentManagerDeployment#content}
-        :param name: The name of the template to import, as declared in the YAML configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#name DeploymentManagerDeployment#name}
+        :param content: The full contents of the template that you want to import. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#content DeploymentManagerDeployment#content}
+        :param name: The name of the template to import, as declared in the YAML configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#name DeploymentManagerDeployment#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3107cf1d600375ff903677ab1fac179edc884699d50dc29fc170a509a5760874)
@@ -1141,7 +1141,7 @@ class DeploymentManagerDeploymentTargetImports:
     def content(self) -> typing.Optional[builtins.str]:
         '''The full contents of the template that you want to import.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#content DeploymentManagerDeployment#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#content DeploymentManagerDeployment#content}
         '''
         result = self._values.get("content")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1150,7 +1150,7 @@ class DeploymentManagerDeploymentTargetImports:
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the template to import, as declared in the YAML configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#name DeploymentManagerDeployment#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#name DeploymentManagerDeployment#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1369,7 +1369,7 @@ class DeploymentManagerDeploymentTargetOutputReference(
     @jsii.member(jsii_name="putConfig")
     def put_config(self, *, content: builtins.str) -> None:
         '''
-        :param content: The full YAML contents of your configuration file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#content DeploymentManagerDeployment#content}
+        :param content: The full YAML contents of your configuration file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#content DeploymentManagerDeployment#content}
         '''
         value = DeploymentManagerDeploymentTargetConfig(content=content)
 
@@ -1444,9 +1444,9 @@ class DeploymentManagerDeploymentTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#create DeploymentManagerDeployment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#delete DeploymentManagerDeployment#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#update DeploymentManagerDeployment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#create DeploymentManagerDeployment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#delete DeploymentManagerDeployment#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#update DeploymentManagerDeployment#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ddcc43f192c04f0f32b0a788e20686111798be6ce5219989c35920e348f48c0f)
@@ -1463,19 +1463,19 @@ class DeploymentManagerDeploymentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#create DeploymentManagerDeployment#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#create DeploymentManagerDeployment#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#delete DeploymentManagerDeployment#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#delete DeploymentManagerDeployment#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/deployment_manager_deployment#update DeploymentManagerDeployment#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/deployment_manager_deployment#update DeploymentManagerDeployment#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

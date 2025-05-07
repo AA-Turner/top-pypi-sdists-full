@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: matrix-synapse
-Version: 1.128.0
+Version: 1.129.0
 Summary: Homeserver for the Matrix decentralised comms protocol
 Home-page: https://github.com/element-hq/synapse
 License: AGPL-3.0-or-later

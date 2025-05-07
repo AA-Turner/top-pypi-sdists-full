@@ -162,7 +162,7 @@ class DashboardGroupClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dashboardservice/change_dashboard_group_compartment.py.html>`__ to see an example of how to use change_dashboard_group_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/dashboardservice/change_dashboard_group_compartment.py.html>`__ to see an example of how to use change_dashboard_group_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['dashboardGroupId']
@@ -279,7 +279,7 @@ class DashboardGroupClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dashboardservice/create_dashboard_group.py.html>`__ to see an example of how to use create_dashboard_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/dashboardservice/create_dashboard_group.py.html>`__ to see an example of how to use create_dashboard_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -386,7 +386,7 @@ class DashboardGroupClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dashboardservice/delete_dashboard_group.py.html>`__ to see an example of how to use delete_dashboard_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/dashboardservice/delete_dashboard_group.py.html>`__ to see an example of how to use delete_dashboard_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['dashboardGroupId']
@@ -493,7 +493,7 @@ class DashboardGroupClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dashboardservice/get_dashboard_group.py.html>`__ to see an example of how to use get_dashboard_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/dashboardservice/get_dashboard_group.py.html>`__ to see an example of how to use get_dashboard_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['dashboardGroupId']
@@ -634,7 +634,7 @@ class DashboardGroupClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dashboardservice/list_dashboard_groups.py.html>`__ to see an example of how to use list_dashboard_groups API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/dashboardservice/list_dashboard_groups.py.html>`__ to see an example of how to use list_dashboard_groups API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -783,7 +783,7 @@ class DashboardGroupClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/dashboardservice/update_dashboard_group.py.html>`__ to see an example of how to use update_dashboard_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/dashboardservice/update_dashboard_group.py.html>`__ to see an example of how to use update_dashboard_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['dashboardGroupId']

@@ -1,7 +1,7 @@
 r'''
 # `google_dialogflow_fulfillment`
 
-Refer to the Terraform Registry for docs: [`google_dialogflow_fulfillment`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment).
+Refer to the Terraform Registry for docs: [`google_dialogflow_fulfillment`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DialogflowFulfillment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dialogflowFulfillment.DialogflowFulfillment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment google_dialogflow_fulfillment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment google_dialogflow_fulfillment}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class DialogflowFulfillment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment google_dialogflow_fulfillment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment google_dialogflow_fulfillment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The human-readable name of the fulfillment, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#display_name DialogflowFulfillment#display_name}
-        :param enabled: Whether fulfillment is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#enabled DialogflowFulfillment#enabled}
-        :param features: features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#features DialogflowFulfillment#features}
-        :param generic_web_service: generic_web_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#generic_web_service DialogflowFulfillment#generic_web_service}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#id DialogflowFulfillment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#project DialogflowFulfillment#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#timeouts DialogflowFulfillment#timeouts}
+        :param display_name: The human-readable name of the fulfillment, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#display_name DialogflowFulfillment#display_name}
+        :param enabled: Whether fulfillment is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#enabled DialogflowFulfillment#enabled}
+        :param features: features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#features DialogflowFulfillment#features}
+        :param generic_web_service: generic_web_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#generic_web_service DialogflowFulfillment#generic_web_service}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#id DialogflowFulfillment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#project DialogflowFulfillment#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#timeouts DialogflowFulfillment#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class DialogflowFulfillment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DialogflowFulfillment to import.
-        :param import_from_id: The id of the existing DialogflowFulfillment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DialogflowFulfillment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DialogflowFulfillment to import is found.
         '''
         if __debug__:
@@ -155,10 +155,10 @@ class DialogflowFulfillment(
         username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: The fulfillment URI for receiving POST requests. It must use https protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#uri DialogflowFulfillment#uri}
-        :param password: The password for HTTP Basic authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#password DialogflowFulfillment#password}
-        :param request_headers: The HTTP request headers to send together with fulfillment requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#request_headers DialogflowFulfillment#request_headers}
-        :param username: The user name for HTTP Basic authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#username DialogflowFulfillment#username}
+        :param uri: The fulfillment URI for receiving POST requests. It must use https protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#uri DialogflowFulfillment#uri}
+        :param password: The password for HTTP Basic authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#password DialogflowFulfillment#password}
+        :param request_headers: The HTTP request headers to send together with fulfillment requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#request_headers DialogflowFulfillment#request_headers}
+        :param username: The user name for HTTP Basic authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#username DialogflowFulfillment#username}
         '''
         value = DialogflowFulfillmentGenericWebService(
             uri=uri,
@@ -178,9 +178,9 @@ class DialogflowFulfillment(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#create DialogflowFulfillment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#delete DialogflowFulfillment#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#update DialogflowFulfillment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#create DialogflowFulfillment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#delete DialogflowFulfillment#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#update DialogflowFulfillment#update}.
         '''
         value = DialogflowFulfillmentTimeouts(
             create=create, delete=delete, update=update
@@ -389,13 +389,13 @@ class DialogflowFulfillmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The human-readable name of the fulfillment, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#display_name DialogflowFulfillment#display_name}
-        :param enabled: Whether fulfillment is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#enabled DialogflowFulfillment#enabled}
-        :param features: features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#features DialogflowFulfillment#features}
-        :param generic_web_service: generic_web_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#generic_web_service DialogflowFulfillment#generic_web_service}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#id DialogflowFulfillment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#project DialogflowFulfillment#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#timeouts DialogflowFulfillment#timeouts}
+        :param display_name: The human-readable name of the fulfillment, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#display_name DialogflowFulfillment#display_name}
+        :param enabled: Whether fulfillment is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#enabled DialogflowFulfillment#enabled}
+        :param features: features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#features DialogflowFulfillment#features}
+        :param generic_web_service: generic_web_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#generic_web_service DialogflowFulfillment#generic_web_service}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#id DialogflowFulfillment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#project DialogflowFulfillment#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#timeouts DialogflowFulfillment#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -517,7 +517,7 @@ class DialogflowFulfillmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The human-readable name of the fulfillment, unique within the agent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#display_name DialogflowFulfillment#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#display_name DialogflowFulfillment#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -529,7 +529,7 @@ class DialogflowFulfillmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether fulfillment is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#enabled DialogflowFulfillment#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#enabled DialogflowFulfillment#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -540,7 +540,7 @@ class DialogflowFulfillmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowFulfillmentFeatures"]]]:
         '''features block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#features DialogflowFulfillment#features}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#features DialogflowFulfillment#features}
         '''
         result = self._values.get("features")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowFulfillmentFeatures"]]], result)
@@ -551,14 +551,14 @@ class DialogflowFulfillmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DialogflowFulfillmentGenericWebService"]:
         '''generic_web_service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#generic_web_service DialogflowFulfillment#generic_web_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#generic_web_service DialogflowFulfillment#generic_web_service}
         '''
         result = self._values.get("generic_web_service")
         return typing.cast(typing.Optional["DialogflowFulfillmentGenericWebService"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#id DialogflowFulfillment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#id DialogflowFulfillment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -568,7 +568,7 @@ class DialogflowFulfillmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#project DialogflowFulfillment#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#project DialogflowFulfillment#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -576,7 +576,7 @@ class DialogflowFulfillmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DialogflowFulfillmentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#timeouts DialogflowFulfillment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#timeouts DialogflowFulfillment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DialogflowFulfillmentTimeouts"], result)
@@ -601,7 +601,7 @@ class DialogflowFulfillmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class DialogflowFulfillmentFeatures:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: The type of the feature that enabled for fulfillment. * SMALLTALK: Fulfillment is enabled for SmallTalk. Possible values: ["SMALLTALK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#type DialogflowFulfillment#type}
+        :param type: The type of the feature that enabled for fulfillment. * SMALLTALK: Fulfillment is enabled for SmallTalk. Possible values: ["SMALLTALK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#type DialogflowFulfillment#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cf64d0a0f1498c280d672bb9e2a3b0c619c10a2e4ad26dd83070f18005e6a806)
@@ -614,7 +614,7 @@ class DialogflowFulfillmentFeatures:
     def type(self) -> builtins.str:
         '''The type of the feature that enabled for fulfillment. * SMALLTALK: Fulfillment is enabled for SmallTalk. Possible values: ["SMALLTALK"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#type DialogflowFulfillment#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#type DialogflowFulfillment#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -803,10 +803,10 @@ class DialogflowFulfillmentGenericWebService:
         username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: The fulfillment URI for receiving POST requests. It must use https protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#uri DialogflowFulfillment#uri}
-        :param password: The password for HTTP Basic authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#password DialogflowFulfillment#password}
-        :param request_headers: The HTTP request headers to send together with fulfillment requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#request_headers DialogflowFulfillment#request_headers}
-        :param username: The user name for HTTP Basic authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#username DialogflowFulfillment#username}
+        :param uri: The fulfillment URI for receiving POST requests. It must use https protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#uri DialogflowFulfillment#uri}
+        :param password: The password for HTTP Basic authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#password DialogflowFulfillment#password}
+        :param request_headers: The HTTP request headers to send together with fulfillment requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#request_headers DialogflowFulfillment#request_headers}
+        :param username: The user name for HTTP Basic authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#username DialogflowFulfillment#username}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c175038acc8c431b8dd45ec27765f57f56ca426626e33a75fea60113490383ea)
@@ -828,7 +828,7 @@ class DialogflowFulfillmentGenericWebService:
     def uri(self) -> builtins.str:
         '''The fulfillment URI for receiving POST requests. It must use https protocol.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#uri DialogflowFulfillment#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#uri DialogflowFulfillment#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -838,7 +838,7 @@ class DialogflowFulfillmentGenericWebService:
     def password(self) -> typing.Optional[builtins.str]:
         '''The password for HTTP Basic authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#password DialogflowFulfillment#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#password DialogflowFulfillment#password}
         '''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -849,7 +849,7 @@ class DialogflowFulfillmentGenericWebService:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''The HTTP request headers to send together with fulfillment requests.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#request_headers DialogflowFulfillment#request_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#request_headers DialogflowFulfillment#request_headers}
         '''
         result = self._values.get("request_headers")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -858,7 +858,7 @@ class DialogflowFulfillmentGenericWebService:
     def username(self) -> typing.Optional[builtins.str]:
         '''The user name for HTTP Basic authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#username DialogflowFulfillment#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#username DialogflowFulfillment#username}
         '''
         result = self._values.get("username")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1010,9 +1010,9 @@ class DialogflowFulfillmentTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#create DialogflowFulfillment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#delete DialogflowFulfillment#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#update DialogflowFulfillment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#create DialogflowFulfillment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#delete DialogflowFulfillment#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#update DialogflowFulfillment#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bef8d37ecca5d90ed73ac56bd263f9df22f4509527aad1b6a608f0422e998e69)
@@ -1029,19 +1029,19 @@ class DialogflowFulfillmentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#create DialogflowFulfillment#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#create DialogflowFulfillment#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#delete DialogflowFulfillment#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#delete DialogflowFulfillment#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/dialogflow_fulfillment#update DialogflowFulfillment#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/dialogflow_fulfillment#update DialogflowFulfillment#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

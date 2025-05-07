@@ -1,10 +1,10 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: dvc
-Version: 3.59.1
+Version: 3.59.2
 Summary: Git for data scientists - manage your code and data together
 Author-email: Dmitry Petrov <dmitry@dvc.org>
 Maintainer-email: Iterative <support@dvc.org>
-License: Apache License 2.0
+License-Expression: Apache-2.0
 Project-URL: Documentation, https://dvc.org/doc
 Project-URL: Issues, https://github.com/iterative/dvc/issues
 Project-URL: Source, https://github.com/iterative/dvc
@@ -119,10 +119,9 @@ Provides-Extra: webhdfs
 Requires-Dist: dvc-webhdfs<4,>=3.1; extra == "webhdfs"
 Provides-Extra: webhdfs-kerberos
 Requires-Dist: dvc-webhdfs[kerberos]<4,>=3.1; extra == "webhdfs-kerberos"
+Dynamic: license-file
 
-🚀 Check out our new product `DataChain <https://github.com/iterative/datachain>`_ (and give it a ⭐!) if you need to version and process a large number of files. Contact us at support@iterative.ai to discuss commercial solutions and support for AI reproducibility and data management scenarios.
-
---------------------------
+|Banner|
 
 `Website <https://dvc.org>`_
 • `Docs <https://dvc.org/doc>`_

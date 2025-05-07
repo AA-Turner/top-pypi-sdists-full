@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@cdktf/provider-docker",
-    "11.4.0",
+    "11.5.0",
     __name__[0:-6],
-    "provider-docker@11.4.0.jsii.tgz",
+    "provider-docker@11.5.0.jsii.tgz",
 )
 
 __all__ = [

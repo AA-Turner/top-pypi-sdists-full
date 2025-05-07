@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: linuxpy
-Version: 0.20.0
+Version: 0.21.0
 Summary: Human friendly interface to linux subsystems using python
 Author-email: Jose Tiago Macara Coutinho <coutinhotiago@gmail.com>
 License: GPL-3.0-or-later
@@ -50,6 +50,7 @@ Requires-Dist: mkdocstrings[python]; extra == "docs"
 Requires-Dist: pygments; extra == "docs"
 Requires-Dist: pymdown-extensions; extra == "docs"
 Requires-Dist: mkdocs-coverage; extra == "docs"
+Dynamic: license-file
 
 # linuxpy
 

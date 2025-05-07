@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: union
-Version: 0.1.181
+Version: 0.1.182
 Summary: Adds Union specific functionality to Flytekit
 Author-email: unionai <info@union.ai>
 License: Source code in this repository is licensed under the Business Source
@@ -54,7 +54,7 @@ Requires-Dist: torch==2.6; extra == "vllm"
 Requires-Dist: aiofiles==24.1.0; extra == "vllm"
 Requires-Dist: obstore==0.3.0; extra == "vllm"
 Requires-Dist: pydantic==2.11.2; extra == "vllm"
-Requires-Dist: union-runtime==0.1.14; extra == "vllm"
+Requires-Dist: union-runtime==0.1.18; extra == "vllm"
 Provides-Extra: sglang
 Requires-Dist: sglang[all]>=0.4.5; extra == "sglang"
 Requires-Dist: datamodel-code-generator==0.28.5; extra == "sglang"
@@ -62,7 +62,7 @@ Requires-Dist: torch==2.5.1; extra == "sglang"
 Requires-Dist: aiofiles==24.1.0; extra == "sglang"
 Requires-Dist: obstore==0.3.0; extra == "sglang"
 Requires-Dist: pydantic==2.11.2; extra == "sglang"
-Requires-Dist: union-runtime==0.1.14; extra == "sglang"
+Requires-Dist: union-runtime==0.1.18; extra == "sglang"
 Dynamic: license-file
 
 # UnionAI

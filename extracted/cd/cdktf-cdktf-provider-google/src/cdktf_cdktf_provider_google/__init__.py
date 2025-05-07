@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/google provider version 6.33.0
+# CDKTF prebuilt bindings for hashicorp/google provider version 6.34.0
 
-This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform google provider version 1:
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.33.0)
+* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.34.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -177,6 +177,7 @@ __all__ = [
     "apigee_keystores_aliases_self_signed_cert",
     "apigee_nat_address",
     "apigee_organization",
+    "apigee_security_profile_v2",
     "apigee_sharedflow",
     "apigee_sharedflow_deployment",
     "apigee_sync_authorization",
@@ -1561,6 +1562,7 @@ from . import apigee_keystores_aliases_pkcs12
 from . import apigee_keystores_aliases_self_signed_cert
 from . import apigee_nat_address
 from . import apigee_organization
+from . import apigee_security_profile_v2
 from . import apigee_sharedflow
 from . import apigee_sharedflow_deployment
 from . import apigee_sync_authorization

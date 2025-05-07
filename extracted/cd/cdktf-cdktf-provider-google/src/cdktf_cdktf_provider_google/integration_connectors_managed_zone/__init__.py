@@ -1,7 +1,7 @@
 r'''
 # `google_integration_connectors_managed_zone`
 
-Refer to the Terraform Registry for docs: [`google_integration_connectors_managed_zone`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone).
+Refer to the Terraform Registry for docs: [`google_integration_connectors_managed_zone`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IntegrationConnectorsManagedZone(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.integrationConnectorsManagedZone.IntegrationConnectorsManagedZone",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone google_integration_connectors_managed_zone}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone google_integration_connectors_managed_zone}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class IntegrationConnectorsManagedZone(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone google_integration_connectors_managed_zone} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone google_integration_connectors_managed_zone} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param dns: DNS Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#dns IntegrationConnectorsManagedZone#dns}
-        :param name: Name of Managed Zone needs to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#name IntegrationConnectorsManagedZone#name}
-        :param target_project: The name of the Target Project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#target_project IntegrationConnectorsManagedZone#target_project}
-        :param target_vpc: The name of the Target Project VPC Network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#target_vpc IntegrationConnectorsManagedZone#target_vpc}
-        :param description: Description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#description IntegrationConnectorsManagedZone#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#id IntegrationConnectorsManagedZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#labels IntegrationConnectorsManagedZone#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#project IntegrationConnectorsManagedZone#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#timeouts IntegrationConnectorsManagedZone#timeouts}
+        :param dns: DNS Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#dns IntegrationConnectorsManagedZone#dns}
+        :param name: Name of Managed Zone needs to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#name IntegrationConnectorsManagedZone#name}
+        :param target_project: The name of the Target Project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#target_project IntegrationConnectorsManagedZone#target_project}
+        :param target_vpc: The name of the Target Project VPC Network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#target_vpc IntegrationConnectorsManagedZone#target_vpc}
+        :param description: Description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#description IntegrationConnectorsManagedZone#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#id IntegrationConnectorsManagedZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#labels IntegrationConnectorsManagedZone#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#project IntegrationConnectorsManagedZone#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#timeouts IntegrationConnectorsManagedZone#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class IntegrationConnectorsManagedZone(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IntegrationConnectorsManagedZone to import.
-        :param import_from_id: The id of the existing IntegrationConnectorsManagedZone that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IntegrationConnectorsManagedZone that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IntegrationConnectorsManagedZone to import is found.
         '''
         if __debug__:
@@ -147,9 +147,9 @@ class IntegrationConnectorsManagedZone(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#create IntegrationConnectorsManagedZone#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#delete IntegrationConnectorsManagedZone#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#update IntegrationConnectorsManagedZone#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#create IntegrationConnectorsManagedZone#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#delete IntegrationConnectorsManagedZone#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#update IntegrationConnectorsManagedZone#update}.
         '''
         value = IntegrationConnectorsManagedZoneTimeouts(
             create=create, delete=delete, update=update
@@ -412,15 +412,15 @@ class IntegrationConnectorsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArgume
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param dns: DNS Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#dns IntegrationConnectorsManagedZone#dns}
-        :param name: Name of Managed Zone needs to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#name IntegrationConnectorsManagedZone#name}
-        :param target_project: The name of the Target Project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#target_project IntegrationConnectorsManagedZone#target_project}
-        :param target_vpc: The name of the Target Project VPC Network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#target_vpc IntegrationConnectorsManagedZone#target_vpc}
-        :param description: Description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#description IntegrationConnectorsManagedZone#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#id IntegrationConnectorsManagedZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#labels IntegrationConnectorsManagedZone#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#project IntegrationConnectorsManagedZone#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#timeouts IntegrationConnectorsManagedZone#timeouts}
+        :param dns: DNS Name of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#dns IntegrationConnectorsManagedZone#dns}
+        :param name: Name of Managed Zone needs to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#name IntegrationConnectorsManagedZone#name}
+        :param target_project: The name of the Target Project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#target_project IntegrationConnectorsManagedZone#target_project}
+        :param target_vpc: The name of the Target Project VPC Network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#target_vpc IntegrationConnectorsManagedZone#target_vpc}
+        :param description: Description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#description IntegrationConnectorsManagedZone#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#id IntegrationConnectorsManagedZone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#labels IntegrationConnectorsManagedZone#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#project IntegrationConnectorsManagedZone#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#timeouts IntegrationConnectorsManagedZone#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -543,7 +543,7 @@ class IntegrationConnectorsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def dns(self) -> builtins.str:
         '''DNS Name of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#dns IntegrationConnectorsManagedZone#dns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#dns IntegrationConnectorsManagedZone#dns}
         '''
         result = self._values.get("dns")
         assert result is not None, "Required property 'dns' is missing"
@@ -553,7 +553,7 @@ class IntegrationConnectorsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def name(self) -> builtins.str:
         '''Name of Managed Zone needs to be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#name IntegrationConnectorsManagedZone#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#name IntegrationConnectorsManagedZone#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -563,7 +563,7 @@ class IntegrationConnectorsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def target_project(self) -> builtins.str:
         '''The name of the Target Project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#target_project IntegrationConnectorsManagedZone#target_project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#target_project IntegrationConnectorsManagedZone#target_project}
         '''
         result = self._values.get("target_project")
         assert result is not None, "Required property 'target_project' is missing"
@@ -573,7 +573,7 @@ class IntegrationConnectorsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def target_vpc(self) -> builtins.str:
         '''The name of the Target Project VPC Network.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#target_vpc IntegrationConnectorsManagedZone#target_vpc}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#target_vpc IntegrationConnectorsManagedZone#target_vpc}
         '''
         result = self._values.get("target_vpc")
         assert result is not None, "Required property 'target_vpc' is missing"
@@ -583,14 +583,14 @@ class IntegrationConnectorsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#description IntegrationConnectorsManagedZone#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#description IntegrationConnectorsManagedZone#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#id IntegrationConnectorsManagedZone#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#id IntegrationConnectorsManagedZone#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -605,14 +605,14 @@ class IntegrationConnectorsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArgume
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#labels IntegrationConnectorsManagedZone#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#labels IntegrationConnectorsManagedZone#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#project IntegrationConnectorsManagedZone#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#project IntegrationConnectorsManagedZone#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -620,7 +620,7 @@ class IntegrationConnectorsManagedZoneConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def timeouts(self) -> typing.Optional["IntegrationConnectorsManagedZoneTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#timeouts IntegrationConnectorsManagedZone#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#timeouts IntegrationConnectorsManagedZone#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["IntegrationConnectorsManagedZoneTimeouts"], result)
@@ -651,9 +651,9 @@ class IntegrationConnectorsManagedZoneTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#create IntegrationConnectorsManagedZone#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#delete IntegrationConnectorsManagedZone#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#update IntegrationConnectorsManagedZone#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#create IntegrationConnectorsManagedZone#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#delete IntegrationConnectorsManagedZone#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#update IntegrationConnectorsManagedZone#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9c2e3d719a19200e2594577fc6570b4d08de7da3519e45ec44b36b7d6a4d279f)
@@ -670,19 +670,19 @@ class IntegrationConnectorsManagedZoneTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#create IntegrationConnectorsManagedZone#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#create IntegrationConnectorsManagedZone#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#delete IntegrationConnectorsManagedZone#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#delete IntegrationConnectorsManagedZone#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/integration_connectors_managed_zone#update IntegrationConnectorsManagedZone#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/integration_connectors_managed_zone#update IntegrationConnectorsManagedZone#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

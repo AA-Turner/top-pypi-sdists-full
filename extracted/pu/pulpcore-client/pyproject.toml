@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pulpcore.client.pulpcore"
-version = "3.76.1"
+version = "3.77.0"
 description = "Pulp 3 API"
 authors = ["Pulp Team <pulp-list@redhat.com>"]
 license = "GPLv2+"

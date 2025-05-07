@@ -1,7 +1,7 @@
 r'''
 # `google_beyondcorp_app_connector`
 
-Refer to the Terraform Registry for docs: [`google_beyondcorp_app_connector`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector).
+Refer to the Terraform Registry for docs: [`google_beyondcorp_app_connector`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BeyondcorpAppConnector(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.beyondcorpAppConnector.BeyondcorpAppConnector",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector google_beyondcorp_app_connector}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector google_beyondcorp_app_connector}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class BeyondcorpAppConnector(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector google_beyondcorp_app_connector} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector google_beyondcorp_app_connector} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: ID of the AppConnector. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#name BeyondcorpAppConnector#name}
-        :param principal_info: principal_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#principal_info BeyondcorpAppConnector#principal_info}
-        :param display_name: An arbitrary user-provided name for the AppConnector. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#display_name BeyondcorpAppConnector#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#id BeyondcorpAppConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#labels BeyondcorpAppConnector#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#project BeyondcorpAppConnector#project}.
-        :param region: The region of the AppConnector. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#region BeyondcorpAppConnector#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#timeouts BeyondcorpAppConnector#timeouts}
+        :param name: ID of the AppConnector. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#name BeyondcorpAppConnector#name}
+        :param principal_info: principal_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#principal_info BeyondcorpAppConnector#principal_info}
+        :param display_name: An arbitrary user-provided name for the AppConnector. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#display_name BeyondcorpAppConnector#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#id BeyondcorpAppConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#labels BeyondcorpAppConnector#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#project BeyondcorpAppConnector#project}.
+        :param region: The region of the AppConnector. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#region BeyondcorpAppConnector#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#timeouts BeyondcorpAppConnector#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class BeyondcorpAppConnector(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BeyondcorpAppConnector to import.
-        :param import_from_id: The id of the existing BeyondcorpAppConnector that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BeyondcorpAppConnector that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BeyondcorpAppConnector to import is found.
         '''
         if __debug__:
@@ -142,7 +142,7 @@ class BeyondcorpAppConnector(
         service_account: typing.Union["BeyondcorpAppConnectorPrincipalInfoServiceAccount", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param service_account: service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#service_account BeyondcorpAppConnector#service_account}
+        :param service_account: service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#service_account BeyondcorpAppConnector#service_account}
         '''
         value = BeyondcorpAppConnectorPrincipalInfo(service_account=service_account)
 
@@ -157,9 +157,9 @@ class BeyondcorpAppConnector(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#create BeyondcorpAppConnector#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#delete BeyondcorpAppConnector#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#update BeyondcorpAppConnector#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#create BeyondcorpAppConnector#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#delete BeyondcorpAppConnector#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#update BeyondcorpAppConnector#update}.
         '''
         value = BeyondcorpAppConnectorTimeouts(
             create=create, delete=delete, update=update
@@ -397,14 +397,14 @@ class BeyondcorpAppConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: ID of the AppConnector. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#name BeyondcorpAppConnector#name}
-        :param principal_info: principal_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#principal_info BeyondcorpAppConnector#principal_info}
-        :param display_name: An arbitrary user-provided name for the AppConnector. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#display_name BeyondcorpAppConnector#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#id BeyondcorpAppConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#labels BeyondcorpAppConnector#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#project BeyondcorpAppConnector#project}.
-        :param region: The region of the AppConnector. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#region BeyondcorpAppConnector#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#timeouts BeyondcorpAppConnector#timeouts}
+        :param name: ID of the AppConnector. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#name BeyondcorpAppConnector#name}
+        :param principal_info: principal_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#principal_info BeyondcorpAppConnector#principal_info}
+        :param display_name: An arbitrary user-provided name for the AppConnector. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#display_name BeyondcorpAppConnector#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#id BeyondcorpAppConnector#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#labels BeyondcorpAppConnector#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#project BeyondcorpAppConnector#project}.
+        :param region: The region of the AppConnector. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#region BeyondcorpAppConnector#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#timeouts BeyondcorpAppConnector#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -528,7 +528,7 @@ class BeyondcorpAppConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''ID of the AppConnector.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#name BeyondcorpAppConnector#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#name BeyondcorpAppConnector#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -538,7 +538,7 @@ class BeyondcorpAppConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def principal_info(self) -> "BeyondcorpAppConnectorPrincipalInfo":
         '''principal_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#principal_info BeyondcorpAppConnector#principal_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#principal_info BeyondcorpAppConnector#principal_info}
         '''
         result = self._values.get("principal_info")
         assert result is not None, "Required property 'principal_info' is missing"
@@ -548,14 +548,14 @@ class BeyondcorpAppConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''An arbitrary user-provided name for the AppConnector.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#display_name BeyondcorpAppConnector#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#display_name BeyondcorpAppConnector#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#id BeyondcorpAppConnector#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#id BeyondcorpAppConnector#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -570,14 +570,14 @@ class BeyondcorpAppConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#labels BeyondcorpAppConnector#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#labels BeyondcorpAppConnector#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#project BeyondcorpAppConnector#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#project BeyondcorpAppConnector#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -585,7 +585,7 @@ class BeyondcorpAppConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''The region of the AppConnector.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#region BeyondcorpAppConnector#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#region BeyondcorpAppConnector#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -594,7 +594,7 @@ class BeyondcorpAppConnectorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BeyondcorpAppConnectorTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#timeouts BeyondcorpAppConnector#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#timeouts BeyondcorpAppConnector#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BeyondcorpAppConnectorTimeouts"], result)
@@ -623,7 +623,7 @@ class BeyondcorpAppConnectorPrincipalInfo:
         service_account: typing.Union["BeyondcorpAppConnectorPrincipalInfoServiceAccount", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param service_account: service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#service_account BeyondcorpAppConnector#service_account}
+        :param service_account: service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#service_account BeyondcorpAppConnector#service_account}
         '''
         if isinstance(service_account, dict):
             service_account = BeyondcorpAppConnectorPrincipalInfoServiceAccount(**service_account)
@@ -638,7 +638,7 @@ class BeyondcorpAppConnectorPrincipalInfo:
     def service_account(self) -> "BeyondcorpAppConnectorPrincipalInfoServiceAccount":
         '''service_account block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#service_account BeyondcorpAppConnector#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#service_account BeyondcorpAppConnector#service_account}
         '''
         result = self._values.get("service_account")
         assert result is not None, "Required property 'service_account' is missing"
@@ -679,7 +679,7 @@ class BeyondcorpAppConnectorPrincipalInfoOutputReference(
     @jsii.member(jsii_name="putServiceAccount")
     def put_service_account(self, *, email: builtins.str) -> None:
         '''
-        :param email: Email address of the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#email BeyondcorpAppConnector#email}
+        :param email: Email address of the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#email BeyondcorpAppConnector#email}
         '''
         value = BeyondcorpAppConnectorPrincipalInfoServiceAccount(email=email)
 
@@ -723,7 +723,7 @@ class BeyondcorpAppConnectorPrincipalInfoOutputReference(
 class BeyondcorpAppConnectorPrincipalInfoServiceAccount:
     def __init__(self, *, email: builtins.str) -> None:
         '''
-        :param email: Email address of the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#email BeyondcorpAppConnector#email}
+        :param email: Email address of the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#email BeyondcorpAppConnector#email}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f4f5eb63212c887b076e56c894c5707d363fcef48afee34e0e89a3a8c5e881f2)
@@ -736,7 +736,7 @@ class BeyondcorpAppConnectorPrincipalInfoServiceAccount:
     def email(self) -> builtins.str:
         '''Email address of the service account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#email BeyondcorpAppConnector#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#email BeyondcorpAppConnector#email}
         '''
         result = self._values.get("email")
         assert result is not None, "Required property 'email' is missing"
@@ -823,9 +823,9 @@ class BeyondcorpAppConnectorTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#create BeyondcorpAppConnector#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#delete BeyondcorpAppConnector#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#update BeyondcorpAppConnector#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#create BeyondcorpAppConnector#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#delete BeyondcorpAppConnector#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#update BeyondcorpAppConnector#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ad8001a7361aaf93a3da183e2888ff849b81470fbcc8898d942546b10ff5d052)
@@ -842,19 +842,19 @@ class BeyondcorpAppConnectorTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#create BeyondcorpAppConnector#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#create BeyondcorpAppConnector#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#delete BeyondcorpAppConnector#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#delete BeyondcorpAppConnector#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/beyondcorp_app_connector#update BeyondcorpAppConnector#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/beyondcorp_app_connector#update BeyondcorpAppConnector#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

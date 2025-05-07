@@ -1,7 +1,7 @@
 r'''
 # `google_organization_iam_audit_config`
 
-Refer to the Terraform Registry for docs: [`google_organization_iam_audit_config`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config).
+Refer to the Terraform Registry for docs: [`google_organization_iam_audit_config`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OrganizationIamAuditConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.organizationIamAuditConfig.OrganizationIamAuditConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config google_organization_iam_audit_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config google_organization_iam_audit_config}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class OrganizationIamAuditConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config google_organization_iam_audit_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config google_organization_iam_audit_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param audit_log_config: audit_log_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config#audit_log_config OrganizationIamAuditConfig#audit_log_config}
-        :param org_id: The numeric ID of the organization in which you want to manage the audit logging config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config#org_id OrganizationIamAuditConfig#org_id}
-        :param service: Service which will be enabled for audit logging. The special value allServices covers all services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config#service OrganizationIamAuditConfig#service}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config#id OrganizationIamAuditConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param audit_log_config: audit_log_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config#audit_log_config OrganizationIamAuditConfig#audit_log_config}
+        :param org_id: The numeric ID of the organization in which you want to manage the audit logging config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config#org_id OrganizationIamAuditConfig#org_id}
+        :param service: Service which will be enabled for audit logging. The special value allServices covers all services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config#service OrganizationIamAuditConfig#service}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config#id OrganizationIamAuditConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class OrganizationIamAuditConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OrganizationIamAuditConfig to import.
-        :param import_from_id: The id of the existing OrganizationIamAuditConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OrganizationIamAuditConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OrganizationIamAuditConfig to import is found.
         '''
         if __debug__:
@@ -235,8 +235,8 @@ class OrganizationIamAuditConfigAuditLogConfig:
         exempted_members: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param log_type: Permission type for which logging is to be configured. Must be one of DATA_READ, DATA_WRITE, or ADMIN_READ. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config#log_type OrganizationIamAuditConfig#log_type}
-        :param exempted_members: Identities that do not cause logging for this type of permission. Each entry can have one of the following values:user:{emailid}: An email address that represents a specific Google account. For example, alice@gmail.com or joe@example.com. serviceAccount:{emailid}: An email address that represents a service account. For example, my-other-app@appspot.gserviceaccount.com. group:{emailid}: An email address that represents a Google group. For example, admins@example.com. domain:{domain}: A G Suite domain (primary, instead of alias) name that represents all the users of that domain. For example, google.com or example.com. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config#exempted_members OrganizationIamAuditConfig#exempted_members}
+        :param log_type: Permission type for which logging is to be configured. Must be one of DATA_READ, DATA_WRITE, or ADMIN_READ. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config#log_type OrganizationIamAuditConfig#log_type}
+        :param exempted_members: Identities that do not cause logging for this type of permission. Each entry can have one of the following values:user:{emailid}: An email address that represents a specific Google account. For example, alice@gmail.com or joe@example.com. serviceAccount:{emailid}: An email address that represents a service account. For example, my-other-app@appspot.gserviceaccount.com. group:{emailid}: An email address that represents a Google group. For example, admins@example.com. domain:{domain}: A G Suite domain (primary, instead of alias) name that represents all the users of that domain. For example, google.com or example.com. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config#exempted_members OrganizationIamAuditConfig#exempted_members}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a454780737e7029bf7e5c4a1ad2dd5892e270897e15f5844508756103d1e9562)
@@ -252,7 +252,7 @@ class OrganizationIamAuditConfigAuditLogConfig:
     def log_type(self) -> builtins.str:
         '''Permission type for which logging is to be configured. Must be one of DATA_READ, DATA_WRITE, or ADMIN_READ.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config#log_type OrganizationIamAuditConfig#log_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config#log_type OrganizationIamAuditConfig#log_type}
         '''
         result = self._values.get("log_type")
         assert result is not None, "Required property 'log_type' is missing"
@@ -264,7 +264,7 @@ class OrganizationIamAuditConfigAuditLogConfig:
 
         Each entry can have one of the following values:user:{emailid}: An email address that represents a specific Google account. For example, alice@gmail.com or joe@example.com. serviceAccount:{emailid}: An email address that represents a service account. For example, my-other-app@appspot.gserviceaccount.com. group:{emailid}: An email address that represents a Google group. For example, admins@example.com. domain:{domain}: A G Suite domain (primary, instead of alias) name that represents all the users of that domain. For example, google.com or example.com.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config#exempted_members OrganizationIamAuditConfig#exempted_members}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config#exempted_members OrganizationIamAuditConfig#exempted_members}
         '''
         result = self._values.get("exempted_members")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -497,10 +497,10 @@ class OrganizationIamAuditConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param audit_log_config: audit_log_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config#audit_log_config OrganizationIamAuditConfig#audit_log_config}
-        :param org_id: The numeric ID of the organization in which you want to manage the audit logging config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config#org_id OrganizationIamAuditConfig#org_id}
-        :param service: Service which will be enabled for audit logging. The special value allServices covers all services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config#service OrganizationIamAuditConfig#service}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config#id OrganizationIamAuditConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param audit_log_config: audit_log_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config#audit_log_config OrganizationIamAuditConfig#audit_log_config}
+        :param org_id: The numeric ID of the organization in which you want to manage the audit logging config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config#org_id OrganizationIamAuditConfig#org_id}
+        :param service: Service which will be enabled for audit logging. The special value allServices covers all services. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config#service OrganizationIamAuditConfig#service}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config#id OrganizationIamAuditConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -609,7 +609,7 @@ class OrganizationIamAuditConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[OrganizationIamAuditConfigAuditLogConfig]]:
         '''audit_log_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config#audit_log_config OrganizationIamAuditConfig#audit_log_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config#audit_log_config OrganizationIamAuditConfig#audit_log_config}
         '''
         result = self._values.get("audit_log_config")
         assert result is not None, "Required property 'audit_log_config' is missing"
@@ -619,7 +619,7 @@ class OrganizationIamAuditConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def org_id(self) -> builtins.str:
         '''The numeric ID of the organization in which you want to manage the audit logging config.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config#org_id OrganizationIamAuditConfig#org_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config#org_id OrganizationIamAuditConfig#org_id}
         '''
         result = self._values.get("org_id")
         assert result is not None, "Required property 'org_id' is missing"
@@ -629,7 +629,7 @@ class OrganizationIamAuditConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service(self) -> builtins.str:
         '''Service which will be enabled for audit logging. The special value allServices covers all services.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config#service OrganizationIamAuditConfig#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config#service OrganizationIamAuditConfig#service}
         '''
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
@@ -637,7 +637,7 @@ class OrganizationIamAuditConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/organization_iam_audit_config#id OrganizationIamAuditConfig#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/organization_iam_audit_config#id OrganizationIamAuditConfig#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

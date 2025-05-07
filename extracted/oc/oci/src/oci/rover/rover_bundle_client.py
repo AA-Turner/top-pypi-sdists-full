@@ -159,7 +159,7 @@ class RoverBundleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/rover/list_rover_cluster_rover_bundle_requests.py.html>`__ to see an example of how to use list_rover_cluster_rover_bundle_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/rover/list_rover_cluster_rover_bundle_requests.py.html>`__ to see an example of how to use list_rover_cluster_rover_bundle_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['roverClusterId']
@@ -301,7 +301,7 @@ class RoverBundleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/rover/list_rover_node_rover_bundle_requests.py.html>`__ to see an example of how to use list_rover_node_rover_bundle_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/rover/list_rover_node_rover_bundle_requests.py.html>`__ to see an example of how to use list_rover_node_rover_bundle_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['roverNodeId']
@@ -430,7 +430,7 @@ class RoverBundleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/rover/request_bundle_rover_cluster.py.html>`__ to see an example of how to use request_bundle_rover_cluster API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/rover/request_bundle_rover_cluster.py.html>`__ to see an example of how to use request_bundle_rover_cluster API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['roverClusterId']
@@ -531,7 +531,7 @@ class RoverBundleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/rover/request_bundle_rover_node.py.html>`__ to see an example of how to use request_bundle_rover_node API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/rover/request_bundle_rover_node.py.html>`__ to see an example of how to use request_bundle_rover_node API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['roverNodeId']
@@ -632,7 +632,7 @@ class RoverBundleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/rover/retrieve_available_bundle_versions_rover_cluster.py.html>`__ to see an example of how to use retrieve_available_bundle_versions_rover_cluster API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/rover/retrieve_available_bundle_versions_rover_cluster.py.html>`__ to see an example of how to use retrieve_available_bundle_versions_rover_cluster API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['roverClusterId']
@@ -735,7 +735,7 @@ class RoverBundleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/rover/retrieve_available_bundle_versions_rover_node.py.html>`__ to see an example of how to use retrieve_available_bundle_versions_rover_node API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/rover/retrieve_available_bundle_versions_rover_node.py.html>`__ to see an example of how to use retrieve_available_bundle_versions_rover_node API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['roverNodeId']
@@ -838,7 +838,7 @@ class RoverBundleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/rover/retrieve_bundle_status_rover_cluster.py.html>`__ to see an example of how to use retrieve_bundle_status_rover_cluster API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/rover/retrieve_bundle_status_rover_cluster.py.html>`__ to see an example of how to use retrieve_bundle_status_rover_cluster API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['roverClusterId']
@@ -941,7 +941,7 @@ class RoverBundleClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/rover/retrieve_bundle_status_rover_node.py.html>`__ to see an example of how to use retrieve_bundle_status_rover_node API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/rover/retrieve_bundle_status_rover_node.py.html>`__ to see an example of how to use retrieve_bundle_status_rover_node API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['roverNodeId']

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: strawberry-graphql
-Version: 0.266.0
+Version: 0.266.1
 Summary: A library for creating GraphQL APIs
 License: MIT
 Keywords: graphql,api,rest,starlette,async

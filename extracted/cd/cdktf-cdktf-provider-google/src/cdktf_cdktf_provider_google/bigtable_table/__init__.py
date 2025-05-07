@@ -1,7 +1,7 @@
 r'''
 # `google_bigtable_table`
 
-Refer to the Terraform Registry for docs: [`google_bigtable_table`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table).
+Refer to the Terraform Registry for docs: [`google_bigtable_table`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BigtableTable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.bigtableTable.BigtableTable",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table google_bigtable_table}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table google_bigtable_table}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class BigtableTable(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table google_bigtable_table} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table google_bigtable_table} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_name: The name of the Bigtable instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#instance_name BigtableTable#instance_name}
-        :param name: The name of the table. Must be 1-50 characters and must only contain hyphens, underscores, periods, letters and numbers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#name BigtableTable#name}
-        :param automated_backup_policy: automated_backup_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#automated_backup_policy BigtableTable#automated_backup_policy}
-        :param change_stream_retention: Duration to retain change stream data for the table. Set to 0 to disable. Must be between 1 and 7 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#change_stream_retention BigtableTable#change_stream_retention}
-        :param column_family: column_family block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#column_family BigtableTable#column_family}
-        :param deletion_protection: A field to make the table protected against data loss i.e. when set to PROTECTED, deleting the table, the column families in the table, and the instance containing the table would be prohibited. If not provided, currently deletion protection will be set to UNPROTECTED as it is the API default value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#deletion_protection BigtableTable#deletion_protection}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#id BigtableTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#project BigtableTable#project}
-        :param split_keys: A list of predefined keys to split the table on. !> Warning: Modifying the split_keys of an existing table will cause Terraform to delete/recreate the entire google_bigtable_table resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#split_keys BigtableTable#split_keys}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#timeouts BigtableTable#timeouts}
+        :param instance_name: The name of the Bigtable instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#instance_name BigtableTable#instance_name}
+        :param name: The name of the table. Must be 1-50 characters and must only contain hyphens, underscores, periods, letters and numbers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#name BigtableTable#name}
+        :param automated_backup_policy: automated_backup_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#automated_backup_policy BigtableTable#automated_backup_policy}
+        :param change_stream_retention: Duration to retain change stream data for the table. Set to 0 to disable. Must be between 1 and 7 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#change_stream_retention BigtableTable#change_stream_retention}
+        :param column_family: column_family block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#column_family BigtableTable#column_family}
+        :param deletion_protection: A field to make the table protected against data loss i.e. when set to PROTECTED, deleting the table, the column families in the table, and the instance containing the table would be prohibited. If not provided, currently deletion protection will be set to UNPROTECTED as it is the API default value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#deletion_protection BigtableTable#deletion_protection}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#id BigtableTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#project BigtableTable#project}
+        :param split_keys: A list of predefined keys to split the table on. !> Warning: Modifying the split_keys of an existing table will cause Terraform to delete/recreate the entire google_bigtable_table resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#split_keys BigtableTable#split_keys}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#timeouts BigtableTable#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class BigtableTable(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BigtableTable to import.
-        :param import_from_id: The id of the existing BigtableTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BigtableTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BigtableTable to import is found.
         '''
         if __debug__:
@@ -149,8 +149,8 @@ class BigtableTable(
         retention_period: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param frequency: How frequently automated backups should occur. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#frequency BigtableTable#frequency}
-        :param retention_period: How long the automated backups should be retained. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#retention_period BigtableTable#retention_period}
+        :param frequency: How frequently automated backups should occur. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#frequency BigtableTable#frequency}
+        :param retention_period: How long the automated backups should be retained. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#retention_period BigtableTable#retention_period}
         '''
         value = BigtableTableAutomatedBackupPolicy(
             frequency=frequency, retention_period=retention_period
@@ -179,8 +179,8 @@ class BigtableTable(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#create BigtableTable#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#update BigtableTable#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#create BigtableTable#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#update BigtableTable#update}.
         '''
         value = BigtableTableTimeouts(create=create, update=update)
 
@@ -402,8 +402,8 @@ class BigtableTableAutomatedBackupPolicy:
         retention_period: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param frequency: How frequently automated backups should occur. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#frequency BigtableTable#frequency}
-        :param retention_period: How long the automated backups should be retained. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#retention_period BigtableTable#retention_period}
+        :param frequency: How frequently automated backups should occur. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#frequency BigtableTable#frequency}
+        :param retention_period: How long the automated backups should be retained. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#retention_period BigtableTable#retention_period}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__82f806529cb84fecde2d2a789f51b78d18fb5cd7f170be404d3a5fae17dd787b)
@@ -419,7 +419,7 @@ class BigtableTableAutomatedBackupPolicy:
     def frequency(self) -> typing.Optional[builtins.str]:
         '''How frequently automated backups should occur.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#frequency BigtableTable#frequency}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#frequency BigtableTable#frequency}
         '''
         result = self._values.get("frequency")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -428,7 +428,7 @@ class BigtableTableAutomatedBackupPolicy:
     def retention_period(self) -> typing.Optional[builtins.str]:
         '''How long the automated backups should be retained.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#retention_period BigtableTable#retention_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#retention_period BigtableTable#retention_period}
         '''
         result = self._values.get("retention_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -536,8 +536,8 @@ class BigtableTableColumnFamily:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param family: The name of the column family. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#family BigtableTable#family}
-        :param type: The type of the column family. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#type BigtableTable#type}
+        :param family: The name of the column family. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#family BigtableTable#family}
+        :param type: The type of the column family. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#type BigtableTable#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__33841b6d6c3f8d1b070973c1960e4431b857c91f34a84bf6f32ed2b2b78001bc)
@@ -553,7 +553,7 @@ class BigtableTableColumnFamily:
     def family(self) -> builtins.str:
         '''The name of the column family.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#family BigtableTable#family}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#family BigtableTable#family}
         '''
         result = self._values.get("family")
         assert result is not None, "Required property 'family' is missing"
@@ -563,7 +563,7 @@ class BigtableTableColumnFamily:
     def type(self) -> typing.Optional[builtins.str]:
         '''The type of the column family.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#type BigtableTable#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#type BigtableTable#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -805,16 +805,16 @@ class BigtableTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_name: The name of the Bigtable instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#instance_name BigtableTable#instance_name}
-        :param name: The name of the table. Must be 1-50 characters and must only contain hyphens, underscores, periods, letters and numbers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#name BigtableTable#name}
-        :param automated_backup_policy: automated_backup_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#automated_backup_policy BigtableTable#automated_backup_policy}
-        :param change_stream_retention: Duration to retain change stream data for the table. Set to 0 to disable. Must be between 1 and 7 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#change_stream_retention BigtableTable#change_stream_retention}
-        :param column_family: column_family block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#column_family BigtableTable#column_family}
-        :param deletion_protection: A field to make the table protected against data loss i.e. when set to PROTECTED, deleting the table, the column families in the table, and the instance containing the table would be prohibited. If not provided, currently deletion protection will be set to UNPROTECTED as it is the API default value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#deletion_protection BigtableTable#deletion_protection}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#id BigtableTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#project BigtableTable#project}
-        :param split_keys: A list of predefined keys to split the table on. !> Warning: Modifying the split_keys of an existing table will cause Terraform to delete/recreate the entire google_bigtable_table resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#split_keys BigtableTable#split_keys}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#timeouts BigtableTable#timeouts}
+        :param instance_name: The name of the Bigtable instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#instance_name BigtableTable#instance_name}
+        :param name: The name of the table. Must be 1-50 characters and must only contain hyphens, underscores, periods, letters and numbers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#name BigtableTable#name}
+        :param automated_backup_policy: automated_backup_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#automated_backup_policy BigtableTable#automated_backup_policy}
+        :param change_stream_retention: Duration to retain change stream data for the table. Set to 0 to disable. Must be between 1 and 7 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#change_stream_retention BigtableTable#change_stream_retention}
+        :param column_family: column_family block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#column_family BigtableTable#column_family}
+        :param deletion_protection: A field to make the table protected against data loss i.e. when set to PROTECTED, deleting the table, the column families in the table, and the instance containing the table would be prohibited. If not provided, currently deletion protection will be set to UNPROTECTED as it is the API default value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#deletion_protection BigtableTable#deletion_protection}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#id BigtableTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#project BigtableTable#project}
+        :param split_keys: A list of predefined keys to split the table on. !> Warning: Modifying the split_keys of an existing table will cause Terraform to delete/recreate the entire google_bigtable_table resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#split_keys BigtableTable#split_keys}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#timeouts BigtableTable#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -944,7 +944,7 @@ class BigtableTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance_name(self) -> builtins.str:
         '''The name of the Bigtable instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#instance_name BigtableTable#instance_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#instance_name BigtableTable#instance_name}
         '''
         result = self._values.get("instance_name")
         assert result is not None, "Required property 'instance_name' is missing"
@@ -954,7 +954,7 @@ class BigtableTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the table. Must be 1-50 characters and must only contain hyphens, underscores, periods, letters and numbers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#name BigtableTable#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#name BigtableTable#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -966,7 +966,7 @@ class BigtableTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[BigtableTableAutomatedBackupPolicy]:
         '''automated_backup_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#automated_backup_policy BigtableTable#automated_backup_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#automated_backup_policy BigtableTable#automated_backup_policy}
         '''
         result = self._values.get("automated_backup_policy")
         return typing.cast(typing.Optional[BigtableTableAutomatedBackupPolicy], result)
@@ -977,7 +977,7 @@ class BigtableTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Set to 0 to disable. Must be between 1 and 7 days.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#change_stream_retention BigtableTable#change_stream_retention}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#change_stream_retention BigtableTable#change_stream_retention}
         '''
         result = self._values.get("change_stream_retention")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -988,7 +988,7 @@ class BigtableTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[BigtableTableColumnFamily]]]:
         '''column_family block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#column_family BigtableTable#column_family}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#column_family BigtableTable#column_family}
         '''
         result = self._values.get("column_family")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[BigtableTableColumnFamily]]], result)
@@ -997,14 +997,14 @@ class BigtableTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def deletion_protection(self) -> typing.Optional[builtins.str]:
         '''A field to make the table protected against data loss i.e. when set to PROTECTED, deleting the table, the column families in the table, and the instance containing the table would be prohibited. If not provided, currently deletion protection will be set to UNPROTECTED as it is the API default value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#deletion_protection BigtableTable#deletion_protection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#deletion_protection BigtableTable#deletion_protection}
         '''
         result = self._values.get("deletion_protection")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#id BigtableTable#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#id BigtableTable#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1018,7 +1018,7 @@ class BigtableTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#project BigtableTable#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#project BigtableTable#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1029,7 +1029,7 @@ class BigtableTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         !> Warning: Modifying the split_keys of an existing table will cause Terraform to delete/recreate the entire google_bigtable_table resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#split_keys BigtableTable#split_keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#split_keys BigtableTable#split_keys}
         '''
         result = self._values.get("split_keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1038,7 +1038,7 @@ class BigtableTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BigtableTableTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#timeouts BigtableTable#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#timeouts BigtableTable#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BigtableTableTimeouts"], result)
@@ -1068,8 +1068,8 @@ class BigtableTableTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#create BigtableTable#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#update BigtableTable#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#create BigtableTable#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#update BigtableTable#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__18a2005c8eeb9b03661feb4670e8e1b5ec71bda69fb13e8aa8a5539b7e2fa825)
@@ -1083,13 +1083,13 @@ class BigtableTableTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#create BigtableTable#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#create BigtableTable#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigtable_table#update BigtableTable#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigtable_table#update BigtableTable#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

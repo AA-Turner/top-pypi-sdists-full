@@ -1,7 +1,7 @@
 r'''
 # `google_storage_insights_report_config`
 
-Refer to the Terraform Registry for docs: [`google_storage_insights_report_config`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config).
+Refer to the Terraform Registry for docs: [`google_storage_insights_report_config`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class StorageInsightsReportConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.storageInsightsReportConfig.StorageInsightsReportConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config google_storage_insights_report_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config google_storage_insights_report_config}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class StorageInsightsReportConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config google_storage_insights_report_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config google_storage_insights_report_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location of the ReportConfig. The source and destination buckets specified in the ReportConfig must be in the same location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#location StorageInsightsReportConfig#location}
-        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#csv_options StorageInsightsReportConfig#csv_options}
-        :param display_name: The editable display name of the inventory report configuration. Has a limit of 256 characters. Can be empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#display_name StorageInsightsReportConfig#display_name}
-        :param frequency_options: frequency_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#frequency_options StorageInsightsReportConfig#frequency_options}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#id StorageInsightsReportConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param object_metadata_report_options: object_metadata_report_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#object_metadata_report_options StorageInsightsReportConfig#object_metadata_report_options}
-        :param parquet_options: parquet_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#parquet_options StorageInsightsReportConfig#parquet_options}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#project StorageInsightsReportConfig#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#timeouts StorageInsightsReportConfig#timeouts}
+        :param location: The location of the ReportConfig. The source and destination buckets specified in the ReportConfig must be in the same location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#location StorageInsightsReportConfig#location}
+        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#csv_options StorageInsightsReportConfig#csv_options}
+        :param display_name: The editable display name of the inventory report configuration. Has a limit of 256 characters. Can be empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#display_name StorageInsightsReportConfig#display_name}
+        :param frequency_options: frequency_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#frequency_options StorageInsightsReportConfig#frequency_options}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#id StorageInsightsReportConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param object_metadata_report_options: object_metadata_report_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#object_metadata_report_options StorageInsightsReportConfig#object_metadata_report_options}
+        :param parquet_options: parquet_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#parquet_options StorageInsightsReportConfig#parquet_options}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#project StorageInsightsReportConfig#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#timeouts StorageInsightsReportConfig#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class StorageInsightsReportConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the StorageInsightsReportConfig to import.
-        :param import_from_id: The id of the existing StorageInsightsReportConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing StorageInsightsReportConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the StorageInsightsReportConfig to import is found.
         '''
         if __debug__:
@@ -147,9 +147,9 @@ class StorageInsightsReportConfig(
         record_separator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param delimiter: The delimiter used to separate the fields in the inventory report CSV file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#delimiter StorageInsightsReportConfig#delimiter}
-        :param header_required: The boolean that indicates whether or not headers are included in the inventory report CSV file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#header_required StorageInsightsReportConfig#header_required}
-        :param record_separator: The character used to separate the records in the inventory report CSV file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#record_separator StorageInsightsReportConfig#record_separator}
+        :param delimiter: The delimiter used to separate the fields in the inventory report CSV file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#delimiter StorageInsightsReportConfig#delimiter}
+        :param header_required: The boolean that indicates whether or not headers are included in the inventory report CSV file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#header_required StorageInsightsReportConfig#header_required}
+        :param record_separator: The character used to separate the records in the inventory report CSV file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#record_separator StorageInsightsReportConfig#record_separator}
         '''
         value = StorageInsightsReportConfigCsvOptions(
             delimiter=delimiter,
@@ -168,9 +168,9 @@ class StorageInsightsReportConfig(
         start_date: typing.Union["StorageInsightsReportConfigFrequencyOptionsStartDate", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param end_date: end_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#end_date StorageInsightsReportConfig#end_date}
-        :param frequency: The frequency in which inventory reports are generated. Values are DAILY or WEEKLY. Possible values: ["DAILY", "WEEKLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#frequency StorageInsightsReportConfig#frequency}
-        :param start_date: start_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#start_date StorageInsightsReportConfig#start_date}
+        :param end_date: end_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#end_date StorageInsightsReportConfig#end_date}
+        :param frequency: The frequency in which inventory reports are generated. Values are DAILY or WEEKLY. Possible values: ["DAILY", "WEEKLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#frequency StorageInsightsReportConfig#frequency}
+        :param start_date: start_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#start_date StorageInsightsReportConfig#start_date}
         '''
         value = StorageInsightsReportConfigFrequencyOptions(
             end_date=end_date, frequency=frequency, start_date=start_date
@@ -187,9 +187,9 @@ class StorageInsightsReportConfig(
         storage_filters: typing.Optional[typing.Union["StorageInsightsReportConfigObjectMetadataReportOptionsStorageFilters", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param metadata_fields: The metadata fields included in an inventory report. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#metadata_fields StorageInsightsReportConfig#metadata_fields}
-        :param storage_destination_options: storage_destination_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#storage_destination_options StorageInsightsReportConfig#storage_destination_options}
-        :param storage_filters: storage_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#storage_filters StorageInsightsReportConfig#storage_filters}
+        :param metadata_fields: The metadata fields included in an inventory report. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#metadata_fields StorageInsightsReportConfig#metadata_fields}
+        :param storage_destination_options: storage_destination_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#storage_destination_options StorageInsightsReportConfig#storage_destination_options}
+        :param storage_filters: storage_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#storage_filters StorageInsightsReportConfig#storage_filters}
         '''
         value = StorageInsightsReportConfigObjectMetadataReportOptions(
             metadata_fields=metadata_fields,
@@ -214,9 +214,9 @@ class StorageInsightsReportConfig(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#create StorageInsightsReportConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#delete StorageInsightsReportConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#update StorageInsightsReportConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#create StorageInsightsReportConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#delete StorageInsightsReportConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#update StorageInsightsReportConfig#update}.
         '''
         value = StorageInsightsReportConfigTimeouts(
             create=create, delete=delete, update=update
@@ -460,15 +460,15 @@ class StorageInsightsReportConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location of the ReportConfig. The source and destination buckets specified in the ReportConfig must be in the same location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#location StorageInsightsReportConfig#location}
-        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#csv_options StorageInsightsReportConfig#csv_options}
-        :param display_name: The editable display name of the inventory report configuration. Has a limit of 256 characters. Can be empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#display_name StorageInsightsReportConfig#display_name}
-        :param frequency_options: frequency_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#frequency_options StorageInsightsReportConfig#frequency_options}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#id StorageInsightsReportConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param object_metadata_report_options: object_metadata_report_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#object_metadata_report_options StorageInsightsReportConfig#object_metadata_report_options}
-        :param parquet_options: parquet_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#parquet_options StorageInsightsReportConfig#parquet_options}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#project StorageInsightsReportConfig#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#timeouts StorageInsightsReportConfig#timeouts}
+        :param location: The location of the ReportConfig. The source and destination buckets specified in the ReportConfig must be in the same location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#location StorageInsightsReportConfig#location}
+        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#csv_options StorageInsightsReportConfig#csv_options}
+        :param display_name: The editable display name of the inventory report configuration. Has a limit of 256 characters. Can be empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#display_name StorageInsightsReportConfig#display_name}
+        :param frequency_options: frequency_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#frequency_options StorageInsightsReportConfig#frequency_options}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#id StorageInsightsReportConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param object_metadata_report_options: object_metadata_report_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#object_metadata_report_options StorageInsightsReportConfig#object_metadata_report_options}
+        :param parquet_options: parquet_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#parquet_options StorageInsightsReportConfig#parquet_options}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#project StorageInsightsReportConfig#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#timeouts StorageInsightsReportConfig#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -602,7 +602,7 @@ class StorageInsightsReportConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location of the ReportConfig. The source and destination buckets specified in the ReportConfig must be in the same location.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#location StorageInsightsReportConfig#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#location StorageInsightsReportConfig#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -612,7 +612,7 @@ class StorageInsightsReportConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def csv_options(self) -> typing.Optional["StorageInsightsReportConfigCsvOptions"]:
         '''csv_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#csv_options StorageInsightsReportConfig#csv_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#csv_options StorageInsightsReportConfig#csv_options}
         '''
         result = self._values.get("csv_options")
         return typing.cast(typing.Optional["StorageInsightsReportConfigCsvOptions"], result)
@@ -621,7 +621,7 @@ class StorageInsightsReportConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The editable display name of the inventory report configuration. Has a limit of 256 characters. Can be empty.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#display_name StorageInsightsReportConfig#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#display_name StorageInsightsReportConfig#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -632,14 +632,14 @@ class StorageInsightsReportConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["StorageInsightsReportConfigFrequencyOptions"]:
         '''frequency_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#frequency_options StorageInsightsReportConfig#frequency_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#frequency_options StorageInsightsReportConfig#frequency_options}
         '''
         result = self._values.get("frequency_options")
         return typing.cast(typing.Optional["StorageInsightsReportConfigFrequencyOptions"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#id StorageInsightsReportConfig#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#id StorageInsightsReportConfig#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -653,7 +653,7 @@ class StorageInsightsReportConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["StorageInsightsReportConfigObjectMetadataReportOptions"]:
         '''object_metadata_report_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#object_metadata_report_options StorageInsightsReportConfig#object_metadata_report_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#object_metadata_report_options StorageInsightsReportConfig#object_metadata_report_options}
         '''
         result = self._values.get("object_metadata_report_options")
         return typing.cast(typing.Optional["StorageInsightsReportConfigObjectMetadataReportOptions"], result)
@@ -664,14 +664,14 @@ class StorageInsightsReportConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["StorageInsightsReportConfigParquetOptions"]:
         '''parquet_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#parquet_options StorageInsightsReportConfig#parquet_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#parquet_options StorageInsightsReportConfig#parquet_options}
         '''
         result = self._values.get("parquet_options")
         return typing.cast(typing.Optional["StorageInsightsReportConfigParquetOptions"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#project StorageInsightsReportConfig#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#project StorageInsightsReportConfig#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -679,7 +679,7 @@ class StorageInsightsReportConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["StorageInsightsReportConfigTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#timeouts StorageInsightsReportConfig#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#timeouts StorageInsightsReportConfig#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["StorageInsightsReportConfigTimeouts"], result)
@@ -714,9 +714,9 @@ class StorageInsightsReportConfigCsvOptions:
         record_separator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param delimiter: The delimiter used to separate the fields in the inventory report CSV file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#delimiter StorageInsightsReportConfig#delimiter}
-        :param header_required: The boolean that indicates whether or not headers are included in the inventory report CSV file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#header_required StorageInsightsReportConfig#header_required}
-        :param record_separator: The character used to separate the records in the inventory report CSV file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#record_separator StorageInsightsReportConfig#record_separator}
+        :param delimiter: The delimiter used to separate the fields in the inventory report CSV file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#delimiter StorageInsightsReportConfig#delimiter}
+        :param header_required: The boolean that indicates whether or not headers are included in the inventory report CSV file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#header_required StorageInsightsReportConfig#header_required}
+        :param record_separator: The character used to separate the records in the inventory report CSV file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#record_separator StorageInsightsReportConfig#record_separator}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__92a78c8cc174d6ddff3bf06665568d29ba4c14586b59f5d301ea28d22dbf3a0d)
@@ -735,7 +735,7 @@ class StorageInsightsReportConfigCsvOptions:
     def delimiter(self) -> typing.Optional[builtins.str]:
         '''The delimiter used to separate the fields in the inventory report CSV file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#delimiter StorageInsightsReportConfig#delimiter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#delimiter StorageInsightsReportConfig#delimiter}
         '''
         result = self._values.get("delimiter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -746,7 +746,7 @@ class StorageInsightsReportConfigCsvOptions:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''The boolean that indicates whether or not headers are included in the inventory report CSV file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#header_required StorageInsightsReportConfig#header_required}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#header_required StorageInsightsReportConfig#header_required}
         '''
         result = self._values.get("header_required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -755,7 +755,7 @@ class StorageInsightsReportConfigCsvOptions:
     def record_separator(self) -> typing.Optional[builtins.str]:
         '''The character used to separate the records in the inventory report CSV file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#record_separator StorageInsightsReportConfig#record_separator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#record_separator StorageInsightsReportConfig#record_separator}
         '''
         result = self._values.get("record_separator")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -896,9 +896,9 @@ class StorageInsightsReportConfigFrequencyOptions:
         start_date: typing.Union["StorageInsightsReportConfigFrequencyOptionsStartDate", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param end_date: end_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#end_date StorageInsightsReportConfig#end_date}
-        :param frequency: The frequency in which inventory reports are generated. Values are DAILY or WEEKLY. Possible values: ["DAILY", "WEEKLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#frequency StorageInsightsReportConfig#frequency}
-        :param start_date: start_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#start_date StorageInsightsReportConfig#start_date}
+        :param end_date: end_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#end_date StorageInsightsReportConfig#end_date}
+        :param frequency: The frequency in which inventory reports are generated. Values are DAILY or WEEKLY. Possible values: ["DAILY", "WEEKLY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#frequency StorageInsightsReportConfig#frequency}
+        :param start_date: start_date block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#start_date StorageInsightsReportConfig#start_date}
         '''
         if isinstance(end_date, dict):
             end_date = StorageInsightsReportConfigFrequencyOptionsEndDate(**end_date)
@@ -919,7 +919,7 @@ class StorageInsightsReportConfigFrequencyOptions:
     def end_date(self) -> "StorageInsightsReportConfigFrequencyOptionsEndDate":
         '''end_date block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#end_date StorageInsightsReportConfig#end_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#end_date StorageInsightsReportConfig#end_date}
         '''
         result = self._values.get("end_date")
         assert result is not None, "Required property 'end_date' is missing"
@@ -929,7 +929,7 @@ class StorageInsightsReportConfigFrequencyOptions:
     def frequency(self) -> builtins.str:
         '''The frequency in which inventory reports are generated. Values are DAILY or WEEKLY. Possible values: ["DAILY", "WEEKLY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#frequency StorageInsightsReportConfig#frequency}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#frequency StorageInsightsReportConfig#frequency}
         '''
         result = self._values.get("frequency")
         assert result is not None, "Required property 'frequency' is missing"
@@ -939,7 +939,7 @@ class StorageInsightsReportConfigFrequencyOptions:
     def start_date(self) -> "StorageInsightsReportConfigFrequencyOptionsStartDate":
         '''start_date block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#start_date StorageInsightsReportConfig#start_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#start_date StorageInsightsReportConfig#start_date}
         '''
         result = self._values.get("start_date")
         assert result is not None, "Required property 'start_date' is missing"
@@ -971,9 +971,9 @@ class StorageInsightsReportConfigFrequencyOptionsEndDate:
         year: jsii.Number,
     ) -> None:
         '''
-        :param day: The day of the month to stop generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#day StorageInsightsReportConfig#day}
-        :param month: The month to stop generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#month StorageInsightsReportConfig#month}
-        :param year: The year to stop generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#year StorageInsightsReportConfig#year}
+        :param day: The day of the month to stop generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#day StorageInsightsReportConfig#day}
+        :param month: The month to stop generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#month StorageInsightsReportConfig#month}
+        :param year: The year to stop generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#year StorageInsightsReportConfig#year}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c6a397177f113861f23fa5ee236f9db3395e1793ba5cffa4ad67ba9763124ca2)
@@ -990,7 +990,7 @@ class StorageInsightsReportConfigFrequencyOptionsEndDate:
     def day(self) -> jsii.Number:
         '''The day of the month to stop generating inventory reports.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#day StorageInsightsReportConfig#day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#day StorageInsightsReportConfig#day}
         '''
         result = self._values.get("day")
         assert result is not None, "Required property 'day' is missing"
@@ -1000,7 +1000,7 @@ class StorageInsightsReportConfigFrequencyOptionsEndDate:
     def month(self) -> jsii.Number:
         '''The month to stop generating inventory reports.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#month StorageInsightsReportConfig#month}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#month StorageInsightsReportConfig#month}
         '''
         result = self._values.get("month")
         assert result is not None, "Required property 'month' is missing"
@@ -1010,7 +1010,7 @@ class StorageInsightsReportConfigFrequencyOptionsEndDate:
     def year(self) -> jsii.Number:
         '''The year to stop generating inventory reports.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#year StorageInsightsReportConfig#year}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#year StorageInsightsReportConfig#year}
         '''
         result = self._values.get("year")
         assert result is not None, "Required property 'year' is missing"
@@ -1146,9 +1146,9 @@ class StorageInsightsReportConfigFrequencyOptionsOutputReference(
         year: jsii.Number,
     ) -> None:
         '''
-        :param day: The day of the month to stop generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#day StorageInsightsReportConfig#day}
-        :param month: The month to stop generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#month StorageInsightsReportConfig#month}
-        :param year: The year to stop generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#year StorageInsightsReportConfig#year}
+        :param day: The day of the month to stop generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#day StorageInsightsReportConfig#day}
+        :param month: The month to stop generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#month StorageInsightsReportConfig#month}
+        :param year: The year to stop generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#year StorageInsightsReportConfig#year}
         '''
         value = StorageInsightsReportConfigFrequencyOptionsEndDate(
             day=day, month=month, year=year
@@ -1165,9 +1165,9 @@ class StorageInsightsReportConfigFrequencyOptionsOutputReference(
         year: jsii.Number,
     ) -> None:
         '''
-        :param day: The day of the month to start generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#day StorageInsightsReportConfig#day}
-        :param month: The month to start generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#month StorageInsightsReportConfig#month}
-        :param year: The year to start generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#year StorageInsightsReportConfig#year}
+        :param day: The day of the month to start generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#day StorageInsightsReportConfig#day}
+        :param month: The month to start generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#month StorageInsightsReportConfig#month}
+        :param year: The year to start generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#year StorageInsightsReportConfig#year}
         '''
         value = StorageInsightsReportConfigFrequencyOptionsStartDate(
             day=day, month=month, year=year
@@ -1252,9 +1252,9 @@ class StorageInsightsReportConfigFrequencyOptionsStartDate:
         year: jsii.Number,
     ) -> None:
         '''
-        :param day: The day of the month to start generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#day StorageInsightsReportConfig#day}
-        :param month: The month to start generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#month StorageInsightsReportConfig#month}
-        :param year: The year to start generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#year StorageInsightsReportConfig#year}
+        :param day: The day of the month to start generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#day StorageInsightsReportConfig#day}
+        :param month: The month to start generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#month StorageInsightsReportConfig#month}
+        :param year: The year to start generating inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#year StorageInsightsReportConfig#year}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2cfc5b1abfcea030497a00c4a70e88541d79f688528d320ea93c892ba479608d)
@@ -1271,7 +1271,7 @@ class StorageInsightsReportConfigFrequencyOptionsStartDate:
     def day(self) -> jsii.Number:
         '''The day of the month to start generating inventory reports.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#day StorageInsightsReportConfig#day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#day StorageInsightsReportConfig#day}
         '''
         result = self._values.get("day")
         assert result is not None, "Required property 'day' is missing"
@@ -1281,7 +1281,7 @@ class StorageInsightsReportConfigFrequencyOptionsStartDate:
     def month(self) -> jsii.Number:
         '''The month to start generating inventory reports.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#month StorageInsightsReportConfig#month}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#month StorageInsightsReportConfig#month}
         '''
         result = self._values.get("month")
         assert result is not None, "Required property 'month' is missing"
@@ -1291,7 +1291,7 @@ class StorageInsightsReportConfigFrequencyOptionsStartDate:
     def year(self) -> jsii.Number:
         '''The year to start generating inventory reports.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#year StorageInsightsReportConfig#year}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#year StorageInsightsReportConfig#year}
         '''
         result = self._values.get("year")
         assert result is not None, "Required property 'year' is missing"
@@ -1416,9 +1416,9 @@ class StorageInsightsReportConfigObjectMetadataReportOptions:
         storage_filters: typing.Optional[typing.Union["StorageInsightsReportConfigObjectMetadataReportOptionsStorageFilters", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param metadata_fields: The metadata fields included in an inventory report. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#metadata_fields StorageInsightsReportConfig#metadata_fields}
-        :param storage_destination_options: storage_destination_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#storage_destination_options StorageInsightsReportConfig#storage_destination_options}
-        :param storage_filters: storage_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#storage_filters StorageInsightsReportConfig#storage_filters}
+        :param metadata_fields: The metadata fields included in an inventory report. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#metadata_fields StorageInsightsReportConfig#metadata_fields}
+        :param storage_destination_options: storage_destination_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#storage_destination_options StorageInsightsReportConfig#storage_destination_options}
+        :param storage_filters: storage_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#storage_filters StorageInsightsReportConfig#storage_filters}
         '''
         if isinstance(storage_destination_options, dict):
             storage_destination_options = StorageInsightsReportConfigObjectMetadataReportOptionsStorageDestinationOptions(**storage_destination_options)
@@ -1440,7 +1440,7 @@ class StorageInsightsReportConfigObjectMetadataReportOptions:
     def metadata_fields(self) -> typing.List[builtins.str]:
         '''The metadata fields included in an inventory report.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#metadata_fields StorageInsightsReportConfig#metadata_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#metadata_fields StorageInsightsReportConfig#metadata_fields}
         '''
         result = self._values.get("metadata_fields")
         assert result is not None, "Required property 'metadata_fields' is missing"
@@ -1452,7 +1452,7 @@ class StorageInsightsReportConfigObjectMetadataReportOptions:
     ) -> "StorageInsightsReportConfigObjectMetadataReportOptionsStorageDestinationOptions":
         '''storage_destination_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#storage_destination_options StorageInsightsReportConfig#storage_destination_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#storage_destination_options StorageInsightsReportConfig#storage_destination_options}
         '''
         result = self._values.get("storage_destination_options")
         assert result is not None, "Required property 'storage_destination_options' is missing"
@@ -1464,7 +1464,7 @@ class StorageInsightsReportConfigObjectMetadataReportOptions:
     ) -> typing.Optional["StorageInsightsReportConfigObjectMetadataReportOptionsStorageFilters"]:
         '''storage_filters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#storage_filters StorageInsightsReportConfig#storage_filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#storage_filters StorageInsightsReportConfig#storage_filters}
         '''
         result = self._values.get("storage_filters")
         return typing.cast(typing.Optional["StorageInsightsReportConfigObjectMetadataReportOptionsStorageFilters"], result)
@@ -1509,8 +1509,8 @@ class StorageInsightsReportConfigObjectMetadataReportOptionsOutputReference(
         destination_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: The destination bucket that stores the generated inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#bucket StorageInsightsReportConfig#bucket}
-        :param destination_path: The path within the destination bucket to store generated inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#destination_path StorageInsightsReportConfig#destination_path}
+        :param bucket: The destination bucket that stores the generated inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#bucket StorageInsightsReportConfig#bucket}
+        :param destination_path: The path within the destination bucket to store generated inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#destination_path StorageInsightsReportConfig#destination_path}
         '''
         value = StorageInsightsReportConfigObjectMetadataReportOptionsStorageDestinationOptions(
             bucket=bucket, destination_path=destination_path
@@ -1525,7 +1525,7 @@ class StorageInsightsReportConfigObjectMetadataReportOptionsOutputReference(
         bucket: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: The filter to use when specifying which bucket to generate inventory reports for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#bucket StorageInsightsReportConfig#bucket}
+        :param bucket: The filter to use when specifying which bucket to generate inventory reports for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#bucket StorageInsightsReportConfig#bucket}
         '''
         value = StorageInsightsReportConfigObjectMetadataReportOptionsStorageFilters(
             bucket=bucket
@@ -1613,8 +1613,8 @@ class StorageInsightsReportConfigObjectMetadataReportOptionsStorageDestinationOp
         destination_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: The destination bucket that stores the generated inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#bucket StorageInsightsReportConfig#bucket}
-        :param destination_path: The path within the destination bucket to store generated inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#destination_path StorageInsightsReportConfig#destination_path}
+        :param bucket: The destination bucket that stores the generated inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#bucket StorageInsightsReportConfig#bucket}
+        :param destination_path: The path within the destination bucket to store generated inventory reports. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#destination_path StorageInsightsReportConfig#destination_path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b402668c167288777f6834427b7b4cb4e6cd069676362fb88229b39c9676bc7)
@@ -1630,7 +1630,7 @@ class StorageInsightsReportConfigObjectMetadataReportOptionsStorageDestinationOp
     def bucket(self) -> builtins.str:
         '''The destination bucket that stores the generated inventory reports.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#bucket StorageInsightsReportConfig#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#bucket StorageInsightsReportConfig#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -1640,7 +1640,7 @@ class StorageInsightsReportConfigObjectMetadataReportOptionsStorageDestinationOp
     def destination_path(self) -> typing.Optional[builtins.str]:
         '''The path within the destination bucket to store generated inventory reports.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#destination_path StorageInsightsReportConfig#destination_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#destination_path StorageInsightsReportConfig#destination_path}
         '''
         result = self._values.get("destination_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1741,7 +1741,7 @@ class StorageInsightsReportConfigObjectMetadataReportOptionsStorageDestinationOp
 class StorageInsightsReportConfigObjectMetadataReportOptionsStorageFilters:
     def __init__(self, *, bucket: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param bucket: The filter to use when specifying which bucket to generate inventory reports for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#bucket StorageInsightsReportConfig#bucket}
+        :param bucket: The filter to use when specifying which bucket to generate inventory reports for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#bucket StorageInsightsReportConfig#bucket}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7cfb23f7d60a248c6feb26834aacfe2eff42abec7152bcbedd085a67cb6062e5)
@@ -1754,7 +1754,7 @@ class StorageInsightsReportConfigObjectMetadataReportOptionsStorageFilters:
     def bucket(self) -> typing.Optional[builtins.str]:
         '''The filter to use when specifying which bucket to generate inventory reports for.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#bucket StorageInsightsReportConfig#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#bucket StorageInsightsReportConfig#bucket}
         '''
         result = self._values.get("bucket")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1903,9 +1903,9 @@ class StorageInsightsReportConfigTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#create StorageInsightsReportConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#delete StorageInsightsReportConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#update StorageInsightsReportConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#create StorageInsightsReportConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#delete StorageInsightsReportConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#update StorageInsightsReportConfig#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be80f1636ff60307a53be197f96e09b0b793dc27e442b516ead5622a787daa3c)
@@ -1922,19 +1922,19 @@ class StorageInsightsReportConfigTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#create StorageInsightsReportConfig#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#create StorageInsightsReportConfig#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#delete StorageInsightsReportConfig#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#delete StorageInsightsReportConfig#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/storage_insights_report_config#update StorageInsightsReportConfig#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/storage_insights_report_config#update StorageInsightsReportConfig#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

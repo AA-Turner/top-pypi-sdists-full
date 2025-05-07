@@ -898,7 +898,7 @@ class Team:
             self._make_memories_and_summaries(run_messages, session_id, user_id)
 
             session_messages: List[Message] = []
-            for run in self.memory.runs[session_id]:  # type: ignore
+            for run in self.memory.runs.get(session_id, []):  # type: ignore
                 if run.messages is not None:
                     for m in run.messages:
                         session_messages.append(m)
@@ -1219,7 +1219,7 @@ class Team:
             self._make_memories_and_summaries(run_messages, session_id, user_id)
 
             session_messages: List[Message] = []
-            for run in self.memory.runs[session_id]:  # type: ignore
+            for run in self.memory.runs.get(session_id, []):  # type: ignore
                 if run.messages is not None:
                     for m in run.messages:
                         session_messages.append(m)
@@ -1638,7 +1638,7 @@ class Team:
             await self._amake_memories_and_summaries(run_messages, session_id, user_id)
 
             session_messages: List[Message] = []
-            for run in self.memory.runs[session_id]:
+            for run in self.memory.runs.get(session_id, []):
                 for m in run.messages:
                     session_messages.append(m)
 
@@ -1966,7 +1966,7 @@ class Team:
             await self._amake_memories_and_summaries(run_messages, session_id, user_id)
 
             session_messages: List[Message] = []
-            for run in self.memory.runs[session_id]:  # type: ignore
+            for run in self.memory.runs.get(session_id, []):  # type: ignore
                 if run.messages is not None:
                     for m in run.messages:
                         session_messages.append(m)
@@ -6042,11 +6042,9 @@ class Team:
             if isinstance(self.memory, dict) and "create_user_memories" in self.memory:
                 # Convert dict to TeamMemory
                 self.memory = TeamMemory(**self.memory)
-            elif isinstance(self.memory, dict):
-                # Convert dict to Memory
-                self.memory = Memory(**self.memory)
             else:
-                raise TypeError(f"Expected memory to be a dict or TeamMemory, but got {type(self.memory)}")
+                # Default to base memory
+                self.memory = Memory()
 
         if session.memory is not None:
             if isinstance(self.memory, TeamMemory):
@@ -6086,13 +6084,13 @@ class Team:
                     try:
                         if self.memory.runs is None:
                             self.memory.runs = {}
+                        self.memory.runs[session.session_id] = []
                         for run in session.memory["runs"]:
-                            session_id = run["session_id"]
-                            self.memory.runs[session_id] = []
+                            run_session_id = run["session_id"]
                             if "team_id" in run:
-                                self.memory.runs[session_id].append(TeamRunResponse.from_dict(run))
+                                self.memory.runs[run_session_id].append(TeamRunResponse.from_dict(run))
                             else:
-                                self.memory.runs[session_id].append(RunResponse.from_dict(run))
+                                self.memory.runs[run_session_id].append(RunResponse.from_dict(run))
                     except Exception as e:
                         log_warning(f"Failed to load runs from memory: {e}")
                 if "team_context" in session.memory:

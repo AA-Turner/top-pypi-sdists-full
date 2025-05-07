@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sdcclient"
-version = "0.17.3" # Updated by poetry-dynamic-versioning
+version = "0.18.0" # Updated by poetry-dynamic-versioning
 description = "Python client for Sysdig Platform"
 authors = ["Sysdig Inc. <info@sysdig.com>"]
 license = "MIT"
@@ -28,7 +28,7 @@ flake8 = "^3.8.4"
 coverage = "^6.2"
 
 [tool.poetry.extras]
-docs = ["sphinx", "sphinx-material"]
+docs = ["sphinx", "sphinx-material", "sphinx-rtd-theme"]
 
 [tool.poetry-dynamic-versioning]
 enable = false

@@ -1,7 +1,7 @@
 r'''
 # `google_vertex_ai_tensorboard`
 
-Refer to the Terraform Registry for docs: [`google_vertex_ai_tensorboard`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard).
+Refer to the Terraform Registry for docs: [`google_vertex_ai_tensorboard`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class VertexAiTensorboard(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.vertexAiTensorboard.VertexAiTensorboard",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard google_vertex_ai_tensorboard}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard google_vertex_ai_tensorboard}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class VertexAiTensorboard(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard google_vertex_ai_tensorboard} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard google_vertex_ai_tensorboard} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: User provided name of this Tensorboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#display_name VertexAiTensorboard#display_name}
-        :param description: Description of this Tensorboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#description VertexAiTensorboard#description}
-        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#encryption_spec VertexAiTensorboard#encryption_spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#id VertexAiTensorboard#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: The labels with user-defined metadata to organize your Tensorboards. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#labels VertexAiTensorboard#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#project VertexAiTensorboard#project}.
-        :param region: The region of the tensorboard. eg us-central1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#region VertexAiTensorboard#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#timeouts VertexAiTensorboard#timeouts}
+        :param display_name: User provided name of this Tensorboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#display_name VertexAiTensorboard#display_name}
+        :param description: Description of this Tensorboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#description VertexAiTensorboard#description}
+        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#encryption_spec VertexAiTensorboard#encryption_spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#id VertexAiTensorboard#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: The labels with user-defined metadata to organize your Tensorboards. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#labels VertexAiTensorboard#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#project VertexAiTensorboard#project}.
+        :param region: The region of the tensorboard. eg us-central1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#region VertexAiTensorboard#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#timeouts VertexAiTensorboard#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class VertexAiTensorboard(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the VertexAiTensorboard to import.
-        :param import_from_id: The id of the existing VertexAiTensorboard that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing VertexAiTensorboard that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the VertexAiTensorboard to import is found.
         '''
         if __debug__:
@@ -138,7 +138,7 @@ class VertexAiTensorboard(
     @jsii.member(jsii_name="putEncryptionSpec")
     def put_encryption_spec(self, *, kms_key_name: builtins.str) -> None:
         '''
-        :param kms_key_name: The Cloud KMS resource identifier of the customer managed encryption key used to protect a resource. Has the form: projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key. The key needs to be in the same region as where the resource is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#kms_key_name VertexAiTensorboard#kms_key_name}
+        :param kms_key_name: The Cloud KMS resource identifier of the customer managed encryption key used to protect a resource. Has the form: projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key. The key needs to be in the same region as where the resource is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#kms_key_name VertexAiTensorboard#kms_key_name}
         '''
         value = VertexAiTensorboardEncryptionSpec(kms_key_name=kms_key_name)
 
@@ -153,9 +153,9 @@ class VertexAiTensorboard(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#create VertexAiTensorboard#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#delete VertexAiTensorboard#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#update VertexAiTensorboard#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#create VertexAiTensorboard#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#delete VertexAiTensorboard#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#update VertexAiTensorboard#update}.
         '''
         value = VertexAiTensorboardTimeouts(
             create=create, delete=delete, update=update
@@ -417,14 +417,14 @@ class VertexAiTensorboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: User provided name of this Tensorboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#display_name VertexAiTensorboard#display_name}
-        :param description: Description of this Tensorboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#description VertexAiTensorboard#description}
-        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#encryption_spec VertexAiTensorboard#encryption_spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#id VertexAiTensorboard#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: The labels with user-defined metadata to organize your Tensorboards. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#labels VertexAiTensorboard#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#project VertexAiTensorboard#project}.
-        :param region: The region of the tensorboard. eg us-central1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#region VertexAiTensorboard#region}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#timeouts VertexAiTensorboard#timeouts}
+        :param display_name: User provided name of this Tensorboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#display_name VertexAiTensorboard#display_name}
+        :param description: Description of this Tensorboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#description VertexAiTensorboard#description}
+        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#encryption_spec VertexAiTensorboard#encryption_spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#id VertexAiTensorboard#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: The labels with user-defined metadata to organize your Tensorboards. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#labels VertexAiTensorboard#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#project VertexAiTensorboard#project}.
+        :param region: The region of the tensorboard. eg us-central1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#region VertexAiTensorboard#region}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#timeouts VertexAiTensorboard#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -549,7 +549,7 @@ class VertexAiTensorboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''User provided name of this Tensorboard.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#display_name VertexAiTensorboard#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#display_name VertexAiTensorboard#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -559,7 +559,7 @@ class VertexAiTensorboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of this Tensorboard.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#description VertexAiTensorboard#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#description VertexAiTensorboard#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -568,14 +568,14 @@ class VertexAiTensorboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encryption_spec(self) -> typing.Optional["VertexAiTensorboardEncryptionSpec"]:
         '''encryption_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#encryption_spec VertexAiTensorboard#encryption_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#encryption_spec VertexAiTensorboard#encryption_spec}
         '''
         result = self._values.get("encryption_spec")
         return typing.cast(typing.Optional["VertexAiTensorboardEncryptionSpec"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#id VertexAiTensorboard#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#id VertexAiTensorboard#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -590,14 +590,14 @@ class VertexAiTensorboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#labels VertexAiTensorboard#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#labels VertexAiTensorboard#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#project VertexAiTensorboard#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#project VertexAiTensorboard#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -605,7 +605,7 @@ class VertexAiTensorboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''The region of the tensorboard. eg us-central1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#region VertexAiTensorboard#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#region VertexAiTensorboard#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -614,7 +614,7 @@ class VertexAiTensorboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["VertexAiTensorboardTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#timeouts VertexAiTensorboard#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#timeouts VertexAiTensorboard#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["VertexAiTensorboardTimeouts"], result)
@@ -639,7 +639,7 @@ class VertexAiTensorboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class VertexAiTensorboardEncryptionSpec:
     def __init__(self, *, kms_key_name: builtins.str) -> None:
         '''
-        :param kms_key_name: The Cloud KMS resource identifier of the customer managed encryption key used to protect a resource. Has the form: projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key. The key needs to be in the same region as where the resource is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#kms_key_name VertexAiTensorboard#kms_key_name}
+        :param kms_key_name: The Cloud KMS resource identifier of the customer managed encryption key used to protect a resource. Has the form: projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key. The key needs to be in the same region as where the resource is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#kms_key_name VertexAiTensorboard#kms_key_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2899e97270fb36da3170c6972e8ac1aa5c3d3aeea78063468a76e01f65e818dd)
@@ -654,7 +654,7 @@ class VertexAiTensorboardEncryptionSpec:
 
         Has the form: projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key. The key needs to be in the same region as where the resource is created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#kms_key_name VertexAiTensorboard#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#kms_key_name VertexAiTensorboard#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         assert result is not None, "Required property 'kms_key_name' is missing"
@@ -739,9 +739,9 @@ class VertexAiTensorboardTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#create VertexAiTensorboard#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#delete VertexAiTensorboard#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#update VertexAiTensorboard#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#create VertexAiTensorboard#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#delete VertexAiTensorboard#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#update VertexAiTensorboard#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f3a6ee74f3b92d110f30e6f59c0442d9d74b1655ca2bb4be830c36f6195d833)
@@ -758,19 +758,19 @@ class VertexAiTensorboardTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#create VertexAiTensorboard#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#create VertexAiTensorboard#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#delete VertexAiTensorboard#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#delete VertexAiTensorboard#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/vertex_ai_tensorboard#update VertexAiTensorboard#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/vertex_ai_tensorboard#update VertexAiTensorboard#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

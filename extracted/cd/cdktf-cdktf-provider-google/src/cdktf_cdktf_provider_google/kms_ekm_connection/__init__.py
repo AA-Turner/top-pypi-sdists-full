@@ -1,7 +1,7 @@
 r'''
 # `google_kms_ekm_connection`
 
-Refer to the Terraform Registry for docs: [`google_kms_ekm_connection`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection).
+Refer to the Terraform Registry for docs: [`google_kms_ekm_connection`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class KmsEkmConnection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.kmsEkmConnection.KmsEkmConnection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection google_kms_ekm_connection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection google_kms_ekm_connection}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class KmsEkmConnection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection google_kms_ekm_connection} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection google_kms_ekm_connection} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location for the EkmConnection. A full list of valid locations can be found by running 'gcloud kms locations list'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#location KmsEkmConnection#location}
-        :param name: The resource name for the EkmConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#name KmsEkmConnection#name}
-        :param service_resolvers: service_resolvers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#service_resolvers KmsEkmConnection#service_resolvers}
-        :param crypto_space_path: Optional. Identifies the EKM Crypto Space that this EkmConnection maps to. Note: This field is required if KeyManagementMode is CLOUD_KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#crypto_space_path KmsEkmConnection#crypto_space_path}
-        :param etag: Optional. Etag of the currently stored EkmConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#etag KmsEkmConnection#etag}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#id KmsEkmConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key_management_mode: Optional. Describes who can perform control plane operations on the EKM. If unset, this defaults to MANUAL Default value: "MANUAL" Possible values: ["MANUAL", "CLOUD_KMS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#key_management_mode KmsEkmConnection#key_management_mode}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#project KmsEkmConnection#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#timeouts KmsEkmConnection#timeouts}
+        :param location: The location for the EkmConnection. A full list of valid locations can be found by running 'gcloud kms locations list'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#location KmsEkmConnection#location}
+        :param name: The resource name for the EkmConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#name KmsEkmConnection#name}
+        :param service_resolvers: service_resolvers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#service_resolvers KmsEkmConnection#service_resolvers}
+        :param crypto_space_path: Optional. Identifies the EKM Crypto Space that this EkmConnection maps to. Note: This field is required if KeyManagementMode is CLOUD_KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#crypto_space_path KmsEkmConnection#crypto_space_path}
+        :param etag: Optional. Etag of the currently stored EkmConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#etag KmsEkmConnection#etag}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#id KmsEkmConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key_management_mode: Optional. Describes who can perform control plane operations on the EKM. If unset, this defaults to MANUAL Default value: "MANUAL" Possible values: ["MANUAL", "CLOUD_KMS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#key_management_mode KmsEkmConnection#key_management_mode}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#project KmsEkmConnection#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#timeouts KmsEkmConnection#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class KmsEkmConnection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the KmsEkmConnection to import.
-        :param import_from_id: The id of the existing KmsEkmConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing KmsEkmConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the KmsEkmConnection to import is found.
         '''
         if __debug__:
@@ -160,9 +160,9 @@ class KmsEkmConnection(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#create KmsEkmConnection#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#delete KmsEkmConnection#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#update KmsEkmConnection#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#create KmsEkmConnection#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#delete KmsEkmConnection#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#update KmsEkmConnection#update}.
         '''
         value = KmsEkmConnectionTimeouts(create=create, delete=delete, update=update)
 
@@ -405,15 +405,15 @@ class KmsEkmConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location for the EkmConnection. A full list of valid locations can be found by running 'gcloud kms locations list'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#location KmsEkmConnection#location}
-        :param name: The resource name for the EkmConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#name KmsEkmConnection#name}
-        :param service_resolvers: service_resolvers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#service_resolvers KmsEkmConnection#service_resolvers}
-        :param crypto_space_path: Optional. Identifies the EKM Crypto Space that this EkmConnection maps to. Note: This field is required if KeyManagementMode is CLOUD_KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#crypto_space_path KmsEkmConnection#crypto_space_path}
-        :param etag: Optional. Etag of the currently stored EkmConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#etag KmsEkmConnection#etag}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#id KmsEkmConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key_management_mode: Optional. Describes who can perform control plane operations on the EKM. If unset, this defaults to MANUAL Default value: "MANUAL" Possible values: ["MANUAL", "CLOUD_KMS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#key_management_mode KmsEkmConnection#key_management_mode}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#project KmsEkmConnection#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#timeouts KmsEkmConnection#timeouts}
+        :param location: The location for the EkmConnection. A full list of valid locations can be found by running 'gcloud kms locations list'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#location KmsEkmConnection#location}
+        :param name: The resource name for the EkmConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#name KmsEkmConnection#name}
+        :param service_resolvers: service_resolvers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#service_resolvers KmsEkmConnection#service_resolvers}
+        :param crypto_space_path: Optional. Identifies the EKM Crypto Space that this EkmConnection maps to. Note: This field is required if KeyManagementMode is CLOUD_KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#crypto_space_path KmsEkmConnection#crypto_space_path}
+        :param etag: Optional. Etag of the currently stored EkmConnection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#etag KmsEkmConnection#etag}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#id KmsEkmConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key_management_mode: Optional. Describes who can perform control plane operations on the EKM. If unset, this defaults to MANUAL Default value: "MANUAL" Possible values: ["MANUAL", "CLOUD_KMS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#key_management_mode KmsEkmConnection#key_management_mode}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#project KmsEkmConnection#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#timeouts KmsEkmConnection#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -537,7 +537,7 @@ class KmsEkmConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the EkmConnection. A full list of valid locations can be found by running 'gcloud kms locations list'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#location KmsEkmConnection#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#location KmsEkmConnection#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -547,7 +547,7 @@ class KmsEkmConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The resource name for the EkmConnection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#name KmsEkmConnection#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#name KmsEkmConnection#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -559,7 +559,7 @@ class KmsEkmConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KmsEkmConnectionServiceResolvers"]]:
         '''service_resolvers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#service_resolvers KmsEkmConnection#service_resolvers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#service_resolvers KmsEkmConnection#service_resolvers}
         '''
         result = self._values.get("service_resolvers")
         assert result is not None, "Required property 'service_resolvers' is missing"
@@ -571,7 +571,7 @@ class KmsEkmConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Identifies the EKM Crypto Space that this EkmConnection maps to. Note: This field is required if KeyManagementMode is CLOUD_KMS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#crypto_space_path KmsEkmConnection#crypto_space_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#crypto_space_path KmsEkmConnection#crypto_space_path}
         '''
         result = self._values.get("crypto_space_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -580,14 +580,14 @@ class KmsEkmConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def etag(self) -> typing.Optional[builtins.str]:
         '''Optional. Etag of the currently stored EkmConnection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#etag KmsEkmConnection#etag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#etag KmsEkmConnection#etag}
         '''
         result = self._values.get("etag")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#id KmsEkmConnection#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#id KmsEkmConnection#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -601,14 +601,14 @@ class KmsEkmConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Describes who can perform control plane operations on the EKM. If unset, this defaults to MANUAL Default value: "MANUAL" Possible values: ["MANUAL", "CLOUD_KMS"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#key_management_mode KmsEkmConnection#key_management_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#key_management_mode KmsEkmConnection#key_management_mode}
         '''
         result = self._values.get("key_management_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#project KmsEkmConnection#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#project KmsEkmConnection#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -616,7 +616,7 @@ class KmsEkmConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["KmsEkmConnectionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#timeouts KmsEkmConnection#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#timeouts KmsEkmConnection#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["KmsEkmConnectionTimeouts"], result)
@@ -653,10 +653,10 @@ class KmsEkmConnectionServiceResolvers:
         endpoint_filter: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param hostname: Required. The hostname of the EKM replica used at TLS and HTTP layers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#hostname KmsEkmConnection#hostname}
-        :param server_certificates: server_certificates block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#server_certificates KmsEkmConnection#server_certificates}
-        :param service_directory_service: Required. The resource name of the Service Directory service pointing to an EKM replica, in the format projects/* /locations/* /namespaces/* /services/* Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#service_directory_service KmsEkmConnection#service_directory_service} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param endpoint_filter: Optional. The filter applied to the endpoints of the resolved service. If no filter is specified, all endpoints will be considered. An endpoint will be chosen arbitrarily from the filtered list for each request. For endpoint filter syntax and examples, see https://cloud.google.com/service-directory/docs/reference/rpc/google.cloud.servicedirectory.v1#resolveservicerequest. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#endpoint_filter KmsEkmConnection#endpoint_filter}
+        :param hostname: Required. The hostname of the EKM replica used at TLS and HTTP layers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#hostname KmsEkmConnection#hostname}
+        :param server_certificates: server_certificates block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#server_certificates KmsEkmConnection#server_certificates}
+        :param service_directory_service: Required. The resource name of the Service Directory service pointing to an EKM replica, in the format projects/* /locations/* /namespaces/* /services/* Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#service_directory_service KmsEkmConnection#service_directory_service} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param endpoint_filter: Optional. The filter applied to the endpoints of the resolved service. If no filter is specified, all endpoints will be considered. An endpoint will be chosen arbitrarily from the filtered list for each request. For endpoint filter syntax and examples, see https://cloud.google.com/service-directory/docs/reference/rpc/google.cloud.servicedirectory.v1#resolveservicerequest. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#endpoint_filter KmsEkmConnection#endpoint_filter}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2b0c72469e561773db1cab537638931e03c4e7c81258f7e25a0bcdf31a736549)
@@ -676,7 +676,7 @@ class KmsEkmConnectionServiceResolvers:
     def hostname(self) -> builtins.str:
         '''Required. The hostname of the EKM replica used at TLS and HTTP layers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#hostname KmsEkmConnection#hostname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#hostname KmsEkmConnection#hostname}
         '''
         result = self._values.get("hostname")
         assert result is not None, "Required property 'hostname' is missing"
@@ -688,7 +688,7 @@ class KmsEkmConnectionServiceResolvers:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KmsEkmConnectionServiceResolversServerCertificates"]]:
         '''server_certificates block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#server_certificates KmsEkmConnection#server_certificates}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#server_certificates KmsEkmConnection#server_certificates}
         '''
         result = self._values.get("server_certificates")
         assert result is not None, "Required property 'server_certificates' is missing"
@@ -700,7 +700,7 @@ class KmsEkmConnectionServiceResolvers:
 
         The resource name of the Service Directory service pointing to an EKM replica, in the format projects/* /locations/* /namespaces/* /services/*
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#service_directory_service KmsEkmConnection#service_directory_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#service_directory_service KmsEkmConnection#service_directory_service}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -714,7 +714,7 @@ class KmsEkmConnectionServiceResolvers:
 
         The filter applied to the endpoints of the resolved service. If no filter is specified, all endpoints will be considered. An endpoint will be chosen arbitrarily from the filtered list for each request. For endpoint filter syntax and examples, see https://cloud.google.com/service-directory/docs/reference/rpc/google.cloud.servicedirectory.v1#resolveservicerequest.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#endpoint_filter KmsEkmConnection#endpoint_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#endpoint_filter KmsEkmConnection#endpoint_filter}
         '''
         result = self._values.get("endpoint_filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -966,8 +966,8 @@ class KmsEkmConnectionServiceResolversServerCertificates:
         subject_alternative_dns_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param raw_der: Required. The raw certificate bytes in DER format. A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#raw_der KmsEkmConnection#raw_der}
-        :param subject_alternative_dns_names: Output only. The subject Alternative DNS names. Only present if parsed is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#subject_alternative_dns_names KmsEkmConnection#subject_alternative_dns_names}
+        :param raw_der: Required. The raw certificate bytes in DER format. A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#raw_der KmsEkmConnection#raw_der}
+        :param subject_alternative_dns_names: Output only. The subject Alternative DNS names. Only present if parsed is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#subject_alternative_dns_names KmsEkmConnection#subject_alternative_dns_names}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__900b02b6367b006ca74fcc13d287962955fe3520802bf4c358a18708ff82c3fc)
@@ -983,7 +983,7 @@ class KmsEkmConnectionServiceResolversServerCertificates:
     def raw_der(self) -> builtins.str:
         '''Required. The raw certificate bytes in DER format. A base64-encoded string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#raw_der KmsEkmConnection#raw_der}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#raw_der KmsEkmConnection#raw_der}
         '''
         result = self._values.get("raw_der")
         assert result is not None, "Required property 'raw_der' is missing"
@@ -995,7 +995,7 @@ class KmsEkmConnectionServiceResolversServerCertificates:
     ) -> typing.Optional[typing.List[builtins.str]]:
         '''Output only. The subject Alternative DNS names. Only present if parsed is true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#subject_alternative_dns_names KmsEkmConnection#subject_alternative_dns_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#subject_alternative_dns_names KmsEkmConnection#subject_alternative_dns_names}
         '''
         result = self._values.get("subject_alternative_dns_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1238,9 +1238,9 @@ class KmsEkmConnectionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#create KmsEkmConnection#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#delete KmsEkmConnection#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#update KmsEkmConnection#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#create KmsEkmConnection#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#delete KmsEkmConnection#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#update KmsEkmConnection#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3bfa73516f5112b4a0bcf3f06dcd3973b34f4584b623c1c58308bf93a5f64af1)
@@ -1257,19 +1257,19 @@ class KmsEkmConnectionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#create KmsEkmConnection#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#create KmsEkmConnection#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#delete KmsEkmConnection#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#delete KmsEkmConnection#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/kms_ekm_connection#update KmsEkmConnection#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/kms_ekm_connection#update KmsEkmConnection#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

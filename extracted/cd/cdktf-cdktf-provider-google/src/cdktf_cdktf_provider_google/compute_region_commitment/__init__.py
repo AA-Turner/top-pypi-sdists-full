@@ -1,7 +1,7 @@
 r'''
 # `google_compute_region_commitment`
 
-Refer to the Terraform Registry for docs: [`google_compute_region_commitment`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment).
+Refer to the Terraform Registry for docs: [`google_compute_region_commitment`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeRegionCommitment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeRegionCommitment.ComputeRegionCommitment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment google_compute_region_commitment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment google_compute_region_commitment}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class ComputeRegionCommitment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment google_compute_region_commitment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment google_compute_region_commitment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the resource. The name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#name ComputeRegionCommitment#name}
-        :param plan: The plan for this commitment, which determines duration and discount rate. The currently supported plans are TWELVE_MONTH (1 year), and THIRTY_SIX_MONTH (3 years). Possible values: ["TWELVE_MONTH", "THIRTY_SIX_MONTH"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#plan ComputeRegionCommitment#plan}
-        :param auto_renew: Specifies whether to enable automatic renewal for the commitment. The default value is false if not specified. If the field is set to true, the commitment will be automatically renewed for either one or three years according to the terms of the existing commitment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#auto_renew ComputeRegionCommitment#auto_renew}
-        :param category: The category of the commitment. Category MACHINE specifies commitments composed of machine resources such as VCPU or MEMORY, listed in resources. Category LICENSE specifies commitments composed of software licenses, listed in licenseResources. Note that only MACHINE commitments should have a Type specified. Possible values: ["LICENSE", "MACHINE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#category ComputeRegionCommitment#category}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#description ComputeRegionCommitment#description}
-        :param existing_reservations: Specifies the already existing reservations to attach to the Commitment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#existing_reservations ComputeRegionCommitment#existing_reservations}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#id ComputeRegionCommitment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param license_resource: license_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#license_resource ComputeRegionCommitment#license_resource}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#project ComputeRegionCommitment#project}.
-        :param region: URL of the region where this commitment may be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#region ComputeRegionCommitment#region}
-        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#resources ComputeRegionCommitment#resources}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#timeouts ComputeRegionCommitment#timeouts}
-        :param type: The type of commitment, which affects the discount rate and the eligible resources. The type could be one of the following value: 'MEMORY_OPTIMIZED', 'ACCELERATOR_OPTIMIZED', 'GENERAL_PURPOSE_N1', 'GENERAL_PURPOSE_N2', 'GENERAL_PURPOSE_N2D', 'GENERAL_PURPOSE_E2', 'GENERAL_PURPOSE_T2D', 'GENERAL_PURPOSE_C3', 'COMPUTE_OPTIMIZED_C2', 'COMPUTE_OPTIMIZED_C2D' and 'GRAPHICS_OPTIMIZED_G2' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#type ComputeRegionCommitment#type}
+        :param name: Name of the resource. The name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#name ComputeRegionCommitment#name}
+        :param plan: The plan for this commitment, which determines duration and discount rate. The currently supported plans are TWELVE_MONTH (1 year), and THIRTY_SIX_MONTH (3 years). Possible values: ["TWELVE_MONTH", "THIRTY_SIX_MONTH"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#plan ComputeRegionCommitment#plan}
+        :param auto_renew: Specifies whether to enable automatic renewal for the commitment. The default value is false if not specified. If the field is set to true, the commitment will be automatically renewed for either one or three years according to the terms of the existing commitment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#auto_renew ComputeRegionCommitment#auto_renew}
+        :param category: The category of the commitment. Category MACHINE specifies commitments composed of machine resources such as VCPU or MEMORY, listed in resources. Category LICENSE specifies commitments composed of software licenses, listed in licenseResources. Note that only MACHINE commitments should have a Type specified. Possible values: ["LICENSE", "MACHINE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#category ComputeRegionCommitment#category}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#description ComputeRegionCommitment#description}
+        :param existing_reservations: Specifies the already existing reservations to attach to the Commitment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#existing_reservations ComputeRegionCommitment#existing_reservations}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#id ComputeRegionCommitment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param license_resource: license_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#license_resource ComputeRegionCommitment#license_resource}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#project ComputeRegionCommitment#project}.
+        :param region: URL of the region where this commitment may be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#region ComputeRegionCommitment#region}
+        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#resources ComputeRegionCommitment#resources}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#timeouts ComputeRegionCommitment#timeouts}
+        :param type: The type of commitment, which affects the discount rate and the eligible resources. The type could be one of the following value: 'MEMORY_OPTIMIZED', 'ACCELERATOR_OPTIMIZED', 'GENERAL_PURPOSE_N1', 'GENERAL_PURPOSE_N2', 'GENERAL_PURPOSE_N2D', 'GENERAL_PURPOSE_E2', 'GENERAL_PURPOSE_T2D', 'GENERAL_PURPOSE_C3', 'COMPUTE_OPTIMIZED_C2', 'COMPUTE_OPTIMIZED_C2D' and 'GRAPHICS_OPTIMIZED_G2' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#type ComputeRegionCommitment#type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class ComputeRegionCommitment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeRegionCommitment to import.
-        :param import_from_id: The id of the existing ComputeRegionCommitment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeRegionCommitment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeRegionCommitment to import is found.
         '''
         if __debug__:
@@ -159,9 +159,9 @@ class ComputeRegionCommitment(
         cores_per_license: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param license: Any applicable license URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#license ComputeRegionCommitment#license}
-        :param amount: The number of licenses purchased. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#amount ComputeRegionCommitment#amount}
-        :param cores_per_license: Specifies the core range of the instance for which this license applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#cores_per_license ComputeRegionCommitment#cores_per_license}
+        :param license: Any applicable license URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#license ComputeRegionCommitment#license}
+        :param amount: The number of licenses purchased. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#amount ComputeRegionCommitment#amount}
+        :param cores_per_license: Specifies the core range of the instance for which this license applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#cores_per_license ComputeRegionCommitment#cores_per_license}
         '''
         value = ComputeRegionCommitmentLicenseResource(
             license=license, amount=amount, cores_per_license=cores_per_license
@@ -190,8 +190,8 @@ class ComputeRegionCommitment(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#create ComputeRegionCommitment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#delete ComputeRegionCommitment#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#create ComputeRegionCommitment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#delete ComputeRegionCommitment#delete}.
         '''
         value = ComputeRegionCommitmentTimeouts(create=create, delete=delete)
 
@@ -562,19 +562,19 @@ class ComputeRegionCommitmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the resource. The name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#name ComputeRegionCommitment#name}
-        :param plan: The plan for this commitment, which determines duration and discount rate. The currently supported plans are TWELVE_MONTH (1 year), and THIRTY_SIX_MONTH (3 years). Possible values: ["TWELVE_MONTH", "THIRTY_SIX_MONTH"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#plan ComputeRegionCommitment#plan}
-        :param auto_renew: Specifies whether to enable automatic renewal for the commitment. The default value is false if not specified. If the field is set to true, the commitment will be automatically renewed for either one or three years according to the terms of the existing commitment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#auto_renew ComputeRegionCommitment#auto_renew}
-        :param category: The category of the commitment. Category MACHINE specifies commitments composed of machine resources such as VCPU or MEMORY, listed in resources. Category LICENSE specifies commitments composed of software licenses, listed in licenseResources. Note that only MACHINE commitments should have a Type specified. Possible values: ["LICENSE", "MACHINE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#category ComputeRegionCommitment#category}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#description ComputeRegionCommitment#description}
-        :param existing_reservations: Specifies the already existing reservations to attach to the Commitment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#existing_reservations ComputeRegionCommitment#existing_reservations}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#id ComputeRegionCommitment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param license_resource: license_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#license_resource ComputeRegionCommitment#license_resource}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#project ComputeRegionCommitment#project}.
-        :param region: URL of the region where this commitment may be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#region ComputeRegionCommitment#region}
-        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#resources ComputeRegionCommitment#resources}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#timeouts ComputeRegionCommitment#timeouts}
-        :param type: The type of commitment, which affects the discount rate and the eligible resources. The type could be one of the following value: 'MEMORY_OPTIMIZED', 'ACCELERATOR_OPTIMIZED', 'GENERAL_PURPOSE_N1', 'GENERAL_PURPOSE_N2', 'GENERAL_PURPOSE_N2D', 'GENERAL_PURPOSE_E2', 'GENERAL_PURPOSE_T2D', 'GENERAL_PURPOSE_C3', 'COMPUTE_OPTIMIZED_C2', 'COMPUTE_OPTIMIZED_C2D' and 'GRAPHICS_OPTIMIZED_G2' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#type ComputeRegionCommitment#type}
+        :param name: Name of the resource. The name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#name ComputeRegionCommitment#name}
+        :param plan: The plan for this commitment, which determines duration and discount rate. The currently supported plans are TWELVE_MONTH (1 year), and THIRTY_SIX_MONTH (3 years). Possible values: ["TWELVE_MONTH", "THIRTY_SIX_MONTH"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#plan ComputeRegionCommitment#plan}
+        :param auto_renew: Specifies whether to enable automatic renewal for the commitment. The default value is false if not specified. If the field is set to true, the commitment will be automatically renewed for either one or three years according to the terms of the existing commitment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#auto_renew ComputeRegionCommitment#auto_renew}
+        :param category: The category of the commitment. Category MACHINE specifies commitments composed of machine resources such as VCPU or MEMORY, listed in resources. Category LICENSE specifies commitments composed of software licenses, listed in licenseResources. Note that only MACHINE commitments should have a Type specified. Possible values: ["LICENSE", "MACHINE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#category ComputeRegionCommitment#category}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#description ComputeRegionCommitment#description}
+        :param existing_reservations: Specifies the already existing reservations to attach to the Commitment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#existing_reservations ComputeRegionCommitment#existing_reservations}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#id ComputeRegionCommitment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param license_resource: license_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#license_resource ComputeRegionCommitment#license_resource}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#project ComputeRegionCommitment#project}.
+        :param region: URL of the region where this commitment may be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#region ComputeRegionCommitment#region}
+        :param resources: resources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#resources ComputeRegionCommitment#resources}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#timeouts ComputeRegionCommitment#timeouts}
+        :param type: The type of commitment, which affects the discount rate and the eligible resources. The type could be one of the following value: 'MEMORY_OPTIMIZED', 'ACCELERATOR_OPTIMIZED', 'GENERAL_PURPOSE_N1', 'GENERAL_PURPOSE_N2', 'GENERAL_PURPOSE_N2D', 'GENERAL_PURPOSE_E2', 'GENERAL_PURPOSE_T2D', 'GENERAL_PURPOSE_C3', 'COMPUTE_OPTIMIZED_C2', 'COMPUTE_OPTIMIZED_C2D' and 'GRAPHICS_OPTIMIZED_G2' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#type ComputeRegionCommitment#type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -719,7 +719,7 @@ class ComputeRegionCommitmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         characters must be a dash, lowercase letter, or digit, except the last
         character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#name ComputeRegionCommitment#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#name ComputeRegionCommitment#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -731,7 +731,7 @@ class ComputeRegionCommitmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The currently supported plans are TWELVE_MONTH (1 year), and THIRTY_SIX_MONTH (3 years). Possible values: ["TWELVE_MONTH", "THIRTY_SIX_MONTH"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#plan ComputeRegionCommitment#plan}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#plan ComputeRegionCommitment#plan}
         '''
         result = self._values.get("plan")
         assert result is not None, "Required property 'plan' is missing"
@@ -747,7 +747,7 @@ class ComputeRegionCommitmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         If the field is set to true, the commitment will be automatically renewed for either
         one or three years according to the terms of the existing commitment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#auto_renew ComputeRegionCommitment#auto_renew}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#auto_renew ComputeRegionCommitment#auto_renew}
         '''
         result = self._values.get("auto_renew")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -761,7 +761,7 @@ class ComputeRegionCommitmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         specifies commitments composed of software licenses, listed in licenseResources.
         Note that only MACHINE commitments should have a Type specified. Possible values: ["LICENSE", "MACHINE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#category ComputeRegionCommitment#category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#category ComputeRegionCommitment#category}
         '''
         result = self._values.get("category")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -770,7 +770,7 @@ class ComputeRegionCommitmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#description ComputeRegionCommitment#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#description ComputeRegionCommitment#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -779,14 +779,14 @@ class ComputeRegionCommitmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def existing_reservations(self) -> typing.Optional[builtins.str]:
         '''Specifies the already existing reservations to attach to the Commitment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#existing_reservations ComputeRegionCommitment#existing_reservations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#existing_reservations ComputeRegionCommitment#existing_reservations}
         '''
         result = self._values.get("existing_reservations")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#id ComputeRegionCommitment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#id ComputeRegionCommitment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -800,14 +800,14 @@ class ComputeRegionCommitmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ComputeRegionCommitmentLicenseResource"]:
         '''license_resource block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#license_resource ComputeRegionCommitment#license_resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#license_resource ComputeRegionCommitment#license_resource}
         '''
         result = self._values.get("license_resource")
         return typing.cast(typing.Optional["ComputeRegionCommitmentLicenseResource"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#project ComputeRegionCommitment#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#project ComputeRegionCommitment#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -815,7 +815,7 @@ class ComputeRegionCommitmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''URL of the region where this commitment may be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#region ComputeRegionCommitment#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#region ComputeRegionCommitment#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -826,7 +826,7 @@ class ComputeRegionCommitmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionCommitmentResources"]]]:
         '''resources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#resources ComputeRegionCommitment#resources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#resources ComputeRegionCommitment#resources}
         '''
         result = self._values.get("resources")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionCommitmentResources"]]], result)
@@ -835,7 +835,7 @@ class ComputeRegionCommitmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeRegionCommitmentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#timeouts ComputeRegionCommitment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#timeouts ComputeRegionCommitment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeRegionCommitmentTimeouts"], result)
@@ -849,7 +849,7 @@ class ComputeRegionCommitmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         'GENERAL_PURPOSE_T2D', 'GENERAL_PURPOSE_C3', 'COMPUTE_OPTIMIZED_C2', 'COMPUTE_OPTIMIZED_C2D' and
         'GRAPHICS_OPTIMIZED_G2'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#type ComputeRegionCommitment#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#type ComputeRegionCommitment#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -884,9 +884,9 @@ class ComputeRegionCommitmentLicenseResource:
         cores_per_license: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param license: Any applicable license URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#license ComputeRegionCommitment#license}
-        :param amount: The number of licenses purchased. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#amount ComputeRegionCommitment#amount}
-        :param cores_per_license: Specifies the core range of the instance for which this license applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#cores_per_license ComputeRegionCommitment#cores_per_license}
+        :param license: Any applicable license URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#license ComputeRegionCommitment#license}
+        :param amount: The number of licenses purchased. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#amount ComputeRegionCommitment#amount}
+        :param cores_per_license: Specifies the core range of the instance for which this license applies. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#cores_per_license ComputeRegionCommitment#cores_per_license}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__82d25376ecb7f073104458d7d41561f3a03e880b8b8da2bfbb40e94d051982f5)
@@ -905,7 +905,7 @@ class ComputeRegionCommitmentLicenseResource:
     def license(self) -> builtins.str:
         '''Any applicable license URI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#license ComputeRegionCommitment#license}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#license ComputeRegionCommitment#license}
         '''
         result = self._values.get("license")
         assert result is not None, "Required property 'license' is missing"
@@ -915,7 +915,7 @@ class ComputeRegionCommitmentLicenseResource:
     def amount(self) -> typing.Optional[builtins.str]:
         '''The number of licenses purchased.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#amount ComputeRegionCommitment#amount}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#amount ComputeRegionCommitment#amount}
         '''
         result = self._values.get("amount")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -924,7 +924,7 @@ class ComputeRegionCommitmentLicenseResource:
     def cores_per_license(self) -> typing.Optional[builtins.str]:
         '''Specifies the core range of the instance for which this license applies.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#cores_per_license ComputeRegionCommitment#cores_per_license}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#cores_per_license ComputeRegionCommitment#cores_per_license}
         '''
         result = self._values.get("cores_per_license")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1054,9 +1054,9 @@ class ComputeRegionCommitmentResources:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param accelerator_type: Name of the accelerator type resource. Applicable only when the type is ACCELERATOR. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#accelerator_type ComputeRegionCommitment#accelerator_type}
-        :param amount: The amount of the resource purchased (in a type-dependent unit, such as bytes). For vCPUs, this can just be an integer. For memory, this must be provided in MB. Memory must be a multiple of 256 MB, with up to 6.5GB of memory per every vCPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#amount ComputeRegionCommitment#amount}
-        :param type: Type of resource for which this commitment applies. Possible values are VCPU, MEMORY, LOCAL_SSD, and ACCELERATOR. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#type ComputeRegionCommitment#type}
+        :param accelerator_type: Name of the accelerator type resource. Applicable only when the type is ACCELERATOR. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#accelerator_type ComputeRegionCommitment#accelerator_type}
+        :param amount: The amount of the resource purchased (in a type-dependent unit, such as bytes). For vCPUs, this can just be an integer. For memory, this must be provided in MB. Memory must be a multiple of 256 MB, with up to 6.5GB of memory per every vCPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#amount ComputeRegionCommitment#amount}
+        :param type: Type of resource for which this commitment applies. Possible values are VCPU, MEMORY, LOCAL_SSD, and ACCELERATOR. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#type ComputeRegionCommitment#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c12847f1b61482ed995a5014e13dcac70ab5fd0bc23a1790e5759bc184f41e18)
@@ -1075,7 +1075,7 @@ class ComputeRegionCommitmentResources:
     def accelerator_type(self) -> typing.Optional[builtins.str]:
         '''Name of the accelerator type resource. Applicable only when the type is ACCELERATOR.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#accelerator_type ComputeRegionCommitment#accelerator_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#accelerator_type ComputeRegionCommitment#accelerator_type}
         '''
         result = self._values.get("accelerator_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1088,7 +1088,7 @@ class ComputeRegionCommitmentResources:
         this must be provided in MB. Memory must be a multiple of 256 MB,
         with up to 6.5GB of memory per every vCPU.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#amount ComputeRegionCommitment#amount}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#amount ComputeRegionCommitment#amount}
         '''
         result = self._values.get("amount")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1097,7 +1097,7 @@ class ComputeRegionCommitmentResources:
     def type(self) -> typing.Optional[builtins.str]:
         '''Type of resource for which this commitment applies. Possible values are VCPU, MEMORY, LOCAL_SSD, and ACCELERATOR.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#type ComputeRegionCommitment#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#type ComputeRegionCommitment#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1327,8 +1327,8 @@ class ComputeRegionCommitmentTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#create ComputeRegionCommitment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#delete ComputeRegionCommitment#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#create ComputeRegionCommitment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#delete ComputeRegionCommitment#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__87d092f0a09cdf58204d57d215f1563d2ed19b124b02bc482f5fe07ac26ff2aa)
@@ -1342,13 +1342,13 @@ class ComputeRegionCommitmentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#create ComputeRegionCommitment#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#create ComputeRegionCommitment#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_commitment#delete ComputeRegionCommitment#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_commitment#delete ComputeRegionCommitment#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

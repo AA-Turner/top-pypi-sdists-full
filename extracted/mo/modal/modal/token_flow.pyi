@@ -53,5 +53,6 @@ async def _set_token(
     profile: typing.Optional[str] = None,
     activate: bool = True,
     verify: bool = True,
+    server_url: typing.Optional[str] = None,
 ): ...
 def _open_url(url: str) -> bool: ...

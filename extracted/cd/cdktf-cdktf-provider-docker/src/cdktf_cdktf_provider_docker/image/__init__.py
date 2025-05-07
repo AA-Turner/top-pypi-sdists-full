@@ -1,7 +1,7 @@
 r'''
 # `docker_image`
 
-Refer to the Terraform Registry for docs: [`docker_image`](https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image).
+Refer to the Terraform Registry for docs: [`docker_image`](https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Image(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-docker.image.Image",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image docker_image}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image docker_image}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class Image(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image docker_image} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image docker_image} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the Docker image, including any tags or SHA256 repo digests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#name Image#name}
-        :param build_attribute: build block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#build Image#build}
-        :param force_remove: If true, then the image is removed forcibly when the resource is destroyed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#force_remove Image#force_remove}
-        :param keep_locally: If true, then the Docker image won't be deleted on destroy operation. If this is false, it will delete the image from the docker local storage on destroy operation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#keep_locally Image#keep_locally}
-        :param platform: The platform to use when pulling the image. Defaults to the platform of the current machine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#platform Image#platform}
-        :param pull_triggers: List of values which cause an image pull when changed. This is used to store the image digest from the registry when using the `docker_registry_image <../data-sources/registry_image.md>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#pull_triggers Image#pull_triggers}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#timeouts Image#timeouts}
-        :param triggers: A map of arbitrary strings that, when changed, will force the ``docker_image`` resource to be replaced. This can be used to rebuild an image when contents of source code folders change Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#triggers Image#triggers}
+        :param name: The name of the Docker image, including any tags or SHA256 repo digests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#name Image#name}
+        :param build_attribute: build block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#build Image#build}
+        :param force_remove: If true, then the image is removed forcibly when the resource is destroyed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#force_remove Image#force_remove}
+        :param keep_locally: If true, then the Docker image won't be deleted on destroy operation. If this is false, it will delete the image from the docker local storage on destroy operation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#keep_locally Image#keep_locally}
+        :param platform: The platform to use when pulling the image. Defaults to the platform of the current machine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#platform Image#platform}
+        :param pull_triggers: List of values which cause an image pull when changed. This is used to store the image digest from the registry when using the `docker_registry_image <../data-sources/registry_image.md>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#pull_triggers Image#pull_triggers}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#timeouts Image#timeouts}
+        :param triggers: A map of arbitrary strings that, when changed, will force the ``docker_image`` resource to be replaced. This can be used to rebuild an image when contents of source code folders change Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#triggers Image#triggers}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class Image(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Image to import.
-        :param import_from_id: The id of the existing Image that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Image that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Image to import is found.
         '''
         if __debug__:
@@ -142,7 +142,9 @@ class Image(
         context: builtins.str,
         auth_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ImageBuildAuthConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
         build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        builder: typing.Optional[builtins.str] = None,
         build_id: typing.Optional[builtins.str] = None,
+        build_log_file: typing.Optional[builtins.str] = None,
         cache_from: typing.Optional[typing.Sequence[builtins.str]] = None,
         cgroup_parent: typing.Optional[builtins.str] = None,
         cpu_period: typing.Optional[jsii.Number] = None,
@@ -176,47 +178,51 @@ class Image(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param context: Value to specify the build context. Currently, only a ``PATH`` context is supported. You can use the helper function '${path.cwd}/context-dir'. This always refers to the local working directory, even when building images on remote hosts. Please see https://docs.docker.com/build/building/context/ for more information about build contexts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#context Image#context}
-        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#auth_config Image#auth_config}
-        :param build_args: Pairs for build-time variables in the form of ``ENDPOINT : "https://example.com"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#build_args Image#build_args}
-        :param build_id: BuildID is an optional identifier that can be passed together with the build request. The same identifier can be used to gracefully cancel the build with the cancel request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#build_id Image#build_id}
-        :param cache_from: Images to consider as cache sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cache_from Image#cache_from}
-        :param cgroup_parent: Optional parent cgroup for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cgroup_parent Image#cgroup_parent}
-        :param cpu_period: The length of a CPU period in microseconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cpu_period Image#cpu_period}
-        :param cpu_quota: Microseconds of CPU time that the container can get in a CPU period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cpu_quota Image#cpu_quota}
-        :param cpu_set_cpus: CPUs in which to allow execution (e.g., ``0-3``, ``0``, ``1``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cpu_set_cpus Image#cpu_set_cpus}
-        :param cpu_set_mems: MEMs in which to allow execution (``0-3``, ``0``, ``1``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cpu_set_mems Image#cpu_set_mems}
-        :param cpu_shares: CPU shares (relative weight). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cpu_shares Image#cpu_shares}
-        :param dockerfile: Name of the Dockerfile. Defaults to ``Dockerfile``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#dockerfile Image#dockerfile}
-        :param extra_hosts: A list of hostnames/IP mappings to add to the container’s /etc/hosts file. Specified in the form ["hostname:IP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#extra_hosts Image#extra_hosts}
-        :param force_remove: Always remove intermediate containers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#force_remove Image#force_remove}
-        :param isolation: Isolation represents the isolation technology of a container. The supported values are. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#isolation Image#isolation}
-        :param label: Set metadata for an image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#label Image#label}
-        :param labels: User-defined key/value metadata. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#labels Image#labels}
-        :param memory: Set memory limit for build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#memory Image#memory}
-        :param memory_swap: Total memory (memory + swap), -1 to enable unlimited swap. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#memory_swap Image#memory_swap}
-        :param network_mode: Set the networking mode for the RUN instructions during build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#network_mode Image#network_mode}
-        :param no_cache: Do not use the cache when building the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#no_cache Image#no_cache}
-        :param platform: Set platform if server is multi-platform capable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#platform Image#platform}
-        :param pull_parent: Attempt to pull the image even if an older image exists locally. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#pull_parent Image#pull_parent}
-        :param remote_context: A Git repository URI or HTTP/HTTPS context URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#remote_context Image#remote_context}
-        :param remove: Remove intermediate containers after a successful build. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#remove Image#remove}
-        :param secrets: secrets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#secrets Image#secrets}
-        :param security_opt: The security options. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#security_opt Image#security_opt}
-        :param session_id: Set an ID for the build session. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#session_id Image#session_id}
-        :param shm_size: Size of /dev/shm in bytes. The size must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#shm_size Image#shm_size}
-        :param squash: If true the new layers are squashed into a new image with a single new layer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#squash Image#squash}
-        :param suppress_output: Suppress the build output and print image ID on success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#suppress_output Image#suppress_output}
-        :param tag: Name and optionally a tag in the 'name:tag' format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#tag Image#tag}
-        :param target: Set the target build stage to build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#target Image#target}
-        :param ulimit: ulimit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#ulimit Image#ulimit}
-        :param version: Version of the underlying builder to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#version Image#version}
+        :param context: Value to specify the build context. Currently, only a ``PATH`` context is supported. You can use the helper function '${path.cwd}/context-dir'. This always refers to the local working directory, even when building images on remote hosts. Please see https://docs.docker.com/build/building/context/ for more information about build contexts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#context Image#context}
+        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#auth_config Image#auth_config}
+        :param build_args: Pairs for build-time variables in the form of ``ENDPOINT : "https://example.com"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#build_args Image#build_args}
+        :param builder: Set the name of the buildx builder to use. If not set or empty, the legacy builder will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#builder Image#builder}
+        :param build_id: BuildID is an optional identifier that can be passed together with the build request. The same identifier can be used to gracefully cancel the build with the cancel request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#build_id Image#build_id}
+        :param build_log_file: Path to a file where the buildx log are written to. Only available when ``builder`` is set. If not set, no logs are available. The path is taken as is, so make sure to use a path that is available. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#build_log_file Image#build_log_file}
+        :param cache_from: Images to consider as cache sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cache_from Image#cache_from}
+        :param cgroup_parent: Optional parent cgroup for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cgroup_parent Image#cgroup_parent}
+        :param cpu_period: The length of a CPU period in microseconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cpu_period Image#cpu_period}
+        :param cpu_quota: Microseconds of CPU time that the container can get in a CPU period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cpu_quota Image#cpu_quota}
+        :param cpu_set_cpus: CPUs in which to allow execution (e.g., ``0-3``, ``0``, ``1``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cpu_set_cpus Image#cpu_set_cpus}
+        :param cpu_set_mems: MEMs in which to allow execution (``0-3``, ``0``, ``1``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cpu_set_mems Image#cpu_set_mems}
+        :param cpu_shares: CPU shares (relative weight). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cpu_shares Image#cpu_shares}
+        :param dockerfile: Name of the Dockerfile. Defaults to ``Dockerfile``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#dockerfile Image#dockerfile}
+        :param extra_hosts: A list of hostnames/IP mappings to add to the container’s /etc/hosts file. Specified in the form ["hostname:IP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#extra_hosts Image#extra_hosts}
+        :param force_remove: Always remove intermediate containers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#force_remove Image#force_remove}
+        :param isolation: Isolation represents the isolation technology of a container. The supported values are. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#isolation Image#isolation}
+        :param label: Set metadata for an image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#label Image#label}
+        :param labels: User-defined key/value metadata. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#labels Image#labels}
+        :param memory: Set memory limit for build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#memory Image#memory}
+        :param memory_swap: Total memory (memory + swap), -1 to enable unlimited swap. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#memory_swap Image#memory_swap}
+        :param network_mode: Set the networking mode for the RUN instructions during build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#network_mode Image#network_mode}
+        :param no_cache: Do not use the cache when building the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#no_cache Image#no_cache}
+        :param platform: Set platform if server is multi-platform capable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#platform Image#platform}
+        :param pull_parent: Attempt to pull the image even if an older image exists locally. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#pull_parent Image#pull_parent}
+        :param remote_context: A Git repository URI or HTTP/HTTPS context URI. Will be ignored if ``builder`` is set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#remote_context Image#remote_context}
+        :param remove: Remove intermediate containers after a successful build. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#remove Image#remove}
+        :param secrets: secrets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#secrets Image#secrets}
+        :param security_opt: The security options. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#security_opt Image#security_opt}
+        :param session_id: Set an ID for the build session. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#session_id Image#session_id}
+        :param shm_size: Size of /dev/shm in bytes. The size must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#shm_size Image#shm_size}
+        :param squash: If true the new layers are squashed into a new image with a single new layer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#squash Image#squash}
+        :param suppress_output: Suppress the build output and print image ID on success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#suppress_output Image#suppress_output}
+        :param tag: Name and optionally a tag in the 'name:tag' format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#tag Image#tag}
+        :param target: Set the target build stage to build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#target Image#target}
+        :param ulimit: ulimit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#ulimit Image#ulimit}
+        :param version: Version of the underlying builder to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#version Image#version}
         '''
         value = ImageBuild(
             context=context,
             auth_config=auth_config,
             build_args=build_args,
+            builder=builder,
             build_id=build_id,
+            build_log_file=build_log_file,
             cache_from=cache_from,
             cgroup_parent=cgroup_parent,
             cpu_period=cpu_period,
@@ -261,9 +267,9 @@ class Image(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#create Image#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#delete Image#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#update Image#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#create Image#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#delete Image#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#update Image#update}.
         '''
         value = ImageTimeouts(create=create, delete=delete, update=update)
 
@@ -469,7 +475,9 @@ class Image(
         "context": "context",
         "auth_config": "authConfig",
         "build_args": "buildArgs",
+        "builder": "builder",
         "build_id": "buildId",
+        "build_log_file": "buildLogFile",
         "cache_from": "cacheFrom",
         "cgroup_parent": "cgroupParent",
         "cpu_period": "cpuPeriod",
@@ -510,7 +518,9 @@ class ImageBuild:
         context: builtins.str,
         auth_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ImageBuildAuthConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
         build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        builder: typing.Optional[builtins.str] = None,
         build_id: typing.Optional[builtins.str] = None,
+        build_log_file: typing.Optional[builtins.str] = None,
         cache_from: typing.Optional[typing.Sequence[builtins.str]] = None,
         cgroup_parent: typing.Optional[builtins.str] = None,
         cpu_period: typing.Optional[jsii.Number] = None,
@@ -544,48 +554,52 @@ class ImageBuild:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param context: Value to specify the build context. Currently, only a ``PATH`` context is supported. You can use the helper function '${path.cwd}/context-dir'. This always refers to the local working directory, even when building images on remote hosts. Please see https://docs.docker.com/build/building/context/ for more information about build contexts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#context Image#context}
-        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#auth_config Image#auth_config}
-        :param build_args: Pairs for build-time variables in the form of ``ENDPOINT : "https://example.com"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#build_args Image#build_args}
-        :param build_id: BuildID is an optional identifier that can be passed together with the build request. The same identifier can be used to gracefully cancel the build with the cancel request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#build_id Image#build_id}
-        :param cache_from: Images to consider as cache sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cache_from Image#cache_from}
-        :param cgroup_parent: Optional parent cgroup for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cgroup_parent Image#cgroup_parent}
-        :param cpu_period: The length of a CPU period in microseconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cpu_period Image#cpu_period}
-        :param cpu_quota: Microseconds of CPU time that the container can get in a CPU period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cpu_quota Image#cpu_quota}
-        :param cpu_set_cpus: CPUs in which to allow execution (e.g., ``0-3``, ``0``, ``1``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cpu_set_cpus Image#cpu_set_cpus}
-        :param cpu_set_mems: MEMs in which to allow execution (``0-3``, ``0``, ``1``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cpu_set_mems Image#cpu_set_mems}
-        :param cpu_shares: CPU shares (relative weight). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cpu_shares Image#cpu_shares}
-        :param dockerfile: Name of the Dockerfile. Defaults to ``Dockerfile``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#dockerfile Image#dockerfile}
-        :param extra_hosts: A list of hostnames/IP mappings to add to the container’s /etc/hosts file. Specified in the form ["hostname:IP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#extra_hosts Image#extra_hosts}
-        :param force_remove: Always remove intermediate containers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#force_remove Image#force_remove}
-        :param isolation: Isolation represents the isolation technology of a container. The supported values are. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#isolation Image#isolation}
-        :param label: Set metadata for an image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#label Image#label}
-        :param labels: User-defined key/value metadata. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#labels Image#labels}
-        :param memory: Set memory limit for build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#memory Image#memory}
-        :param memory_swap: Total memory (memory + swap), -1 to enable unlimited swap. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#memory_swap Image#memory_swap}
-        :param network_mode: Set the networking mode for the RUN instructions during build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#network_mode Image#network_mode}
-        :param no_cache: Do not use the cache when building the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#no_cache Image#no_cache}
-        :param platform: Set platform if server is multi-platform capable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#platform Image#platform}
-        :param pull_parent: Attempt to pull the image even if an older image exists locally. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#pull_parent Image#pull_parent}
-        :param remote_context: A Git repository URI or HTTP/HTTPS context URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#remote_context Image#remote_context}
-        :param remove: Remove intermediate containers after a successful build. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#remove Image#remove}
-        :param secrets: secrets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#secrets Image#secrets}
-        :param security_opt: The security options. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#security_opt Image#security_opt}
-        :param session_id: Set an ID for the build session. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#session_id Image#session_id}
-        :param shm_size: Size of /dev/shm in bytes. The size must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#shm_size Image#shm_size}
-        :param squash: If true the new layers are squashed into a new image with a single new layer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#squash Image#squash}
-        :param suppress_output: Suppress the build output and print image ID on success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#suppress_output Image#suppress_output}
-        :param tag: Name and optionally a tag in the 'name:tag' format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#tag Image#tag}
-        :param target: Set the target build stage to build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#target Image#target}
-        :param ulimit: ulimit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#ulimit Image#ulimit}
-        :param version: Version of the underlying builder to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#version Image#version}
+        :param context: Value to specify the build context. Currently, only a ``PATH`` context is supported. You can use the helper function '${path.cwd}/context-dir'. This always refers to the local working directory, even when building images on remote hosts. Please see https://docs.docker.com/build/building/context/ for more information about build contexts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#context Image#context}
+        :param auth_config: auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#auth_config Image#auth_config}
+        :param build_args: Pairs for build-time variables in the form of ``ENDPOINT : "https://example.com"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#build_args Image#build_args}
+        :param builder: Set the name of the buildx builder to use. If not set or empty, the legacy builder will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#builder Image#builder}
+        :param build_id: BuildID is an optional identifier that can be passed together with the build request. The same identifier can be used to gracefully cancel the build with the cancel request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#build_id Image#build_id}
+        :param build_log_file: Path to a file where the buildx log are written to. Only available when ``builder`` is set. If not set, no logs are available. The path is taken as is, so make sure to use a path that is available. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#build_log_file Image#build_log_file}
+        :param cache_from: Images to consider as cache sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cache_from Image#cache_from}
+        :param cgroup_parent: Optional parent cgroup for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cgroup_parent Image#cgroup_parent}
+        :param cpu_period: The length of a CPU period in microseconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cpu_period Image#cpu_period}
+        :param cpu_quota: Microseconds of CPU time that the container can get in a CPU period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cpu_quota Image#cpu_quota}
+        :param cpu_set_cpus: CPUs in which to allow execution (e.g., ``0-3``, ``0``, ``1``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cpu_set_cpus Image#cpu_set_cpus}
+        :param cpu_set_mems: MEMs in which to allow execution (``0-3``, ``0``, ``1``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cpu_set_mems Image#cpu_set_mems}
+        :param cpu_shares: CPU shares (relative weight). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cpu_shares Image#cpu_shares}
+        :param dockerfile: Name of the Dockerfile. Defaults to ``Dockerfile``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#dockerfile Image#dockerfile}
+        :param extra_hosts: A list of hostnames/IP mappings to add to the container’s /etc/hosts file. Specified in the form ["hostname:IP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#extra_hosts Image#extra_hosts}
+        :param force_remove: Always remove intermediate containers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#force_remove Image#force_remove}
+        :param isolation: Isolation represents the isolation technology of a container. The supported values are. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#isolation Image#isolation}
+        :param label: Set metadata for an image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#label Image#label}
+        :param labels: User-defined key/value metadata. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#labels Image#labels}
+        :param memory: Set memory limit for build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#memory Image#memory}
+        :param memory_swap: Total memory (memory + swap), -1 to enable unlimited swap. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#memory_swap Image#memory_swap}
+        :param network_mode: Set the networking mode for the RUN instructions during build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#network_mode Image#network_mode}
+        :param no_cache: Do not use the cache when building the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#no_cache Image#no_cache}
+        :param platform: Set platform if server is multi-platform capable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#platform Image#platform}
+        :param pull_parent: Attempt to pull the image even if an older image exists locally. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#pull_parent Image#pull_parent}
+        :param remote_context: A Git repository URI or HTTP/HTTPS context URI. Will be ignored if ``builder`` is set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#remote_context Image#remote_context}
+        :param remove: Remove intermediate containers after a successful build. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#remove Image#remove}
+        :param secrets: secrets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#secrets Image#secrets}
+        :param security_opt: The security options. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#security_opt Image#security_opt}
+        :param session_id: Set an ID for the build session. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#session_id Image#session_id}
+        :param shm_size: Size of /dev/shm in bytes. The size must be greater than 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#shm_size Image#shm_size}
+        :param squash: If true the new layers are squashed into a new image with a single new layer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#squash Image#squash}
+        :param suppress_output: Suppress the build output and print image ID on success. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#suppress_output Image#suppress_output}
+        :param tag: Name and optionally a tag in the 'name:tag' format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#tag Image#tag}
+        :param target: Set the target build stage to build. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#target Image#target}
+        :param ulimit: ulimit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#ulimit Image#ulimit}
+        :param version: Version of the underlying builder to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#version Image#version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b3ae9a65f4eadc5c82cad3f8b730013034fdb034ec5796a0d14d707b50e859e)
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
             check_type(argname="argument auth_config", value=auth_config, expected_type=type_hints["auth_config"])
             check_type(argname="argument build_args", value=build_args, expected_type=type_hints["build_args"])
+            check_type(argname="argument builder", value=builder, expected_type=type_hints["builder"])
             check_type(argname="argument build_id", value=build_id, expected_type=type_hints["build_id"])
+            check_type(argname="argument build_log_file", value=build_log_file, expected_type=type_hints["build_log_file"])
             check_type(argname="argument cache_from", value=cache_from, expected_type=type_hints["cache_from"])
             check_type(argname="argument cgroup_parent", value=cgroup_parent, expected_type=type_hints["cgroup_parent"])
             check_type(argname="argument cpu_period", value=cpu_period, expected_type=type_hints["cpu_period"])
@@ -624,8 +638,12 @@ class ImageBuild:
             self._values["auth_config"] = auth_config
         if build_args is not None:
             self._values["build_args"] = build_args
+        if builder is not None:
+            self._values["builder"] = builder
         if build_id is not None:
             self._values["build_id"] = build_id
+        if build_log_file is not None:
+            self._values["build_log_file"] = build_log_file
         if cache_from is not None:
             self._values["cache_from"] = cache_from
         if cgroup_parent is not None:
@@ -695,7 +713,7 @@ class ImageBuild:
 
         Currently, only a ``PATH`` context is supported. You can use the helper function '${path.cwd}/context-dir'. This always refers to the local working directory, even when building images on remote hosts. Please see https://docs.docker.com/build/building/context/ for more information about build contexts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#context Image#context}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#context Image#context}
         '''
         result = self._values.get("context")
         assert result is not None, "Required property 'context' is missing"
@@ -707,7 +725,7 @@ class ImageBuild:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ImageBuildAuthConfig"]]]:
         '''auth_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#auth_config Image#auth_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#auth_config Image#auth_config}
         '''
         result = self._values.get("auth_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ImageBuildAuthConfig"]]], result)
@@ -716,10 +734,21 @@ class ImageBuild:
     def build_args(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Pairs for build-time variables in the form of ``ENDPOINT : "https://example.com"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#build_args Image#build_args}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#build_args Image#build_args}
         '''
         result = self._values.get("build_args")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def builder(self) -> typing.Optional[builtins.str]:
+        '''Set the name of the buildx builder to use.
+
+        If not set or empty, the legacy builder will be used.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#builder Image#builder}
+        '''
+        result = self._values.get("builder")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def build_id(self) -> typing.Optional[builtins.str]:
@@ -727,16 +756,27 @@ class ImageBuild:
 
         The same identifier can be used to gracefully cancel the build with the cancel request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#build_id Image#build_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#build_id Image#build_id}
         '''
         result = self._values.get("build_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def build_log_file(self) -> typing.Optional[builtins.str]:
+        '''Path to a file where the buildx log are written to.
+
+        Only available when ``builder`` is set. If not set, no logs are available. The path is taken as is, so make sure to use a path that is available.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#build_log_file Image#build_log_file}
+        '''
+        result = self._values.get("build_log_file")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cache_from(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Images to consider as cache sources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cache_from Image#cache_from}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cache_from Image#cache_from}
         '''
         result = self._values.get("cache_from")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -745,7 +785,7 @@ class ImageBuild:
     def cgroup_parent(self) -> typing.Optional[builtins.str]:
         '''Optional parent cgroup for the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cgroup_parent Image#cgroup_parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cgroup_parent Image#cgroup_parent}
         '''
         result = self._values.get("cgroup_parent")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -754,7 +794,7 @@ class ImageBuild:
     def cpu_period(self) -> typing.Optional[jsii.Number]:
         '''The length of a CPU period in microseconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cpu_period Image#cpu_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cpu_period Image#cpu_period}
         '''
         result = self._values.get("cpu_period")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -763,7 +803,7 @@ class ImageBuild:
     def cpu_quota(self) -> typing.Optional[jsii.Number]:
         '''Microseconds of CPU time that the container can get in a CPU period.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cpu_quota Image#cpu_quota}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cpu_quota Image#cpu_quota}
         '''
         result = self._values.get("cpu_quota")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -772,7 +812,7 @@ class ImageBuild:
     def cpu_set_cpus(self) -> typing.Optional[builtins.str]:
         '''CPUs in which to allow execution (e.g., ``0-3``, ``0``, ``1``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cpu_set_cpus Image#cpu_set_cpus}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cpu_set_cpus Image#cpu_set_cpus}
         '''
         result = self._values.get("cpu_set_cpus")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -781,7 +821,7 @@ class ImageBuild:
     def cpu_set_mems(self) -> typing.Optional[builtins.str]:
         '''MEMs in which to allow execution (``0-3``, ``0``, ``1``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cpu_set_mems Image#cpu_set_mems}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cpu_set_mems Image#cpu_set_mems}
         '''
         result = self._values.get("cpu_set_mems")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -790,7 +830,7 @@ class ImageBuild:
     def cpu_shares(self) -> typing.Optional[jsii.Number]:
         '''CPU shares (relative weight).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#cpu_shares Image#cpu_shares}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#cpu_shares Image#cpu_shares}
         '''
         result = self._values.get("cpu_shares")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -799,7 +839,7 @@ class ImageBuild:
     def dockerfile(self) -> typing.Optional[builtins.str]:
         '''Name of the Dockerfile. Defaults to ``Dockerfile``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#dockerfile Image#dockerfile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#dockerfile Image#dockerfile}
         '''
         result = self._values.get("dockerfile")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -808,7 +848,7 @@ class ImageBuild:
     def extra_hosts(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of hostnames/IP mappings to add to the container’s /etc/hosts file. Specified in the form ["hostname:IP"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#extra_hosts Image#extra_hosts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#extra_hosts Image#extra_hosts}
         '''
         result = self._values.get("extra_hosts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -819,7 +859,7 @@ class ImageBuild:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Always remove intermediate containers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#force_remove Image#force_remove}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#force_remove Image#force_remove}
         '''
         result = self._values.get("force_remove")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -828,7 +868,7 @@ class ImageBuild:
     def isolation(self) -> typing.Optional[builtins.str]:
         '''Isolation represents the isolation technology of a container. The supported values are.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#isolation Image#isolation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#isolation Image#isolation}
         '''
         result = self._values.get("isolation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -837,7 +877,7 @@ class ImageBuild:
     def label(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Set metadata for an image.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#label Image#label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#label Image#label}
         '''
         result = self._values.get("label")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -846,7 +886,7 @@ class ImageBuild:
     def labels(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''User-defined key/value metadata.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#labels Image#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#labels Image#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -855,7 +895,7 @@ class ImageBuild:
     def memory(self) -> typing.Optional[jsii.Number]:
         '''Set memory limit for build.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#memory Image#memory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#memory Image#memory}
         '''
         result = self._values.get("memory")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -864,7 +904,7 @@ class ImageBuild:
     def memory_swap(self) -> typing.Optional[jsii.Number]:
         '''Total memory (memory + swap), -1 to enable unlimited swap.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#memory_swap Image#memory_swap}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#memory_swap Image#memory_swap}
         '''
         result = self._values.get("memory_swap")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -873,7 +913,7 @@ class ImageBuild:
     def network_mode(self) -> typing.Optional[builtins.str]:
         '''Set the networking mode for the RUN instructions during build.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#network_mode Image#network_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#network_mode Image#network_mode}
         '''
         result = self._values.get("network_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -884,7 +924,7 @@ class ImageBuild:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Do not use the cache when building the image.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#no_cache Image#no_cache}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#no_cache Image#no_cache}
         '''
         result = self._values.get("no_cache")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -893,7 +933,7 @@ class ImageBuild:
     def platform(self) -> typing.Optional[builtins.str]:
         '''Set platform if server is multi-platform capable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#platform Image#platform}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#platform Image#platform}
         '''
         result = self._values.get("platform")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -904,16 +944,16 @@ class ImageBuild:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Attempt to pull the image even if an older image exists locally.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#pull_parent Image#pull_parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#pull_parent Image#pull_parent}
         '''
         result = self._values.get("pull_parent")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def remote_context(self) -> typing.Optional[builtins.str]:
-        '''A Git repository URI or HTTP/HTTPS context URI.
+        '''A Git repository URI or HTTP/HTTPS context URI. Will be ignored if ``builder`` is set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#remote_context Image#remote_context}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#remote_context Image#remote_context}
         '''
         result = self._values.get("remote_context")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -924,7 +964,7 @@ class ImageBuild:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Remove intermediate containers after a successful build. Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#remove Image#remove}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#remove Image#remove}
         '''
         result = self._values.get("remove")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -935,7 +975,7 @@ class ImageBuild:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ImageBuildSecrets"]]]:
         '''secrets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#secrets Image#secrets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#secrets Image#secrets}
         '''
         result = self._values.get("secrets")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ImageBuildSecrets"]]], result)
@@ -944,7 +984,7 @@ class ImageBuild:
     def security_opt(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The security options.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#security_opt Image#security_opt}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#security_opt Image#security_opt}
         '''
         result = self._values.get("security_opt")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -953,7 +993,7 @@ class ImageBuild:
     def session_id(self) -> typing.Optional[builtins.str]:
         '''Set an ID for the build session.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#session_id Image#session_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#session_id Image#session_id}
         '''
         result = self._values.get("session_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -962,7 +1002,7 @@ class ImageBuild:
     def shm_size(self) -> typing.Optional[jsii.Number]:
         '''Size of /dev/shm in bytes. The size must be greater than 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#shm_size Image#shm_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#shm_size Image#shm_size}
         '''
         result = self._values.get("shm_size")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -973,7 +1013,7 @@ class ImageBuild:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true the new layers are squashed into a new image with a single new layer.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#squash Image#squash}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#squash Image#squash}
         '''
         result = self._values.get("squash")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -984,7 +1024,7 @@ class ImageBuild:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Suppress the build output and print image ID on success.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#suppress_output Image#suppress_output}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#suppress_output Image#suppress_output}
         '''
         result = self._values.get("suppress_output")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -993,7 +1033,7 @@ class ImageBuild:
     def tag(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Name and optionally a tag in the 'name:tag' format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#tag Image#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#tag Image#tag}
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1002,7 +1042,7 @@ class ImageBuild:
     def target(self) -> typing.Optional[builtins.str]:
         '''Set the target build stage to build.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#target Image#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#target Image#target}
         '''
         result = self._values.get("target")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1013,7 +1053,7 @@ class ImageBuild:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ImageBuildUlimit"]]]:
         '''ulimit block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#ulimit Image#ulimit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#ulimit Image#ulimit}
         '''
         result = self._values.get("ulimit")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ImageBuildUlimit"]]], result)
@@ -1022,7 +1062,7 @@ class ImageBuild:
     def version(self) -> typing.Optional[builtins.str]:
         '''Version of the underlying builder to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#version Image#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#version Image#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1067,14 +1107,14 @@ class ImageBuildAuthConfig:
         user_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host_name: hostname of the registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#host_name Image#host_name}
-        :param auth: the auth token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#auth Image#auth}
-        :param email: the user emal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#email Image#email}
-        :param identity_token: the identity token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#identity_token Image#identity_token}
-        :param password: the registry password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#password Image#password}
-        :param registry_token: the registry token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#registry_token Image#registry_token}
-        :param server_address: the server address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#server_address Image#server_address}
-        :param user_name: the registry user name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#user_name Image#user_name}
+        :param host_name: hostname of the registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#host_name Image#host_name}
+        :param auth: the auth token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#auth Image#auth}
+        :param email: the user emal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#email Image#email}
+        :param identity_token: the identity token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#identity_token Image#identity_token}
+        :param password: the registry password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#password Image#password}
+        :param registry_token: the registry token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#registry_token Image#registry_token}
+        :param server_address: the server address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#server_address Image#server_address}
+        :param user_name: the registry user name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#user_name Image#user_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8fe0ffdc8439b529af22c32094d05c8923d2c37c716722ef286d69a364b211f9)
@@ -1108,7 +1148,7 @@ class ImageBuildAuthConfig:
     def host_name(self) -> builtins.str:
         '''hostname of the registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#host_name Image#host_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#host_name Image#host_name}
         '''
         result = self._values.get("host_name")
         assert result is not None, "Required property 'host_name' is missing"
@@ -1118,7 +1158,7 @@ class ImageBuildAuthConfig:
     def auth(self) -> typing.Optional[builtins.str]:
         '''the auth token.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#auth Image#auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#auth Image#auth}
         '''
         result = self._values.get("auth")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1127,7 +1167,7 @@ class ImageBuildAuthConfig:
     def email(self) -> typing.Optional[builtins.str]:
         '''the user emal.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#email Image#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#email Image#email}
         '''
         result = self._values.get("email")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1136,7 +1176,7 @@ class ImageBuildAuthConfig:
     def identity_token(self) -> typing.Optional[builtins.str]:
         '''the identity token.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#identity_token Image#identity_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#identity_token Image#identity_token}
         '''
         result = self._values.get("identity_token")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1145,7 +1185,7 @@ class ImageBuildAuthConfig:
     def password(self) -> typing.Optional[builtins.str]:
         '''the registry password.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#password Image#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#password Image#password}
         '''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1154,7 +1194,7 @@ class ImageBuildAuthConfig:
     def registry_token(self) -> typing.Optional[builtins.str]:
         '''the registry token.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#registry_token Image#registry_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#registry_token Image#registry_token}
         '''
         result = self._values.get("registry_token")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1163,7 +1203,7 @@ class ImageBuildAuthConfig:
     def server_address(self) -> typing.Optional[builtins.str]:
         '''the server address.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#server_address Image#server_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#server_address Image#server_address}
         '''
         result = self._values.get("server_address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1172,7 +1212,7 @@ class ImageBuildAuthConfig:
     def user_name(self) -> typing.Optional[builtins.str]:
         '''the registry user name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#user_name Image#user_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#user_name Image#user_name}
         '''
         result = self._values.get("user_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1554,9 +1594,17 @@ class ImageBuildOutputReference(
     def reset_build_args(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetBuildArgs", []))
 
+    @jsii.member(jsii_name="resetBuilder")
+    def reset_builder(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetBuilder", []))
+
     @jsii.member(jsii_name="resetBuildId")
     def reset_build_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetBuildId", []))
+
+    @jsii.member(jsii_name="resetBuildLogFile")
+    def reset_build_log_file(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetBuildLogFile", []))
 
     @jsii.member(jsii_name="resetCacheFrom")
     def reset_cache_from(self) -> None:
@@ -1712,9 +1760,19 @@ class ImageBuildOutputReference(
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "buildArgsInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="builderInput")
+    def builder_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "builderInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="buildIdInput")
     def build_id_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "buildIdInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="buildLogFileInput")
+    def build_log_file_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "buildLogFileInput"))
 
     @builtins.property
     @jsii.member(jsii_name="cacheFromInput")
@@ -1909,6 +1967,18 @@ class ImageBuildOutputReference(
         jsii.set(self, "buildArgs", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="builder")
+    def builder(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "builder"))
+
+    @builder.setter
+    def builder(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9ee651bb4af8b13142f506a7d95707060000b4f2792738a92cdbfa926190bf8c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "builder", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="buildId")
     def build_id(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "buildId"))
@@ -1919,6 +1989,18 @@ class ImageBuildOutputReference(
             type_hints = typing.get_type_hints(_typecheckingstub__2aa3d4ef05f2e484f18286db4e69bd2b7488497e2e4df4886b0fd66c0f1bd35f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "buildId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="buildLogFile")
+    def build_log_file(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "buildLogFile"))
+
+    @build_log_file.setter
+    def build_log_file(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__61083d0d9c609ee3cd0de714ba90ff66c01632c5139775d0a9dc9b978b3f7467)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "buildLogFile", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="cacheFrom")
@@ -2327,9 +2409,9 @@ class ImageBuildSecrets:
         src: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: ID of the secret. By default, secrets are mounted to /run/secrets/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#id Image#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param env: Environment variable source of the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#env Image#env}
-        :param src: File source of the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#src Image#src}
+        :param id: ID of the secret. By default, secrets are mounted to /run/secrets/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#id Image#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param env: Environment variable source of the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#env Image#env}
+        :param src: File source of the secret. Takes precedence over ``env``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#src Image#src}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__acd919e8d9770505dce6ba4af60815d0b9e2dd7609eb7fb34793bb88387d453f)
@@ -2348,7 +2430,7 @@ class ImageBuildSecrets:
     def id(self) -> builtins.str:
         '''ID of the secret. By default, secrets are mounted to /run/secrets/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#id Image#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#id Image#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2361,16 +2443,16 @@ class ImageBuildSecrets:
     def env(self) -> typing.Optional[builtins.str]:
         '''Environment variable source of the secret.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#env Image#env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#env Image#env}
         '''
         result = self._values.get("env")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def src(self) -> typing.Optional[builtins.str]:
-        '''File source of the secret.
+        '''File source of the secret. Takes precedence over ``env``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#src Image#src}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#src Image#src}
         '''
         result = self._values.get("src")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2594,9 +2676,9 @@ class ImageBuildUlimit:
         soft: jsii.Number,
     ) -> None:
         '''
-        :param hard: soft limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#hard Image#hard}
-        :param name: type of ulimit, e.g. ``nofile``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#name Image#name}
-        :param soft: hard limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#soft Image#soft}
+        :param hard: soft limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#hard Image#hard}
+        :param name: type of ulimit, e.g. ``nofile``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#name Image#name}
+        :param soft: hard limit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#soft Image#soft}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c3fab5539f178b81de8ebf8bdd56b54276d487296ad971738cc3a3d5d6bf151a)
@@ -2613,7 +2695,7 @@ class ImageBuildUlimit:
     def hard(self) -> jsii.Number:
         '''soft limit.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#hard Image#hard}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#hard Image#hard}
         '''
         result = self._values.get("hard")
         assert result is not None, "Required property 'hard' is missing"
@@ -2623,7 +2705,7 @@ class ImageBuildUlimit:
     def name(self) -> builtins.str:
         '''type of ulimit, e.g. ``nofile``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#name Image#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#name Image#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -2633,7 +2715,7 @@ class ImageBuildUlimit:
     def soft(self) -> jsii.Number:
         '''hard limit.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#soft Image#soft}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#soft Image#soft}
         '''
         result = self._values.get("soft")
         assert result is not None, "Required property 'soft' is missing"
@@ -2885,14 +2967,14 @@ class ImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the Docker image, including any tags or SHA256 repo digests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#name Image#name}
-        :param build_attribute: build block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#build Image#build}
-        :param force_remove: If true, then the image is removed forcibly when the resource is destroyed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#force_remove Image#force_remove}
-        :param keep_locally: If true, then the Docker image won't be deleted on destroy operation. If this is false, it will delete the image from the docker local storage on destroy operation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#keep_locally Image#keep_locally}
-        :param platform: The platform to use when pulling the image. Defaults to the platform of the current machine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#platform Image#platform}
-        :param pull_triggers: List of values which cause an image pull when changed. This is used to store the image digest from the registry when using the `docker_registry_image <../data-sources/registry_image.md>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#pull_triggers Image#pull_triggers}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#timeouts Image#timeouts}
-        :param triggers: A map of arbitrary strings that, when changed, will force the ``docker_image`` resource to be replaced. This can be used to rebuild an image when contents of source code folders change Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#triggers Image#triggers}
+        :param name: The name of the Docker image, including any tags or SHA256 repo digests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#name Image#name}
+        :param build_attribute: build block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#build Image#build}
+        :param force_remove: If true, then the image is removed forcibly when the resource is destroyed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#force_remove Image#force_remove}
+        :param keep_locally: If true, then the Docker image won't be deleted on destroy operation. If this is false, it will delete the image from the docker local storage on destroy operation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#keep_locally Image#keep_locally}
+        :param platform: The platform to use when pulling the image. Defaults to the platform of the current machine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#platform Image#platform}
+        :param pull_triggers: List of values which cause an image pull when changed. This is used to store the image digest from the registry when using the `docker_registry_image <../data-sources/registry_image.md>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#pull_triggers Image#pull_triggers}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#timeouts Image#timeouts}
+        :param triggers: A map of arbitrary strings that, when changed, will force the ``docker_image`` resource to be replaced. This can be used to rebuild an image when contents of source code folders change Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#triggers Image#triggers}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -3017,7 +3099,7 @@ class ImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the Docker image, including any tags or SHA256 repo digests.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#name Image#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#name Image#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -3027,7 +3109,7 @@ class ImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def build_attribute(self) -> typing.Optional[ImageBuild]:
         '''build block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#build Image#build}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#build Image#build}
         '''
         result = self._values.get("build_attribute")
         return typing.cast(typing.Optional[ImageBuild], result)
@@ -3038,7 +3120,7 @@ class ImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, then the image is removed forcibly when the resource is destroyed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#force_remove Image#force_remove}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#force_remove Image#force_remove}
         '''
         result = self._values.get("force_remove")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3051,7 +3133,7 @@ class ImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If this is false, it will delete the image from the docker local storage on destroy operation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#keep_locally Image#keep_locally}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#keep_locally Image#keep_locally}
         '''
         result = self._values.get("keep_locally")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3060,7 +3142,7 @@ class ImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def platform(self) -> typing.Optional[builtins.str]:
         '''The platform to use when pulling the image. Defaults to the platform of the current machine.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#platform Image#platform}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#platform Image#platform}
         '''
         result = self._values.get("platform")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3071,7 +3153,7 @@ class ImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This is used to store the image digest from the registry when using the `docker_registry_image <../data-sources/registry_image.md>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#pull_triggers Image#pull_triggers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#pull_triggers Image#pull_triggers}
         '''
         result = self._values.get("pull_triggers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3080,7 +3162,7 @@ class ImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ImageTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#timeouts Image#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#timeouts Image#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ImageTimeouts"], result)
@@ -3091,7 +3173,7 @@ class ImageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This can be used to rebuild an image when contents of source code folders change
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#triggers Image#triggers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#triggers Image#triggers}
         '''
         result = self._values.get("triggers")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3122,9 +3204,9 @@ class ImageTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#create Image#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#delete Image#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#update Image#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#create Image#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#delete Image#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#update Image#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e84e3eaf6ce6ad347078a6cb38d86a90c39e9d7b3534f24aa8e5ef458efefc1b)
@@ -3141,19 +3223,19 @@ class ImageTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#create Image#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#create Image#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#delete Image#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#delete Image#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/resources/image#update Image#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/resources/image#update Image#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3363,7 +3445,9 @@ def _typecheckingstub__7b3ae9a65f4eadc5c82cad3f8b730013034fdb034ec5796a0d14d707b
     context: builtins.str,
     auth_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ImageBuildAuthConfig, typing.Dict[builtins.str, typing.Any]]]]] = None,
     build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    builder: typing.Optional[builtins.str] = None,
     build_id: typing.Optional[builtins.str] = None,
+    build_log_file: typing.Optional[builtins.str] = None,
     cache_from: typing.Optional[typing.Sequence[builtins.str]] = None,
     cgroup_parent: typing.Optional[builtins.str] = None,
     cpu_period: typing.Optional[jsii.Number] = None,
@@ -3545,7 +3629,19 @@ def _typecheckingstub__622bdc9b42cfd83b381490a7bbd8bc2fd9baceb44e68aff505118da1a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9ee651bb4af8b13142f506a7d95707060000b4f2792738a92cdbfa926190bf8c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2aa3d4ef05f2e484f18286db4e69bd2b7488497e2e4df4886b0fd66c0f1bd35f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__61083d0d9c609ee3cd0de714ba90ff66c01632c5139775d0a9dc9b978b3f7467(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""

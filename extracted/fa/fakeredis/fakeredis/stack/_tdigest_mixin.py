@@ -29,10 +29,7 @@ class TDigestCommandsMixin:
     def tdigest_create(self, key: CommandItem, *args: bytes) -> SimpleString:
         if key.value is not None:
             raise SimpleError(msgs.TDIGEST_KEY_EXISTS)
-        (compression,), left_args = extract_args(
-            args,
-            ("+compression",),
-        )
+        (compression,), left_args = extract_args(args, ("+compression",))
         if compression is None:
             compression = 100
         key.update(TDigest(compression))
@@ -168,7 +165,7 @@ class TDigestCommandsMixin:
     def tdigest_quantile(self, key: CommandItem, *quantiles: float) -> List[bytes]:
         if key.value is None:
             raise SimpleError(msgs.TDIGEST_KEY_NOT_EXISTS)
-        if len(key.value) == 0:
+        if len(key.value) <= 1:
             return [
                 b"nan",
             ]

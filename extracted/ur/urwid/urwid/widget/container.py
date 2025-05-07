@@ -3,7 +3,6 @@ from __future__ import annotations
 import abc
 import enum
 import typing
-import warnings
 
 from .constants import Sizing, WHSettings
 
@@ -13,39 +12,45 @@ if typing.TYPE_CHECKING:
     from .widget import Widget
 
 
-class _ContainerElementSizingFlag(enum.IntFlag):
-    NONE = 0
-    BOX = enum.auto()
-    FLOW = enum.auto()
-    FIXED = enum.auto()
-    WH_WEIGHT = enum.auto()
-    WH_PACK = enum.auto()
-    WH_GIVEN = enum.auto()
+# Ideally, we would like to use an IntFlag coupled with enum.auto().
+# However, doing many bitwise operations (which happens when nesting too many
+# widgets ...) on IntFlag is orders of magnitude slower than doing the same
+# operations on IntEnum.
+class _ContainerElementSizingFlag(enum.IntEnum):
+    # fmt: off
+    NONE      = 0b000000
+    BOX       = 0b000001
+    FLOW      = 0b000010
+    FIXED     = 0b000100
+    WH_WEIGHT = 0b001000
+    WH_PACK   = 0b010000
+    WH_GIVEN  = 0b100000
+    # fmt: on
 
-    @property
-    def reverse_flag(self) -> tuple[frozenset[Sizing], WHSettings | None]:
+    @staticmethod
+    def reverse_flag(bitfield: int) -> tuple[frozenset[Sizing], WHSettings | None]:
         """Get flag in public API format."""
         sizing: set[Sizing] = set()
 
-        if self & self.BOX:
+        if bitfield & _ContainerElementSizingFlag.BOX:
             sizing.add(Sizing.BOX)
-        if self & self.FLOW:
+        if bitfield & _ContainerElementSizingFlag.FLOW:
             sizing.add(Sizing.FLOW)
-        if self & self.FIXED:
+        if bitfield & _ContainerElementSizingFlag.FIXED:
             sizing.add(Sizing.FIXED)
 
-        if self & self.WH_WEIGHT:
+        if bitfield & _ContainerElementSizingFlag.WH_WEIGHT:
             return frozenset(sizing), WHSettings.WEIGHT
-        if self & self.WH_PACK:
+        if bitfield & _ContainerElementSizingFlag.WH_PACK:
             return frozenset(sizing), WHSettings.PACK
-        if self & self.WH_GIVEN:
+        if bitfield & _ContainerElementSizingFlag.WH_GIVEN:
             return frozenset(sizing), WHSettings.GIVEN
         return frozenset(sizing), None
 
-    @property
-    def log_string(self) -> str:
+    @staticmethod
+    def log_string(bitfield: int) -> str:
         """Get desctiprion in public API format."""
-        sizing, render = self.reverse_flag
+        sizing, render = _ContainerElementSizingFlag.reverse_flag(bitfield)
         render_string = f" {render.upper()}" if render else ""
         return "|".join(sorted(mode.upper() for mode in sizing)) + render_string
 
@@ -115,11 +120,10 @@ class WidgetContainerMixin:
         """
         out = []
         w = self
-        while True:
-            w = w.base_widget.focus
-            if w is None:
-                return out
+        while (w := w.base_widget.focus) is not None:
             out.append(w)
+
+        return out
 
     @property
     @abc.abstractmethod
@@ -129,15 +133,6 @@ class WidgetContainerMixin:
         container widgets.  This default implementation
         always returns ``None``, indicating that this widget has no children.
         """
-
-    def _get_focus(self) -> Widget:
-        warnings.warn(
-            f"method `{self.__class__.__name__}._get_focus` is deprecated, "
-            f"please use `{self.__class__.__name__}.focus` property",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        return self.focus
 
 
 class WidgetContainerListContentsMixin:
@@ -172,24 +167,6 @@ class WidgetContainerListContentsMixin:
     def contents(self, new_contents: list[tuple[Widget, typing.Any]]) -> None:
         """The contents of container as a list of (widget, options)"""
 
-    def _get_contents(self) -> list[tuple[Widget, typing.Any]]:
-        warnings.warn(
-            f"method `{self.__class__.__name__}._get_contents` is deprecated, "
-            f"please use `{self.__class__.__name__}.contents` property",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.contents
-
-    def _set_contents(self, c: list[tuple[Widget, typing.Any]]) -> None:
-        warnings.warn(
-            f"method `{self.__class__.__name__}._set_contents` is deprecated, "
-            f"please use `{self.__class__.__name__}.contents` property",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.contents = c
-
     @property
     @abc.abstractmethod
     def focus_position(self) -> int | None:
@@ -202,26 +179,3 @@ class WidgetContainerListContentsMixin:
         """
         index of child widget in focus.
         """
-
-    def _get_focus_position(self) -> int | None:
-        warnings.warn(
-            f"method `{self.__class__.__name__}._get_focus_position` is deprecated, "
-            f"please use `{self.__class__.__name__}.focus_position` property",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        return self.focus_position
-
-    def _set_focus_position(self, position: int) -> None:
-        """
-        Set the widget in focus.
-
-        position -- index of child widget to be made focus
-        """
-        warnings.warn(
-            f"method `{self.__class__.__name__}._set_focus_position` is deprecated, "
-            f"please use `{self.__class__.__name__}.focus_position` property",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        self.focus_position = position

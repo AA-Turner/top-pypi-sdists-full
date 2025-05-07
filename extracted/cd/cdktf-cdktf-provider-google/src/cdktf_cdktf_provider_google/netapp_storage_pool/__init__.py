@@ -1,7 +1,7 @@
 r'''
 # `google_netapp_storage_pool`
 
-Refer to the Terraform Registry for docs: [`google_netapp_storage_pool`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool).
+Refer to the Terraform Registry for docs: [`google_netapp_storage_pool`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetappStoragePool(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.netappStoragePool.NetappStoragePool",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool google_netapp_storage_pool}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool google_netapp_storage_pool}.'''
 
     def __init__(
         self,
@@ -75,26 +75,26 @@ class NetappStoragePool(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool google_netapp_storage_pool} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool google_netapp_storage_pool} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param capacity_gib: Capacity of the storage pool (in GiB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#capacity_gib NetappStoragePool#capacity_gib}
-        :param location: Name of the location. For zonal Flex pools specify a zone name, in all other cases a region name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#location NetappStoragePool#location}
-        :param name: The resource name of the storage pool. Needs to be unique per location/region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#name NetappStoragePool#name}
-        :param network: VPC network name with format: 'projects/{{project}}/global/networks/{{network}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#network NetappStoragePool#network}
-        :param service_level: Service level of the storage pool. Possible values: ["PREMIUM", "EXTREME", "STANDARD", "FLEX"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#service_level NetappStoragePool#service_level}
-        :param active_directory: Specifies the Active Directory policy to be used. Format: 'projects/{{project}}/locations/{{location}}/activeDirectories/{{name}}'. The policy needs to be in the same location as the storage pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#active_directory NetappStoragePool#active_directory}
-        :param allow_auto_tiering: Optional. True if the storage pool supports Auto Tiering enabled volumes. Default is false. Auto-tiering can be enabled after storage pool creation but it can't be disabled once enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#allow_auto_tiering NetappStoragePool#allow_auto_tiering}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#description NetappStoragePool#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#id NetappStoragePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_config: Specifies the CMEK policy to be used for volume encryption. Format: 'projects/{{project}}/locations/{{location}}/kmsConfigs/{{name}}'. The policy needs to be in the same location as the storage pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#kms_config NetappStoragePool#kms_config}
-        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#labels NetappStoragePool#labels}
-        :param ldap_enabled: When enabled, the volumes uses Active Directory as LDAP name service for UID/GID lookups. Required to enable extended group support for NFSv3, using security identifiers for NFSv4.1 or principal names for kerberized NFSv4.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#ldap_enabled NetappStoragePool#ldap_enabled}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#project NetappStoragePool#project}.
-        :param replica_zone: Specifies the replica zone for regional Flex pools. 'zone' and 'replica_zone' values can be swapped to initiate a `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#replica_zone NetappStoragePool#replica_zone}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#timeouts NetappStoragePool#timeouts}
-        :param zone: Specifies the active zone for regional Flex pools. 'zone' and 'replica_zone' values can be swapped to initiate a `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_. If you want to create a zonal Flex pool, specify a zone name for 'location' and omit 'zone'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#zone NetappStoragePool#zone}
+        :param capacity_gib: Capacity of the storage pool (in GiB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#capacity_gib NetappStoragePool#capacity_gib}
+        :param location: Name of the location. For zonal Flex pools specify a zone name, in all other cases a region name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#location NetappStoragePool#location}
+        :param name: The resource name of the storage pool. Needs to be unique per location/region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#name NetappStoragePool#name}
+        :param network: VPC network name with format: 'projects/{{project}}/global/networks/{{network}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#network NetappStoragePool#network}
+        :param service_level: Service level of the storage pool. Possible values: ["PREMIUM", "EXTREME", "STANDARD", "FLEX"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#service_level NetappStoragePool#service_level}
+        :param active_directory: Specifies the Active Directory policy to be used. Format: 'projects/{{project}}/locations/{{location}}/activeDirectories/{{name}}'. The policy needs to be in the same location as the storage pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#active_directory NetappStoragePool#active_directory}
+        :param allow_auto_tiering: Optional. True if the storage pool supports Auto Tiering enabled volumes. Default is false. Auto-tiering can be enabled after storage pool creation but it can't be disabled once enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#allow_auto_tiering NetappStoragePool#allow_auto_tiering}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#description NetappStoragePool#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#id NetappStoragePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_config: Specifies the CMEK policy to be used for volume encryption. Format: 'projects/{{project}}/locations/{{location}}/kmsConfigs/{{name}}'. The policy needs to be in the same location as the storage pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#kms_config NetappStoragePool#kms_config}
+        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#labels NetappStoragePool#labels}
+        :param ldap_enabled: When enabled, the volumes uses Active Directory as LDAP name service for UID/GID lookups. Required to enable extended group support for NFSv3, using security identifiers for NFSv4.1 or principal names for kerberized NFSv4.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#ldap_enabled NetappStoragePool#ldap_enabled}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#project NetappStoragePool#project}.
+        :param replica_zone: Specifies the replica zone for regional Flex pools. 'zone' and 'replica_zone' values can be swapped to initiate a `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#replica_zone NetappStoragePool#replica_zone}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#timeouts NetappStoragePool#timeouts}
+        :param zone: Specifies the active zone for regional Flex pools. 'zone' and 'replica_zone' values can be swapped to initiate a `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_. If you want to create a zonal Flex pool, specify a zone name for 'location' and omit 'zone'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#zone NetappStoragePool#zone}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -148,7 +148,7 @@ class NetappStoragePool(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetappStoragePool to import.
-        :param import_from_id: The id of the existing NetappStoragePool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetappStoragePool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetappStoragePool to import is found.
         '''
         if __debug__:
@@ -168,9 +168,9 @@ class NetappStoragePool(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#create NetappStoragePool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#delete NetappStoragePool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#update NetappStoragePool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#create NetappStoragePool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#delete NetappStoragePool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#update NetappStoragePool#update}.
         '''
         value = NetappStoragePoolTimeouts(create=create, delete=delete, update=update)
 
@@ -605,22 +605,22 @@ class NetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param capacity_gib: Capacity of the storage pool (in GiB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#capacity_gib NetappStoragePool#capacity_gib}
-        :param location: Name of the location. For zonal Flex pools specify a zone name, in all other cases a region name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#location NetappStoragePool#location}
-        :param name: The resource name of the storage pool. Needs to be unique per location/region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#name NetappStoragePool#name}
-        :param network: VPC network name with format: 'projects/{{project}}/global/networks/{{network}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#network NetappStoragePool#network}
-        :param service_level: Service level of the storage pool. Possible values: ["PREMIUM", "EXTREME", "STANDARD", "FLEX"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#service_level NetappStoragePool#service_level}
-        :param active_directory: Specifies the Active Directory policy to be used. Format: 'projects/{{project}}/locations/{{location}}/activeDirectories/{{name}}'. The policy needs to be in the same location as the storage pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#active_directory NetappStoragePool#active_directory}
-        :param allow_auto_tiering: Optional. True if the storage pool supports Auto Tiering enabled volumes. Default is false. Auto-tiering can be enabled after storage pool creation but it can't be disabled once enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#allow_auto_tiering NetappStoragePool#allow_auto_tiering}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#description NetappStoragePool#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#id NetappStoragePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_config: Specifies the CMEK policy to be used for volume encryption. Format: 'projects/{{project}}/locations/{{location}}/kmsConfigs/{{name}}'. The policy needs to be in the same location as the storage pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#kms_config NetappStoragePool#kms_config}
-        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#labels NetappStoragePool#labels}
-        :param ldap_enabled: When enabled, the volumes uses Active Directory as LDAP name service for UID/GID lookups. Required to enable extended group support for NFSv3, using security identifiers for NFSv4.1 or principal names for kerberized NFSv4.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#ldap_enabled NetappStoragePool#ldap_enabled}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#project NetappStoragePool#project}.
-        :param replica_zone: Specifies the replica zone for regional Flex pools. 'zone' and 'replica_zone' values can be swapped to initiate a `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#replica_zone NetappStoragePool#replica_zone}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#timeouts NetappStoragePool#timeouts}
-        :param zone: Specifies the active zone for regional Flex pools. 'zone' and 'replica_zone' values can be swapped to initiate a `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_. If you want to create a zonal Flex pool, specify a zone name for 'location' and omit 'zone'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#zone NetappStoragePool#zone}
+        :param capacity_gib: Capacity of the storage pool (in GiB). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#capacity_gib NetappStoragePool#capacity_gib}
+        :param location: Name of the location. For zonal Flex pools specify a zone name, in all other cases a region name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#location NetappStoragePool#location}
+        :param name: The resource name of the storage pool. Needs to be unique per location/region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#name NetappStoragePool#name}
+        :param network: VPC network name with format: 'projects/{{project}}/global/networks/{{network}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#network NetappStoragePool#network}
+        :param service_level: Service level of the storage pool. Possible values: ["PREMIUM", "EXTREME", "STANDARD", "FLEX"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#service_level NetappStoragePool#service_level}
+        :param active_directory: Specifies the Active Directory policy to be used. Format: 'projects/{{project}}/locations/{{location}}/activeDirectories/{{name}}'. The policy needs to be in the same location as the storage pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#active_directory NetappStoragePool#active_directory}
+        :param allow_auto_tiering: Optional. True if the storage pool supports Auto Tiering enabled volumes. Default is false. Auto-tiering can be enabled after storage pool creation but it can't be disabled once enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#allow_auto_tiering NetappStoragePool#allow_auto_tiering}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#description NetappStoragePool#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#id NetappStoragePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_config: Specifies the CMEK policy to be used for volume encryption. Format: 'projects/{{project}}/locations/{{location}}/kmsConfigs/{{name}}'. The policy needs to be in the same location as the storage pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#kms_config NetappStoragePool#kms_config}
+        :param labels: Labels as key value pairs. Example: '{ "owner": "Bob", "department": "finance", "purpose": "testing" }'. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#labels NetappStoragePool#labels}
+        :param ldap_enabled: When enabled, the volumes uses Active Directory as LDAP name service for UID/GID lookups. Required to enable extended group support for NFSv3, using security identifiers for NFSv4.1 or principal names for kerberized NFSv4.1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#ldap_enabled NetappStoragePool#ldap_enabled}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#project NetappStoragePool#project}.
+        :param replica_zone: Specifies the replica zone for regional Flex pools. 'zone' and 'replica_zone' values can be swapped to initiate a `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#replica_zone NetappStoragePool#replica_zone}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#timeouts NetappStoragePool#timeouts}
+        :param zone: Specifies the active zone for regional Flex pools. 'zone' and 'replica_zone' values can be swapped to initiate a `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_. If you want to create a zonal Flex pool, specify a zone name for 'location' and omit 'zone'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#zone NetappStoragePool#zone}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -763,7 +763,7 @@ class NetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def capacity_gib(self) -> builtins.str:
         '''Capacity of the storage pool (in GiB).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#capacity_gib NetappStoragePool#capacity_gib}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#capacity_gib NetappStoragePool#capacity_gib}
         '''
         result = self._values.get("capacity_gib")
         assert result is not None, "Required property 'capacity_gib' is missing"
@@ -773,7 +773,7 @@ class NetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Name of the location. For zonal Flex pools specify a zone name, in all other cases a region name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#location NetappStoragePool#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#location NetappStoragePool#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -783,7 +783,7 @@ class NetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The resource name of the storage pool. Needs to be unique per location/region.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#name NetappStoragePool#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#name NetappStoragePool#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -793,7 +793,7 @@ class NetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network(self) -> builtins.str:
         '''VPC network name with format: 'projects/{{project}}/global/networks/{{network}}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#network NetappStoragePool#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#network NetappStoragePool#network}
         '''
         result = self._values.get("network")
         assert result is not None, "Required property 'network' is missing"
@@ -803,7 +803,7 @@ class NetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_level(self) -> builtins.str:
         '''Service level of the storage pool. Possible values: ["PREMIUM", "EXTREME", "STANDARD", "FLEX"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#service_level NetappStoragePool#service_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#service_level NetappStoragePool#service_level}
         '''
         result = self._values.get("service_level")
         assert result is not None, "Required property 'service_level' is missing"
@@ -816,7 +816,7 @@ class NetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Format: 'projects/{{project}}/locations/{{location}}/activeDirectories/{{name}}'.
         The policy needs to be in the same location as the storage pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#active_directory NetappStoragePool#active_directory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#active_directory NetappStoragePool#active_directory}
         '''
         result = self._values.get("active_directory")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -830,7 +830,7 @@ class NetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         True if the storage pool supports Auto Tiering enabled volumes. Default is false.
         Auto-tiering can be enabled after storage pool creation but it can't be disabled once enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#allow_auto_tiering NetappStoragePool#allow_auto_tiering}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#allow_auto_tiering NetappStoragePool#allow_auto_tiering}
         '''
         result = self._values.get("allow_auto_tiering")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -839,14 +839,14 @@ class NetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#description NetappStoragePool#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#description NetappStoragePool#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#id NetappStoragePool#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#id NetappStoragePool#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -861,7 +861,7 @@ class NetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Format: 'projects/{{project}}/locations/{{location}}/kmsConfigs/{{name}}'.
         The policy needs to be in the same location as the storage pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#kms_config NetappStoragePool#kms_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#kms_config NetappStoragePool#kms_config}
         '''
         result = self._values.get("kms_config")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -873,7 +873,7 @@ class NetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#labels NetappStoragePool#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#labels NetappStoragePool#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -887,14 +887,14 @@ class NetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Required to enable extended group support for NFSv3,
         using security identifiers for NFSv4.1 or principal names for kerberized NFSv4.1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#ldap_enabled NetappStoragePool#ldap_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#ldap_enabled NetappStoragePool#ldap_enabled}
         '''
         result = self._values.get("ldap_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#project NetappStoragePool#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#project NetappStoragePool#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -902,7 +902,7 @@ class NetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def replica_zone(self) -> typing.Optional[builtins.str]:
         '''Specifies the replica zone for regional Flex pools. 'zone' and 'replica_zone' values can be swapped to initiate a `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#replica_zone NetappStoragePool#replica_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#replica_zone NetappStoragePool#replica_zone}
         '''
         result = self._values.get("replica_zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -911,7 +911,7 @@ class NetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["NetappStoragePoolTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#timeouts NetappStoragePool#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#timeouts NetappStoragePool#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NetappStoragePoolTimeouts"], result)
@@ -924,7 +924,7 @@ class NetappStoragePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         `zone switch <https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones>`_.
         If you want to create a zonal Flex pool, specify a zone name for 'location' and omit 'zone'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#zone NetappStoragePool#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#zone NetappStoragePool#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -955,9 +955,9 @@ class NetappStoragePoolTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#create NetappStoragePool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#delete NetappStoragePool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#update NetappStoragePool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#create NetappStoragePool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#delete NetappStoragePool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#update NetappStoragePool#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2bea40083f3e0d943b85fde6edfb7b8502e470a44f125176b23d35a0e7a9a785)
@@ -974,19 +974,19 @@ class NetappStoragePoolTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#create NetappStoragePool#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#create NetappStoragePool#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#delete NetappStoragePool#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#delete NetappStoragePool#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/netapp_storage_pool#update NetappStoragePool#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/netapp_storage_pool#update NetappStoragePool#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

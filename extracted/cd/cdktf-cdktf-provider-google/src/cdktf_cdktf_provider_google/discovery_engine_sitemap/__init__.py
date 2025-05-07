@@ -1,7 +1,7 @@
 r'''
 # `google_discovery_engine_sitemap`
 
-Refer to the Terraform Registry for docs: [`google_discovery_engine_sitemap`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap).
+Refer to the Terraform Registry for docs: [`google_discovery_engine_sitemap`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DiscoveryEngineSitemap(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.discoveryEngineSitemap.DiscoveryEngineSitemap",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap google_discovery_engine_sitemap}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap google_discovery_engine_sitemap}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class DiscoveryEngineSitemap(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap google_discovery_engine_sitemap} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap google_discovery_engine_sitemap} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param data_store_id: The unique id of the data store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#data_store_id DiscoveryEngineSitemap#data_store_id}
-        :param location: The geographic location where the data store should reside. The value can only be one of "global", "us" and "eu". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#location DiscoveryEngineSitemap#location}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#id DiscoveryEngineSitemap#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#project DiscoveryEngineSitemap#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#timeouts DiscoveryEngineSitemap#timeouts}
-        :param uri: Public URI for the sitemap, e.g. "www.example.com/sitemap.xml". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#uri DiscoveryEngineSitemap#uri}
+        :param data_store_id: The unique id of the data store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#data_store_id DiscoveryEngineSitemap#data_store_id}
+        :param location: The geographic location where the data store should reside. The value can only be one of "global", "us" and "eu". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#location DiscoveryEngineSitemap#location}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#id DiscoveryEngineSitemap#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#project DiscoveryEngineSitemap#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#timeouts DiscoveryEngineSitemap#timeouts}
+        :param uri: Public URI for the sitemap, e.g. "www.example.com/sitemap.xml". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#uri DiscoveryEngineSitemap#uri}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class DiscoveryEngineSitemap(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DiscoveryEngineSitemap to import.
-        :param import_from_id: The id of the existing DiscoveryEngineSitemap that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DiscoveryEngineSitemap that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DiscoveryEngineSitemap to import is found.
         '''
         if __debug__:
@@ -137,8 +137,8 @@ class DiscoveryEngineSitemap(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#create DiscoveryEngineSitemap#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#delete DiscoveryEngineSitemap#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#create DiscoveryEngineSitemap#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#delete DiscoveryEngineSitemap#delete}.
         '''
         value = DiscoveryEngineSitemapTimeouts(create=create, delete=delete)
 
@@ -331,12 +331,12 @@ class DiscoveryEngineSitemapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param data_store_id: The unique id of the data store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#data_store_id DiscoveryEngineSitemap#data_store_id}
-        :param location: The geographic location where the data store should reside. The value can only be one of "global", "us" and "eu". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#location DiscoveryEngineSitemap#location}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#id DiscoveryEngineSitemap#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#project DiscoveryEngineSitemap#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#timeouts DiscoveryEngineSitemap#timeouts}
-        :param uri: Public URI for the sitemap, e.g. "www.example.com/sitemap.xml". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#uri DiscoveryEngineSitemap#uri}
+        :param data_store_id: The unique id of the data store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#data_store_id DiscoveryEngineSitemap#data_store_id}
+        :param location: The geographic location where the data store should reside. The value can only be one of "global", "us" and "eu". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#location DiscoveryEngineSitemap#location}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#id DiscoveryEngineSitemap#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#project DiscoveryEngineSitemap#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#timeouts DiscoveryEngineSitemap#timeouts}
+        :param uri: Public URI for the sitemap, e.g. "www.example.com/sitemap.xml". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#uri DiscoveryEngineSitemap#uri}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -452,7 +452,7 @@ class DiscoveryEngineSitemapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def data_store_id(self) -> builtins.str:
         '''The unique id of the data store.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#data_store_id DiscoveryEngineSitemap#data_store_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#data_store_id DiscoveryEngineSitemap#data_store_id}
         '''
         result = self._values.get("data_store_id")
         assert result is not None, "Required property 'data_store_id' is missing"
@@ -462,7 +462,7 @@ class DiscoveryEngineSitemapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The geographic location where the data store should reside. The value can only be one of "global", "us" and "eu".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#location DiscoveryEngineSitemap#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#location DiscoveryEngineSitemap#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -470,7 +470,7 @@ class DiscoveryEngineSitemapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#id DiscoveryEngineSitemap#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#id DiscoveryEngineSitemap#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -480,7 +480,7 @@ class DiscoveryEngineSitemapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#project DiscoveryEngineSitemap#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#project DiscoveryEngineSitemap#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -488,7 +488,7 @@ class DiscoveryEngineSitemapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DiscoveryEngineSitemapTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#timeouts DiscoveryEngineSitemap#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#timeouts DiscoveryEngineSitemap#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DiscoveryEngineSitemapTimeouts"], result)
@@ -497,7 +497,7 @@ class DiscoveryEngineSitemapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def uri(self) -> typing.Optional[builtins.str]:
         '''Public URI for the sitemap, e.g. "www.example.com/sitemap.xml".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#uri DiscoveryEngineSitemap#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#uri DiscoveryEngineSitemap#uri}
         '''
         result = self._values.get("uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -527,8 +527,8 @@ class DiscoveryEngineSitemapTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#create DiscoveryEngineSitemap#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#delete DiscoveryEngineSitemap#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#create DiscoveryEngineSitemap#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#delete DiscoveryEngineSitemap#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aeb24cbeef5d4dda5222757621e0390a8430e54512be45cce4337e062f39eb36)
@@ -542,13 +542,13 @@ class DiscoveryEngineSitemapTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#create DiscoveryEngineSitemap#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#create DiscoveryEngineSitemap#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/discovery_engine_sitemap#delete DiscoveryEngineSitemap#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/discovery_engine_sitemap#delete DiscoveryEngineSitemap#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

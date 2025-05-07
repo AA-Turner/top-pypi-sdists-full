@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-examples
-Version: 0.0.17
+Version: 0.0.18
 Summary: Pytest plugin for testing examples in docstrings and markdown files.
 Project-URL: repository, https://github.com/pydantic/pytest-examples
 Author-email: Samuel Colvin <s@muelcolvin.com>

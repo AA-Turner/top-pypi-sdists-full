@@ -1,7 +1,7 @@
 r'''
 # `google_data_loss_prevention_inspect_template`
 
-Refer to the Terraform Registry for docs: [`google_data_loss_prevention_inspect_template`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template).
+Refer to the Terraform Registry for docs: [`google_data_loss_prevention_inspect_template`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataLossPreventionInspectTemplate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataLossPreventionInspectTemplate.DataLossPreventionInspectTemplate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template google_data_loss_prevention_inspect_template}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template google_data_loss_prevention_inspect_template}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class DataLossPreventionInspectTemplate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template google_data_loss_prevention_inspect_template} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template google_data_loss_prevention_inspect_template} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param parent: The parent of the inspect template in any of the following formats:. - 'projects/{{project}}' - 'projects/{{project}}/locations/{{location}}' - 'organizations/{{organization_id}}' - 'organizations/{{organization_id}}/locations/{{location}}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#parent DataLossPreventionInspectTemplate#parent}
-        :param description: A description of the inspect template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#description DataLossPreventionInspectTemplate#description}
-        :param display_name: User set display name of the inspect template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#display_name DataLossPreventionInspectTemplate#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#id DataLossPreventionInspectTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param inspect_config: inspect_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#inspect_config DataLossPreventionInspectTemplate#inspect_config}
-        :param template_id: The template id can contain uppercase and lowercase letters, numbers, and hyphens; that is, it must match the regular expression: [a-zA-Z\\d-_]+. The maximum length is 100 characters. Can be empty to allow the system to generate one. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#template_id DataLossPreventionInspectTemplate#template_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#timeouts DataLossPreventionInspectTemplate#timeouts}
+        :param parent: The parent of the inspect template in any of the following formats:. - 'projects/{{project}}' - 'projects/{{project}}/locations/{{location}}' - 'organizations/{{organization_id}}' - 'organizations/{{organization_id}}/locations/{{location}}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#parent DataLossPreventionInspectTemplate#parent}
+        :param description: A description of the inspect template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#description DataLossPreventionInspectTemplate#description}
+        :param display_name: User set display name of the inspect template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#display_name DataLossPreventionInspectTemplate#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#id DataLossPreventionInspectTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param inspect_config: inspect_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#inspect_config DataLossPreventionInspectTemplate#inspect_config}
+        :param template_id: The template id can contain uppercase and lowercase letters, numbers, and hyphens; that is, it must match the regular expression: [a-zA-Z\\d-_]+. The maximum length is 100 characters. Can be empty to allow the system to generate one. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#template_id DataLossPreventionInspectTemplate#template_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#timeouts DataLossPreventionInspectTemplate#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class DataLossPreventionInspectTemplate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataLossPreventionInspectTemplate to import.
-        :param import_from_id: The id of the existing DataLossPreventionInspectTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataLossPreventionInspectTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataLossPreventionInspectTemplate to import is found.
         '''
         if __debug__:
@@ -146,14 +146,14 @@ class DataLossPreventionInspectTemplate(
         rule_set: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataLossPreventionInspectTemplateInspectConfigRuleSet", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param content_options: List of options defining data content to scan. If empty, text, images, and other content will be included. Possible values: ["CONTENT_TEXT", "CONTENT_IMAGE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#content_options DataLossPreventionInspectTemplate#content_options}
-        :param custom_info_types: custom_info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#custom_info_types DataLossPreventionInspectTemplate#custom_info_types}
-        :param exclude_info_types: When true, excludes type information of the findings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#exclude_info_types DataLossPreventionInspectTemplate#exclude_info_types}
-        :param include_quote: When true, a contextual quote from the data that triggered a finding is included in the response. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#include_quote DataLossPreventionInspectTemplate#include_quote}
-        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#info_types DataLossPreventionInspectTemplate#info_types}
-        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#limits DataLossPreventionInspectTemplate#limits}
-        :param min_likelihood: Only returns findings equal or above this threshold. See https://cloud.google.com/dlp/docs/likelihood for more info Default value: "POSSIBLE" Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#min_likelihood DataLossPreventionInspectTemplate#min_likelihood}
-        :param rule_set: rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#rule_set DataLossPreventionInspectTemplate#rule_set}
+        :param content_options: List of options defining data content to scan. If empty, text, images, and other content will be included. Possible values: ["CONTENT_TEXT", "CONTENT_IMAGE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#content_options DataLossPreventionInspectTemplate#content_options}
+        :param custom_info_types: custom_info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#custom_info_types DataLossPreventionInspectTemplate#custom_info_types}
+        :param exclude_info_types: When true, excludes type information of the findings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#exclude_info_types DataLossPreventionInspectTemplate#exclude_info_types}
+        :param include_quote: When true, a contextual quote from the data that triggered a finding is included in the response. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#include_quote DataLossPreventionInspectTemplate#include_quote}
+        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#info_types DataLossPreventionInspectTemplate#info_types}
+        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#limits DataLossPreventionInspectTemplate#limits}
+        :param min_likelihood: Only returns findings equal or above this threshold. See https://cloud.google.com/dlp/docs/likelihood for more info Default value: "POSSIBLE" Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#min_likelihood DataLossPreventionInspectTemplate#min_likelihood}
+        :param rule_set: rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#rule_set DataLossPreventionInspectTemplate#rule_set}
         '''
         value = DataLossPreventionInspectTemplateInspectConfig(
             content_options=content_options,
@@ -177,9 +177,9 @@ class DataLossPreventionInspectTemplate(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#create DataLossPreventionInspectTemplate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#delete DataLossPreventionInspectTemplate#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#update DataLossPreventionInspectTemplate#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#create DataLossPreventionInspectTemplate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#delete DataLossPreventionInspectTemplate#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#update DataLossPreventionInspectTemplate#update}.
         '''
         value = DataLossPreventionInspectTemplateTimeouts(
             create=create, delete=delete, update=update
@@ -388,13 +388,13 @@ class DataLossPreventionInspectTemplateConfig(_cdktf_9a9027ec.TerraformMetaArgum
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param parent: The parent of the inspect template in any of the following formats:. - 'projects/{{project}}' - 'projects/{{project}}/locations/{{location}}' - 'organizations/{{organization_id}}' - 'organizations/{{organization_id}}/locations/{{location}}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#parent DataLossPreventionInspectTemplate#parent}
-        :param description: A description of the inspect template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#description DataLossPreventionInspectTemplate#description}
-        :param display_name: User set display name of the inspect template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#display_name DataLossPreventionInspectTemplate#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#id DataLossPreventionInspectTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param inspect_config: inspect_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#inspect_config DataLossPreventionInspectTemplate#inspect_config}
-        :param template_id: The template id can contain uppercase and lowercase letters, numbers, and hyphens; that is, it must match the regular expression: [a-zA-Z\\d-_]+. The maximum length is 100 characters. Can be empty to allow the system to generate one. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#template_id DataLossPreventionInspectTemplate#template_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#timeouts DataLossPreventionInspectTemplate#timeouts}
+        :param parent: The parent of the inspect template in any of the following formats:. - 'projects/{{project}}' - 'projects/{{project}}/locations/{{location}}' - 'organizations/{{organization_id}}' - 'organizations/{{organization_id}}/locations/{{location}}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#parent DataLossPreventionInspectTemplate#parent}
+        :param description: A description of the inspect template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#description DataLossPreventionInspectTemplate#description}
+        :param display_name: User set display name of the inspect template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#display_name DataLossPreventionInspectTemplate#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#id DataLossPreventionInspectTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param inspect_config: inspect_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#inspect_config DataLossPreventionInspectTemplate#inspect_config}
+        :param template_id: The template id can contain uppercase and lowercase letters, numbers, and hyphens; that is, it must match the regular expression: [a-zA-Z\\d-_]+. The maximum length is 100 characters. Can be empty to allow the system to generate one. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#template_id DataLossPreventionInspectTemplate#template_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#timeouts DataLossPreventionInspectTemplate#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -521,7 +521,7 @@ class DataLossPreventionInspectTemplateConfig(_cdktf_9a9027ec.TerraformMetaArgum
         - 'organizations/{{organization_id}}'
         - 'organizations/{{organization_id}}/locations/{{location}}'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#parent DataLossPreventionInspectTemplate#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#parent DataLossPreventionInspectTemplate#parent}
         '''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
@@ -531,7 +531,7 @@ class DataLossPreventionInspectTemplateConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of the inspect template.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#description DataLossPreventionInspectTemplate#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#description DataLossPreventionInspectTemplate#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -540,14 +540,14 @@ class DataLossPreventionInspectTemplateConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def display_name(self) -> typing.Optional[builtins.str]:
         '''User set display name of the inspect template.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#display_name DataLossPreventionInspectTemplate#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#display_name DataLossPreventionInspectTemplate#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#id DataLossPreventionInspectTemplate#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#id DataLossPreventionInspectTemplate#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -561,7 +561,7 @@ class DataLossPreventionInspectTemplateConfig(_cdktf_9a9027ec.TerraformMetaArgum
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfig"]:
         '''inspect_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#inspect_config DataLossPreventionInspectTemplate#inspect_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#inspect_config DataLossPreventionInspectTemplate#inspect_config}
         '''
         result = self._values.get("inspect_config")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfig"], result)
@@ -573,7 +573,7 @@ class DataLossPreventionInspectTemplateConfig(_cdktf_9a9027ec.TerraformMetaArgum
         that is, it must match the regular expression: [a-zA-Z\\d-_]+. The maximum length is
         100 characters. Can be empty to allow the system to generate one.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#template_id DataLossPreventionInspectTemplate#template_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#template_id DataLossPreventionInspectTemplate#template_id}
         '''
         result = self._values.get("template_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -582,7 +582,7 @@ class DataLossPreventionInspectTemplateConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def timeouts(self) -> typing.Optional["DataLossPreventionInspectTemplateTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#timeouts DataLossPreventionInspectTemplate#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#timeouts DataLossPreventionInspectTemplate#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateTimeouts"], result)
@@ -627,14 +627,14 @@ class DataLossPreventionInspectTemplateInspectConfig:
         rule_set: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataLossPreventionInspectTemplateInspectConfigRuleSet", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param content_options: List of options defining data content to scan. If empty, text, images, and other content will be included. Possible values: ["CONTENT_TEXT", "CONTENT_IMAGE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#content_options DataLossPreventionInspectTemplate#content_options}
-        :param custom_info_types: custom_info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#custom_info_types DataLossPreventionInspectTemplate#custom_info_types}
-        :param exclude_info_types: When true, excludes type information of the findings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#exclude_info_types DataLossPreventionInspectTemplate#exclude_info_types}
-        :param include_quote: When true, a contextual quote from the data that triggered a finding is included in the response. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#include_quote DataLossPreventionInspectTemplate#include_quote}
-        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#info_types DataLossPreventionInspectTemplate#info_types}
-        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#limits DataLossPreventionInspectTemplate#limits}
-        :param min_likelihood: Only returns findings equal or above this threshold. See https://cloud.google.com/dlp/docs/likelihood for more info Default value: "POSSIBLE" Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#min_likelihood DataLossPreventionInspectTemplate#min_likelihood}
-        :param rule_set: rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#rule_set DataLossPreventionInspectTemplate#rule_set}
+        :param content_options: List of options defining data content to scan. If empty, text, images, and other content will be included. Possible values: ["CONTENT_TEXT", "CONTENT_IMAGE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#content_options DataLossPreventionInspectTemplate#content_options}
+        :param custom_info_types: custom_info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#custom_info_types DataLossPreventionInspectTemplate#custom_info_types}
+        :param exclude_info_types: When true, excludes type information of the findings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#exclude_info_types DataLossPreventionInspectTemplate#exclude_info_types}
+        :param include_quote: When true, a contextual quote from the data that triggered a finding is included in the response. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#include_quote DataLossPreventionInspectTemplate#include_quote}
+        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#info_types DataLossPreventionInspectTemplate#info_types}
+        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#limits DataLossPreventionInspectTemplate#limits}
+        :param min_likelihood: Only returns findings equal or above this threshold. See https://cloud.google.com/dlp/docs/likelihood for more info Default value: "POSSIBLE" Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#min_likelihood DataLossPreventionInspectTemplate#min_likelihood}
+        :param rule_set: rule_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#rule_set DataLossPreventionInspectTemplate#rule_set}
         '''
         if isinstance(limits, dict):
             limits = DataLossPreventionInspectTemplateInspectConfigLimits(**limits)
@@ -672,7 +672,7 @@ class DataLossPreventionInspectTemplateInspectConfig:
 
         If empty, text, images, and other content will be included. Possible values: ["CONTENT_TEXT", "CONTENT_IMAGE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#content_options DataLossPreventionInspectTemplate#content_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#content_options DataLossPreventionInspectTemplate#content_options}
         '''
         result = self._values.get("content_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -683,7 +683,7 @@ class DataLossPreventionInspectTemplateInspectConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypes"]]]:
         '''custom_info_types block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#custom_info_types DataLossPreventionInspectTemplate#custom_info_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#custom_info_types DataLossPreventionInspectTemplate#custom_info_types}
         '''
         result = self._values.get("custom_info_types")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypes"]]], result)
@@ -694,7 +694,7 @@ class DataLossPreventionInspectTemplateInspectConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When true, excludes type information of the findings.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#exclude_info_types DataLossPreventionInspectTemplate#exclude_info_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#exclude_info_types DataLossPreventionInspectTemplate#exclude_info_types}
         '''
         result = self._values.get("exclude_info_types")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -705,7 +705,7 @@ class DataLossPreventionInspectTemplateInspectConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When true, a contextual quote from the data that triggered a finding is included in the response.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#include_quote DataLossPreventionInspectTemplate#include_quote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#include_quote DataLossPreventionInspectTemplate#include_quote}
         '''
         result = self._values.get("include_quote")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -716,7 +716,7 @@ class DataLossPreventionInspectTemplateInspectConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionInspectTemplateInspectConfigInfoTypes"]]]:
         '''info_types block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#info_types DataLossPreventionInspectTemplate#info_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#info_types DataLossPreventionInspectTemplate#info_types}
         '''
         result = self._values.get("info_types")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionInspectTemplateInspectConfigInfoTypes"]]], result)
@@ -727,7 +727,7 @@ class DataLossPreventionInspectTemplateInspectConfig:
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigLimits"]:
         '''limits block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#limits DataLossPreventionInspectTemplate#limits}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#limits DataLossPreventionInspectTemplate#limits}
         '''
         result = self._values.get("limits")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigLimits"], result)
@@ -738,7 +738,7 @@ class DataLossPreventionInspectTemplateInspectConfig:
 
         See https://cloud.google.com/dlp/docs/likelihood for more info Default value: "POSSIBLE" Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#min_likelihood DataLossPreventionInspectTemplate#min_likelihood}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#min_likelihood DataLossPreventionInspectTemplate#min_likelihood}
         '''
         result = self._values.get("min_likelihood")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -749,7 +749,7 @@ class DataLossPreventionInspectTemplateInspectConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionInspectTemplateInspectConfigRuleSet"]]]:
         '''rule_set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#rule_set DataLossPreventionInspectTemplate#rule_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#rule_set DataLossPreventionInspectTemplate#rule_set}
         '''
         result = self._values.get("rule_set")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionInspectTemplateInspectConfigRuleSet"]]], result)
@@ -794,14 +794,14 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypes:
         surrogate_type: typing.Optional[typing.Union["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesSurrogateType", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param info_type: info_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#info_type DataLossPreventionInspectTemplate#info_type}
-        :param dictionary: dictionary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#dictionary DataLossPreventionInspectTemplate#dictionary}
-        :param exclusion_type: If set to EXCLUSION_TYPE_EXCLUDE this infoType will not cause a finding to be returned. It still can be used for rules matching. Possible values: ["EXCLUSION_TYPE_EXCLUDE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#exclusion_type DataLossPreventionInspectTemplate#exclusion_type}
-        :param likelihood: Likelihood to return for this CustomInfoType. This base value can be altered by a detection rule if the finding meets the criteria specified by the rule. Default value: "VERY_LIKELY" Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#likelihood DataLossPreventionInspectTemplate#likelihood}
-        :param regex: regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#regex DataLossPreventionInspectTemplate#regex}
-        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
-        :param stored_type: stored_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#stored_type DataLossPreventionInspectTemplate#stored_type}
-        :param surrogate_type: surrogate_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#surrogate_type DataLossPreventionInspectTemplate#surrogate_type}
+        :param info_type: info_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#info_type DataLossPreventionInspectTemplate#info_type}
+        :param dictionary: dictionary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#dictionary DataLossPreventionInspectTemplate#dictionary}
+        :param exclusion_type: If set to EXCLUSION_TYPE_EXCLUDE this infoType will not cause a finding to be returned. It still can be used for rules matching. Possible values: ["EXCLUSION_TYPE_EXCLUDE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#exclusion_type DataLossPreventionInspectTemplate#exclusion_type}
+        :param likelihood: Likelihood to return for this CustomInfoType. This base value can be altered by a detection rule if the finding meets the criteria specified by the rule. Default value: "VERY_LIKELY" Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#likelihood DataLossPreventionInspectTemplate#likelihood}
+        :param regex: regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#regex DataLossPreventionInspectTemplate#regex}
+        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
+        :param stored_type: stored_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#stored_type DataLossPreventionInspectTemplate#stored_type}
+        :param surrogate_type: surrogate_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#surrogate_type DataLossPreventionInspectTemplate#surrogate_type}
         '''
         if isinstance(info_type, dict):
             info_type = DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesInfoType(**info_type)
@@ -849,7 +849,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypes:
     ) -> "DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesInfoType":
         '''info_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#info_type DataLossPreventionInspectTemplate#info_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#info_type DataLossPreventionInspectTemplate#info_type}
         '''
         result = self._values.get("info_type")
         assert result is not None, "Required property 'info_type' is missing"
@@ -861,7 +861,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypes:
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionary"]:
         '''dictionary block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#dictionary DataLossPreventionInspectTemplate#dictionary}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#dictionary DataLossPreventionInspectTemplate#dictionary}
         '''
         result = self._values.get("dictionary")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionary"], result)
@@ -872,7 +872,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypes:
 
         It still can be used for rules matching. Possible values: ["EXCLUSION_TYPE_EXCLUDE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#exclusion_type DataLossPreventionInspectTemplate#exclusion_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#exclusion_type DataLossPreventionInspectTemplate#exclusion_type}
         '''
         result = self._values.get("exclusion_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -884,7 +884,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypes:
         This base value can be altered by a detection rule if the finding meets the criteria
         specified by the rule. Default value: "VERY_LIKELY" Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#likelihood DataLossPreventionInspectTemplate#likelihood}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#likelihood DataLossPreventionInspectTemplate#likelihood}
         '''
         result = self._values.get("likelihood")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -895,7 +895,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypes:
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesRegex"]:
         '''regex block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#regex DataLossPreventionInspectTemplate#regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#regex DataLossPreventionInspectTemplate#regex}
         '''
         result = self._values.get("regex")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesRegex"], result)
@@ -906,7 +906,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypes:
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesSensitivityScore"]:
         '''sensitivity_score block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
         '''
         result = self._values.get("sensitivity_score")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesSensitivityScore"], result)
@@ -917,7 +917,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypes:
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesStoredType"]:
         '''stored_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#stored_type DataLossPreventionInspectTemplate#stored_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#stored_type DataLossPreventionInspectTemplate#stored_type}
         '''
         result = self._values.get("stored_type")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesStoredType"], result)
@@ -928,7 +928,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypes:
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesSurrogateType"]:
         '''surrogate_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#surrogate_type DataLossPreventionInspectTemplate#surrogate_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#surrogate_type DataLossPreventionInspectTemplate#surrogate_type}
         '''
         result = self._values.get("surrogate_type")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesSurrogateType"], result)
@@ -958,8 +958,8 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionary:
         word_list: typing.Optional[typing.Union["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionaryWordListStruct", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloud_storage_path: cloud_storage_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#cloud_storage_path DataLossPreventionInspectTemplate#cloud_storage_path}
-        :param word_list: word_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#word_list DataLossPreventionInspectTemplate#word_list}
+        :param cloud_storage_path: cloud_storage_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#cloud_storage_path DataLossPreventionInspectTemplate#cloud_storage_path}
+        :param word_list: word_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#word_list DataLossPreventionInspectTemplate#word_list}
         '''
         if isinstance(cloud_storage_path, dict):
             cloud_storage_path = DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionaryCloudStoragePath(**cloud_storage_path)
@@ -981,7 +981,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionary:
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionaryCloudStoragePath"]:
         '''cloud_storage_path block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#cloud_storage_path DataLossPreventionInspectTemplate#cloud_storage_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#cloud_storage_path DataLossPreventionInspectTemplate#cloud_storage_path}
         '''
         result = self._values.get("cloud_storage_path")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionaryCloudStoragePath"], result)
@@ -992,7 +992,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionary:
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionaryWordListStruct"]:
         '''word_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#word_list DataLossPreventionInspectTemplate#word_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#word_list DataLossPreventionInspectTemplate#word_list}
         '''
         result = self._values.get("word_list")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionaryWordListStruct"], result)
@@ -1017,7 +1017,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionary:
 class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionaryCloudStoragePath:
     def __init__(self, *, path: builtins.str) -> None:
         '''
-        :param path: A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#path DataLossPreventionInspectTemplate#path}
+        :param path: A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#path DataLossPreventionInspectTemplate#path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5437d424aa35ead230a753e46ee734de1a4ad1c4cf3d3a2de51ae04a08bf202f)
@@ -1030,7 +1030,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionaryClo
     def path(self) -> builtins.str:
         '''A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#path DataLossPreventionInspectTemplate#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#path DataLossPreventionInspectTemplate#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -1126,7 +1126,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionaryOut
     @jsii.member(jsii_name="putCloudStoragePath")
     def put_cloud_storage_path(self, *, path: builtins.str) -> None:
         '''
-        :param path: A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#path DataLossPreventionInspectTemplate#path}
+        :param path: A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#path DataLossPreventionInspectTemplate#path}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionaryCloudStoragePath(
             path=path
@@ -1137,7 +1137,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionaryOut
     @jsii.member(jsii_name="putWordList")
     def put_word_list(self, *, words: typing.Sequence[builtins.str]) -> None:
         '''
-        :param words: Words or phrases defining the dictionary. The dictionary must contain at least one phrase and every phrase must contain at least 2 characters that are letters or digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#words DataLossPreventionInspectTemplate#words}
+        :param words: Words or phrases defining the dictionary. The dictionary must contain at least one phrase and every phrase must contain at least 2 characters that are letters or digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#words DataLossPreventionInspectTemplate#words}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionaryWordListStruct(
             words=words
@@ -1207,7 +1207,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionaryOut
 class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionaryWordListStruct:
     def __init__(self, *, words: typing.Sequence[builtins.str]) -> None:
         '''
-        :param words: Words or phrases defining the dictionary. The dictionary must contain at least one phrase and every phrase must contain at least 2 characters that are letters or digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#words DataLossPreventionInspectTemplate#words}
+        :param words: Words or phrases defining the dictionary. The dictionary must contain at least one phrase and every phrase must contain at least 2 characters that are letters or digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#words DataLossPreventionInspectTemplate#words}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c1d607b6bbb89c31a8f5f2d1333784901c23ece3a4ee23243f1045015e5b089)
@@ -1223,7 +1223,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionaryWor
         The dictionary must contain at least one
         phrase and every phrase must contain at least 2 characters that are letters or digits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#words DataLossPreventionInspectTemplate#words}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#words DataLossPreventionInspectTemplate#words}
         '''
         result = self._values.get("words")
         assert result is not None, "Required property 'words' is missing"
@@ -1314,9 +1314,9 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesInfoType:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
-        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
-        :param version: Version name for this InfoType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
+        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
+        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
+        :param version: Version name for this InfoType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
         '''
         if isinstance(sensitivity_score, dict):
             sensitivity_score = DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesInfoTypeSensitivityScore(**sensitivity_score)
@@ -1340,7 +1340,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesInfoType:
         Either a name of your choosing when creating a CustomInfoType, or one of the names
         listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1352,7 +1352,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesInfoType:
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesInfoTypeSensitivityScore"]:
         '''sensitivity_score block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
         '''
         result = self._values.get("sensitivity_score")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesInfoTypeSensitivityScore"], result)
@@ -1361,7 +1361,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesInfoType:
     def version(self) -> typing.Optional[builtins.str]:
         '''Version name for this InfoType.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1401,7 +1401,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesInfoTypeOutpu
     @jsii.member(jsii_name="putSensitivityScore")
     def put_sensitivity_score(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesInfoTypeSensitivityScore(
             score=score
@@ -1491,7 +1491,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesInfoTypeOutpu
 class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesInfoTypeSensitivityScore:
     def __init__(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__42ec1de685ba2325bce2264342c6b5c01ec524133fd8a3b3184d7f60b2de844e)
@@ -1504,7 +1504,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesInfoTypeSensi
     def score(self) -> builtins.str:
         '''The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
         '''
         result = self._values.get("score")
         assert result is not None, "Required property 'score' is missing"
@@ -1704,8 +1704,8 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesOutputReferen
         word_list: typing.Optional[typing.Union[DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionaryWordListStruct, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloud_storage_path: cloud_storage_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#cloud_storage_path DataLossPreventionInspectTemplate#cloud_storage_path}
-        :param word_list: word_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#word_list DataLossPreventionInspectTemplate#word_list}
+        :param cloud_storage_path: cloud_storage_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#cloud_storage_path DataLossPreventionInspectTemplate#cloud_storage_path}
+        :param word_list: word_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#word_list DataLossPreventionInspectTemplate#word_list}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesDictionary(
             cloud_storage_path=cloud_storage_path, word_list=word_list
@@ -1722,9 +1722,9 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesOutputReferen
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
-        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
-        :param version: Version name for this InfoType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
+        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
+        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
+        :param version: Version name for this InfoType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesInfoType(
             name=name, sensitivity_score=sensitivity_score, version=version
@@ -1740,8 +1740,8 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesOutputReferen
         group_indexes: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
-        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
+        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
+        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesRegex(
             pattern=pattern, group_indexes=group_indexes
@@ -1752,7 +1752,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesOutputReferen
     @jsii.member(jsii_name="putSensitivityScore")
     def put_sensitivity_score(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesSensitivityScore(
             score=score
@@ -1763,7 +1763,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesOutputReferen
     @jsii.member(jsii_name="putStoredType")
     def put_stored_type(self, *, name: builtins.str) -> None:
         '''
-        :param name: Resource name of the requested StoredInfoType, for example 'organizations/433245324/storedInfoTypes/432452342' or 'projects/project-id/storedInfoTypes/432452342'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
+        :param name: Resource name of the requested StoredInfoType, for example 'organizations/433245324/storedInfoTypes/432452342' or 'projects/project-id/storedInfoTypes/432452342'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesStoredType(
             name=name
@@ -1954,8 +1954,8 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesRegex:
         group_indexes: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
-        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
+        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
+        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4e19a466fd1a4fa735cd181f948c29583e1ae97e0fdaeac27a188b56604a2915)
@@ -1971,7 +1971,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesRegex:
     def pattern(self) -> builtins.str:
         '''Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
         '''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
@@ -1983,7 +1983,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesRegex:
 
         When not specified, the entire match is returned. No more than 3 may be included.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
         '''
         result = self._values.get("group_indexes")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -2084,7 +2084,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesRegexOutputRe
 class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesSensitivityScore:
     def __init__(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__feef2d5fd85ce590a807622b28fbdb11190e35998bd944d38f326c2faaadca2a)
@@ -2097,7 +2097,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesSensitivitySc
     def score(self) -> builtins.str:
         '''The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
         '''
         result = self._values.get("score")
         assert result is not None, "Required property 'score' is missing"
@@ -2178,7 +2178,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesSensitivitySc
 class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesStoredType:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Resource name of the requested StoredInfoType, for example 'organizations/433245324/storedInfoTypes/432452342' or 'projects/project-id/storedInfoTypes/432452342'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
+        :param name: Resource name of the requested StoredInfoType, for example 'organizations/433245324/storedInfoTypes/432452342' or 'projects/project-id/storedInfoTypes/432452342'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6563230bd397cd17b23b33d06951531f3ae20bf547a5cb125526d283123d4fd7)
@@ -2191,7 +2191,7 @@ class DataLossPreventionInspectTemplateInspectConfigCustomInfoTypesStoredType:
     def name(self) -> builtins.str:
         '''Resource name of the requested StoredInfoType, for example 'organizations/433245324/storedInfoTypes/432452342' or 'projects/project-id/storedInfoTypes/432452342'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -2341,9 +2341,9 @@ class DataLossPreventionInspectTemplateInspectConfigInfoTypes:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
-        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
-        :param version: Version of the information type to use. By default, the version is set to stable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
+        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
+        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
+        :param version: Version of the information type to use. By default, the version is set to stable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
         '''
         if isinstance(sensitivity_score, dict):
             sensitivity_score = DataLossPreventionInspectTemplateInspectConfigInfoTypesSensitivityScore(**sensitivity_score)
@@ -2367,7 +2367,7 @@ class DataLossPreventionInspectTemplateInspectConfigInfoTypes:
         Either a name of your choosing when creating a CustomInfoType, or one of the names listed
         at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -2379,7 +2379,7 @@ class DataLossPreventionInspectTemplateInspectConfigInfoTypes:
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigInfoTypesSensitivityScore"]:
         '''sensitivity_score block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
         '''
         result = self._values.get("sensitivity_score")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigInfoTypesSensitivityScore"], result)
@@ -2388,7 +2388,7 @@ class DataLossPreventionInspectTemplateInspectConfigInfoTypes:
     def version(self) -> typing.Optional[builtins.str]:
         '''Version of the information type to use. By default, the version is set to stable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2527,7 +2527,7 @@ class DataLossPreventionInspectTemplateInspectConfigInfoTypesOutputReference(
     @jsii.member(jsii_name="putSensitivityScore")
     def put_sensitivity_score(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigInfoTypesSensitivityScore(
             score=score
@@ -2617,7 +2617,7 @@ class DataLossPreventionInspectTemplateInspectConfigInfoTypesOutputReference(
 class DataLossPreventionInspectTemplateInspectConfigInfoTypesSensitivityScore:
     def __init__(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fe7a34bb4d756deb822adbf9a9ace99bdd32ac6ecde96dc2f2b8d98d2c252c29)
@@ -2630,7 +2630,7 @@ class DataLossPreventionInspectTemplateInspectConfigInfoTypesSensitivityScore:
     def score(self) -> builtins.str:
         '''The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
         '''
         result = self._values.get("score")
         assert result is not None, "Required property 'score' is missing"
@@ -2721,9 +2721,9 @@ class DataLossPreventionInspectTemplateInspectConfigLimits:
         max_findings_per_info_type: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoType", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param max_findings_per_item: Max number of findings that will be returned for each item scanned. The maximum returned is 2000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#max_findings_per_item DataLossPreventionInspectTemplate#max_findings_per_item}
-        :param max_findings_per_request: Max number of findings that will be returned per request/job. The maximum returned is 2000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#max_findings_per_request DataLossPreventionInspectTemplate#max_findings_per_request}
-        :param max_findings_per_info_type: max_findings_per_info_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#max_findings_per_info_type DataLossPreventionInspectTemplate#max_findings_per_info_type}
+        :param max_findings_per_item: Max number of findings that will be returned for each item scanned. The maximum returned is 2000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#max_findings_per_item DataLossPreventionInspectTemplate#max_findings_per_item}
+        :param max_findings_per_request: Max number of findings that will be returned per request/job. The maximum returned is 2000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#max_findings_per_request DataLossPreventionInspectTemplate#max_findings_per_request}
+        :param max_findings_per_info_type: max_findings_per_info_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#max_findings_per_info_type DataLossPreventionInspectTemplate#max_findings_per_info_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c97262d7f266f5295e7210223be4bcd05bd383b801598ef57085b8a843ed3134)
@@ -2741,7 +2741,7 @@ class DataLossPreventionInspectTemplateInspectConfigLimits:
     def max_findings_per_item(self) -> jsii.Number:
         '''Max number of findings that will be returned for each item scanned. The maximum returned is 2000.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#max_findings_per_item DataLossPreventionInspectTemplate#max_findings_per_item}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#max_findings_per_item DataLossPreventionInspectTemplate#max_findings_per_item}
         '''
         result = self._values.get("max_findings_per_item")
         assert result is not None, "Required property 'max_findings_per_item' is missing"
@@ -2751,7 +2751,7 @@ class DataLossPreventionInspectTemplateInspectConfigLimits:
     def max_findings_per_request(self) -> jsii.Number:
         '''Max number of findings that will be returned per request/job. The maximum returned is 2000.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#max_findings_per_request DataLossPreventionInspectTemplate#max_findings_per_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#max_findings_per_request DataLossPreventionInspectTemplate#max_findings_per_request}
         '''
         result = self._values.get("max_findings_per_request")
         assert result is not None, "Required property 'max_findings_per_request' is missing"
@@ -2763,7 +2763,7 @@ class DataLossPreventionInspectTemplateInspectConfigLimits:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoType"]]]:
         '''max_findings_per_info_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#max_findings_per_info_type DataLossPreventionInspectTemplate#max_findings_per_info_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#max_findings_per_info_type DataLossPreventionInspectTemplate#max_findings_per_info_type}
         '''
         result = self._values.get("max_findings_per_info_type")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoType"]]], result)
@@ -2793,8 +2793,8 @@ class DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoType
         info_type: typing.Optional[typing.Union["DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoTypeInfoType", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param max_findings: Max findings limit for the given infoType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#max_findings DataLossPreventionInspectTemplate#max_findings}
-        :param info_type: info_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#info_type DataLossPreventionInspectTemplate#info_type}
+        :param max_findings: Max findings limit for the given infoType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#max_findings DataLossPreventionInspectTemplate#max_findings}
+        :param info_type: info_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#info_type DataLossPreventionInspectTemplate#info_type}
         '''
         if isinstance(info_type, dict):
             info_type = DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoTypeInfoType(**info_type)
@@ -2812,7 +2812,7 @@ class DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoType
     def max_findings(self) -> jsii.Number:
         '''Max findings limit for the given infoType.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#max_findings DataLossPreventionInspectTemplate#max_findings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#max_findings DataLossPreventionInspectTemplate#max_findings}
         '''
         result = self._values.get("max_findings")
         assert result is not None, "Required property 'max_findings' is missing"
@@ -2824,7 +2824,7 @@ class DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoType
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoTypeInfoType"]:
         '''info_type block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#info_type DataLossPreventionInspectTemplate#info_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#info_type DataLossPreventionInspectTemplate#info_type}
         '''
         result = self._values.get("info_type")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoTypeInfoType"], result)
@@ -2859,9 +2859,9 @@ class DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoType
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
-        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
-        :param version: Version name for this InfoType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
+        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
+        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
+        :param version: Version name for this InfoType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
         '''
         if isinstance(sensitivity_score, dict):
             sensitivity_score = DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoTypeInfoTypeSensitivityScore(**sensitivity_score)
@@ -2885,7 +2885,7 @@ class DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoType
         Either a name of your choosing when creating a CustomInfoType, or one of the names listed
         at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -2897,7 +2897,7 @@ class DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoType
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoTypeInfoTypeSensitivityScore"]:
         '''sensitivity_score block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
         '''
         result = self._values.get("sensitivity_score")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoTypeInfoTypeSensitivityScore"], result)
@@ -2906,7 +2906,7 @@ class DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoType
     def version(self) -> typing.Optional[builtins.str]:
         '''Version name for this InfoType.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2946,7 +2946,7 @@ class DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoType
     @jsii.member(jsii_name="putSensitivityScore")
     def put_sensitivity_score(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoTypeInfoTypeSensitivityScore(
             score=score
@@ -3036,7 +3036,7 @@ class DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoType
 class DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoTypeInfoTypeSensitivityScore:
     def __init__(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a4b463934e7c7d26b9ff9f554e4f3b238bbd86c648cdee32c9f2ba860d8c7232)
@@ -3049,7 +3049,7 @@ class DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoType
     def score(self) -> builtins.str:
         '''The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
         '''
         result = self._values.get("score")
         assert result is not None, "Required property 'score' is missing"
@@ -3250,9 +3250,9 @@ class DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoType
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
-        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
-        :param version: Version name for this InfoType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
+        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
+        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
+        :param version: Version name for this InfoType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoTypeInfoType(
             name=name, sensitivity_score=sensitivity_score, version=version
@@ -3471,9 +3471,9 @@ class DataLossPreventionInspectTemplateInspectConfigOutputReference(
         max_findings_per_info_type: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataLossPreventionInspectTemplateInspectConfigLimitsMaxFindingsPerInfoType, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param max_findings_per_item: Max number of findings that will be returned for each item scanned. The maximum returned is 2000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#max_findings_per_item DataLossPreventionInspectTemplate#max_findings_per_item}
-        :param max_findings_per_request: Max number of findings that will be returned per request/job. The maximum returned is 2000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#max_findings_per_request DataLossPreventionInspectTemplate#max_findings_per_request}
-        :param max_findings_per_info_type: max_findings_per_info_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#max_findings_per_info_type DataLossPreventionInspectTemplate#max_findings_per_info_type}
+        :param max_findings_per_item: Max number of findings that will be returned for each item scanned. The maximum returned is 2000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#max_findings_per_item DataLossPreventionInspectTemplate#max_findings_per_item}
+        :param max_findings_per_request: Max number of findings that will be returned per request/job. The maximum returned is 2000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#max_findings_per_request DataLossPreventionInspectTemplate#max_findings_per_request}
+        :param max_findings_per_info_type: max_findings_per_info_type block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#max_findings_per_info_type DataLossPreventionInspectTemplate#max_findings_per_info_type}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigLimits(
             max_findings_per_item=max_findings_per_item,
@@ -3691,8 +3691,8 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSet:
         rules: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataLossPreventionInspectTemplateInspectConfigRuleSetRules", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#info_types DataLossPreventionInspectTemplate#info_types}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#rules DataLossPreventionInspectTemplate#rules}
+        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#info_types DataLossPreventionInspectTemplate#info_types}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#rules DataLossPreventionInspectTemplate#rules}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6d82d4ae97d18774a4f9ef8ceb59ce492167923f668d5692936b2748b0bbef08)
@@ -3709,7 +3709,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSet:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionInspectTemplateInspectConfigRuleSetInfoTypes"]]:
         '''info_types block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#info_types DataLossPreventionInspectTemplate#info_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#info_types DataLossPreventionInspectTemplate#info_types}
         '''
         result = self._values.get("info_types")
         assert result is not None, "Required property 'info_types' is missing"
@@ -3721,7 +3721,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSet:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionInspectTemplateInspectConfigRuleSetRules"]]:
         '''rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#rules DataLossPreventionInspectTemplate#rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#rules DataLossPreventionInspectTemplate#rules}
         '''
         result = self._values.get("rules")
         assert result is not None, "Required property 'rules' is missing"
@@ -3757,9 +3757,9 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetInfoTypes:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
-        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
-        :param version: Version name for this InfoType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
+        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
+        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
+        :param version: Version name for this InfoType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
         '''
         if isinstance(sensitivity_score, dict):
             sensitivity_score = DataLossPreventionInspectTemplateInspectConfigRuleSetInfoTypesSensitivityScore(**sensitivity_score)
@@ -3783,7 +3783,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetInfoTypes:
         Either a name of your choosing when creating a CustomInfoType, or one of the names listed
         at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -3795,7 +3795,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetInfoTypes:
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetInfoTypesSensitivityScore"]:
         '''sensitivity_score block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
         '''
         result = self._values.get("sensitivity_score")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetInfoTypesSensitivityScore"], result)
@@ -3804,7 +3804,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetInfoTypes:
     def version(self) -> typing.Optional[builtins.str]:
         '''Version name for this InfoType.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3943,7 +3943,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetInfoTypesOutputRefere
     @jsii.member(jsii_name="putSensitivityScore")
     def put_sensitivity_score(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigRuleSetInfoTypesSensitivityScore(
             score=score
@@ -4033,7 +4033,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetInfoTypesOutputRefere
 class DataLossPreventionInspectTemplateInspectConfigRuleSetInfoTypesSensitivityScore:
     def __init__(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__085ab96bd5abd38ae6220e8a736b7886d8da0fdc56085a1c34efe6351d6b43af)
@@ -4046,7 +4046,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetInfoTypesSensitivityS
     def score(self) -> builtins.str:
         '''The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
         '''
         result = self._values.get("score")
         assert result is not None, "Required property 'score' is missing"
@@ -4321,8 +4321,8 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRules:
         hotword_rule: typing.Optional[typing.Union["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param exclusion_rule: exclusion_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#exclusion_rule DataLossPreventionInspectTemplate#exclusion_rule}
-        :param hotword_rule: hotword_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#hotword_rule DataLossPreventionInspectTemplate#hotword_rule}
+        :param exclusion_rule: exclusion_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#exclusion_rule DataLossPreventionInspectTemplate#exclusion_rule}
+        :param hotword_rule: hotword_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#hotword_rule DataLossPreventionInspectTemplate#hotword_rule}
         '''
         if isinstance(exclusion_rule, dict):
             exclusion_rule = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRule(**exclusion_rule)
@@ -4344,7 +4344,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRules:
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRule"]:
         '''exclusion_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#exclusion_rule DataLossPreventionInspectTemplate#exclusion_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#exclusion_rule DataLossPreventionInspectTemplate#exclusion_rule}
         '''
         result = self._values.get("exclusion_rule")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRule"], result)
@@ -4355,7 +4355,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRules:
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRule"]:
         '''hotword_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#hotword_rule DataLossPreventionInspectTemplate#hotword_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#hotword_rule DataLossPreventionInspectTemplate#hotword_rule}
         '''
         result = self._values.get("hotword_rule")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRule"], result)
@@ -4394,11 +4394,11 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRule:
         regex: typing.Optional[typing.Union["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleRegex", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param matching_type: How the rule is applied. See the documentation for more information: https://cloud.google.com/dlp/docs/reference/rest/v2/InspectConfig#MatchingType Possible values: ["MATCHING_TYPE_FULL_MATCH", "MATCHING_TYPE_PARTIAL_MATCH", "MATCHING_TYPE_INVERSE_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#matching_type DataLossPreventionInspectTemplate#matching_type}
-        :param dictionary: dictionary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#dictionary DataLossPreventionInspectTemplate#dictionary}
-        :param exclude_by_hotword: exclude_by_hotword block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#exclude_by_hotword DataLossPreventionInspectTemplate#exclude_by_hotword}
-        :param exclude_info_types: exclude_info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#exclude_info_types DataLossPreventionInspectTemplate#exclude_info_types}
-        :param regex: regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#regex DataLossPreventionInspectTemplate#regex}
+        :param matching_type: How the rule is applied. See the documentation for more information: https://cloud.google.com/dlp/docs/reference/rest/v2/InspectConfig#MatchingType Possible values: ["MATCHING_TYPE_FULL_MATCH", "MATCHING_TYPE_PARTIAL_MATCH", "MATCHING_TYPE_INVERSE_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#matching_type DataLossPreventionInspectTemplate#matching_type}
+        :param dictionary: dictionary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#dictionary DataLossPreventionInspectTemplate#dictionary}
+        :param exclude_by_hotword: exclude_by_hotword block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#exclude_by_hotword DataLossPreventionInspectTemplate#exclude_by_hotword}
+        :param exclude_info_types: exclude_info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#exclude_info_types DataLossPreventionInspectTemplate#exclude_info_types}
+        :param regex: regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#regex DataLossPreventionInspectTemplate#regex}
         '''
         if isinstance(dictionary, dict):
             dictionary = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDictionary(**dictionary)
@@ -4431,7 +4431,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRule:
     def matching_type(self) -> builtins.str:
         '''How the rule is applied. See the documentation for more information: https://cloud.google.com/dlp/docs/reference/rest/v2/InspectConfig#MatchingType Possible values: ["MATCHING_TYPE_FULL_MATCH", "MATCHING_TYPE_PARTIAL_MATCH", "MATCHING_TYPE_INVERSE_MATCH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#matching_type DataLossPreventionInspectTemplate#matching_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#matching_type DataLossPreventionInspectTemplate#matching_type}
         '''
         result = self._values.get("matching_type")
         assert result is not None, "Required property 'matching_type' is missing"
@@ -4443,7 +4443,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRule:
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDictionary"]:
         '''dictionary block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#dictionary DataLossPreventionInspectTemplate#dictionary}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#dictionary DataLossPreventionInspectTemplate#dictionary}
         '''
         result = self._values.get("dictionary")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDictionary"], result)
@@ -4454,7 +4454,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRule:
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeByHotword"]:
         '''exclude_by_hotword block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#exclude_by_hotword DataLossPreventionInspectTemplate#exclude_by_hotword}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#exclude_by_hotword DataLossPreventionInspectTemplate#exclude_by_hotword}
         '''
         result = self._values.get("exclude_by_hotword")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeByHotword"], result)
@@ -4465,7 +4465,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRule:
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypes"]:
         '''exclude_info_types block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#exclude_info_types DataLossPreventionInspectTemplate#exclude_info_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#exclude_info_types DataLossPreventionInspectTemplate#exclude_info_types}
         '''
         result = self._values.get("exclude_info_types")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypes"], result)
@@ -4476,7 +4476,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRule:
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleRegex"]:
         '''regex block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#regex DataLossPreventionInspectTemplate#regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#regex DataLossPreventionInspectTemplate#regex}
         '''
         result = self._values.get("regex")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleRegex"], result)
@@ -4506,8 +4506,8 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDic
         word_list: typing.Optional[typing.Union["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDictionaryWordListStruct", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloud_storage_path: cloud_storage_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#cloud_storage_path DataLossPreventionInspectTemplate#cloud_storage_path}
-        :param word_list: word_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#word_list DataLossPreventionInspectTemplate#word_list}
+        :param cloud_storage_path: cloud_storage_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#cloud_storage_path DataLossPreventionInspectTemplate#cloud_storage_path}
+        :param word_list: word_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#word_list DataLossPreventionInspectTemplate#word_list}
         '''
         if isinstance(cloud_storage_path, dict):
             cloud_storage_path = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDictionaryCloudStoragePath(**cloud_storage_path)
@@ -4529,7 +4529,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDic
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDictionaryCloudStoragePath"]:
         '''cloud_storage_path block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#cloud_storage_path DataLossPreventionInspectTemplate#cloud_storage_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#cloud_storage_path DataLossPreventionInspectTemplate#cloud_storage_path}
         '''
         result = self._values.get("cloud_storage_path")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDictionaryCloudStoragePath"], result)
@@ -4540,7 +4540,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDic
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDictionaryWordListStruct"]:
         '''word_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#word_list DataLossPreventionInspectTemplate#word_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#word_list DataLossPreventionInspectTemplate#word_list}
         '''
         result = self._values.get("word_list")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDictionaryWordListStruct"], result)
@@ -4565,7 +4565,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDic
 class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDictionaryCloudStoragePath:
     def __init__(self, *, path: builtins.str) -> None:
         '''
-        :param path: A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#path DataLossPreventionInspectTemplate#path}
+        :param path: A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#path DataLossPreventionInspectTemplate#path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f04bc359a7773af0202a7cc8bafbbee297265a3e328aa1215fa8f4e47e73dc3f)
@@ -4578,7 +4578,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDic
     def path(self) -> builtins.str:
         '''A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#path DataLossPreventionInspectTemplate#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#path DataLossPreventionInspectTemplate#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -4674,7 +4674,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDic
     @jsii.member(jsii_name="putCloudStoragePath")
     def put_cloud_storage_path(self, *, path: builtins.str) -> None:
         '''
-        :param path: A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#path DataLossPreventionInspectTemplate#path}
+        :param path: A url representing a file or path (no wildcards) in Cloud Storage. Example: 'gs://[BUCKET_NAME]/dictionary.txt'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#path DataLossPreventionInspectTemplate#path}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDictionaryCloudStoragePath(
             path=path
@@ -4685,7 +4685,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDic
     @jsii.member(jsii_name="putWordList")
     def put_word_list(self, *, words: typing.Sequence[builtins.str]) -> None:
         '''
-        :param words: Words or phrases defining the dictionary. The dictionary must contain at least one phrase and every phrase must contain at least 2 characters that are letters or digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#words DataLossPreventionInspectTemplate#words}
+        :param words: Words or phrases defining the dictionary. The dictionary must contain at least one phrase and every phrase must contain at least 2 characters that are letters or digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#words DataLossPreventionInspectTemplate#words}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDictionaryWordListStruct(
             words=words
@@ -4755,7 +4755,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDic
 class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDictionaryWordListStruct:
     def __init__(self, *, words: typing.Sequence[builtins.str]) -> None:
         '''
-        :param words: Words or phrases defining the dictionary. The dictionary must contain at least one phrase and every phrase must contain at least 2 characters that are letters or digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#words DataLossPreventionInspectTemplate#words}
+        :param words: Words or phrases defining the dictionary. The dictionary must contain at least one phrase and every phrase must contain at least 2 characters that are letters or digits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#words DataLossPreventionInspectTemplate#words}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8a75eeacd25a7c986597b4211a04b1e2ccd4f88fc8845964b5a0c121610bc648)
@@ -4771,7 +4771,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDic
         The dictionary must contain at least one
         phrase and every phrase must contain at least 2 characters that are letters or digits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#words DataLossPreventionInspectTemplate#words}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#words DataLossPreventionInspectTemplate#words}
         '''
         result = self._values.get("words")
         assert result is not None, "Required property 'words' is missing"
@@ -4857,8 +4857,8 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
         proximity: typing.Union["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeByHotwordProximity", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param hotword_regex: hotword_regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#hotword_regex DataLossPreventionInspectTemplate#hotword_regex}
-        :param proximity: proximity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#proximity DataLossPreventionInspectTemplate#proximity}
+        :param hotword_regex: hotword_regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#hotword_regex DataLossPreventionInspectTemplate#hotword_regex}
+        :param proximity: proximity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#proximity DataLossPreventionInspectTemplate#proximity}
         '''
         if isinstance(hotword_regex, dict):
             hotword_regex = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeByHotwordHotwordRegex(**hotword_regex)
@@ -4879,7 +4879,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
     ) -> "DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeByHotwordHotwordRegex":
         '''hotword_regex block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#hotword_regex DataLossPreventionInspectTemplate#hotword_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#hotword_regex DataLossPreventionInspectTemplate#hotword_regex}
         '''
         result = self._values.get("hotword_regex")
         assert result is not None, "Required property 'hotword_regex' is missing"
@@ -4891,7 +4891,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
     ) -> "DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeByHotwordProximity":
         '''proximity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#proximity DataLossPreventionInspectTemplate#proximity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#proximity DataLossPreventionInspectTemplate#proximity}
         '''
         result = self._values.get("proximity")
         assert result is not None, "Required property 'proximity' is missing"
@@ -4922,8 +4922,8 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
         group_indexes: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
-        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
+        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
+        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__398b33a52a65c13850d746f7a1659eef1fe401aa4214406a1081d0e15a7ad436)
@@ -4939,7 +4939,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
     def pattern(self) -> builtins.str:
         '''Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
         '''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
@@ -4952,7 +4952,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
         When not specified,
         the entire match is returned. No more than 3 may be included.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
         '''
         result = self._values.get("group_indexes")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -5073,8 +5073,8 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
         group_indexes: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
-        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
+        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
+        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeByHotwordHotwordRegex(
             pattern=pattern, group_indexes=group_indexes
@@ -5090,8 +5090,8 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
         window_before: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param window_after: Number of characters after the finding to consider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#window_after DataLossPreventionInspectTemplate#window_after}
-        :param window_before: Number of characters before the finding to consider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#window_before DataLossPreventionInspectTemplate#window_before}
+        :param window_after: Number of characters after the finding to consider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#window_after DataLossPreventionInspectTemplate#window_after}
+        :param window_before: Number of characters before the finding to consider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#window_before DataLossPreventionInspectTemplate#window_before}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeByHotwordProximity(
             window_after=window_after, window_before=window_before
@@ -5158,8 +5158,8 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
         window_before: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param window_after: Number of characters after the finding to consider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#window_after DataLossPreventionInspectTemplate#window_after}
-        :param window_before: Number of characters before the finding to consider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#window_before DataLossPreventionInspectTemplate#window_before}
+        :param window_after: Number of characters after the finding to consider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#window_after DataLossPreventionInspectTemplate#window_after}
+        :param window_before: Number of characters before the finding to consider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#window_before DataLossPreventionInspectTemplate#window_before}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a5f306ea74c4bedf4880aa5ebc1638db706296e6cdbca7d9e97d21429580440b)
@@ -5175,7 +5175,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
     def window_after(self) -> typing.Optional[jsii.Number]:
         '''Number of characters after the finding to consider.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#window_after DataLossPreventionInspectTemplate#window_after}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#window_after DataLossPreventionInspectTemplate#window_after}
         '''
         result = self._values.get("window_after")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5184,7 +5184,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
     def window_before(self) -> typing.Optional[jsii.Number]:
         '''Number of characters before the finding to consider.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#window_before DataLossPreventionInspectTemplate#window_before}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#window_before DataLossPreventionInspectTemplate#window_before}
         '''
         result = self._values.get("window_before")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5293,7 +5293,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
         info_types: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypesInfoTypes", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#info_types DataLossPreventionInspectTemplate#info_types}
+        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#info_types DataLossPreventionInspectTemplate#info_types}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0eea1f4c158818d6adcf8bc9084720a8b79cbe9c1b9aa8e2359a0a2e6653458e)
@@ -5308,7 +5308,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypesInfoTypes"]]:
         '''info_types block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#info_types DataLossPreventionInspectTemplate#info_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#info_types DataLossPreventionInspectTemplate#info_types}
         '''
         result = self._values.get("info_types")
         assert result is not None, "Required property 'info_types' is missing"
@@ -5344,9 +5344,9 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
-        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
-        :param version: Version name for this InfoType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
+        :param name: Name of the information type. Either a name of your choosing when creating a CustomInfoType, or one of the names listed at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
+        :param sensitivity_score: sensitivity_score block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
+        :param version: Version name for this InfoType. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
         '''
         if isinstance(sensitivity_score, dict):
             sensitivity_score = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypesInfoTypesSensitivityScore(**sensitivity_score)
@@ -5370,7 +5370,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
         Either a name of your choosing when creating a CustomInfoType, or one of the names listed
         at https://cloud.google.com/dlp/docs/infotypes-reference when specifying a built-in type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#name DataLossPreventionInspectTemplate#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -5382,7 +5382,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
     ) -> typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypesInfoTypesSensitivityScore"]:
         '''sensitivity_score block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#sensitivity_score DataLossPreventionInspectTemplate#sensitivity_score}
         '''
         result = self._values.get("sensitivity_score")
         return typing.cast(typing.Optional["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypesInfoTypesSensitivityScore"], result)
@@ -5391,7 +5391,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
     def version(self) -> typing.Optional[builtins.str]:
         '''Version name for this InfoType.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#version DataLossPreventionInspectTemplate#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5530,7 +5530,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
     @jsii.member(jsii_name="putSensitivityScore")
     def put_sensitivity_score(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypesInfoTypesSensitivityScore(
             score=score
@@ -5620,7 +5620,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
 class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypesInfoTypesSensitivityScore:
     def __init__(self, *, score: builtins.str) -> None:
         '''
-        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
+        :param score: The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1da6c1e6d7c5a86c7cb6682654243e6b68e7ab3cd6165a84c8d84d162924d168)
@@ -5633,7 +5633,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExc
     def score(self) -> builtins.str:
         '''The sensitivity score applied to the resource. Possible values: ["SENSITIVITY_LOW", "SENSITIVITY_MODERATE", "SENSITIVITY_HIGH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#score DataLossPreventionInspectTemplate#score}
         '''
         result = self._values.get("score")
         assert result is not None, "Required property 'score' is missing"
@@ -5799,8 +5799,8 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleOut
         word_list: typing.Optional[typing.Union[DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDictionaryWordListStruct, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloud_storage_path: cloud_storage_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#cloud_storage_path DataLossPreventionInspectTemplate#cloud_storage_path}
-        :param word_list: word_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#word_list DataLossPreventionInspectTemplate#word_list}
+        :param cloud_storage_path: cloud_storage_path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#cloud_storage_path DataLossPreventionInspectTemplate#cloud_storage_path}
+        :param word_list: word_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#word_list DataLossPreventionInspectTemplate#word_list}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleDictionary(
             cloud_storage_path=cloud_storage_path, word_list=word_list
@@ -5816,8 +5816,8 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleOut
         proximity: typing.Union[DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeByHotwordProximity, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param hotword_regex: hotword_regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#hotword_regex DataLossPreventionInspectTemplate#hotword_regex}
-        :param proximity: proximity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#proximity DataLossPreventionInspectTemplate#proximity}
+        :param hotword_regex: hotword_regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#hotword_regex DataLossPreventionInspectTemplate#hotword_regex}
+        :param proximity: proximity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#proximity DataLossPreventionInspectTemplate#proximity}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeByHotword(
             hotword_regex=hotword_regex, proximity=proximity
@@ -5832,7 +5832,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleOut
         info_types: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypesInfoTypes, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#info_types DataLossPreventionInspectTemplate#info_types}
+        :param info_types: info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#info_types DataLossPreventionInspectTemplate#info_types}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleExcludeInfoTypes(
             info_types=info_types
@@ -5848,8 +5848,8 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleOut
         group_indexes: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
-        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
+        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
+        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleRegex(
             pattern=pattern, group_indexes=group_indexes
@@ -5977,8 +5977,8 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleReg
         group_indexes: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
-        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
+        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
+        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__889493a2bd31552349a16a8a08d6558efef5e4fa0a1cc659f69b0d9599a408a9)
@@ -5994,7 +5994,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleReg
     def pattern(self) -> builtins.str:
         '''Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
         '''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
@@ -6006,7 +6006,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleReg
 
         When not specified, the entire match is returned. No more than 3 may be included.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
         '''
         result = self._values.get("group_indexes")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -6117,9 +6117,9 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRule:
         proximity: typing.Union["DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleProximity", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param hotword_regex: hotword_regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#hotword_regex DataLossPreventionInspectTemplate#hotword_regex}
-        :param likelihood_adjustment: likelihood_adjustment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#likelihood_adjustment DataLossPreventionInspectTemplate#likelihood_adjustment}
-        :param proximity: proximity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#proximity DataLossPreventionInspectTemplate#proximity}
+        :param hotword_regex: hotword_regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#hotword_regex DataLossPreventionInspectTemplate#hotword_regex}
+        :param likelihood_adjustment: likelihood_adjustment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#likelihood_adjustment DataLossPreventionInspectTemplate#likelihood_adjustment}
+        :param proximity: proximity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#proximity DataLossPreventionInspectTemplate#proximity}
         '''
         if isinstance(hotword_regex, dict):
             hotword_regex = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleHotwordRegex(**hotword_regex)
@@ -6144,7 +6144,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRule:
     ) -> "DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleHotwordRegex":
         '''hotword_regex block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#hotword_regex DataLossPreventionInspectTemplate#hotword_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#hotword_regex DataLossPreventionInspectTemplate#hotword_regex}
         '''
         result = self._values.get("hotword_regex")
         assert result is not None, "Required property 'hotword_regex' is missing"
@@ -6156,7 +6156,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRule:
     ) -> "DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleLikelihoodAdjustment":
         '''likelihood_adjustment block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#likelihood_adjustment DataLossPreventionInspectTemplate#likelihood_adjustment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#likelihood_adjustment DataLossPreventionInspectTemplate#likelihood_adjustment}
         '''
         result = self._values.get("likelihood_adjustment")
         assert result is not None, "Required property 'likelihood_adjustment' is missing"
@@ -6168,7 +6168,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRule:
     ) -> "DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleProximity":
         '''proximity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#proximity DataLossPreventionInspectTemplate#proximity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#proximity DataLossPreventionInspectTemplate#proximity}
         '''
         result = self._values.get("proximity")
         assert result is not None, "Required property 'proximity' is missing"
@@ -6199,8 +6199,8 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleHotwo
         group_indexes: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
-        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
+        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
+        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__35e97d0c4e64cddce4ad0dd8a30469462e1b9ed95e37142e970e9c375a4851d9)
@@ -6216,7 +6216,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleHotwo
     def pattern(self) -> builtins.str:
         '''Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
         '''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
@@ -6229,7 +6229,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleHotwo
         When not specified,
         the entire match is returned. No more than 3 may be included.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
         '''
         result = self._values.get("group_indexes")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -6338,8 +6338,8 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleLikel
         relative_likelihood: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fixed_likelihood: Set the likelihood of a finding to a fixed value. Either this or relative_likelihood can be set. Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#fixed_likelihood DataLossPreventionInspectTemplate#fixed_likelihood}
-        :param relative_likelihood: Increase or decrease the likelihood by the specified number of levels. For example, if a finding would be POSSIBLE without the detection rule and relativeLikelihood is 1, then it is upgraded to LIKELY, while a value of -1 would downgrade it to UNLIKELY. Likelihood may never drop below VERY_UNLIKELY or exceed VERY_LIKELY, so applying an adjustment of 1 followed by an adjustment of -1 when base likelihood is VERY_LIKELY will result in a final likelihood of LIKELY. Either this or fixed_likelihood can be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#relative_likelihood DataLossPreventionInspectTemplate#relative_likelihood}
+        :param fixed_likelihood: Set the likelihood of a finding to a fixed value. Either this or relative_likelihood can be set. Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#fixed_likelihood DataLossPreventionInspectTemplate#fixed_likelihood}
+        :param relative_likelihood: Increase or decrease the likelihood by the specified number of levels. For example, if a finding would be POSSIBLE without the detection rule and relativeLikelihood is 1, then it is upgraded to LIKELY, while a value of -1 would downgrade it to UNLIKELY. Likelihood may never drop below VERY_UNLIKELY or exceed VERY_LIKELY, so applying an adjustment of 1 followed by an adjustment of -1 when base likelihood is VERY_LIKELY will result in a final likelihood of LIKELY. Either this or fixed_likelihood can be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#relative_likelihood DataLossPreventionInspectTemplate#relative_likelihood}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7d0b3556e8297f50ddcfeb7ba60de332d0a98f3ae456d008685e37f5f39732ad)
@@ -6357,7 +6357,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleLikel
 
         Either this or relative_likelihood can be set. Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#fixed_likelihood DataLossPreventionInspectTemplate#fixed_likelihood}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#fixed_likelihood DataLossPreventionInspectTemplate#fixed_likelihood}
         '''
         result = self._values.get("fixed_likelihood")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6373,7 +6373,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleLikel
         adjustment of 1 followed by an adjustment of -1 when base likelihood is VERY_LIKELY
         will result in a final likelihood of LIKELY. Either this or fixed_likelihood can be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#relative_likelihood DataLossPreventionInspectTemplate#relative_likelihood}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#relative_likelihood DataLossPreventionInspectTemplate#relative_likelihood}
         '''
         result = self._values.get("relative_likelihood")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6498,8 +6498,8 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleOutpu
         group_indexes: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
-        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
+        :param pattern: Pattern defining the regular expression. Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the google/re2 repository on GitHub. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#pattern DataLossPreventionInspectTemplate#pattern}
+        :param group_indexes: The index of the submatch to extract as findings. When not specified, the entire match is returned. No more than 3 may be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#group_indexes DataLossPreventionInspectTemplate#group_indexes}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleHotwordRegex(
             pattern=pattern, group_indexes=group_indexes
@@ -6515,8 +6515,8 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleOutpu
         relative_likelihood: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fixed_likelihood: Set the likelihood of a finding to a fixed value. Either this or relative_likelihood can be set. Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#fixed_likelihood DataLossPreventionInspectTemplate#fixed_likelihood}
-        :param relative_likelihood: Increase or decrease the likelihood by the specified number of levels. For example, if a finding would be POSSIBLE without the detection rule and relativeLikelihood is 1, then it is upgraded to LIKELY, while a value of -1 would downgrade it to UNLIKELY. Likelihood may never drop below VERY_UNLIKELY or exceed VERY_LIKELY, so applying an adjustment of 1 followed by an adjustment of -1 when base likelihood is VERY_LIKELY will result in a final likelihood of LIKELY. Either this or fixed_likelihood can be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#relative_likelihood DataLossPreventionInspectTemplate#relative_likelihood}
+        :param fixed_likelihood: Set the likelihood of a finding to a fixed value. Either this or relative_likelihood can be set. Possible values: ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE", "LIKELY", "VERY_LIKELY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#fixed_likelihood DataLossPreventionInspectTemplate#fixed_likelihood}
+        :param relative_likelihood: Increase or decrease the likelihood by the specified number of levels. For example, if a finding would be POSSIBLE without the detection rule and relativeLikelihood is 1, then it is upgraded to LIKELY, while a value of -1 would downgrade it to UNLIKELY. Likelihood may never drop below VERY_UNLIKELY or exceed VERY_LIKELY, so applying an adjustment of 1 followed by an adjustment of -1 when base likelihood is VERY_LIKELY will result in a final likelihood of LIKELY. Either this or fixed_likelihood can be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#relative_likelihood DataLossPreventionInspectTemplate#relative_likelihood}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleLikelihoodAdjustment(
             fixed_likelihood=fixed_likelihood, relative_likelihood=relative_likelihood
@@ -6532,8 +6532,8 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleOutpu
         window_before: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param window_after: Number of characters after the finding to consider. Either this or window_before must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#window_after DataLossPreventionInspectTemplate#window_after}
-        :param window_before: Number of characters before the finding to consider. Either this or window_after must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#window_before DataLossPreventionInspectTemplate#window_before}
+        :param window_after: Number of characters after the finding to consider. Either this or window_before must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#window_after DataLossPreventionInspectTemplate#window_after}
+        :param window_before: Number of characters before the finding to consider. Either this or window_after must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#window_before DataLossPreventionInspectTemplate#window_before}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleProximity(
             window_after=window_after, window_before=window_before
@@ -6614,8 +6614,8 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleProxi
         window_before: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param window_after: Number of characters after the finding to consider. Either this or window_before must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#window_after DataLossPreventionInspectTemplate#window_after}
-        :param window_before: Number of characters before the finding to consider. Either this or window_after must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#window_before DataLossPreventionInspectTemplate#window_before}
+        :param window_after: Number of characters after the finding to consider. Either this or window_before must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#window_after DataLossPreventionInspectTemplate#window_after}
+        :param window_before: Number of characters before the finding to consider. Either this or window_after must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#window_before DataLossPreventionInspectTemplate#window_before}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d481d3b2a51bdf294317f1608c37d999160adf3950fdaee8724355321dc03a72)
@@ -6631,7 +6631,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleProxi
     def window_after(self) -> typing.Optional[jsii.Number]:
         '''Number of characters after the finding to consider. Either this or window_before must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#window_after DataLossPreventionInspectTemplate#window_after}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#window_after DataLossPreventionInspectTemplate#window_after}
         '''
         result = self._values.get("window_after")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6640,7 +6640,7 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleProxi
     def window_before(self) -> typing.Optional[jsii.Number]:
         '''Number of characters before the finding to consider. Either this or window_after must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#window_before DataLossPreventionInspectTemplate#window_before}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#window_before DataLossPreventionInspectTemplate#window_before}
         '''
         result = self._values.get("window_before")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6867,11 +6867,11 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesOutputReference(
         regex: typing.Optional[typing.Union[DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRuleRegex, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param matching_type: How the rule is applied. See the documentation for more information: https://cloud.google.com/dlp/docs/reference/rest/v2/InspectConfig#MatchingType Possible values: ["MATCHING_TYPE_FULL_MATCH", "MATCHING_TYPE_PARTIAL_MATCH", "MATCHING_TYPE_INVERSE_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#matching_type DataLossPreventionInspectTemplate#matching_type}
-        :param dictionary: dictionary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#dictionary DataLossPreventionInspectTemplate#dictionary}
-        :param exclude_by_hotword: exclude_by_hotword block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#exclude_by_hotword DataLossPreventionInspectTemplate#exclude_by_hotword}
-        :param exclude_info_types: exclude_info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#exclude_info_types DataLossPreventionInspectTemplate#exclude_info_types}
-        :param regex: regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#regex DataLossPreventionInspectTemplate#regex}
+        :param matching_type: How the rule is applied. See the documentation for more information: https://cloud.google.com/dlp/docs/reference/rest/v2/InspectConfig#MatchingType Possible values: ["MATCHING_TYPE_FULL_MATCH", "MATCHING_TYPE_PARTIAL_MATCH", "MATCHING_TYPE_INVERSE_MATCH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#matching_type DataLossPreventionInspectTemplate#matching_type}
+        :param dictionary: dictionary block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#dictionary DataLossPreventionInspectTemplate#dictionary}
+        :param exclude_by_hotword: exclude_by_hotword block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#exclude_by_hotword DataLossPreventionInspectTemplate#exclude_by_hotword}
+        :param exclude_info_types: exclude_info_types block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#exclude_info_types DataLossPreventionInspectTemplate#exclude_info_types}
+        :param regex: regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#regex DataLossPreventionInspectTemplate#regex}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesExclusionRule(
             matching_type=matching_type,
@@ -6892,9 +6892,9 @@ class DataLossPreventionInspectTemplateInspectConfigRuleSetRulesOutputReference(
         proximity: typing.Union[DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRuleProximity, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param hotword_regex: hotword_regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#hotword_regex DataLossPreventionInspectTemplate#hotword_regex}
-        :param likelihood_adjustment: likelihood_adjustment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#likelihood_adjustment DataLossPreventionInspectTemplate#likelihood_adjustment}
-        :param proximity: proximity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#proximity DataLossPreventionInspectTemplate#proximity}
+        :param hotword_regex: hotword_regex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#hotword_regex DataLossPreventionInspectTemplate#hotword_regex}
+        :param likelihood_adjustment: likelihood_adjustment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#likelihood_adjustment DataLossPreventionInspectTemplate#likelihood_adjustment}
+        :param proximity: proximity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#proximity DataLossPreventionInspectTemplate#proximity}
         '''
         value = DataLossPreventionInspectTemplateInspectConfigRuleSetRulesHotwordRule(
             hotword_regex=hotword_regex,
@@ -6972,9 +6972,9 @@ class DataLossPreventionInspectTemplateTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#create DataLossPreventionInspectTemplate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#delete DataLossPreventionInspectTemplate#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#update DataLossPreventionInspectTemplate#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#create DataLossPreventionInspectTemplate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#delete DataLossPreventionInspectTemplate#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#update DataLossPreventionInspectTemplate#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__11bd95d1b00ce1e94d41ec6f50062e56599e50e30397f4f2ba62dacfcb505c64)
@@ -6991,19 +6991,19 @@ class DataLossPreventionInspectTemplateTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#create DataLossPreventionInspectTemplate#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#create DataLossPreventionInspectTemplate#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#delete DataLossPreventionInspectTemplate#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#delete DataLossPreventionInspectTemplate#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/data_loss_prevention_inspect_template#update DataLossPreventionInspectTemplate#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/data_loss_prevention_inspect_template#update DataLossPreventionInspectTemplate#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

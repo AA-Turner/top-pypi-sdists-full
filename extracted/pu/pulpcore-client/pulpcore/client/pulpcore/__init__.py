@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "3.76.1"
+__version__ = "3.77.0"
 
 # import apis into sdk package
 from pulpcore.client.pulpcore.api.access_policies_api import AccessPoliciesApi

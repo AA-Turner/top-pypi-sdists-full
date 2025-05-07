@@ -1,7 +1,7 @@
 r'''
 # `data_google_compute_addresses`
 
-Refer to the Terraform Registry for docs: [`data_google_compute_addresses`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_addresses).
+Refer to the Terraform Registry for docs: [`data_google_compute_addresses`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_addresses).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleComputeAddresses(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleComputeAddresses.DataGoogleComputeAddresses",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_addresses google_compute_addresses}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_addresses google_compute_addresses}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataGoogleComputeAddresses(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_addresses google_compute_addresses} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_addresses google_compute_addresses} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filter: Filter sets the optional parameter "filter": A filter expression that filters resources listed in the response. The expression must specify the field name, an operator, and the value that you want to use for filtering. The value must be a string, a number, or a boolean. The operator must be either "=", "!=", ">", "<", "<=", ">=" or ":". For example, if you are filtering Compute Engine instances, you can exclude instances named "example-instance" by specifying "name != example-instance". The ":" operator can be used with string fields to match substrings. For non-string fields it is equivalent to the "=" operator. The ":*" comparison can be used to test whether a key has been defined. For example, to find all objects with "owner" label use: """ labels.owner:* """ You can also filter nested fields. For example, you could specify "scheduling.automaticRestart = false" to include instances only if they are not scheduled for automatic restarts. You can use filtering on nested fields to filter based on resource labels. To filter on multiple expressions, provide each separate expression within parentheses. For example: """ (scheduling.automaticRestart = true) (cpuPlatform = "Intel Skylake") """ By default, each expression is an "AND" expression. However, you can include "AND" and "OR" expressions explicitly. For example: """ (cpuPlatform = "Intel Skylake") OR (cpuPlatform = "Intel Broadwell") AND (scheduling.automaticRestart = true) """ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_addresses#filter DataGoogleComputeAddresses#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_addresses#id DataGoogleComputeAddresses#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The google project in which addresses are listed. Defaults to provider's configuration if missing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_addresses#project DataGoogleComputeAddresses#project}
-        :param region: Region that should be considered to search addresses. All regions are considered if missing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_addresses#region DataGoogleComputeAddresses#region}
+        :param filter: Filter sets the optional parameter "filter": A filter expression that filters resources listed in the response. The expression must specify the field name, an operator, and the value that you want to use for filtering. The value must be a string, a number, or a boolean. The operator must be either "=", "!=", ">", "<", "<=", ">=" or ":". For example, if you are filtering Compute Engine instances, you can exclude instances named "example-instance" by specifying "name != example-instance". The ":" operator can be used with string fields to match substrings. For non-string fields it is equivalent to the "=" operator. The ":*" comparison can be used to test whether a key has been defined. For example, to find all objects with "owner" label use: """ labels.owner:* """ You can also filter nested fields. For example, you could specify "scheduling.automaticRestart = false" to include instances only if they are not scheduled for automatic restarts. You can use filtering on nested fields to filter based on resource labels. To filter on multiple expressions, provide each separate expression within parentheses. For example: """ (scheduling.automaticRestart = true) (cpuPlatform = "Intel Skylake") """ By default, each expression is an "AND" expression. However, you can include "AND" and "OR" expressions explicitly. For example: """ (cpuPlatform = "Intel Skylake") OR (cpuPlatform = "Intel Broadwell") AND (scheduling.automaticRestart = true) """ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_addresses#filter DataGoogleComputeAddresses#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_addresses#id DataGoogleComputeAddresses#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The google project in which addresses are listed. Defaults to provider's configuration if missing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_addresses#project DataGoogleComputeAddresses#project}
+        :param region: Region that should be considered to search addresses. All regions are considered if missing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_addresses#region DataGoogleComputeAddresses#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataGoogleComputeAddresses(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleComputeAddresses to import.
-        :param import_from_id: The id of the existing DataGoogleComputeAddresses that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_addresses#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleComputeAddresses that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_addresses#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleComputeAddresses to import is found.
         '''
         if __debug__:
@@ -441,10 +441,10 @@ class DataGoogleComputeAddressesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filter: Filter sets the optional parameter "filter": A filter expression that filters resources listed in the response. The expression must specify the field name, an operator, and the value that you want to use for filtering. The value must be a string, a number, or a boolean. The operator must be either "=", "!=", ">", "<", "<=", ">=" or ":". For example, if you are filtering Compute Engine instances, you can exclude instances named "example-instance" by specifying "name != example-instance". The ":" operator can be used with string fields to match substrings. For non-string fields it is equivalent to the "=" operator. The ":*" comparison can be used to test whether a key has been defined. For example, to find all objects with "owner" label use: """ labels.owner:* """ You can also filter nested fields. For example, you could specify "scheduling.automaticRestart = false" to include instances only if they are not scheduled for automatic restarts. You can use filtering on nested fields to filter based on resource labels. To filter on multiple expressions, provide each separate expression within parentheses. For example: """ (scheduling.automaticRestart = true) (cpuPlatform = "Intel Skylake") """ By default, each expression is an "AND" expression. However, you can include "AND" and "OR" expressions explicitly. For example: """ (cpuPlatform = "Intel Skylake") OR (cpuPlatform = "Intel Broadwell") AND (scheduling.automaticRestart = true) """ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_addresses#filter DataGoogleComputeAddresses#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_addresses#id DataGoogleComputeAddresses#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The google project in which addresses are listed. Defaults to provider's configuration if missing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_addresses#project DataGoogleComputeAddresses#project}
-        :param region: Region that should be considered to search addresses. All regions are considered if missing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_addresses#region DataGoogleComputeAddresses#region}
+        :param filter: Filter sets the optional parameter "filter": A filter expression that filters resources listed in the response. The expression must specify the field name, an operator, and the value that you want to use for filtering. The value must be a string, a number, or a boolean. The operator must be either "=", "!=", ">", "<", "<=", ">=" or ":". For example, if you are filtering Compute Engine instances, you can exclude instances named "example-instance" by specifying "name != example-instance". The ":" operator can be used with string fields to match substrings. For non-string fields it is equivalent to the "=" operator. The ":*" comparison can be used to test whether a key has been defined. For example, to find all objects with "owner" label use: """ labels.owner:* """ You can also filter nested fields. For example, you could specify "scheduling.automaticRestart = false" to include instances only if they are not scheduled for automatic restarts. You can use filtering on nested fields to filter based on resource labels. To filter on multiple expressions, provide each separate expression within parentheses. For example: """ (scheduling.automaticRestart = true) (cpuPlatform = "Intel Skylake") """ By default, each expression is an "AND" expression. However, you can include "AND" and "OR" expressions explicitly. For example: """ (cpuPlatform = "Intel Skylake") OR (cpuPlatform = "Intel Broadwell") AND (scheduling.automaticRestart = true) """ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_addresses#filter DataGoogleComputeAddresses#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_addresses#id DataGoogleComputeAddresses#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The google project in which addresses are listed. Defaults to provider's configuration if missing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_addresses#project DataGoogleComputeAddresses#project}
+        :param region: Region that should be considered to search addresses. All regions are considered if missing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_addresses#region DataGoogleComputeAddresses#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -575,14 +575,14 @@ class DataGoogleComputeAddressesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         (cpuPlatform = "Intel Skylake") OR (cpuPlatform = "Intel Broadwell")
         AND (scheduling.automaticRestart = true) """
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_addresses#filter DataGoogleComputeAddresses#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_addresses#filter DataGoogleComputeAddresses#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_addresses#id DataGoogleComputeAddresses#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_addresses#id DataGoogleComputeAddresses#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -594,7 +594,7 @@ class DataGoogleComputeAddressesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''The google project in which addresses are listed. Defaults to provider's configuration if missing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_addresses#project DataGoogleComputeAddresses#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_addresses#project DataGoogleComputeAddresses#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -603,7 +603,7 @@ class DataGoogleComputeAddressesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region that should be considered to search addresses. All regions are considered if missing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/data-sources/compute_addresses#region DataGoogleComputeAddresses#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/data-sources/compute_addresses#region DataGoogleComputeAddresses#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)

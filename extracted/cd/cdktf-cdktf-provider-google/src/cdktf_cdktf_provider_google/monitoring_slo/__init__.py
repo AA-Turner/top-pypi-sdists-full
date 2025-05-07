@@ -1,7 +1,7 @@
 r'''
 # `google_monitoring_slo`
 
-Refer to the Terraform Registry for docs: [`google_monitoring_slo`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo).
+Refer to the Terraform Registry for docs: [`google_monitoring_slo`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MonitoringSlo(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.monitoringSlo.MonitoringSlo",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo google_monitoring_slo}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo google_monitoring_slo}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class MonitoringSlo(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo google_monitoring_slo} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo google_monitoring_slo} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param goal: The fraction of service that must be good in order for this objective to be met. 0 < goal <= 0.999 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#goal MonitoringSlo#goal}
-        :param service: ID of the service to which this SLO belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#service MonitoringSlo#service}
-        :param basic_sli: basic_sli block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#basic_sli MonitoringSlo#basic_sli}
-        :param calendar_period: A calendar period, semantically "since the start of the current ". Possible values: ["DAY", "WEEK", "FORTNIGHT", "MONTH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#calendar_period MonitoringSlo#calendar_period}
-        :param display_name: Name used for UI elements listing this SLO. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#display_name MonitoringSlo#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#id MonitoringSlo#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#project MonitoringSlo#project}.
-        :param request_based_sli: request_based_sli block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#request_based_sli MonitoringSlo#request_based_sli}
-        :param rolling_period_days: A rolling time period, semantically "in the past X days". Must be between 1 to 30 days, inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#rolling_period_days MonitoringSlo#rolling_period_days}
-        :param slo_id: The id to use for this ServiceLevelObjective. If omitted, an id will be generated instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#slo_id MonitoringSlo#slo_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#timeouts MonitoringSlo#timeouts}
-        :param user_labels: This field is intended to be used for organizing and identifying the AlertPolicy objects.The field can contain up to 64 entries. Each key and value is limited to 63 Unicode characters or 128 bytes, whichever is smaller. Labels and values can contain only lowercase letters, numerals, underscores, and dashes. Keys must begin with a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#user_labels MonitoringSlo#user_labels}
-        :param windows_based_sli: windows_based_sli block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#windows_based_sli MonitoringSlo#windows_based_sli}
+        :param goal: The fraction of service that must be good in order for this objective to be met. 0 < goal <= 0.999 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#goal MonitoringSlo#goal}
+        :param service: ID of the service to which this SLO belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#service MonitoringSlo#service}
+        :param basic_sli: basic_sli block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#basic_sli MonitoringSlo#basic_sli}
+        :param calendar_period: A calendar period, semantically "since the start of the current ". Possible values: ["DAY", "WEEK", "FORTNIGHT", "MONTH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#calendar_period MonitoringSlo#calendar_period}
+        :param display_name: Name used for UI elements listing this SLO. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#display_name MonitoringSlo#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#id MonitoringSlo#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#project MonitoringSlo#project}.
+        :param request_based_sli: request_based_sli block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#request_based_sli MonitoringSlo#request_based_sli}
+        :param rolling_period_days: A rolling time period, semantically "in the past X days". Must be between 1 to 30 days, inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#rolling_period_days MonitoringSlo#rolling_period_days}
+        :param slo_id: The id to use for this ServiceLevelObjective. If omitted, an id will be generated instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#slo_id MonitoringSlo#slo_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#timeouts MonitoringSlo#timeouts}
+        :param user_labels: This field is intended to be used for organizing and identifying the AlertPolicy objects.The field can contain up to 64 entries. Each key and value is limited to 63 Unicode characters or 128 bytes, whichever is smaller. Labels and values can contain only lowercase letters, numerals, underscores, and dashes. Keys must begin with a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#user_labels MonitoringSlo#user_labels}
+        :param windows_based_sli: windows_based_sli block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#windows_based_sli MonitoringSlo#windows_based_sli}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class MonitoringSlo(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MonitoringSlo to import.
-        :param import_from_id: The id of the existing MonitoringSlo that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MonitoringSlo that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MonitoringSlo to import is found.
         '''
         if __debug__:
@@ -161,11 +161,11 @@ class MonitoringSlo(
         version: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param availability: availability block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#availability MonitoringSlo#availability}
-        :param latency: latency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#latency MonitoringSlo#latency}
-        :param location: An optional set of locations to which this SLI is relevant. Telemetry from other locations will not be used to calculate performance for this SLI. If omitted, this SLI applies to all locations in which the Service has activity. For service types that don't support breaking down by location, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#location MonitoringSlo#location}
-        :param method: An optional set of RPCs to which this SLI is relevant. Telemetry from other methods will not be used to calculate performance for this SLI. If omitted, this SLI applies to all the Service's methods. For service types that don't support breaking down by method, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#method MonitoringSlo#method}
-        :param version: The set of API versions to which this SLI is relevant. Telemetry from other API versions will not be used to calculate performance for this SLI. If omitted, this SLI applies to all API versions. For service types that don't support breaking down by version, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#version MonitoringSlo#version}
+        :param availability: availability block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#availability MonitoringSlo#availability}
+        :param latency: latency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#latency MonitoringSlo#latency}
+        :param location: An optional set of locations to which this SLI is relevant. Telemetry from other locations will not be used to calculate performance for this SLI. If omitted, this SLI applies to all locations in which the Service has activity. For service types that don't support breaking down by location, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#location MonitoringSlo#location}
+        :param method: An optional set of RPCs to which this SLI is relevant. Telemetry from other methods will not be used to calculate performance for this SLI. If omitted, this SLI applies to all the Service's methods. For service types that don't support breaking down by method, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#method MonitoringSlo#method}
+        :param version: The set of API versions to which this SLI is relevant. Telemetry from other API versions will not be used to calculate performance for this SLI. If omitted, this SLI applies to all API versions. For service types that don't support breaking down by version, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#version MonitoringSlo#version}
         '''
         value = MonitoringSloBasicSli(
             availability=availability,
@@ -185,8 +185,8 @@ class MonitoringSlo(
         good_total_ratio: typing.Optional[typing.Union["MonitoringSloRequestBasedSliGoodTotalRatio", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param distribution_cut: distribution_cut block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#distribution_cut MonitoringSlo#distribution_cut}
-        :param good_total_ratio: good_total_ratio block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#good_total_ratio MonitoringSlo#good_total_ratio}
+        :param distribution_cut: distribution_cut block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#distribution_cut MonitoringSlo#distribution_cut}
+        :param good_total_ratio: good_total_ratio block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#good_total_ratio MonitoringSlo#good_total_ratio}
         '''
         value = MonitoringSloRequestBasedSli(
             distribution_cut=distribution_cut, good_total_ratio=good_total_ratio
@@ -203,9 +203,9 @@ class MonitoringSlo(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#create MonitoringSlo#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#delete MonitoringSlo#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#update MonitoringSlo#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#create MonitoringSlo#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#delete MonitoringSlo#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#update MonitoringSlo#update}.
         '''
         value = MonitoringSloTimeouts(create=create, delete=delete, update=update)
 
@@ -222,11 +222,11 @@ class MonitoringSlo(
         window_period: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param good_bad_metric_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ with ValueType = BOOL. The window is good if any true values appear in the window. One of 'good_bad_metric_filter', 'good_total_ratio_threshold', 'metric_mean_in_range', 'metric_sum_in_range' must be set for 'windows_based_sli'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#good_bad_metric_filter MonitoringSlo#good_bad_metric_filter}
-        :param good_total_ratio_threshold: good_total_ratio_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#good_total_ratio_threshold MonitoringSlo#good_total_ratio_threshold}
-        :param metric_mean_in_range: metric_mean_in_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#metric_mean_in_range MonitoringSlo#metric_mean_in_range}
-        :param metric_sum_in_range: metric_sum_in_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#metric_sum_in_range MonitoringSlo#metric_sum_in_range}
-        :param window_period: Duration over which window quality is evaluated, given as a duration string "{X}s" representing X seconds. Must be an integer fraction of a day and at least 60s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#window_period MonitoringSlo#window_period}
+        :param good_bad_metric_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ with ValueType = BOOL. The window is good if any true values appear in the window. One of 'good_bad_metric_filter', 'good_total_ratio_threshold', 'metric_mean_in_range', 'metric_sum_in_range' must be set for 'windows_based_sli'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#good_bad_metric_filter MonitoringSlo#good_bad_metric_filter}
+        :param good_total_ratio_threshold: good_total_ratio_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#good_total_ratio_threshold MonitoringSlo#good_total_ratio_threshold}
+        :param metric_mean_in_range: metric_mean_in_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#metric_mean_in_range MonitoringSlo#metric_mean_in_range}
+        :param metric_sum_in_range: metric_sum_in_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#metric_sum_in_range MonitoringSlo#metric_sum_in_range}
+        :param window_period: Duration over which window quality is evaluated, given as a duration string "{X}s" representing X seconds. Must be an integer fraction of a day and at least 60s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#window_period MonitoringSlo#window_period}
         '''
         value = MonitoringSloWindowsBasedSli(
             good_bad_metric_filter=good_bad_metric_filter,
@@ -524,11 +524,11 @@ class MonitoringSloBasicSli:
         version: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param availability: availability block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#availability MonitoringSlo#availability}
-        :param latency: latency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#latency MonitoringSlo#latency}
-        :param location: An optional set of locations to which this SLI is relevant. Telemetry from other locations will not be used to calculate performance for this SLI. If omitted, this SLI applies to all locations in which the Service has activity. For service types that don't support breaking down by location, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#location MonitoringSlo#location}
-        :param method: An optional set of RPCs to which this SLI is relevant. Telemetry from other methods will not be used to calculate performance for this SLI. If omitted, this SLI applies to all the Service's methods. For service types that don't support breaking down by method, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#method MonitoringSlo#method}
-        :param version: The set of API versions to which this SLI is relevant. Telemetry from other API versions will not be used to calculate performance for this SLI. If omitted, this SLI applies to all API versions. For service types that don't support breaking down by version, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#version MonitoringSlo#version}
+        :param availability: availability block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#availability MonitoringSlo#availability}
+        :param latency: latency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#latency MonitoringSlo#latency}
+        :param location: An optional set of locations to which this SLI is relevant. Telemetry from other locations will not be used to calculate performance for this SLI. If omitted, this SLI applies to all locations in which the Service has activity. For service types that don't support breaking down by location, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#location MonitoringSlo#location}
+        :param method: An optional set of RPCs to which this SLI is relevant. Telemetry from other methods will not be used to calculate performance for this SLI. If omitted, this SLI applies to all the Service's methods. For service types that don't support breaking down by method, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#method MonitoringSlo#method}
+        :param version: The set of API versions to which this SLI is relevant. Telemetry from other API versions will not be used to calculate performance for this SLI. If omitted, this SLI applies to all API versions. For service types that don't support breaking down by version, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#version MonitoringSlo#version}
         '''
         if isinstance(availability, dict):
             availability = MonitoringSloBasicSliAvailability(**availability)
@@ -557,7 +557,7 @@ class MonitoringSloBasicSli:
     def availability(self) -> typing.Optional["MonitoringSloBasicSliAvailability"]:
         '''availability block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#availability MonitoringSlo#availability}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#availability MonitoringSlo#availability}
         '''
         result = self._values.get("availability")
         return typing.cast(typing.Optional["MonitoringSloBasicSliAvailability"], result)
@@ -566,7 +566,7 @@ class MonitoringSloBasicSli:
     def latency(self) -> typing.Optional["MonitoringSloBasicSliLatency"]:
         '''latency block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#latency MonitoringSlo#latency}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#latency MonitoringSlo#latency}
         '''
         result = self._values.get("latency")
         return typing.cast(typing.Optional["MonitoringSloBasicSliLatency"], result)
@@ -581,7 +581,7 @@ class MonitoringSloBasicSli:
         that don't support breaking down by location, setting this
         field will result in an error.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#location MonitoringSlo#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#location MonitoringSlo#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -596,7 +596,7 @@ class MonitoringSloBasicSli:
         breaking down by method, setting this field will result in an
         error.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#method MonitoringSlo#method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#method MonitoringSlo#method}
         '''
         result = self._values.get("method")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -611,7 +611,7 @@ class MonitoringSloBasicSli:
         that don't support breaking down by version, setting this
         field will result in an error.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#version MonitoringSlo#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#version MonitoringSlo#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -640,7 +640,7 @@ class MonitoringSloBasicSliAvailability:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Whether an availability SLI is enabled or not. Must be set to true. Defaults to 'true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#enabled MonitoringSlo#enabled}
+        :param enabled: Whether an availability SLI is enabled or not. Must be set to true. Defaults to 'true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#enabled MonitoringSlo#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__47e95fd062f3c2da8ce7524a2c46ce75ef6789f9afa30bcba0495061a9c77802)
@@ -655,7 +655,7 @@ class MonitoringSloBasicSliAvailability:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether an availability SLI is enabled or not. Must be set to true. Defaults to 'true'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#enabled MonitoringSlo#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#enabled MonitoringSlo#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -742,7 +742,7 @@ class MonitoringSloBasicSliAvailabilityOutputReference(
 class MonitoringSloBasicSliLatency:
     def __init__(self, *, threshold: builtins.str) -> None:
         '''
-        :param threshold: A duration string, e.g. 10s. Good service is defined to be the count of requests made to this service that return in no more than threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#threshold MonitoringSlo#threshold}
+        :param threshold: A duration string, e.g. 10s. Good service is defined to be the count of requests made to this service that return in no more than threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#threshold MonitoringSlo#threshold}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__61da1433c687348106428e6099b255da5a7a9a7587af61765d79190fdb7a19d9)
@@ -755,7 +755,7 @@ class MonitoringSloBasicSliLatency:
     def threshold(self) -> builtins.str:
         '''A duration string, e.g. 10s. Good service is defined to be the count of requests made to this service that return in no more than threshold.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#threshold MonitoringSlo#threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#threshold MonitoringSlo#threshold}
         '''
         result = self._values.get("threshold")
         assert result is not None, "Required property 'threshold' is missing"
@@ -853,7 +853,7 @@ class MonitoringSloBasicSliOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Whether an availability SLI is enabled or not. Must be set to true. Defaults to 'true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#enabled MonitoringSlo#enabled}
+        :param enabled: Whether an availability SLI is enabled or not. Must be set to true. Defaults to 'true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#enabled MonitoringSlo#enabled}
         '''
         value = MonitoringSloBasicSliAvailability(enabled=enabled)
 
@@ -862,7 +862,7 @@ class MonitoringSloBasicSliOutputReference(
     @jsii.member(jsii_name="putLatency")
     def put_latency(self, *, threshold: builtins.str) -> None:
         '''
-        :param threshold: A duration string, e.g. 10s. Good service is defined to be the count of requests made to this service that return in no more than threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#threshold MonitoringSlo#threshold}
+        :param threshold: A duration string, e.g. 10s. Good service is defined to be the count of requests made to this service that return in no more than threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#threshold MonitoringSlo#threshold}
         '''
         value = MonitoringSloBasicSliLatency(threshold=threshold)
 
@@ -1031,19 +1031,19 @@ class MonitoringSloConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param goal: The fraction of service that must be good in order for this objective to be met. 0 < goal <= 0.999 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#goal MonitoringSlo#goal}
-        :param service: ID of the service to which this SLO belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#service MonitoringSlo#service}
-        :param basic_sli: basic_sli block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#basic_sli MonitoringSlo#basic_sli}
-        :param calendar_period: A calendar period, semantically "since the start of the current ". Possible values: ["DAY", "WEEK", "FORTNIGHT", "MONTH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#calendar_period MonitoringSlo#calendar_period}
-        :param display_name: Name used for UI elements listing this SLO. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#display_name MonitoringSlo#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#id MonitoringSlo#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#project MonitoringSlo#project}.
-        :param request_based_sli: request_based_sli block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#request_based_sli MonitoringSlo#request_based_sli}
-        :param rolling_period_days: A rolling time period, semantically "in the past X days". Must be between 1 to 30 days, inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#rolling_period_days MonitoringSlo#rolling_period_days}
-        :param slo_id: The id to use for this ServiceLevelObjective. If omitted, an id will be generated instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#slo_id MonitoringSlo#slo_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#timeouts MonitoringSlo#timeouts}
-        :param user_labels: This field is intended to be used for organizing and identifying the AlertPolicy objects.The field can contain up to 64 entries. Each key and value is limited to 63 Unicode characters or 128 bytes, whichever is smaller. Labels and values can contain only lowercase letters, numerals, underscores, and dashes. Keys must begin with a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#user_labels MonitoringSlo#user_labels}
-        :param windows_based_sli: windows_based_sli block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#windows_based_sli MonitoringSlo#windows_based_sli}
+        :param goal: The fraction of service that must be good in order for this objective to be met. 0 < goal <= 0.999 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#goal MonitoringSlo#goal}
+        :param service: ID of the service to which this SLO belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#service MonitoringSlo#service}
+        :param basic_sli: basic_sli block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#basic_sli MonitoringSlo#basic_sli}
+        :param calendar_period: A calendar period, semantically "since the start of the current ". Possible values: ["DAY", "WEEK", "FORTNIGHT", "MONTH"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#calendar_period MonitoringSlo#calendar_period}
+        :param display_name: Name used for UI elements listing this SLO. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#display_name MonitoringSlo#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#id MonitoringSlo#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#project MonitoringSlo#project}.
+        :param request_based_sli: request_based_sli block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#request_based_sli MonitoringSlo#request_based_sli}
+        :param rolling_period_days: A rolling time period, semantically "in the past X days". Must be between 1 to 30 days, inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#rolling_period_days MonitoringSlo#rolling_period_days}
+        :param slo_id: The id to use for this ServiceLevelObjective. If omitted, an id will be generated instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#slo_id MonitoringSlo#slo_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#timeouts MonitoringSlo#timeouts}
+        :param user_labels: This field is intended to be used for organizing and identifying the AlertPolicy objects.The field can contain up to 64 entries. Each key and value is limited to 63 Unicode characters or 128 bytes, whichever is smaller. Labels and values can contain only lowercase letters, numerals, underscores, and dashes. Keys must begin with a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#user_labels MonitoringSlo#user_labels}
+        :param windows_based_sli: windows_based_sli block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#windows_based_sli MonitoringSlo#windows_based_sli}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1188,7 +1188,7 @@ class MonitoringSloConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         0 < goal <= 0.999
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#goal MonitoringSlo#goal}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#goal MonitoringSlo#goal}
         '''
         result = self._values.get("goal")
         assert result is not None, "Required property 'goal' is missing"
@@ -1198,7 +1198,7 @@ class MonitoringSloConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service(self) -> builtins.str:
         '''ID of the service to which this SLO belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#service MonitoringSlo#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#service MonitoringSlo#service}
         '''
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
@@ -1208,7 +1208,7 @@ class MonitoringSloConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def basic_sli(self) -> typing.Optional[MonitoringSloBasicSli]:
         '''basic_sli block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#basic_sli MonitoringSlo#basic_sli}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#basic_sli MonitoringSlo#basic_sli}
         '''
         result = self._values.get("basic_sli")
         return typing.cast(typing.Optional[MonitoringSloBasicSli], result)
@@ -1217,7 +1217,7 @@ class MonitoringSloConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def calendar_period(self) -> typing.Optional[builtins.str]:
         '''A calendar period, semantically "since the start of the current ". Possible values: ["DAY", "WEEK", "FORTNIGHT", "MONTH"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#calendar_period MonitoringSlo#calendar_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#calendar_period MonitoringSlo#calendar_period}
         '''
         result = self._values.get("calendar_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1226,14 +1226,14 @@ class MonitoringSloConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Name used for UI elements listing this SLO.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#display_name MonitoringSlo#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#display_name MonitoringSlo#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#id MonitoringSlo#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#id MonitoringSlo#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1243,7 +1243,7 @@ class MonitoringSloConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#project MonitoringSlo#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#project MonitoringSlo#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1251,7 +1251,7 @@ class MonitoringSloConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def request_based_sli(self) -> typing.Optional["MonitoringSloRequestBasedSli"]:
         '''request_based_sli block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#request_based_sli MonitoringSlo#request_based_sli}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#request_based_sli MonitoringSlo#request_based_sli}
         '''
         result = self._values.get("request_based_sli")
         return typing.cast(typing.Optional["MonitoringSloRequestBasedSli"], result)
@@ -1260,7 +1260,7 @@ class MonitoringSloConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def rolling_period_days(self) -> typing.Optional[jsii.Number]:
         '''A rolling time period, semantically "in the past X days". Must be between 1 to 30 days, inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#rolling_period_days MonitoringSlo#rolling_period_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#rolling_period_days MonitoringSlo#rolling_period_days}
         '''
         result = self._values.get("rolling_period_days")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1269,7 +1269,7 @@ class MonitoringSloConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def slo_id(self) -> typing.Optional[builtins.str]:
         '''The id to use for this ServiceLevelObjective. If omitted, an id will be generated instead.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#slo_id MonitoringSlo#slo_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#slo_id MonitoringSlo#slo_id}
         '''
         result = self._values.get("slo_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1278,7 +1278,7 @@ class MonitoringSloConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MonitoringSloTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#timeouts MonitoringSlo#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#timeouts MonitoringSlo#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MonitoringSloTimeouts"], result)
@@ -1289,7 +1289,7 @@ class MonitoringSloConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''This field is intended to be used for organizing and identifying the AlertPolicy objects.The field can contain up to 64 entries. Each key and value is limited to 63 Unicode characters or 128 bytes, whichever is smaller. Labels and values can contain only lowercase letters, numerals, underscores, and dashes. Keys must begin with a letter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#user_labels MonitoringSlo#user_labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#user_labels MonitoringSlo#user_labels}
         '''
         result = self._values.get("user_labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1298,7 +1298,7 @@ class MonitoringSloConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def windows_based_sli(self) -> typing.Optional["MonitoringSloWindowsBasedSli"]:
         '''windows_based_sli block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#windows_based_sli MonitoringSlo#windows_based_sli}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#windows_based_sli MonitoringSlo#windows_based_sli}
         '''
         result = self._values.get("windows_based_sli")
         return typing.cast(typing.Optional["MonitoringSloWindowsBasedSli"], result)
@@ -1331,8 +1331,8 @@ class MonitoringSloRequestBasedSli:
         good_total_ratio: typing.Optional[typing.Union["MonitoringSloRequestBasedSliGoodTotalRatio", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param distribution_cut: distribution_cut block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#distribution_cut MonitoringSlo#distribution_cut}
-        :param good_total_ratio: good_total_ratio block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#good_total_ratio MonitoringSlo#good_total_ratio}
+        :param distribution_cut: distribution_cut block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#distribution_cut MonitoringSlo#distribution_cut}
+        :param good_total_ratio: good_total_ratio block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#good_total_ratio MonitoringSlo#good_total_ratio}
         '''
         if isinstance(distribution_cut, dict):
             distribution_cut = MonitoringSloRequestBasedSliDistributionCut(**distribution_cut)
@@ -1354,7 +1354,7 @@ class MonitoringSloRequestBasedSli:
     ) -> typing.Optional["MonitoringSloRequestBasedSliDistributionCut"]:
         '''distribution_cut block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#distribution_cut MonitoringSlo#distribution_cut}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#distribution_cut MonitoringSlo#distribution_cut}
         '''
         result = self._values.get("distribution_cut")
         return typing.cast(typing.Optional["MonitoringSloRequestBasedSliDistributionCut"], result)
@@ -1365,7 +1365,7 @@ class MonitoringSloRequestBasedSli:
     ) -> typing.Optional["MonitoringSloRequestBasedSliGoodTotalRatio"]:
         '''good_total_ratio block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#good_total_ratio MonitoringSlo#good_total_ratio}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#good_total_ratio MonitoringSlo#good_total_ratio}
         '''
         result = self._values.get("good_total_ratio")
         return typing.cast(typing.Optional["MonitoringSloRequestBasedSliGoodTotalRatio"], result)
@@ -1395,8 +1395,8 @@ class MonitoringSloRequestBasedSliDistributionCut:
         range: typing.Union["MonitoringSloRequestBasedSliDistributionCutRange", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param distribution_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ aggregating values to quantify the good service provided. Must have ValueType = DISTRIBUTION and MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#distribution_filter MonitoringSlo#distribution_filter}
-        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
+        :param distribution_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ aggregating values to quantify the good service provided. Must have ValueType = DISTRIBUTION and MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#distribution_filter MonitoringSlo#distribution_filter}
+        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
         '''
         if isinstance(range, dict):
             range = MonitoringSloRequestBasedSliDistributionCutRange(**range)
@@ -1416,7 +1416,7 @@ class MonitoringSloRequestBasedSliDistributionCut:
         Must have ValueType = DISTRIBUTION and
         MetricKind = DELTA or MetricKind = CUMULATIVE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#distribution_filter MonitoringSlo#distribution_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#distribution_filter MonitoringSlo#distribution_filter}
         '''
         result = self._values.get("distribution_filter")
         assert result is not None, "Required property 'distribution_filter' is missing"
@@ -1426,7 +1426,7 @@ class MonitoringSloRequestBasedSliDistributionCut:
     def range(self) -> "MonitoringSloRequestBasedSliDistributionCutRange":
         '''range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
         '''
         result = self._values.get("range")
         assert result is not None, "Required property 'range' is missing"
@@ -1472,8 +1472,8 @@ class MonitoringSloRequestBasedSliDistributionCutOutputReference(
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: max value for the range (inclusive). If not given, will be set to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
-        :param min: Min value for the range (inclusive). If not given, will be set to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
+        :param max: max value for the range (inclusive). If not given, will be set to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
+        :param min: Min value for the range (inclusive). If not given, will be set to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
         '''
         value = MonitoringSloRequestBasedSliDistributionCutRange(max=max, min=min)
 
@@ -1541,8 +1541,8 @@ class MonitoringSloRequestBasedSliDistributionCutRange:
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: max value for the range (inclusive). If not given, will be set to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
-        :param min: Min value for the range (inclusive). If not given, will be set to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
+        :param max: max value for the range (inclusive). If not given, will be set to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
+        :param min: Min value for the range (inclusive). If not given, will be set to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__28e9d5029a81bf6dc0c01362c78d0b0620d6d6683773bfedc8d0129eaae26568)
@@ -1558,7 +1558,7 @@ class MonitoringSloRequestBasedSliDistributionCutRange:
     def max(self) -> typing.Optional[jsii.Number]:
         '''max value for the range (inclusive). If not given, will be set to 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
         '''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1567,7 +1567,7 @@ class MonitoringSloRequestBasedSliDistributionCutRange:
     def min(self) -> typing.Optional[jsii.Number]:
         '''Min value for the range (inclusive). If not given, will be set to 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
         '''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1682,9 +1682,9 @@ class MonitoringSloRequestBasedSliGoodTotalRatio:
         total_service_filter: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bad_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying bad service provided, either demanded service that was not provided or demanded service that was of inadequate quality. Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Exactly two of 'good_service_filter','bad_service_filter','total_service_filter' must be set (good + bad = total is assumed). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#bad_service_filter MonitoringSlo#bad_service_filter}
-        :param good_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying good service provided. Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Exactly two of 'good_service_filter','bad_service_filter','total_service_filter' must be set (good + bad = total is assumed). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#good_service_filter MonitoringSlo#good_service_filter}
-        :param total_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying total demanded service. Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Exactly two of 'good_service_filter','bad_service_filter','total_service_filter' must be set (good + bad = total is assumed). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#total_service_filter MonitoringSlo#total_service_filter}
+        :param bad_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying bad service provided, either demanded service that was not provided or demanded service that was of inadequate quality. Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Exactly two of 'good_service_filter','bad_service_filter','total_service_filter' must be set (good + bad = total is assumed). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#bad_service_filter MonitoringSlo#bad_service_filter}
+        :param good_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying good service provided. Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Exactly two of 'good_service_filter','bad_service_filter','total_service_filter' must be set (good + bad = total is assumed). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#good_service_filter MonitoringSlo#good_service_filter}
+        :param total_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying total demanded service. Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Exactly two of 'good_service_filter','bad_service_filter','total_service_filter' must be set (good + bad = total is assumed). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#total_service_filter MonitoringSlo#total_service_filter}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4ed687ed0fbf28eb538bf4c02d97ee323ba0dc75e3ebe20c5544ff793dc3cff2)
@@ -1709,7 +1709,7 @@ class MonitoringSloRequestBasedSliGoodTotalRatio:
         Exactly two of 'good_service_filter','bad_service_filter','total_service_filter'
         must be set (good + bad = total is assumed).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#bad_service_filter MonitoringSlo#bad_service_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#bad_service_filter MonitoringSlo#bad_service_filter}
         '''
         result = self._values.get("bad_service_filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1721,7 +1721,7 @@ class MonitoringSloRequestBasedSliGoodTotalRatio:
         Exactly two of 'good_service_filter','bad_service_filter','total_service_filter'
         must be set (good + bad = total is assumed).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#good_service_filter MonitoringSlo#good_service_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#good_service_filter MonitoringSlo#good_service_filter}
         '''
         result = self._values.get("good_service_filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1736,7 +1736,7 @@ class MonitoringSloRequestBasedSliGoodTotalRatio:
         Exactly two of 'good_service_filter','bad_service_filter','total_service_filter'
         must be set (good + bad = total is assumed).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#total_service_filter MonitoringSlo#total_service_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#total_service_filter MonitoringSlo#total_service_filter}
         '''
         result = self._values.get("total_service_filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1882,8 +1882,8 @@ class MonitoringSloRequestBasedSliOutputReference(
         range: typing.Union[MonitoringSloRequestBasedSliDistributionCutRange, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param distribution_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ aggregating values to quantify the good service provided. Must have ValueType = DISTRIBUTION and MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#distribution_filter MonitoringSlo#distribution_filter}
-        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
+        :param distribution_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ aggregating values to quantify the good service provided. Must have ValueType = DISTRIBUTION and MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#distribution_filter MonitoringSlo#distribution_filter}
+        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
         '''
         value = MonitoringSloRequestBasedSliDistributionCut(
             distribution_filter=distribution_filter, range=range
@@ -1900,9 +1900,9 @@ class MonitoringSloRequestBasedSliOutputReference(
         total_service_filter: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bad_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying bad service provided, either demanded service that was not provided or demanded service that was of inadequate quality. Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Exactly two of 'good_service_filter','bad_service_filter','total_service_filter' must be set (good + bad = total is assumed). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#bad_service_filter MonitoringSlo#bad_service_filter}
-        :param good_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying good service provided. Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Exactly two of 'good_service_filter','bad_service_filter','total_service_filter' must be set (good + bad = total is assumed). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#good_service_filter MonitoringSlo#good_service_filter}
-        :param total_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying total demanded service. Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Exactly two of 'good_service_filter','bad_service_filter','total_service_filter' must be set (good + bad = total is assumed). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#total_service_filter MonitoringSlo#total_service_filter}
+        :param bad_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying bad service provided, either demanded service that was not provided or demanded service that was of inadequate quality. Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Exactly two of 'good_service_filter','bad_service_filter','total_service_filter' must be set (good + bad = total is assumed). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#bad_service_filter MonitoringSlo#bad_service_filter}
+        :param good_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying good service provided. Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Exactly two of 'good_service_filter','bad_service_filter','total_service_filter' must be set (good + bad = total is assumed). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#good_service_filter MonitoringSlo#good_service_filter}
+        :param total_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying total demanded service. Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Exactly two of 'good_service_filter','bad_service_filter','total_service_filter' must be set (good + bad = total is assumed). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#total_service_filter MonitoringSlo#total_service_filter}
         '''
         value = MonitoringSloRequestBasedSliGoodTotalRatio(
             bad_service_filter=bad_service_filter,
@@ -1978,9 +1978,9 @@ class MonitoringSloTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#create MonitoringSlo#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#delete MonitoringSlo#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#update MonitoringSlo#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#create MonitoringSlo#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#delete MonitoringSlo#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#update MonitoringSlo#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__120f2bd4e2ffae44bd7ce2216e8935f923951ab5fdd23d05885ac6481a831cb2)
@@ -1997,19 +1997,19 @@ class MonitoringSloTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#create MonitoringSlo#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#create MonitoringSlo#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#delete MonitoringSlo#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#delete MonitoringSlo#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#update MonitoringSlo#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#update MonitoringSlo#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2148,11 +2148,11 @@ class MonitoringSloWindowsBasedSli:
         window_period: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param good_bad_metric_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ with ValueType = BOOL. The window is good if any true values appear in the window. One of 'good_bad_metric_filter', 'good_total_ratio_threshold', 'metric_mean_in_range', 'metric_sum_in_range' must be set for 'windows_based_sli'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#good_bad_metric_filter MonitoringSlo#good_bad_metric_filter}
-        :param good_total_ratio_threshold: good_total_ratio_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#good_total_ratio_threshold MonitoringSlo#good_total_ratio_threshold}
-        :param metric_mean_in_range: metric_mean_in_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#metric_mean_in_range MonitoringSlo#metric_mean_in_range}
-        :param metric_sum_in_range: metric_sum_in_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#metric_sum_in_range MonitoringSlo#metric_sum_in_range}
-        :param window_period: Duration over which window quality is evaluated, given as a duration string "{X}s" representing X seconds. Must be an integer fraction of a day and at least 60s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#window_period MonitoringSlo#window_period}
+        :param good_bad_metric_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ with ValueType = BOOL. The window is good if any true values appear in the window. One of 'good_bad_metric_filter', 'good_total_ratio_threshold', 'metric_mean_in_range', 'metric_sum_in_range' must be set for 'windows_based_sli'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#good_bad_metric_filter MonitoringSlo#good_bad_metric_filter}
+        :param good_total_ratio_threshold: good_total_ratio_threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#good_total_ratio_threshold MonitoringSlo#good_total_ratio_threshold}
+        :param metric_mean_in_range: metric_mean_in_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#metric_mean_in_range MonitoringSlo#metric_mean_in_range}
+        :param metric_sum_in_range: metric_sum_in_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#metric_sum_in_range MonitoringSlo#metric_sum_in_range}
+        :param window_period: Duration over which window quality is evaluated, given as a duration string "{X}s" representing X seconds. Must be an integer fraction of a day and at least 60s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#window_period MonitoringSlo#window_period}
         '''
         if isinstance(good_total_ratio_threshold, dict):
             good_total_ratio_threshold = MonitoringSloWindowsBasedSliGoodTotalRatioThreshold(**good_total_ratio_threshold)
@@ -2183,7 +2183,7 @@ class MonitoringSloWindowsBasedSli:
     def good_bad_metric_filter(self) -> typing.Optional[builtins.str]:
         '''A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ with ValueType = BOOL. The window is good if any true values appear in the window. One of 'good_bad_metric_filter', 'good_total_ratio_threshold', 'metric_mean_in_range', 'metric_sum_in_range' must be set for 'windows_based_sli'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#good_bad_metric_filter MonitoringSlo#good_bad_metric_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#good_bad_metric_filter MonitoringSlo#good_bad_metric_filter}
         '''
         result = self._values.get("good_bad_metric_filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2194,7 +2194,7 @@ class MonitoringSloWindowsBasedSli:
     ) -> typing.Optional["MonitoringSloWindowsBasedSliGoodTotalRatioThreshold"]:
         '''good_total_ratio_threshold block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#good_total_ratio_threshold MonitoringSlo#good_total_ratio_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#good_total_ratio_threshold MonitoringSlo#good_total_ratio_threshold}
         '''
         result = self._values.get("good_total_ratio_threshold")
         return typing.cast(typing.Optional["MonitoringSloWindowsBasedSliGoodTotalRatioThreshold"], result)
@@ -2205,7 +2205,7 @@ class MonitoringSloWindowsBasedSli:
     ) -> typing.Optional["MonitoringSloWindowsBasedSliMetricMeanInRange"]:
         '''metric_mean_in_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#metric_mean_in_range MonitoringSlo#metric_mean_in_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#metric_mean_in_range MonitoringSlo#metric_mean_in_range}
         '''
         result = self._values.get("metric_mean_in_range")
         return typing.cast(typing.Optional["MonitoringSloWindowsBasedSliMetricMeanInRange"], result)
@@ -2216,7 +2216,7 @@ class MonitoringSloWindowsBasedSli:
     ) -> typing.Optional["MonitoringSloWindowsBasedSliMetricSumInRange"]:
         '''metric_sum_in_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#metric_sum_in_range MonitoringSlo#metric_sum_in_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#metric_sum_in_range MonitoringSlo#metric_sum_in_range}
         '''
         result = self._values.get("metric_sum_in_range")
         return typing.cast(typing.Optional["MonitoringSloWindowsBasedSliMetricSumInRange"], result)
@@ -2228,7 +2228,7 @@ class MonitoringSloWindowsBasedSli:
         Must be an
         integer fraction of a day and at least 60s.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#window_period MonitoringSlo#window_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#window_period MonitoringSlo#window_period}
         '''
         result = self._values.get("window_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2263,9 +2263,9 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThreshold:
         threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param basic_sli_performance: basic_sli_performance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#basic_sli_performance MonitoringSlo#basic_sli_performance}
-        :param performance: performance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#performance MonitoringSlo#performance}
-        :param threshold: If window performance >= threshold, the window is counted as good. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#threshold MonitoringSlo#threshold}
+        :param basic_sli_performance: basic_sli_performance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#basic_sli_performance MonitoringSlo#basic_sli_performance}
+        :param performance: performance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#performance MonitoringSlo#performance}
+        :param threshold: If window performance >= threshold, the window is counted as good. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#threshold MonitoringSlo#threshold}
         '''
         if isinstance(basic_sli_performance, dict):
             basic_sli_performance = MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformance(**basic_sli_performance)
@@ -2290,7 +2290,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThreshold:
     ) -> typing.Optional["MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformance"]:
         '''basic_sli_performance block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#basic_sli_performance MonitoringSlo#basic_sli_performance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#basic_sli_performance MonitoringSlo#basic_sli_performance}
         '''
         result = self._values.get("basic_sli_performance")
         return typing.cast(typing.Optional["MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformance"], result)
@@ -2301,7 +2301,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThreshold:
     ) -> typing.Optional["MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformance"]:
         '''performance block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#performance MonitoringSlo#performance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#performance MonitoringSlo#performance}
         '''
         result = self._values.get("performance")
         return typing.cast(typing.Optional["MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformance"], result)
@@ -2310,7 +2310,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThreshold:
     def threshold(self) -> typing.Optional[jsii.Number]:
         '''If window performance >= threshold, the window is counted as good.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#threshold MonitoringSlo#threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#threshold MonitoringSlo#threshold}
         '''
         result = self._values.get("threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2349,11 +2349,11 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformance:
         version: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param availability: availability block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#availability MonitoringSlo#availability}
-        :param latency: latency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#latency MonitoringSlo#latency}
-        :param location: An optional set of locations to which this SLI is relevant. Telemetry from other locations will not be used to calculate performance for this SLI. If omitted, this SLI applies to all locations in which the Service has activity. For service types that don't support breaking down by location, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#location MonitoringSlo#location}
-        :param method: An optional set of RPCs to which this SLI is relevant. Telemetry from other methods will not be used to calculate performance for this SLI. If omitted, this SLI applies to all the Service's methods. For service types that don't support breaking down by method, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#method MonitoringSlo#method}
-        :param version: The set of API versions to which this SLI is relevant. Telemetry from other API versions will not be used to calculate performance for this SLI. If omitted, this SLI applies to all API versions. For service types that don't support breaking down by version, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#version MonitoringSlo#version}
+        :param availability: availability block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#availability MonitoringSlo#availability}
+        :param latency: latency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#latency MonitoringSlo#latency}
+        :param location: An optional set of locations to which this SLI is relevant. Telemetry from other locations will not be used to calculate performance for this SLI. If omitted, this SLI applies to all locations in which the Service has activity. For service types that don't support breaking down by location, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#location MonitoringSlo#location}
+        :param method: An optional set of RPCs to which this SLI is relevant. Telemetry from other methods will not be used to calculate performance for this SLI. If omitted, this SLI applies to all the Service's methods. For service types that don't support breaking down by method, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#method MonitoringSlo#method}
+        :param version: The set of API versions to which this SLI is relevant. Telemetry from other API versions will not be used to calculate performance for this SLI. If omitted, this SLI applies to all API versions. For service types that don't support breaking down by version, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#version MonitoringSlo#version}
         '''
         if isinstance(availability, dict):
             availability = MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformanceAvailability(**availability)
@@ -2384,7 +2384,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformance:
     ) -> typing.Optional["MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformanceAvailability"]:
         '''availability block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#availability MonitoringSlo#availability}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#availability MonitoringSlo#availability}
         '''
         result = self._values.get("availability")
         return typing.cast(typing.Optional["MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformanceAvailability"], result)
@@ -2395,7 +2395,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformance:
     ) -> typing.Optional["MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformanceLatency"]:
         '''latency block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#latency MonitoringSlo#latency}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#latency MonitoringSlo#latency}
         '''
         result = self._values.get("latency")
         return typing.cast(typing.Optional["MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformanceLatency"], result)
@@ -2410,7 +2410,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformance:
         that don't support breaking down by location, setting this
         field will result in an error.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#location MonitoringSlo#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#location MonitoringSlo#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2425,7 +2425,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformance:
         breaking down by method, setting this field will result in an
         error.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#method MonitoringSlo#method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#method MonitoringSlo#method}
         '''
         result = self._values.get("method")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2440,7 +2440,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformance:
         that don't support breaking down by version, setting this
         field will result in an error.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#version MonitoringSlo#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#version MonitoringSlo#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2469,7 +2469,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformanceAvai
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Whether an availability SLI is enabled or not. Must be set to 'true. Defaults to 'true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#enabled MonitoringSlo#enabled}
+        :param enabled: Whether an availability SLI is enabled or not. Must be set to 'true. Defaults to 'true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#enabled MonitoringSlo#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7e79c2af469e4d210fcb5e77624e4c6a980e881f4bd2c1cec32b9a69a26edc71)
@@ -2484,7 +2484,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformanceAvai
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether an availability SLI is enabled or not. Must be set to 'true. Defaults to 'true'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#enabled MonitoringSlo#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#enabled MonitoringSlo#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2573,7 +2573,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformanceAvai
 class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformanceLatency:
     def __init__(self, *, threshold: builtins.str) -> None:
         '''
-        :param threshold: A duration string, e.g. 10s. Good service is defined to be the count of requests made to this service that return in no more than threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#threshold MonitoringSlo#threshold}
+        :param threshold: A duration string, e.g. 10s. Good service is defined to be the count of requests made to this service that return in no more than threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#threshold MonitoringSlo#threshold}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__139a2cdc410a78f46967381e9607401f3b35a36f0724fae463021a29e77f986e)
@@ -2586,7 +2586,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformanceLate
     def threshold(self) -> builtins.str:
         '''A duration string, e.g. 10s. Good service is defined to be the count of requests made to this service that return in no more than threshold.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#threshold MonitoringSlo#threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#threshold MonitoringSlo#threshold}
         '''
         result = self._values.get("threshold")
         assert result is not None, "Required property 'threshold' is missing"
@@ -2686,7 +2686,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformanceOutp
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Whether an availability SLI is enabled or not. Must be set to 'true. Defaults to 'true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#enabled MonitoringSlo#enabled}
+        :param enabled: Whether an availability SLI is enabled or not. Must be set to 'true. Defaults to 'true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#enabled MonitoringSlo#enabled}
         '''
         value = MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformanceAvailability(
             enabled=enabled
@@ -2697,7 +2697,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformanceOutp
     @jsii.member(jsii_name="putLatency")
     def put_latency(self, *, threshold: builtins.str) -> None:
         '''
-        :param threshold: A duration string, e.g. 10s. Good service is defined to be the count of requests made to this service that return in no more than threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#threshold MonitoringSlo#threshold}
+        :param threshold: A duration string, e.g. 10s. Good service is defined to be the count of requests made to this service that return in no more than threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#threshold MonitoringSlo#threshold}
         '''
         value = MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformanceLatency(
             threshold=threshold
@@ -2853,11 +2853,11 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdOutputReference(
         version: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param availability: availability block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#availability MonitoringSlo#availability}
-        :param latency: latency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#latency MonitoringSlo#latency}
-        :param location: An optional set of locations to which this SLI is relevant. Telemetry from other locations will not be used to calculate performance for this SLI. If omitted, this SLI applies to all locations in which the Service has activity. For service types that don't support breaking down by location, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#location MonitoringSlo#location}
-        :param method: An optional set of RPCs to which this SLI is relevant. Telemetry from other methods will not be used to calculate performance for this SLI. If omitted, this SLI applies to all the Service's methods. For service types that don't support breaking down by method, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#method MonitoringSlo#method}
-        :param version: The set of API versions to which this SLI is relevant. Telemetry from other API versions will not be used to calculate performance for this SLI. If omitted, this SLI applies to all API versions. For service types that don't support breaking down by version, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#version MonitoringSlo#version}
+        :param availability: availability block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#availability MonitoringSlo#availability}
+        :param latency: latency block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#latency MonitoringSlo#latency}
+        :param location: An optional set of locations to which this SLI is relevant. Telemetry from other locations will not be used to calculate performance for this SLI. If omitted, this SLI applies to all locations in which the Service has activity. For service types that don't support breaking down by location, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#location MonitoringSlo#location}
+        :param method: An optional set of RPCs to which this SLI is relevant. Telemetry from other methods will not be used to calculate performance for this SLI. If omitted, this SLI applies to all the Service's methods. For service types that don't support breaking down by method, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#method MonitoringSlo#method}
+        :param version: The set of API versions to which this SLI is relevant. Telemetry from other API versions will not be used to calculate performance for this SLI. If omitted, this SLI applies to all API versions. For service types that don't support breaking down by version, setting this field will result in an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#version MonitoringSlo#version}
         '''
         value = MonitoringSloWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformance(
             availability=availability,
@@ -2877,8 +2877,8 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdOutputReference(
         good_total_ratio: typing.Optional[typing.Union["MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceGoodTotalRatio", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param distribution_cut: distribution_cut block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#distribution_cut MonitoringSlo#distribution_cut}
-        :param good_total_ratio: good_total_ratio block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#good_total_ratio MonitoringSlo#good_total_ratio}
+        :param distribution_cut: distribution_cut block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#distribution_cut MonitoringSlo#distribution_cut}
+        :param good_total_ratio: good_total_ratio block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#good_total_ratio MonitoringSlo#good_total_ratio}
         '''
         value = MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformance(
             distribution_cut=distribution_cut, good_total_ratio=good_total_ratio
@@ -2977,8 +2977,8 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformance:
         good_total_ratio: typing.Optional[typing.Union["MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceGoodTotalRatio", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param distribution_cut: distribution_cut block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#distribution_cut MonitoringSlo#distribution_cut}
-        :param good_total_ratio: good_total_ratio block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#good_total_ratio MonitoringSlo#good_total_ratio}
+        :param distribution_cut: distribution_cut block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#distribution_cut MonitoringSlo#distribution_cut}
+        :param good_total_ratio: good_total_ratio block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#good_total_ratio MonitoringSlo#good_total_ratio}
         '''
         if isinstance(distribution_cut, dict):
             distribution_cut = MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceDistributionCut(**distribution_cut)
@@ -3000,7 +3000,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformance:
     ) -> typing.Optional["MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceDistributionCut"]:
         '''distribution_cut block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#distribution_cut MonitoringSlo#distribution_cut}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#distribution_cut MonitoringSlo#distribution_cut}
         '''
         result = self._values.get("distribution_cut")
         return typing.cast(typing.Optional["MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceDistributionCut"], result)
@@ -3011,7 +3011,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformance:
     ) -> typing.Optional["MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceGoodTotalRatio"]:
         '''good_total_ratio block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#good_total_ratio MonitoringSlo#good_total_ratio}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#good_total_ratio MonitoringSlo#good_total_ratio}
         '''
         result = self._values.get("good_total_ratio")
         return typing.cast(typing.Optional["MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceGoodTotalRatio"], result)
@@ -3041,8 +3041,8 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceDistribution
         range: typing.Union["MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceDistributionCutRange", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param distribution_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ aggregating values to quantify the good service provided. Must have ValueType = DISTRIBUTION and MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#distribution_filter MonitoringSlo#distribution_filter}
-        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
+        :param distribution_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ aggregating values to quantify the good service provided. Must have ValueType = DISTRIBUTION and MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#distribution_filter MonitoringSlo#distribution_filter}
+        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
         '''
         if isinstance(range, dict):
             range = MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceDistributionCutRange(**range)
@@ -3062,7 +3062,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceDistribution
         Must have ValueType = DISTRIBUTION and
         MetricKind = DELTA or MetricKind = CUMULATIVE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#distribution_filter MonitoringSlo#distribution_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#distribution_filter MonitoringSlo#distribution_filter}
         '''
         result = self._values.get("distribution_filter")
         assert result is not None, "Required property 'distribution_filter' is missing"
@@ -3074,7 +3074,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceDistribution
     ) -> "MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceDistributionCutRange":
         '''range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
         '''
         result = self._values.get("range")
         assert result is not None, "Required property 'range' is missing"
@@ -3120,8 +3120,8 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceDistribution
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: max value for the range (inclusive). If not given, will be set to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
-        :param min: Min value for the range (inclusive). If not given, will be set to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
+        :param max: max value for the range (inclusive). If not given, will be set to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
+        :param min: Min value for the range (inclusive). If not given, will be set to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
         '''
         value = MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceDistributionCutRange(
             max=max, min=min
@@ -3191,8 +3191,8 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceDistribution
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: max value for the range (inclusive). If not given, will be set to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
-        :param min: Min value for the range (inclusive). If not given, will be set to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
+        :param max: max value for the range (inclusive). If not given, will be set to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
+        :param min: Min value for the range (inclusive). If not given, will be set to 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dc0a368a251dd14da75e784b3ab825511c9cc9aedf0ebc4315b6990bcd51fa6d)
@@ -3208,7 +3208,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceDistribution
     def max(self) -> typing.Optional[jsii.Number]:
         '''max value for the range (inclusive). If not given, will be set to 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
         '''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3217,7 +3217,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceDistribution
     def min(self) -> typing.Optional[jsii.Number]:
         '''Min value for the range (inclusive). If not given, will be set to 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
         '''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3332,9 +3332,9 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceGoodTotalRat
         total_service_filter: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bad_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying bad service provided, either demanded service that was not provided or demanded service that was of inadequate quality. Exactly two of good, bad, or total service filter must be defined (where good + bad = total is assumed). Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#bad_service_filter MonitoringSlo#bad_service_filter}
-        :param good_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying good service provided. Exactly two of good, bad, or total service filter must be defined (where good + bad = total is assumed). Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#good_service_filter MonitoringSlo#good_service_filter}
-        :param total_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying total demanded service. Exactly two of good, bad, or total service filter must be defined (where good + bad = total is assumed). Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#total_service_filter MonitoringSlo#total_service_filter}
+        :param bad_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying bad service provided, either demanded service that was not provided or demanded service that was of inadequate quality. Exactly two of good, bad, or total service filter must be defined (where good + bad = total is assumed). Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#bad_service_filter MonitoringSlo#bad_service_filter}
+        :param good_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying good service provided. Exactly two of good, bad, or total service filter must be defined (where good + bad = total is assumed). Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#good_service_filter MonitoringSlo#good_service_filter}
+        :param total_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying total demanded service. Exactly two of good, bad, or total service filter must be defined (where good + bad = total is assumed). Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#total_service_filter MonitoringSlo#total_service_filter}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ac504d247839ed1b679b672f7beada8943ec6a5248733036b8dd9f71a275cc0)
@@ -3356,7 +3356,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceGoodTotalRat
         Must have ValueType = DOUBLE or ValueType = INT64 and
         must have MetricKind = DELTA or MetricKind = CUMULATIVE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#bad_service_filter MonitoringSlo#bad_service_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#bad_service_filter MonitoringSlo#bad_service_filter}
         '''
         result = self._values.get("bad_service_filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3368,7 +3368,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceGoodTotalRat
         Must have ValueType = DOUBLE or ValueType = INT64 and
         must have MetricKind = DELTA or MetricKind = CUMULATIVE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#good_service_filter MonitoringSlo#good_service_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#good_service_filter MonitoringSlo#good_service_filter}
         '''
         result = self._values.get("good_service_filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3380,7 +3380,7 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceGoodTotalRat
         Must have ValueType = DOUBLE or ValueType = INT64 and
         must have MetricKind = DELTA or MetricKind = CUMULATIVE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#total_service_filter MonitoringSlo#total_service_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#total_service_filter MonitoringSlo#total_service_filter}
         '''
         result = self._values.get("total_service_filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3526,8 +3526,8 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceOutputRefere
         range: typing.Union[MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceDistributionCutRange, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param distribution_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ aggregating values to quantify the good service provided. Must have ValueType = DISTRIBUTION and MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#distribution_filter MonitoringSlo#distribution_filter}
-        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
+        :param distribution_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ aggregating values to quantify the good service provided. Must have ValueType = DISTRIBUTION and MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#distribution_filter MonitoringSlo#distribution_filter}
+        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
         '''
         value = MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceDistributionCut(
             distribution_filter=distribution_filter, range=range
@@ -3544,9 +3544,9 @@ class MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceOutputRefere
         total_service_filter: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bad_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying bad service provided, either demanded service that was not provided or demanded service that was of inadequate quality. Exactly two of good, bad, or total service filter must be defined (where good + bad = total is assumed). Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#bad_service_filter MonitoringSlo#bad_service_filter}
-        :param good_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying good service provided. Exactly two of good, bad, or total service filter must be defined (where good + bad = total is assumed). Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#good_service_filter MonitoringSlo#good_service_filter}
-        :param total_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying total demanded service. Exactly two of good, bad, or total service filter must be defined (where good + bad = total is assumed). Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#total_service_filter MonitoringSlo#total_service_filter}
+        :param bad_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying bad service provided, either demanded service that was not provided or demanded service that was of inadequate quality. Exactly two of good, bad, or total service filter must be defined (where good + bad = total is assumed). Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#bad_service_filter MonitoringSlo#bad_service_filter}
+        :param good_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying good service provided. Exactly two of good, bad, or total service filter must be defined (where good + bad = total is assumed). Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#good_service_filter MonitoringSlo#good_service_filter}
+        :param total_service_filter: A TimeSeries `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ quantifying total demanded service. Exactly two of good, bad, or total service filter must be defined (where good + bad = total is assumed). Must have ValueType = DOUBLE or ValueType = INT64 and must have MetricKind = DELTA or MetricKind = CUMULATIVE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#total_service_filter MonitoringSlo#total_service_filter}
         '''
         value = MonitoringSloWindowsBasedSliGoodTotalRatioThresholdPerformanceGoodTotalRatio(
             bad_service_filter=bad_service_filter,
@@ -3623,8 +3623,8 @@ class MonitoringSloWindowsBasedSliMetricMeanInRange:
         time_series: builtins.str,
     ) -> None:
         '''
-        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
-        :param time_series: A `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ specifying the TimeSeries to use for evaluating window The provided TimeSeries must have ValueType = INT64 or ValueType = DOUBLE and MetricKind = GAUGE. Mean value 'X' should satisfy 'range.min <= X <= range.max' under good service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#time_series MonitoringSlo#time_series}
+        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
+        :param time_series: A `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ specifying the TimeSeries to use for evaluating window The provided TimeSeries must have ValueType = INT64 or ValueType = DOUBLE and MetricKind = GAUGE. Mean value 'X' should satisfy 'range.min <= X <= range.max' under good service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#time_series MonitoringSlo#time_series}
         '''
         if isinstance(range, dict):
             range = MonitoringSloWindowsBasedSliMetricMeanInRangeRange(**range)
@@ -3641,7 +3641,7 @@ class MonitoringSloWindowsBasedSliMetricMeanInRange:
     def range(self) -> "MonitoringSloWindowsBasedSliMetricMeanInRangeRange":
         '''range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
         '''
         result = self._values.get("range")
         assert result is not None, "Required property 'range' is missing"
@@ -3651,7 +3651,7 @@ class MonitoringSloWindowsBasedSliMetricMeanInRange:
     def time_series(self) -> builtins.str:
         '''A `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ specifying the TimeSeries to use for evaluating window The provided TimeSeries must have ValueType = INT64 or ValueType = DOUBLE and MetricKind = GAUGE. Mean value 'X' should satisfy 'range.min <= X <= range.max' under good service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#time_series MonitoringSlo#time_series}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#time_series MonitoringSlo#time_series}
         '''
         result = self._values.get("time_series")
         assert result is not None, "Required property 'time_series' is missing"
@@ -3697,8 +3697,8 @@ class MonitoringSloWindowsBasedSliMetricMeanInRangeOutputReference(
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: max value for the range (inclusive). If not given, will be set to "infinity", defining an open range ">= range.min". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
-        :param min: Min value for the range (inclusive). If not given, will be set to "-infinity", defining an open range "< range.max". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
+        :param max: max value for the range (inclusive). If not given, will be set to "infinity", defining an open range ">= range.min". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
+        :param min: Min value for the range (inclusive). If not given, will be set to "-infinity", defining an open range "< range.max". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
         '''
         value = MonitoringSloWindowsBasedSliMetricMeanInRangeRange(max=max, min=min)
 
@@ -3766,8 +3766,8 @@ class MonitoringSloWindowsBasedSliMetricMeanInRangeRange:
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: max value for the range (inclusive). If not given, will be set to "infinity", defining an open range ">= range.min". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
-        :param min: Min value for the range (inclusive). If not given, will be set to "-infinity", defining an open range "< range.max". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
+        :param max: max value for the range (inclusive). If not given, will be set to "infinity", defining an open range ">= range.min". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
+        :param min: Min value for the range (inclusive). If not given, will be set to "-infinity", defining an open range "< range.max". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d694adda4d216d07795d270681c6275f3cfecc449c1fd0340761bb10cbb6368f)
@@ -3783,7 +3783,7 @@ class MonitoringSloWindowsBasedSliMetricMeanInRangeRange:
     def max(self) -> typing.Optional[jsii.Number]:
         '''max value for the range (inclusive). If not given, will be set to "infinity", defining an open range ">= range.min".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
         '''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3792,7 +3792,7 @@ class MonitoringSloWindowsBasedSliMetricMeanInRangeRange:
     def min(self) -> typing.Optional[jsii.Number]:
         '''Min value for the range (inclusive). If not given, will be set to "-infinity", defining an open range "< range.max".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
         '''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3902,8 +3902,8 @@ class MonitoringSloWindowsBasedSliMetricSumInRange:
         time_series: builtins.str,
     ) -> None:
         '''
-        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
-        :param time_series: A `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ specifying the TimeSeries to use for evaluating window quality. The provided TimeSeries must have ValueType = INT64 or ValueType = DOUBLE and MetricKind = GAUGE. Summed value 'X' should satisfy 'range.min <= X <= range.max' for a good window. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#time_series MonitoringSlo#time_series}
+        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
+        :param time_series: A `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ specifying the TimeSeries to use for evaluating window quality. The provided TimeSeries must have ValueType = INT64 or ValueType = DOUBLE and MetricKind = GAUGE. Summed value 'X' should satisfy 'range.min <= X <= range.max' for a good window. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#time_series MonitoringSlo#time_series}
         '''
         if isinstance(range, dict):
             range = MonitoringSloWindowsBasedSliMetricSumInRangeRange(**range)
@@ -3920,7 +3920,7 @@ class MonitoringSloWindowsBasedSliMetricSumInRange:
     def range(self) -> "MonitoringSloWindowsBasedSliMetricSumInRangeRange":
         '''range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
         '''
         result = self._values.get("range")
         assert result is not None, "Required property 'range' is missing"
@@ -3933,7 +3933,7 @@ class MonitoringSloWindowsBasedSliMetricSumInRange:
         Summed value 'X' should satisfy
         'range.min <= X <= range.max' for a good window.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#time_series MonitoringSlo#time_series}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#time_series MonitoringSlo#time_series}
         '''
         result = self._values.get("time_series")
         assert result is not None, "Required property 'time_series' is missing"
@@ -3979,8 +3979,8 @@ class MonitoringSloWindowsBasedSliMetricSumInRangeOutputReference(
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: max value for the range (inclusive). If not given, will be set to "infinity", defining an open range ">= range.min". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
-        :param min: Min value for the range (inclusive). If not given, will be set to "-infinity", defining an open range "< range.max". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
+        :param max: max value for the range (inclusive). If not given, will be set to "infinity", defining an open range ">= range.min". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
+        :param min: Min value for the range (inclusive). If not given, will be set to "-infinity", defining an open range "< range.max". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
         '''
         value = MonitoringSloWindowsBasedSliMetricSumInRangeRange(max=max, min=min)
 
@@ -4048,8 +4048,8 @@ class MonitoringSloWindowsBasedSliMetricSumInRangeRange:
         min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max: max value for the range (inclusive). If not given, will be set to "infinity", defining an open range ">= range.min". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
-        :param min: Min value for the range (inclusive). If not given, will be set to "-infinity", defining an open range "< range.max". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
+        :param max: max value for the range (inclusive). If not given, will be set to "infinity", defining an open range ">= range.min". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
+        :param min: Min value for the range (inclusive). If not given, will be set to "-infinity", defining an open range "< range.max". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__518ee179b99666a150fa812d29c26332cae4b69ce1df8627b9bd351874dc67f4)
@@ -4065,7 +4065,7 @@ class MonitoringSloWindowsBasedSliMetricSumInRangeRange:
     def max(self) -> typing.Optional[jsii.Number]:
         '''max value for the range (inclusive). If not given, will be set to "infinity", defining an open range ">= range.min".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#max MonitoringSlo#max}
         '''
         result = self._values.get("max")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4074,7 +4074,7 @@ class MonitoringSloWindowsBasedSliMetricSumInRangeRange:
     def min(self) -> typing.Optional[jsii.Number]:
         '''Min value for the range (inclusive). If not given, will be set to "-infinity", defining an open range "< range.max".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#min MonitoringSlo#min}
         '''
         result = self._values.get("min")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4200,9 +4200,9 @@ class MonitoringSloWindowsBasedSliOutputReference(
         threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param basic_sli_performance: basic_sli_performance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#basic_sli_performance MonitoringSlo#basic_sli_performance}
-        :param performance: performance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#performance MonitoringSlo#performance}
-        :param threshold: If window performance >= threshold, the window is counted as good. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#threshold MonitoringSlo#threshold}
+        :param basic_sli_performance: basic_sli_performance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#basic_sli_performance MonitoringSlo#basic_sli_performance}
+        :param performance: performance block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#performance MonitoringSlo#performance}
+        :param threshold: If window performance >= threshold, the window is counted as good. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#threshold MonitoringSlo#threshold}
         '''
         value = MonitoringSloWindowsBasedSliGoodTotalRatioThreshold(
             basic_sli_performance=basic_sli_performance,
@@ -4220,8 +4220,8 @@ class MonitoringSloWindowsBasedSliOutputReference(
         time_series: builtins.str,
     ) -> None:
         '''
-        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
-        :param time_series: A `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ specifying the TimeSeries to use for evaluating window The provided TimeSeries must have ValueType = INT64 or ValueType = DOUBLE and MetricKind = GAUGE. Mean value 'X' should satisfy 'range.min <= X <= range.max' under good service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#time_series MonitoringSlo#time_series}
+        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
+        :param time_series: A `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ specifying the TimeSeries to use for evaluating window The provided TimeSeries must have ValueType = INT64 or ValueType = DOUBLE and MetricKind = GAUGE. Mean value 'X' should satisfy 'range.min <= X <= range.max' under good service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#time_series MonitoringSlo#time_series}
         '''
         value = MonitoringSloWindowsBasedSliMetricMeanInRange(
             range=range, time_series=time_series
@@ -4237,8 +4237,8 @@ class MonitoringSloWindowsBasedSliOutputReference(
         time_series: builtins.str,
     ) -> None:
         '''
-        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
-        :param time_series: A `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ specifying the TimeSeries to use for evaluating window quality. The provided TimeSeries must have ValueType = INT64 or ValueType = DOUBLE and MetricKind = GAUGE. Summed value 'X' should satisfy 'range.min <= X <= range.max' for a good window. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/monitoring_slo#time_series MonitoringSlo#time_series}
+        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#range MonitoringSlo#range}
+        :param time_series: A `monitoring filter <https://cloud.google.com/monitoring/api/v3/filters>`_ specifying the TimeSeries to use for evaluating window quality. The provided TimeSeries must have ValueType = INT64 or ValueType = DOUBLE and MetricKind = GAUGE. Summed value 'X' should satisfy 'range.min <= X <= range.max' for a good window. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/monitoring_slo#time_series MonitoringSlo#time_series}
         '''
         value = MonitoringSloWindowsBasedSliMetricSumInRange(
             range=range, time_series=time_series

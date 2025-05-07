@@ -1,7 +1,7 @@
 r'''
 # `google_compute_region_url_map`
 
-Refer to the Terraform Registry for docs: [`google_compute_region_url_map`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map).
+Refer to the Terraform Registry for docs: [`google_compute_region_url_map`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeRegionUrlMap(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeRegionUrlMap.ComputeRegionUrlMap",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map google_compute_region_url_map}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map google_compute_region_url_map}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class ComputeRegionUrlMap(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map google_compute_region_url_map} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map google_compute_region_url_map} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#name ComputeRegionUrlMap#name}
-        :param default_route_action: default_route_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#default_route_action ComputeRegionUrlMap#default_route_action}
-        :param default_service: The full or partial URL of the defaultService resource to which traffic is directed if none of the hostRules match. If defaultRouteAction is additionally specified, advanced routing actions like URL Rewrites, etc. take effect prior to sending the request to the backend. However, if defaultService is specified, defaultRouteAction cannot contain any weightedBackendServices. Conversely, if routeAction specifies any weightedBackendServices, service must not be specified. Only one of defaultService, defaultUrlRedirect or defaultRouteAction.weightedBackendService must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#default_service ComputeRegionUrlMap#default_service}
-        :param default_url_redirect: default_url_redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#default_url_redirect ComputeRegionUrlMap#default_url_redirect}
-        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#description ComputeRegionUrlMap#description}
-        :param host_rule: host_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_rule ComputeRegionUrlMap#host_rule}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#id ComputeRegionUrlMap#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param path_matcher: path_matcher block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_matcher ComputeRegionUrlMap#path_matcher}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#project ComputeRegionUrlMap#project}.
-        :param region: The Region in which the url map should reside. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#region ComputeRegionUrlMap#region}
-        :param test: test block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#test ComputeRegionUrlMap#test}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#timeouts ComputeRegionUrlMap#timeouts}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#name ComputeRegionUrlMap#name}
+        :param default_route_action: default_route_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#default_route_action ComputeRegionUrlMap#default_route_action}
+        :param default_service: The full or partial URL of the defaultService resource to which traffic is directed if none of the hostRules match. If defaultRouteAction is additionally specified, advanced routing actions like URL Rewrites, etc. take effect prior to sending the request to the backend. However, if defaultService is specified, defaultRouteAction cannot contain any weightedBackendServices. Conversely, if routeAction specifies any weightedBackendServices, service must not be specified. Only one of defaultService, defaultUrlRedirect or defaultRouteAction.weightedBackendService must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#default_service ComputeRegionUrlMap#default_service}
+        :param default_url_redirect: default_url_redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#default_url_redirect ComputeRegionUrlMap#default_url_redirect}
+        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#description ComputeRegionUrlMap#description}
+        :param host_rule: host_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_rule ComputeRegionUrlMap#host_rule}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#id ComputeRegionUrlMap#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param path_matcher: path_matcher block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_matcher ComputeRegionUrlMap#path_matcher}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#project ComputeRegionUrlMap#project}.
+        :param region: The Region in which the url map should reside. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#region ComputeRegionUrlMap#region}
+        :param test: test block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#test ComputeRegionUrlMap#test}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#timeouts ComputeRegionUrlMap#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class ComputeRegionUrlMap(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeRegionUrlMap to import.
-        :param import_from_id: The id of the existing ComputeRegionUrlMap that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeRegionUrlMap that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeRegionUrlMap to import is found.
         '''
         if __debug__:
@@ -160,13 +160,13 @@ class ComputeRegionUrlMap(
         weighted_backend_services: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeRegionUrlMapDefaultRouteActionWeightedBackendServices", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param cors_policy: cors_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#cors_policy ComputeRegionUrlMap#cors_policy}
-        :param fault_injection_policy: fault_injection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#fault_injection_policy ComputeRegionUrlMap#fault_injection_policy}
-        :param request_mirror_policy: request_mirror_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_mirror_policy ComputeRegionUrlMap#request_mirror_policy}
-        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#retry_policy ComputeRegionUrlMap#retry_policy}
-        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#timeout ComputeRegionUrlMap#timeout}
-        :param url_rewrite: url_rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#url_rewrite ComputeRegionUrlMap#url_rewrite}
-        :param weighted_backend_services: weighted_backend_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#weighted_backend_services ComputeRegionUrlMap#weighted_backend_services}
+        :param cors_policy: cors_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#cors_policy ComputeRegionUrlMap#cors_policy}
+        :param fault_injection_policy: fault_injection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#fault_injection_policy ComputeRegionUrlMap#fault_injection_policy}
+        :param request_mirror_policy: request_mirror_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_mirror_policy ComputeRegionUrlMap#request_mirror_policy}
+        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#retry_policy ComputeRegionUrlMap#retry_policy}
+        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#timeout ComputeRegionUrlMap#timeout}
+        :param url_rewrite: url_rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#url_rewrite ComputeRegionUrlMap#url_rewrite}
+        :param weighted_backend_services: weighted_backend_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#weighted_backend_services ComputeRegionUrlMap#weighted_backend_services}
         '''
         value = ComputeRegionUrlMapDefaultRouteAction(
             cors_policy=cors_policy,
@@ -192,12 +192,12 @@ class ComputeRegionUrlMap(
         redirect_response_code: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. If set to false, the query portion of the original URL is retained. This field is required to ensure an empty block is not set. The normal default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
-        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
-        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. If set to false, the URL scheme of the redirected request will remain the same as that of the request. This must only be set for UrlMaps used in TargetHttpProxys. Setting this true for TargetHttpsProxy is not permitted. The default is set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
-        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect cannot be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
-        :param prefix_redirect: The prefix that replaces the prefixMatch specified in the HttpRouteRuleMatch, retaining the remaining portion of the URL before redirecting the request. prefixRedirect cannot be supplied together with pathRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
-        :param redirect_response_code: The HTTP Status code to use for this RedirectAction. Supported values are:. - MOVED_PERMANENTLY_DEFAULT, which is the default value and corresponds to 301. - FOUND, which corresponds to 302. - SEE_OTHER which corresponds to 303. - TEMPORARY_REDIRECT, which corresponds to 307. In this case, the request method will be retained. - PERMANENT_REDIRECT, which corresponds to 308. In this case, the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
+        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. If set to false, the query portion of the original URL is retained. This field is required to ensure an empty block is not set. The normal default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
+        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
+        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. If set to false, the URL scheme of the redirected request will remain the same as that of the request. This must only be set for UrlMaps used in TargetHttpProxys. Setting this true for TargetHttpsProxy is not permitted. The default is set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
+        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect cannot be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
+        :param prefix_redirect: The prefix that replaces the prefixMatch specified in the HttpRouteRuleMatch, retaining the remaining portion of the URL before redirecting the request. prefixRedirect cannot be supplied together with pathRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
+        :param redirect_response_code: The HTTP Status code to use for this RedirectAction. Supported values are:. - MOVED_PERMANENTLY_DEFAULT, which is the default value and corresponds to 301. - FOUND, which corresponds to 302. - SEE_OTHER which corresponds to 303. - TEMPORARY_REDIRECT, which corresponds to 307. In this case, the request method will be retained. - PERMANENT_REDIRECT, which corresponds to 308. In this case, the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
         '''
         value = ComputeRegionUrlMapDefaultUrlRedirect(
             strip_query=strip_query,
@@ -258,9 +258,9 @@ class ComputeRegionUrlMap(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#create ComputeRegionUrlMap#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#delete ComputeRegionUrlMap#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#update ComputeRegionUrlMap#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#create ComputeRegionUrlMap#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#delete ComputeRegionUrlMap#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#update ComputeRegionUrlMap#update}.
         '''
         value = ComputeRegionUrlMapTimeouts(
             create=create, delete=delete, update=update
@@ -581,18 +581,18 @@ class ComputeRegionUrlMapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#name ComputeRegionUrlMap#name}
-        :param default_route_action: default_route_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#default_route_action ComputeRegionUrlMap#default_route_action}
-        :param default_service: The full or partial URL of the defaultService resource to which traffic is directed if none of the hostRules match. If defaultRouteAction is additionally specified, advanced routing actions like URL Rewrites, etc. take effect prior to sending the request to the backend. However, if defaultService is specified, defaultRouteAction cannot contain any weightedBackendServices. Conversely, if routeAction specifies any weightedBackendServices, service must not be specified. Only one of defaultService, defaultUrlRedirect or defaultRouteAction.weightedBackendService must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#default_service ComputeRegionUrlMap#default_service}
-        :param default_url_redirect: default_url_redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#default_url_redirect ComputeRegionUrlMap#default_url_redirect}
-        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#description ComputeRegionUrlMap#description}
-        :param host_rule: host_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_rule ComputeRegionUrlMap#host_rule}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#id ComputeRegionUrlMap#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param path_matcher: path_matcher block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_matcher ComputeRegionUrlMap#path_matcher}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#project ComputeRegionUrlMap#project}.
-        :param region: The Region in which the url map should reside. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#region ComputeRegionUrlMap#region}
-        :param test: test block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#test ComputeRegionUrlMap#test}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#timeouts ComputeRegionUrlMap#timeouts}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#name ComputeRegionUrlMap#name}
+        :param default_route_action: default_route_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#default_route_action ComputeRegionUrlMap#default_route_action}
+        :param default_service: The full or partial URL of the defaultService resource to which traffic is directed if none of the hostRules match. If defaultRouteAction is additionally specified, advanced routing actions like URL Rewrites, etc. take effect prior to sending the request to the backend. However, if defaultService is specified, defaultRouteAction cannot contain any weightedBackendServices. Conversely, if routeAction specifies any weightedBackendServices, service must not be specified. Only one of defaultService, defaultUrlRedirect or defaultRouteAction.weightedBackendService must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#default_service ComputeRegionUrlMap#default_service}
+        :param default_url_redirect: default_url_redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#default_url_redirect ComputeRegionUrlMap#default_url_redirect}
+        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#description ComputeRegionUrlMap#description}
+        :param host_rule: host_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_rule ComputeRegionUrlMap#host_rule}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#id ComputeRegionUrlMap#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param path_matcher: path_matcher block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_matcher ComputeRegionUrlMap#path_matcher}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#project ComputeRegionUrlMap#project}.
+        :param region: The Region in which the url map should reside. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#region ComputeRegionUrlMap#region}
+        :param test: test block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#test ComputeRegionUrlMap#test}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#timeouts ComputeRegionUrlMap#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -739,7 +739,7 @@ class ComputeRegionUrlMapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         characters must be a dash, lowercase letter, or digit, except the last
         character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#name ComputeRegionUrlMap#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#name ComputeRegionUrlMap#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -751,7 +751,7 @@ class ComputeRegionUrlMapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ComputeRegionUrlMapDefaultRouteAction"]:
         '''default_route_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#default_route_action ComputeRegionUrlMap#default_route_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#default_route_action ComputeRegionUrlMap#default_route_action}
         '''
         result = self._values.get("default_route_action")
         return typing.cast(typing.Optional["ComputeRegionUrlMapDefaultRouteAction"], result)
@@ -767,7 +767,7 @@ class ComputeRegionUrlMapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         weightedBackendServices, service must not be specified.  Only one of defaultService,
         defaultUrlRedirect or defaultRouteAction.weightedBackendService must be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#default_service ComputeRegionUrlMap#default_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#default_service ComputeRegionUrlMap#default_service}
         '''
         result = self._values.get("default_service")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -778,7 +778,7 @@ class ComputeRegionUrlMapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ComputeRegionUrlMapDefaultUrlRedirect"]:
         '''default_url_redirect block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#default_url_redirect ComputeRegionUrlMap#default_url_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#default_url_redirect ComputeRegionUrlMap#default_url_redirect}
         '''
         result = self._values.get("default_url_redirect")
         return typing.cast(typing.Optional["ComputeRegionUrlMapDefaultUrlRedirect"], result)
@@ -787,7 +787,7 @@ class ComputeRegionUrlMapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource. Provide this property when you create the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#description ComputeRegionUrlMap#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#description ComputeRegionUrlMap#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -798,14 +798,14 @@ class ComputeRegionUrlMapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapHostRule"]]]:
         '''host_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_rule ComputeRegionUrlMap#host_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_rule ComputeRegionUrlMap#host_rule}
         '''
         result = self._values.get("host_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapHostRule"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#id ComputeRegionUrlMap#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#id ComputeRegionUrlMap#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -819,14 +819,14 @@ class ComputeRegionUrlMapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcher"]]]:
         '''path_matcher block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_matcher ComputeRegionUrlMap#path_matcher}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_matcher ComputeRegionUrlMap#path_matcher}
         '''
         result = self._values.get("path_matcher")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcher"]]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#project ComputeRegionUrlMap#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#project ComputeRegionUrlMap#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -834,7 +834,7 @@ class ComputeRegionUrlMapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''The Region in which the url map should reside. If it is not provided, the provider region is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#region ComputeRegionUrlMap#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#region ComputeRegionUrlMap#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -845,7 +845,7 @@ class ComputeRegionUrlMapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapTest"]]]:
         '''test block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#test ComputeRegionUrlMap#test}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#test ComputeRegionUrlMap#test}
         '''
         result = self._values.get("test")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapTest"]]], result)
@@ -854,7 +854,7 @@ class ComputeRegionUrlMapConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeRegionUrlMapTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#timeouts ComputeRegionUrlMap#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#timeouts ComputeRegionUrlMap#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeRegionUrlMapTimeouts"], result)
@@ -897,13 +897,13 @@ class ComputeRegionUrlMapDefaultRouteAction:
         weighted_backend_services: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeRegionUrlMapDefaultRouteActionWeightedBackendServices", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param cors_policy: cors_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#cors_policy ComputeRegionUrlMap#cors_policy}
-        :param fault_injection_policy: fault_injection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#fault_injection_policy ComputeRegionUrlMap#fault_injection_policy}
-        :param request_mirror_policy: request_mirror_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_mirror_policy ComputeRegionUrlMap#request_mirror_policy}
-        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#retry_policy ComputeRegionUrlMap#retry_policy}
-        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#timeout ComputeRegionUrlMap#timeout}
-        :param url_rewrite: url_rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#url_rewrite ComputeRegionUrlMap#url_rewrite}
-        :param weighted_backend_services: weighted_backend_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#weighted_backend_services ComputeRegionUrlMap#weighted_backend_services}
+        :param cors_policy: cors_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#cors_policy ComputeRegionUrlMap#cors_policy}
+        :param fault_injection_policy: fault_injection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#fault_injection_policy ComputeRegionUrlMap#fault_injection_policy}
+        :param request_mirror_policy: request_mirror_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_mirror_policy ComputeRegionUrlMap#request_mirror_policy}
+        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#retry_policy ComputeRegionUrlMap#retry_policy}
+        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#timeout ComputeRegionUrlMap#timeout}
+        :param url_rewrite: url_rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#url_rewrite ComputeRegionUrlMap#url_rewrite}
+        :param weighted_backend_services: weighted_backend_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#weighted_backend_services ComputeRegionUrlMap#weighted_backend_services}
         '''
         if isinstance(cors_policy, dict):
             cors_policy = ComputeRegionUrlMapDefaultRouteActionCorsPolicy(**cors_policy)
@@ -948,7 +948,7 @@ class ComputeRegionUrlMapDefaultRouteAction:
     ) -> typing.Optional["ComputeRegionUrlMapDefaultRouteActionCorsPolicy"]:
         '''cors_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#cors_policy ComputeRegionUrlMap#cors_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#cors_policy ComputeRegionUrlMap#cors_policy}
         '''
         result = self._values.get("cors_policy")
         return typing.cast(typing.Optional["ComputeRegionUrlMapDefaultRouteActionCorsPolicy"], result)
@@ -959,7 +959,7 @@ class ComputeRegionUrlMapDefaultRouteAction:
     ) -> typing.Optional["ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicy"]:
         '''fault_injection_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#fault_injection_policy ComputeRegionUrlMap#fault_injection_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#fault_injection_policy ComputeRegionUrlMap#fault_injection_policy}
         '''
         result = self._values.get("fault_injection_policy")
         return typing.cast(typing.Optional["ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicy"], result)
@@ -970,7 +970,7 @@ class ComputeRegionUrlMapDefaultRouteAction:
     ) -> typing.Optional["ComputeRegionUrlMapDefaultRouteActionRequestMirrorPolicy"]:
         '''request_mirror_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_mirror_policy ComputeRegionUrlMap#request_mirror_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_mirror_policy ComputeRegionUrlMap#request_mirror_policy}
         '''
         result = self._values.get("request_mirror_policy")
         return typing.cast(typing.Optional["ComputeRegionUrlMapDefaultRouteActionRequestMirrorPolicy"], result)
@@ -981,7 +981,7 @@ class ComputeRegionUrlMapDefaultRouteAction:
     ) -> typing.Optional["ComputeRegionUrlMapDefaultRouteActionRetryPolicy"]:
         '''retry_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#retry_policy ComputeRegionUrlMap#retry_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#retry_policy ComputeRegionUrlMap#retry_policy}
         '''
         result = self._values.get("retry_policy")
         return typing.cast(typing.Optional["ComputeRegionUrlMapDefaultRouteActionRetryPolicy"], result)
@@ -992,7 +992,7 @@ class ComputeRegionUrlMapDefaultRouteAction:
     ) -> typing.Optional["ComputeRegionUrlMapDefaultRouteActionTimeout"]:
         '''timeout block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#timeout ComputeRegionUrlMap#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#timeout ComputeRegionUrlMap#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["ComputeRegionUrlMapDefaultRouteActionTimeout"], result)
@@ -1003,7 +1003,7 @@ class ComputeRegionUrlMapDefaultRouteAction:
     ) -> typing.Optional["ComputeRegionUrlMapDefaultRouteActionUrlRewrite"]:
         '''url_rewrite block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#url_rewrite ComputeRegionUrlMap#url_rewrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#url_rewrite ComputeRegionUrlMap#url_rewrite}
         '''
         result = self._values.get("url_rewrite")
         return typing.cast(typing.Optional["ComputeRegionUrlMapDefaultRouteActionUrlRewrite"], result)
@@ -1014,7 +1014,7 @@ class ComputeRegionUrlMapDefaultRouteAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapDefaultRouteActionWeightedBackendServices"]]]:
         '''weighted_backend_services block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#weighted_backend_services ComputeRegionUrlMap#weighted_backend_services}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#weighted_backend_services ComputeRegionUrlMap#weighted_backend_services}
         '''
         result = self._values.get("weighted_backend_services")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapDefaultRouteActionWeightedBackendServices"]]], result)
@@ -1059,14 +1059,14 @@ class ComputeRegionUrlMapDefaultRouteActionCorsPolicy:
         max_age: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allow_credentials: In response to a preflight request, setting this to true indicates that the actual request can include user credentials. This field translates to the Access-Control-Allow-Credentials header. Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_credentials ComputeRegionUrlMap#allow_credentials}
-        :param allow_headers: Specifies the content for the Access-Control-Allow-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_headers ComputeRegionUrlMap#allow_headers}
-        :param allow_methods: Specifies the content for the Access-Control-Allow-Methods header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_methods ComputeRegionUrlMap#allow_methods}
-        :param allow_origin_regexes: Specifies the regualar expression patterns that match allowed origins. For regular expression grammar please see en.cppreference.com/w/cpp/regex/ecmascript An origin is allowed if it matches either an item in allowOrigins or an item in allowOriginRegexes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_origin_regexes ComputeRegionUrlMap#allow_origin_regexes}
-        :param allow_origins: Specifies the list of origins that will be allowed to do CORS requests. An origin is allowed if it matches either an item in allowOrigins or an item in allowOriginRegexes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_origins ComputeRegionUrlMap#allow_origins}
-        :param disabled: If true, the setting specifies the CORS policy is disabled. The default value of false, which indicates that the CORS policy is in effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#disabled ComputeRegionUrlMap#disabled}
-        :param expose_headers: Specifies the content for the Access-Control-Expose-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#expose_headers ComputeRegionUrlMap#expose_headers}
-        :param max_age: Specifies how long results of a preflight request can be cached in seconds. This translates to the Access-Control-Max-Age header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#max_age ComputeRegionUrlMap#max_age}
+        :param allow_credentials: In response to a preflight request, setting this to true indicates that the actual request can include user credentials. This field translates to the Access-Control-Allow-Credentials header. Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_credentials ComputeRegionUrlMap#allow_credentials}
+        :param allow_headers: Specifies the content for the Access-Control-Allow-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_headers ComputeRegionUrlMap#allow_headers}
+        :param allow_methods: Specifies the content for the Access-Control-Allow-Methods header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_methods ComputeRegionUrlMap#allow_methods}
+        :param allow_origin_regexes: Specifies the regualar expression patterns that match allowed origins. For regular expression grammar please see en.cppreference.com/w/cpp/regex/ecmascript An origin is allowed if it matches either an item in allowOrigins or an item in allowOriginRegexes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_origin_regexes ComputeRegionUrlMap#allow_origin_regexes}
+        :param allow_origins: Specifies the list of origins that will be allowed to do CORS requests. An origin is allowed if it matches either an item in allowOrigins or an item in allowOriginRegexes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_origins ComputeRegionUrlMap#allow_origins}
+        :param disabled: If true, the setting specifies the CORS policy is disabled. The default value of false, which indicates that the CORS policy is in effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#disabled ComputeRegionUrlMap#disabled}
+        :param expose_headers: Specifies the content for the Access-Control-Expose-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#expose_headers ComputeRegionUrlMap#expose_headers}
+        :param max_age: Specifies how long results of a preflight request can be cached in seconds. This translates to the Access-Control-Max-Age header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#max_age ComputeRegionUrlMap#max_age}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__46d0adfa3a1cbd1bebdcdf9ed4a16d14f20a0be4e2c278aea3111505c2d5cc82)
@@ -1105,7 +1105,7 @@ class ComputeRegionUrlMapDefaultRouteActionCorsPolicy:
         This field translates to the Access-Control-Allow-Credentials header.
         Default is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_credentials ComputeRegionUrlMap#allow_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_credentials ComputeRegionUrlMap#allow_credentials}
         '''
         result = self._values.get("allow_credentials")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1114,7 +1114,7 @@ class ComputeRegionUrlMapDefaultRouteActionCorsPolicy:
     def allow_headers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies the content for the Access-Control-Allow-Headers header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_headers ComputeRegionUrlMap#allow_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_headers ComputeRegionUrlMap#allow_headers}
         '''
         result = self._values.get("allow_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1123,7 +1123,7 @@ class ComputeRegionUrlMapDefaultRouteActionCorsPolicy:
     def allow_methods(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies the content for the Access-Control-Allow-Methods header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_methods ComputeRegionUrlMap#allow_methods}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_methods ComputeRegionUrlMap#allow_methods}
         '''
         result = self._values.get("allow_methods")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1136,7 +1136,7 @@ class ComputeRegionUrlMapDefaultRouteActionCorsPolicy:
         please see en.cppreference.com/w/cpp/regex/ecmascript
         An origin is allowed if it matches either an item in allowOrigins or an item in allowOriginRegexes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_origin_regexes ComputeRegionUrlMap#allow_origin_regexes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_origin_regexes ComputeRegionUrlMap#allow_origin_regexes}
         '''
         result = self._values.get("allow_origin_regexes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1147,7 +1147,7 @@ class ComputeRegionUrlMapDefaultRouteActionCorsPolicy:
 
         An origin is allowed if it matches either an item in allowOrigins or an item in allowOriginRegexes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_origins ComputeRegionUrlMap#allow_origins}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_origins ComputeRegionUrlMap#allow_origins}
         '''
         result = self._values.get("allow_origins")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1160,7 +1160,7 @@ class ComputeRegionUrlMapDefaultRouteActionCorsPolicy:
 
         The default value of false, which indicates that the CORS policy is in effect.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#disabled ComputeRegionUrlMap#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#disabled ComputeRegionUrlMap#disabled}
         '''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1169,7 +1169,7 @@ class ComputeRegionUrlMapDefaultRouteActionCorsPolicy:
     def expose_headers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies the content for the Access-Control-Expose-Headers header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#expose_headers ComputeRegionUrlMap#expose_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#expose_headers ComputeRegionUrlMap#expose_headers}
         '''
         result = self._values.get("expose_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1178,7 +1178,7 @@ class ComputeRegionUrlMapDefaultRouteActionCorsPolicy:
     def max_age(self) -> typing.Optional[jsii.Number]:
         '''Specifies how long results of a preflight request can be cached in seconds. This translates to the Access-Control-Max-Age header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#max_age ComputeRegionUrlMap#max_age}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#max_age ComputeRegionUrlMap#max_age}
         '''
         result = self._values.get("max_age")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1426,8 +1426,8 @@ class ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicy:
         delay: typing.Optional[typing.Union["ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyDelay", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param abort: abort block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#abort ComputeRegionUrlMap#abort}
-        :param delay: delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#delay ComputeRegionUrlMap#delay}
+        :param abort: abort block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#abort ComputeRegionUrlMap#abort}
+        :param delay: delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#delay ComputeRegionUrlMap#delay}
         '''
         if isinstance(abort, dict):
             abort = ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyAbort(**abort)
@@ -1449,7 +1449,7 @@ class ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicy:
     ) -> typing.Optional["ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyAbort"]:
         '''abort block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#abort ComputeRegionUrlMap#abort}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#abort ComputeRegionUrlMap#abort}
         '''
         result = self._values.get("abort")
         return typing.cast(typing.Optional["ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyAbort"], result)
@@ -1460,7 +1460,7 @@ class ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicy:
     ) -> typing.Optional["ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyDelay"]:
         '''delay block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#delay ComputeRegionUrlMap#delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#delay ComputeRegionUrlMap#delay}
         '''
         result = self._values.get("delay")
         return typing.cast(typing.Optional["ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyDelay"], result)
@@ -1490,8 +1490,8 @@ class ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyAbort:
         percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param http_status: The HTTP status code used to abort the request. The value must be between 200 and 599 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#http_status ComputeRegionUrlMap#http_status}
-        :param percentage: The percentage of traffic (connections/operations/requests) which will be aborted as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
+        :param http_status: The HTTP status code used to abort the request. The value must be between 200 and 599 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#http_status ComputeRegionUrlMap#http_status}
+        :param percentage: The percentage of traffic (connections/operations/requests) which will be aborted as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e98ecc84b6f9c243af94c206eb347eeef118036f1ef75ce7a3589ecf7cf9d58c)
@@ -1507,7 +1507,7 @@ class ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyAbort:
     def http_status(self) -> typing.Optional[jsii.Number]:
         '''The HTTP status code used to abort the request. The value must be between 200 and 599 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#http_status ComputeRegionUrlMap#http_status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#http_status ComputeRegionUrlMap#http_status}
         '''
         result = self._values.get("http_status")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1518,7 +1518,7 @@ class ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyAbort:
 
         The value must be between 0.0 and 100.0 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
         '''
         result = self._values.get("percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1628,8 +1628,8 @@ class ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyDelay:
         percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fixed_delay: fixed_delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#fixed_delay ComputeRegionUrlMap#fixed_delay}
-        :param percentage: The percentage of traffic (connections/operations/requests) on which delay will be introduced as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
+        :param fixed_delay: fixed_delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#fixed_delay ComputeRegionUrlMap#fixed_delay}
+        :param percentage: The percentage of traffic (connections/operations/requests) on which delay will be introduced as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
         '''
         if isinstance(fixed_delay, dict):
             fixed_delay = ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyDelayFixedDelay(**fixed_delay)
@@ -1649,7 +1649,7 @@ class ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyDelay:
     ) -> typing.Optional["ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyDelayFixedDelay"]:
         '''fixed_delay block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#fixed_delay ComputeRegionUrlMap#fixed_delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#fixed_delay ComputeRegionUrlMap#fixed_delay}
         '''
         result = self._values.get("fixed_delay")
         return typing.cast(typing.Optional["ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyDelayFixedDelay"], result)
@@ -1660,7 +1660,7 @@ class ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyDelay:
 
         The value must be between 0.0 and 100.0 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
         '''
         result = self._values.get("percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1690,8 +1690,8 @@ class ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyDelayFixedDelay:
         seconds: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__20b0348f5dfabaf182a8d337403a7b3c0c7b2149325c3558496b03ac446a96f7)
@@ -1710,7 +1710,7 @@ class ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyDelayFixedDelay:
         Durations less than one second are
         represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1722,7 +1722,7 @@ class ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyDelayFixedDelay:
         Must be from 0 to 315,576,000,000 inclusive.
         Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
         '''
         result = self._values.get("seconds")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1847,8 +1847,8 @@ class ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyDelayOutputRefere
         seconds: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
         '''
         value = ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyDelayFixedDelay(
             nanos=nanos, seconds=seconds
@@ -1941,8 +1941,8 @@ class ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyOutputReference(
         percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param http_status: The HTTP status code used to abort the request. The value must be between 200 and 599 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#http_status ComputeRegionUrlMap#http_status}
-        :param percentage: The percentage of traffic (connections/operations/requests) which will be aborted as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
+        :param http_status: The HTTP status code used to abort the request. The value must be between 200 and 599 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#http_status ComputeRegionUrlMap#http_status}
+        :param percentage: The percentage of traffic (connections/operations/requests) which will be aborted as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
         '''
         value = ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyAbort(
             http_status=http_status, percentage=percentage
@@ -1958,8 +1958,8 @@ class ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyOutputReference(
         percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fixed_delay: fixed_delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#fixed_delay ComputeRegionUrlMap#fixed_delay}
-        :param percentage: The percentage of traffic (connections/operations/requests) on which delay will be introduced as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
+        :param fixed_delay: fixed_delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#fixed_delay ComputeRegionUrlMap#fixed_delay}
+        :param percentage: The percentage of traffic (connections/operations/requests) on which delay will be introduced as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
         '''
         value = ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyDelay(
             fixed_delay=fixed_delay, percentage=percentage
@@ -2055,14 +2055,14 @@ class ComputeRegionUrlMapDefaultRouteActionOutputReference(
         max_age: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allow_credentials: In response to a preflight request, setting this to true indicates that the actual request can include user credentials. This field translates to the Access-Control-Allow-Credentials header. Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_credentials ComputeRegionUrlMap#allow_credentials}
-        :param allow_headers: Specifies the content for the Access-Control-Allow-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_headers ComputeRegionUrlMap#allow_headers}
-        :param allow_methods: Specifies the content for the Access-Control-Allow-Methods header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_methods ComputeRegionUrlMap#allow_methods}
-        :param allow_origin_regexes: Specifies the regualar expression patterns that match allowed origins. For regular expression grammar please see en.cppreference.com/w/cpp/regex/ecmascript An origin is allowed if it matches either an item in allowOrigins or an item in allowOriginRegexes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_origin_regexes ComputeRegionUrlMap#allow_origin_regexes}
-        :param allow_origins: Specifies the list of origins that will be allowed to do CORS requests. An origin is allowed if it matches either an item in allowOrigins or an item in allowOriginRegexes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_origins ComputeRegionUrlMap#allow_origins}
-        :param disabled: If true, the setting specifies the CORS policy is disabled. The default value of false, which indicates that the CORS policy is in effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#disabled ComputeRegionUrlMap#disabled}
-        :param expose_headers: Specifies the content for the Access-Control-Expose-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#expose_headers ComputeRegionUrlMap#expose_headers}
-        :param max_age: Specifies how long results of a preflight request can be cached in seconds. This translates to the Access-Control-Max-Age header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#max_age ComputeRegionUrlMap#max_age}
+        :param allow_credentials: In response to a preflight request, setting this to true indicates that the actual request can include user credentials. This field translates to the Access-Control-Allow-Credentials header. Default is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_credentials ComputeRegionUrlMap#allow_credentials}
+        :param allow_headers: Specifies the content for the Access-Control-Allow-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_headers ComputeRegionUrlMap#allow_headers}
+        :param allow_methods: Specifies the content for the Access-Control-Allow-Methods header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_methods ComputeRegionUrlMap#allow_methods}
+        :param allow_origin_regexes: Specifies the regualar expression patterns that match allowed origins. For regular expression grammar please see en.cppreference.com/w/cpp/regex/ecmascript An origin is allowed if it matches either an item in allowOrigins or an item in allowOriginRegexes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_origin_regexes ComputeRegionUrlMap#allow_origin_regexes}
+        :param allow_origins: Specifies the list of origins that will be allowed to do CORS requests. An origin is allowed if it matches either an item in allowOrigins or an item in allowOriginRegexes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_origins ComputeRegionUrlMap#allow_origins}
+        :param disabled: If true, the setting specifies the CORS policy is disabled. The default value of false, which indicates that the CORS policy is in effect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#disabled ComputeRegionUrlMap#disabled}
+        :param expose_headers: Specifies the content for the Access-Control-Expose-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#expose_headers ComputeRegionUrlMap#expose_headers}
+        :param max_age: Specifies how long results of a preflight request can be cached in seconds. This translates to the Access-Control-Max-Age header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#max_age ComputeRegionUrlMap#max_age}
         '''
         value = ComputeRegionUrlMapDefaultRouteActionCorsPolicy(
             allow_credentials=allow_credentials,
@@ -2085,8 +2085,8 @@ class ComputeRegionUrlMapDefaultRouteActionOutputReference(
         delay: typing.Optional[typing.Union[ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicyDelay, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param abort: abort block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#abort ComputeRegionUrlMap#abort}
-        :param delay: delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#delay ComputeRegionUrlMap#delay}
+        :param abort: abort block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#abort ComputeRegionUrlMap#abort}
+        :param delay: delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#delay ComputeRegionUrlMap#delay}
         '''
         value = ComputeRegionUrlMapDefaultRouteActionFaultInjectionPolicy(
             abort=abort, delay=delay
@@ -2101,7 +2101,7 @@ class ComputeRegionUrlMapDefaultRouteActionOutputReference(
         backend_service: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param backend_service: The full or partial URL to the RegionBackendService resource being mirrored to. The backend service configured for a mirroring policy must reference backends that are of the same type as the original backend service matched in the URL map. Serverless NEG backends are not currently supported as a mirrored backend service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
+        :param backend_service: The full or partial URL to the RegionBackendService resource being mirrored to. The backend service configured for a mirroring policy must reference backends that are of the same type as the original backend service matched in the URL map. Serverless NEG backends are not currently supported as a mirrored backend service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
         '''
         value = ComputeRegionUrlMapDefaultRouteActionRequestMirrorPolicy(
             backend_service=backend_service
@@ -2118,9 +2118,9 @@ class ComputeRegionUrlMapDefaultRouteActionOutputReference(
         retry_conditions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param num_retries: Specifies the allowed number retries. This number must be > 0. If not specified, defaults to 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#num_retries ComputeRegionUrlMap#num_retries}
-        :param per_try_timeout: per_try_timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#per_try_timeout ComputeRegionUrlMap#per_try_timeout}
-        :param retry_conditions: Specifies one or more conditions when this retry policy applies. Valid values are listed below. Only the following codes are supported when the URL map is bound to target gRPC proxy that has validateForProxyless field set to true: cancelled, deadline-exceeded, internal, resource-exhausted, unavailable. - 5xx : retry is attempted if the instance or endpoint responds with any 5xx response code, or if the instance or endpoint does not respond at all. For example, disconnects, reset, read timeout, connection failure, and refused streams. - gateway-error : Similar to 5xx, but only applies to response codes 502, 503 or 504. - connect-failure : a retry is attempted on failures connecting to the instance or endpoint. For example, connection timeouts. - retriable-4xx : a retry is attempted if the instance or endpoint responds with a 4xx response code. The only error that you can retry is error code 409. - refused-stream : a retry is attempted if the instance or endpoint resets the stream with a REFUSED_STREAM error code. This reset type indicates that it is safe to retry. - cancelled : a retry is attempted if the gRPC status code in the response header is set to cancelled. - deadline-exceeded : a retry is attempted if the gRPC status code in the response header is set to deadline-exceeded. - internal : a retry is attempted if the gRPC status code in the response header is set to internal. - resource-exhausted : a retry is attempted if the gRPC status code in the response header is set to resource-exhausted. - unavailable : a retry is attempted if the gRPC status code in the response header is set to unavailable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#retry_conditions ComputeRegionUrlMap#retry_conditions}
+        :param num_retries: Specifies the allowed number retries. This number must be > 0. If not specified, defaults to 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#num_retries ComputeRegionUrlMap#num_retries}
+        :param per_try_timeout: per_try_timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#per_try_timeout ComputeRegionUrlMap#per_try_timeout}
+        :param retry_conditions: Specifies one or more conditions when this retry policy applies. Valid values are listed below. Only the following codes are supported when the URL map is bound to target gRPC proxy that has validateForProxyless field set to true: cancelled, deadline-exceeded, internal, resource-exhausted, unavailable. - 5xx : retry is attempted if the instance or endpoint responds with any 5xx response code, or if the instance or endpoint does not respond at all. For example, disconnects, reset, read timeout, connection failure, and refused streams. - gateway-error : Similar to 5xx, but only applies to response codes 502, 503 or 504. - connect-failure : a retry is attempted on failures connecting to the instance or endpoint. For example, connection timeouts. - retriable-4xx : a retry is attempted if the instance or endpoint responds with a 4xx response code. The only error that you can retry is error code 409. - refused-stream : a retry is attempted if the instance or endpoint resets the stream with a REFUSED_STREAM error code. This reset type indicates that it is safe to retry. - cancelled : a retry is attempted if the gRPC status code in the response header is set to cancelled. - deadline-exceeded : a retry is attempted if the gRPC status code in the response header is set to deadline-exceeded. - internal : a retry is attempted if the gRPC status code in the response header is set to internal. - resource-exhausted : a retry is attempted if the gRPC status code in the response header is set to resource-exhausted. - unavailable : a retry is attempted if the gRPC status code in the response header is set to unavailable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#retry_conditions ComputeRegionUrlMap#retry_conditions}
         '''
         value = ComputeRegionUrlMapDefaultRouteActionRetryPolicy(
             num_retries=num_retries,
@@ -2138,8 +2138,8 @@ class ComputeRegionUrlMapDefaultRouteActionOutputReference(
         seconds: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
         '''
         value = ComputeRegionUrlMapDefaultRouteActionTimeout(
             nanos=nanos, seconds=seconds
@@ -2155,8 +2155,8 @@ class ComputeRegionUrlMapDefaultRouteActionOutputReference(
         path_prefix_rewrite: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host_rewrite: Before forwarding the request to the selected service, the request's host header is replaced with contents of hostRewrite. The value must be from 1 to 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_rewrite ComputeRegionUrlMap#host_rewrite}
-        :param path_prefix_rewrite: Before forwarding the request to the selected backend service, the matching portion of the request's path is replaced by pathPrefixRewrite. The value must be from 1 to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_prefix_rewrite ComputeRegionUrlMap#path_prefix_rewrite}
+        :param host_rewrite: Before forwarding the request to the selected service, the request's host header is replaced with contents of hostRewrite. The value must be from 1 to 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_rewrite ComputeRegionUrlMap#host_rewrite}
+        :param path_prefix_rewrite: Before forwarding the request to the selected backend service, the matching portion of the request's path is replaced by pathPrefixRewrite. The value must be from 1 to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_prefix_rewrite ComputeRegionUrlMap#path_prefix_rewrite}
         '''
         value = ComputeRegionUrlMapDefaultRouteActionUrlRewrite(
             host_rewrite=host_rewrite, path_prefix_rewrite=path_prefix_rewrite
@@ -2329,7 +2329,7 @@ class ComputeRegionUrlMapDefaultRouteActionRequestMirrorPolicy:
         backend_service: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param backend_service: The full or partial URL to the RegionBackendService resource being mirrored to. The backend service configured for a mirroring policy must reference backends that are of the same type as the original backend service matched in the URL map. Serverless NEG backends are not currently supported as a mirrored backend service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
+        :param backend_service: The full or partial URL to the RegionBackendService resource being mirrored to. The backend service configured for a mirroring policy must reference backends that are of the same type as the original backend service matched in the URL map. Serverless NEG backends are not currently supported as a mirrored backend service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5a12bb68850a878b876cca5efafb626687595e89ac627d015eedb5317c31719b)
@@ -2345,7 +2345,7 @@ class ComputeRegionUrlMapDefaultRouteActionRequestMirrorPolicy:
         The backend service configured for a mirroring policy must reference backends that are of the same type as the original backend service matched in the URL map.
         Serverless NEG backends are not currently supported as a mirrored backend service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
         '''
         result = self._values.get("backend_service")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2439,9 +2439,9 @@ class ComputeRegionUrlMapDefaultRouteActionRetryPolicy:
         retry_conditions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param num_retries: Specifies the allowed number retries. This number must be > 0. If not specified, defaults to 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#num_retries ComputeRegionUrlMap#num_retries}
-        :param per_try_timeout: per_try_timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#per_try_timeout ComputeRegionUrlMap#per_try_timeout}
-        :param retry_conditions: Specifies one or more conditions when this retry policy applies. Valid values are listed below. Only the following codes are supported when the URL map is bound to target gRPC proxy that has validateForProxyless field set to true: cancelled, deadline-exceeded, internal, resource-exhausted, unavailable. - 5xx : retry is attempted if the instance or endpoint responds with any 5xx response code, or if the instance or endpoint does not respond at all. For example, disconnects, reset, read timeout, connection failure, and refused streams. - gateway-error : Similar to 5xx, but only applies to response codes 502, 503 or 504. - connect-failure : a retry is attempted on failures connecting to the instance or endpoint. For example, connection timeouts. - retriable-4xx : a retry is attempted if the instance or endpoint responds with a 4xx response code. The only error that you can retry is error code 409. - refused-stream : a retry is attempted if the instance or endpoint resets the stream with a REFUSED_STREAM error code. This reset type indicates that it is safe to retry. - cancelled : a retry is attempted if the gRPC status code in the response header is set to cancelled. - deadline-exceeded : a retry is attempted if the gRPC status code in the response header is set to deadline-exceeded. - internal : a retry is attempted if the gRPC status code in the response header is set to internal. - resource-exhausted : a retry is attempted if the gRPC status code in the response header is set to resource-exhausted. - unavailable : a retry is attempted if the gRPC status code in the response header is set to unavailable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#retry_conditions ComputeRegionUrlMap#retry_conditions}
+        :param num_retries: Specifies the allowed number retries. This number must be > 0. If not specified, defaults to 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#num_retries ComputeRegionUrlMap#num_retries}
+        :param per_try_timeout: per_try_timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#per_try_timeout ComputeRegionUrlMap#per_try_timeout}
+        :param retry_conditions: Specifies one or more conditions when this retry policy applies. Valid values are listed below. Only the following codes are supported when the URL map is bound to target gRPC proxy that has validateForProxyless field set to true: cancelled, deadline-exceeded, internal, resource-exhausted, unavailable. - 5xx : retry is attempted if the instance or endpoint responds with any 5xx response code, or if the instance or endpoint does not respond at all. For example, disconnects, reset, read timeout, connection failure, and refused streams. - gateway-error : Similar to 5xx, but only applies to response codes 502, 503 or 504. - connect-failure : a retry is attempted on failures connecting to the instance or endpoint. For example, connection timeouts. - retriable-4xx : a retry is attempted if the instance or endpoint responds with a 4xx response code. The only error that you can retry is error code 409. - refused-stream : a retry is attempted if the instance or endpoint resets the stream with a REFUSED_STREAM error code. This reset type indicates that it is safe to retry. - cancelled : a retry is attempted if the gRPC status code in the response header is set to cancelled. - deadline-exceeded : a retry is attempted if the gRPC status code in the response header is set to deadline-exceeded. - internal : a retry is attempted if the gRPC status code in the response header is set to internal. - resource-exhausted : a retry is attempted if the gRPC status code in the response header is set to resource-exhausted. - unavailable : a retry is attempted if the gRPC status code in the response header is set to unavailable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#retry_conditions ComputeRegionUrlMap#retry_conditions}
         '''
         if isinstance(per_try_timeout, dict):
             per_try_timeout = ComputeRegionUrlMapDefaultRouteActionRetryPolicyPerTryTimeout(**per_try_timeout)
@@ -2462,7 +2462,7 @@ class ComputeRegionUrlMapDefaultRouteActionRetryPolicy:
     def num_retries(self) -> typing.Optional[jsii.Number]:
         '''Specifies the allowed number retries. This number must be > 0. If not specified, defaults to 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#num_retries ComputeRegionUrlMap#num_retries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#num_retries ComputeRegionUrlMap#num_retries}
         '''
         result = self._values.get("num_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2473,7 +2473,7 @@ class ComputeRegionUrlMapDefaultRouteActionRetryPolicy:
     ) -> typing.Optional["ComputeRegionUrlMapDefaultRouteActionRetryPolicyPerTryTimeout"]:
         '''per_try_timeout block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#per_try_timeout ComputeRegionUrlMap#per_try_timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#per_try_timeout ComputeRegionUrlMap#per_try_timeout}
         '''
         result = self._values.get("per_try_timeout")
         return typing.cast(typing.Optional["ComputeRegionUrlMapDefaultRouteActionRetryPolicyPerTryTimeout"], result)
@@ -2495,7 +2495,7 @@ class ComputeRegionUrlMapDefaultRouteActionRetryPolicy:
         - resource-exhausted : a retry is attempted if the gRPC status code in the response header is set to resource-exhausted.
         - unavailable : a retry is attempted if the gRPC status code in the response header is set to unavailable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#retry_conditions ComputeRegionUrlMap#retry_conditions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#retry_conditions ComputeRegionUrlMap#retry_conditions}
         '''
         result = self._values.get("retry_conditions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2540,8 +2540,8 @@ class ComputeRegionUrlMapDefaultRouteActionRetryPolicyOutputReference(
         seconds: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
         '''
         value = ComputeRegionUrlMapDefaultRouteActionRetryPolicyPerTryTimeout(
             nanos=nanos, seconds=seconds
@@ -2640,8 +2640,8 @@ class ComputeRegionUrlMapDefaultRouteActionRetryPolicyPerTryTimeout:
         seconds: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9c369ef4242aa70be5cd8dc5282d9bc3d45e55550d4508866f16661760177f04)
@@ -2660,7 +2660,7 @@ class ComputeRegionUrlMapDefaultRouteActionRetryPolicyPerTryTimeout:
         Durations less than one second are
         represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2672,7 +2672,7 @@ class ComputeRegionUrlMapDefaultRouteActionRetryPolicyPerTryTimeout:
         Must be from 0 to 315,576,000,000 inclusive.
         Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
         '''
         result = self._values.get("seconds")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2782,8 +2782,8 @@ class ComputeRegionUrlMapDefaultRouteActionTimeout:
         seconds: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0da2bccff577b0a396817bd6ae4dde1451d0acbdeea9967046bcedfec2115d09)
@@ -2801,7 +2801,7 @@ class ComputeRegionUrlMapDefaultRouteActionTimeout:
 
         Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2812,7 +2812,7 @@ class ComputeRegionUrlMapDefaultRouteActionTimeout:
 
         Must be from 0 to 315,576,000,000 inclusive. Note: these bounds are computed from: 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
         '''
         result = self._values.get("seconds")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2925,8 +2925,8 @@ class ComputeRegionUrlMapDefaultRouteActionUrlRewrite:
         path_prefix_rewrite: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host_rewrite: Before forwarding the request to the selected service, the request's host header is replaced with contents of hostRewrite. The value must be from 1 to 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_rewrite ComputeRegionUrlMap#host_rewrite}
-        :param path_prefix_rewrite: Before forwarding the request to the selected backend service, the matching portion of the request's path is replaced by pathPrefixRewrite. The value must be from 1 to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_prefix_rewrite ComputeRegionUrlMap#path_prefix_rewrite}
+        :param host_rewrite: Before forwarding the request to the selected service, the request's host header is replaced with contents of hostRewrite. The value must be from 1 to 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_rewrite ComputeRegionUrlMap#host_rewrite}
+        :param path_prefix_rewrite: Before forwarding the request to the selected backend service, the matching portion of the request's path is replaced by pathPrefixRewrite. The value must be from 1 to 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_prefix_rewrite ComputeRegionUrlMap#path_prefix_rewrite}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f69529c64713704b106c6a57545c291a662048ff2bb2d0ee494bcb6572a8a2ec)
@@ -2944,7 +2944,7 @@ class ComputeRegionUrlMapDefaultRouteActionUrlRewrite:
 
         The value must be from 1 to 255 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_rewrite ComputeRegionUrlMap#host_rewrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_rewrite ComputeRegionUrlMap#host_rewrite}
         '''
         result = self._values.get("host_rewrite")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2955,7 +2955,7 @@ class ComputeRegionUrlMapDefaultRouteActionUrlRewrite:
 
         The value must be from 1 to 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_prefix_rewrite ComputeRegionUrlMap#path_prefix_rewrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_prefix_rewrite ComputeRegionUrlMap#path_prefix_rewrite}
         '''
         result = self._values.get("path_prefix_rewrite")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3070,9 +3070,9 @@ class ComputeRegionUrlMapDefaultRouteActionWeightedBackendServices:
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param backend_service: The full or partial URL to the default BackendService resource. Before forwarding the request to backendService, the load balancer applies any relevant headerActions specified as part of this backendServiceWeight. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
-        :param header_action: header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_action ComputeRegionUrlMap#header_action}
-        :param weight: Specifies the fraction of traffic sent to a backend service, computed as weight / (sum of all weightedBackendService weights in routeAction) . The selection of a backend service is determined only for new traffic. Once a user's request has been directed to a backend service, subsequent requests are sent to the same backend service as determined by the backend service's session affinity policy. The value must be from 0 to 1000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#weight ComputeRegionUrlMap#weight}
+        :param backend_service: The full or partial URL to the default BackendService resource. Before forwarding the request to backendService, the load balancer applies any relevant headerActions specified as part of this backendServiceWeight. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
+        :param header_action: header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_action ComputeRegionUrlMap#header_action}
+        :param weight: Specifies the fraction of traffic sent to a backend service, computed as weight / (sum of all weightedBackendService weights in routeAction) . The selection of a backend service is determined only for new traffic. Once a user's request has been directed to a backend service, subsequent requests are sent to the same backend service as determined by the backend service's session affinity policy. The value must be from 0 to 1000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#weight ComputeRegionUrlMap#weight}
         '''
         if isinstance(header_action, dict):
             header_action = ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderAction(**header_action)
@@ -3095,7 +3095,7 @@ class ComputeRegionUrlMapDefaultRouteActionWeightedBackendServices:
 
         Before forwarding the request to backendService, the load balancer applies any relevant headerActions specified as part of this backendServiceWeight.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
         '''
         result = self._values.get("backend_service")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3106,7 +3106,7 @@ class ComputeRegionUrlMapDefaultRouteActionWeightedBackendServices:
     ) -> typing.Optional["ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderAction"]:
         '''header_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_action ComputeRegionUrlMap#header_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_action ComputeRegionUrlMap#header_action}
         '''
         result = self._values.get("header_action")
         return typing.cast(typing.Optional["ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderAction"], result)
@@ -3118,7 +3118,7 @@ class ComputeRegionUrlMapDefaultRouteActionWeightedBackendServices:
         The selection of a backend service is determined only for new traffic. Once a user's request has been directed to a backend service, subsequent requests are sent to the same backend service as determined by the backend service's session affinity policy.
         The value must be from 0 to 1000.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#weight ComputeRegionUrlMap#weight}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#weight ComputeRegionUrlMap#weight}
         '''
         result = self._values.get("weight")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3155,10 +3155,10 @@ class ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderAction:
         response_headers_to_remove: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param request_headers_to_add: request_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
-        :param request_headers_to_remove: A list of header names for headers that need to be removed from the request before forwarding the request to the backendService. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
-        :param response_headers_to_add: response_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
-        :param response_headers_to_remove: A list of header names for headers that need to be removed from the response before sending the response back to the client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
+        :param request_headers_to_add: request_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
+        :param request_headers_to_remove: A list of header names for headers that need to be removed from the request before forwarding the request to the backendService. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
+        :param response_headers_to_add: response_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
+        :param response_headers_to_remove: A list of header names for headers that need to be removed from the response before sending the response back to the client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0db3e0944310401a8327c184f38b9beea44f376a4c24b75298d2116f7f7b5ecd)
@@ -3182,7 +3182,7 @@ class ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderActionRequestHeadersToAdd"]]]:
         '''request_headers_to_add block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
         '''
         result = self._values.get("request_headers_to_add")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderActionRequestHeadersToAdd"]]], result)
@@ -3191,7 +3191,7 @@ class ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderAction:
     def request_headers_to_remove(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of header names for headers that need to be removed from the request before forwarding the request to the backendService.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
         '''
         result = self._values.get("request_headers_to_remove")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3202,7 +3202,7 @@ class ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderActionResponseHeadersToAdd"]]]:
         '''response_headers_to_add block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
         '''
         result = self._values.get("response_headers_to_add")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderActionResponseHeadersToAdd"]]], result)
@@ -3211,7 +3211,7 @@ class ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderAction:
     def response_headers_to_remove(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of header names for headers that need to be removed from the response before sending the response back to the client.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
         '''
         result = self._values.get("response_headers_to_remove")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3392,9 +3392,9 @@ class ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderActionRe
         replace: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param header_name: The name of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
-        :param header_value: The value of the header to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
-        :param replace: If false, headerValue is appended to any values that already exist for the header. If true, headerValue is set for the header, discarding any values that were set for that header. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
+        :param header_name: The name of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
+        :param header_value: The value of the header to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
+        :param replace: If false, headerValue is appended to any values that already exist for the header. If true, headerValue is set for the header, discarding any values that were set for that header. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0337e3936faaf8e3a001ff93e03efdc3576d4d985426af9d61deac1af74c447f)
@@ -3413,7 +3413,7 @@ class ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderActionRe
     def header_name(self) -> typing.Optional[builtins.str]:
         '''The name of the header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
         '''
         result = self._values.get("header_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3422,7 +3422,7 @@ class ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderActionRe
     def header_value(self) -> typing.Optional[builtins.str]:
         '''The value of the header to add.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
         '''
         result = self._values.get("header_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3436,7 +3436,7 @@ class ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderActionRe
         If true, headerValue is set for the header, discarding any values that were set for that header.
         The default value is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
         '''
         result = self._values.get("replace")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3676,9 +3676,9 @@ class ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderActionRe
         replace: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param header_name: The name of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
-        :param header_value: The value of the header to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
-        :param replace: If false, headerValue is appended to any values that already exist for the header. If true, headerValue is set for the header, discarding any values that were set for that header. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
+        :param header_name: The name of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
+        :param header_value: The value of the header to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
+        :param replace: If false, headerValue is appended to any values that already exist for the header. If true, headerValue is set for the header, discarding any values that were set for that header. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ae69fa74d5aca9ce6ca01516145247148a25c1c2c30011baa3f4f1599d7260c1)
@@ -3697,7 +3697,7 @@ class ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderActionRe
     def header_name(self) -> typing.Optional[builtins.str]:
         '''The name of the header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
         '''
         result = self._values.get("header_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3706,7 +3706,7 @@ class ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderActionRe
     def header_value(self) -> typing.Optional[builtins.str]:
         '''The value of the header to add.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
         '''
         result = self._values.get("header_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3720,7 +3720,7 @@ class ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderActionRe
         If true, headerValue is set for the header, discarding any values that were set for that header.
         The default value is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
         '''
         result = self._values.get("replace")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4071,10 +4071,10 @@ class ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesOutputReferenc
         response_headers_to_remove: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param request_headers_to_add: request_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
-        :param request_headers_to_remove: A list of header names for headers that need to be removed from the request before forwarding the request to the backendService. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
-        :param response_headers_to_add: response_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
-        :param response_headers_to_remove: A list of header names for headers that need to be removed from the response before sending the response back to the client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
+        :param request_headers_to_add: request_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
+        :param request_headers_to_remove: A list of header names for headers that need to be removed from the request before forwarding the request to the backendService. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
+        :param response_headers_to_add: response_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
+        :param response_headers_to_remove: A list of header names for headers that need to be removed from the response before sending the response back to the client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
         '''
         value = ComputeRegionUrlMapDefaultRouteActionWeightedBackendServicesHeaderAction(
             request_headers_to_add=request_headers_to_add,
@@ -4187,12 +4187,12 @@ class ComputeRegionUrlMapDefaultUrlRedirect:
         redirect_response_code: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. If set to false, the query portion of the original URL is retained. This field is required to ensure an empty block is not set. The normal default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
-        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
-        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. If set to false, the URL scheme of the redirected request will remain the same as that of the request. This must only be set for UrlMaps used in TargetHttpProxys. Setting this true for TargetHttpsProxy is not permitted. The default is set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
-        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect cannot be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
-        :param prefix_redirect: The prefix that replaces the prefixMatch specified in the HttpRouteRuleMatch, retaining the remaining portion of the URL before redirecting the request. prefixRedirect cannot be supplied together with pathRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
-        :param redirect_response_code: The HTTP Status code to use for this RedirectAction. Supported values are:. - MOVED_PERMANENTLY_DEFAULT, which is the default value and corresponds to 301. - FOUND, which corresponds to 302. - SEE_OTHER which corresponds to 303. - TEMPORARY_REDIRECT, which corresponds to 307. In this case, the request method will be retained. - PERMANENT_REDIRECT, which corresponds to 308. In this case, the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
+        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. If set to false, the query portion of the original URL is retained. This field is required to ensure an empty block is not set. The normal default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
+        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
+        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. If set to false, the URL scheme of the redirected request will remain the same as that of the request. This must only be set for UrlMaps used in TargetHttpProxys. Setting this true for TargetHttpsProxy is not permitted. The default is set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
+        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect cannot be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
+        :param prefix_redirect: The prefix that replaces the prefixMatch specified in the HttpRouteRuleMatch, retaining the remaining portion of the URL before redirecting the request. prefixRedirect cannot be supplied together with pathRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
+        :param redirect_response_code: The HTTP Status code to use for this RedirectAction. Supported values are:. - MOVED_PERMANENTLY_DEFAULT, which is the default value and corresponds to 301. - FOUND, which corresponds to 302. - SEE_OTHER which corresponds to 303. - TEMPORARY_REDIRECT, which corresponds to 307. In this case, the request method will be retained. - PERMANENT_REDIRECT, which corresponds to 308. In this case, the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e040c628139a20bc795711b04f6f01c67db37872bb0512233b5e720b62075010)
@@ -4224,7 +4224,7 @@ class ComputeRegionUrlMapDefaultUrlRedirect:
         retained.
         This field is required to ensure an empty block is not set. The normal default value is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
         '''
         result = self._values.get("strip_query")
         assert result is not None, "Required property 'strip_query' is missing"
@@ -4236,7 +4236,7 @@ class ComputeRegionUrlMapDefaultUrlRedirect:
 
         The value must be between 1 and 255 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
         '''
         result = self._values.get("host_redirect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4252,7 +4252,7 @@ class ComputeRegionUrlMapDefaultUrlRedirect:
         request. This must only be set for UrlMaps used in TargetHttpProxys. Setting this
         true for TargetHttpsProxy is not permitted. The default is set to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
         '''
         result = self._values.get("https_redirect")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4266,7 +4266,7 @@ class ComputeRegionUrlMapDefaultUrlRedirect:
         original request will be used for the redirect. The value must be between 1 and 1024
         characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
         '''
         result = self._values.get("path_redirect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4279,7 +4279,7 @@ class ComputeRegionUrlMapDefaultUrlRedirect:
         neither. If neither is supplied, the path of the original request will be used for
         the redirect. The value must be between 1 and 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
         '''
         result = self._values.get("prefix_redirect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4296,7 +4296,7 @@ class ComputeRegionUrlMapDefaultUrlRedirect:
         - PERMANENT_REDIRECT, which corresponds to 308. In this case,
           the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
         '''
         result = self._values.get("redirect_response_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4501,9 +4501,9 @@ class ComputeRegionUrlMapHostRule:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param hosts: The list of host patterns to match. They must be valid hostnames, except * will match any string of ([a-z0-9-.]*). In that case, * must be the first character and must be followed in the pattern by either - or .. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#hosts ComputeRegionUrlMap#hosts}
-        :param path_matcher: The name of the PathMatcher to use to match the path portion of the URL if the hostRule matches the URL's host portion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_matcher ComputeRegionUrlMap#path_matcher}
-        :param description: An optional description of this HostRule. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#description ComputeRegionUrlMap#description}
+        :param hosts: The list of host patterns to match. They must be valid hostnames, except * will match any string of ([a-z0-9-.]*). In that case, * must be the first character and must be followed in the pattern by either - or .. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#hosts ComputeRegionUrlMap#hosts}
+        :param path_matcher: The name of the PathMatcher to use to match the path portion of the URL if the hostRule matches the URL's host portion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_matcher ComputeRegionUrlMap#path_matcher}
+        :param description: An optional description of this HostRule. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#description ComputeRegionUrlMap#description}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d29d362432d27ee8bf381fa8517c526e87bd57b9dfc3cacc7dc5e5d58ed628d0)
@@ -4526,7 +4526,7 @@ class ComputeRegionUrlMapHostRule:
         that case, * must be the first character and must be followed in
         the pattern by either - or ..
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#hosts ComputeRegionUrlMap#hosts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#hosts ComputeRegionUrlMap#hosts}
         '''
         result = self._values.get("hosts")
         assert result is not None, "Required property 'hosts' is missing"
@@ -4536,7 +4536,7 @@ class ComputeRegionUrlMapHostRule:
     def path_matcher(self) -> builtins.str:
         '''The name of the PathMatcher to use to match the path portion of the URL if the hostRule matches the URL's host portion.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_matcher ComputeRegionUrlMap#path_matcher}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_matcher ComputeRegionUrlMap#path_matcher}
         '''
         result = self._values.get("path_matcher")
         assert result is not None, "Required property 'path_matcher' is missing"
@@ -4546,7 +4546,7 @@ class ComputeRegionUrlMapHostRule:
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this HostRule. Provide this property when you create the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#description ComputeRegionUrlMap#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#description ComputeRegionUrlMap#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4776,12 +4776,12 @@ class ComputeRegionUrlMapPathMatcher:
         route_rules: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeRegionUrlMapPathMatcherRouteRules", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: The name to which this PathMatcher is referred by the HostRule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#name ComputeRegionUrlMap#name}
-        :param default_service: A reference to a RegionBackendService resource. This will be used if none of the pathRules defined by this PathMatcher is matched by the URL's path portion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#default_service ComputeRegionUrlMap#default_service}
-        :param default_url_redirect: default_url_redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#default_url_redirect ComputeRegionUrlMap#default_url_redirect}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#description ComputeRegionUrlMap#description}
-        :param path_rule: path_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_rule ComputeRegionUrlMap#path_rule}
-        :param route_rules: route_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#route_rules ComputeRegionUrlMap#route_rules}
+        :param name: The name to which this PathMatcher is referred by the HostRule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#name ComputeRegionUrlMap#name}
+        :param default_service: A reference to a RegionBackendService resource. This will be used if none of the pathRules defined by this PathMatcher is matched by the URL's path portion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#default_service ComputeRegionUrlMap#default_service}
+        :param default_url_redirect: default_url_redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#default_url_redirect ComputeRegionUrlMap#default_url_redirect}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#description ComputeRegionUrlMap#description}
+        :param path_rule: path_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_rule ComputeRegionUrlMap#path_rule}
+        :param route_rules: route_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#route_rules ComputeRegionUrlMap#route_rules}
         '''
         if isinstance(default_url_redirect, dict):
             default_url_redirect = ComputeRegionUrlMapPathMatcherDefaultUrlRedirect(**default_url_redirect)
@@ -4811,7 +4811,7 @@ class ComputeRegionUrlMapPathMatcher:
     def name(self) -> builtins.str:
         '''The name to which this PathMatcher is referred by the HostRule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#name ComputeRegionUrlMap#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#name ComputeRegionUrlMap#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -4825,7 +4825,7 @@ class ComputeRegionUrlMapPathMatcher:
         none of the pathRules defined by this PathMatcher is matched by
         the URL's path portion.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#default_service ComputeRegionUrlMap#default_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#default_service ComputeRegionUrlMap#default_service}
         '''
         result = self._values.get("default_service")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4836,7 +4836,7 @@ class ComputeRegionUrlMapPathMatcher:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherDefaultUrlRedirect"]:
         '''default_url_redirect block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#default_url_redirect ComputeRegionUrlMap#default_url_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#default_url_redirect ComputeRegionUrlMap#default_url_redirect}
         '''
         result = self._values.get("default_url_redirect")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherDefaultUrlRedirect"], result)
@@ -4845,7 +4845,7 @@ class ComputeRegionUrlMapPathMatcher:
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#description ComputeRegionUrlMap#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#description ComputeRegionUrlMap#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4856,7 +4856,7 @@ class ComputeRegionUrlMapPathMatcher:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherPathRule"]]]:
         '''path_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_rule ComputeRegionUrlMap#path_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_rule ComputeRegionUrlMap#path_rule}
         '''
         result = self._values.get("path_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherPathRule"]]], result)
@@ -4867,7 +4867,7 @@ class ComputeRegionUrlMapPathMatcher:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRules"]]]:
         '''route_rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#route_rules ComputeRegionUrlMap#route_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#route_rules ComputeRegionUrlMap#route_rules}
         '''
         result = self._values.get("route_rules")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRules"]]], result)
@@ -4908,12 +4908,12 @@ class ComputeRegionUrlMapPathMatcherDefaultUrlRedirect:
         redirect_response_code: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. If set to false, the query portion of the original URL is retained. This field is required to ensure an empty block is not set. The normal default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
-        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
-        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. If set to false, the URL scheme of the redirected request will remain the same as that of the request. This must only be set for UrlMaps used in TargetHttpProxys. Setting this true for TargetHttpsProxy is not permitted. The default is set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
-        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect cannot be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
-        :param prefix_redirect: The prefix that replaces the prefixMatch specified in the HttpRouteRuleMatch, retaining the remaining portion of the URL before redirecting the request. prefixRedirect cannot be supplied together with pathRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
-        :param redirect_response_code: The HTTP Status code to use for this RedirectAction. Supported values are:. - MOVED_PERMANENTLY_DEFAULT, which is the default value and corresponds to 301. - FOUND, which corresponds to 302. - SEE_OTHER which corresponds to 303. - TEMPORARY_REDIRECT, which corresponds to 307. In this case, the request method will be retained. - PERMANENT_REDIRECT, which corresponds to 308. In this case, the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
+        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. If set to false, the query portion of the original URL is retained. This field is required to ensure an empty block is not set. The normal default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
+        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
+        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. If set to false, the URL scheme of the redirected request will remain the same as that of the request. This must only be set for UrlMaps used in TargetHttpProxys. Setting this true for TargetHttpsProxy is not permitted. The default is set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
+        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect cannot be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
+        :param prefix_redirect: The prefix that replaces the prefixMatch specified in the HttpRouteRuleMatch, retaining the remaining portion of the URL before redirecting the request. prefixRedirect cannot be supplied together with pathRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
+        :param redirect_response_code: The HTTP Status code to use for this RedirectAction. Supported values are:. - MOVED_PERMANENTLY_DEFAULT, which is the default value and corresponds to 301. - FOUND, which corresponds to 302. - SEE_OTHER which corresponds to 303. - TEMPORARY_REDIRECT, which corresponds to 307. In this case, the request method will be retained. - PERMANENT_REDIRECT, which corresponds to 308. In this case, the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4e4a588d3ac4737d245b77249b7631d84d5e049db6df6d7e5e35ff2e30680a5e)
@@ -4945,7 +4945,7 @@ class ComputeRegionUrlMapPathMatcherDefaultUrlRedirect:
         retained.
         This field is required to ensure an empty block is not set. The normal default value is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
         '''
         result = self._values.get("strip_query")
         assert result is not None, "Required property 'strip_query' is missing"
@@ -4957,7 +4957,7 @@ class ComputeRegionUrlMapPathMatcherDefaultUrlRedirect:
 
         The value must be between 1 and 255 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
         '''
         result = self._values.get("host_redirect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4973,7 +4973,7 @@ class ComputeRegionUrlMapPathMatcherDefaultUrlRedirect:
         request. This must only be set for UrlMaps used in TargetHttpProxys. Setting this
         true for TargetHttpsProxy is not permitted. The default is set to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
         '''
         result = self._values.get("https_redirect")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4987,7 +4987,7 @@ class ComputeRegionUrlMapPathMatcherDefaultUrlRedirect:
         original request will be used for the redirect. The value must be between 1 and 1024
         characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
         '''
         result = self._values.get("path_redirect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5000,7 +5000,7 @@ class ComputeRegionUrlMapPathMatcherDefaultUrlRedirect:
         neither. If neither is supplied, the path of the original request will be used for
         the redirect. The value must be between 1 and 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
         '''
         result = self._values.get("prefix_redirect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5017,7 +5017,7 @@ class ComputeRegionUrlMapPathMatcherDefaultUrlRedirect:
         - PERMANENT_REDIRECT, which corresponds to 308. In this case,
           the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
         '''
         result = self._values.get("redirect_response_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5337,12 +5337,12 @@ class ComputeRegionUrlMapPathMatcherOutputReference(
         redirect_response_code: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. If set to false, the query portion of the original URL is retained. This field is required to ensure an empty block is not set. The normal default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
-        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
-        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. If set to false, the URL scheme of the redirected request will remain the same as that of the request. This must only be set for UrlMaps used in TargetHttpProxys. Setting this true for TargetHttpsProxy is not permitted. The default is set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
-        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect cannot be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
-        :param prefix_redirect: The prefix that replaces the prefixMatch specified in the HttpRouteRuleMatch, retaining the remaining portion of the URL before redirecting the request. prefixRedirect cannot be supplied together with pathRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
-        :param redirect_response_code: The HTTP Status code to use for this RedirectAction. Supported values are:. - MOVED_PERMANENTLY_DEFAULT, which is the default value and corresponds to 301. - FOUND, which corresponds to 302. - SEE_OTHER which corresponds to 303. - TEMPORARY_REDIRECT, which corresponds to 307. In this case, the request method will be retained. - PERMANENT_REDIRECT, which corresponds to 308. In this case, the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
+        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. If set to false, the query portion of the original URL is retained. This field is required to ensure an empty block is not set. The normal default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
+        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
+        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. If set to false, the URL scheme of the redirected request will remain the same as that of the request. This must only be set for UrlMaps used in TargetHttpProxys. Setting this true for TargetHttpsProxy is not permitted. The default is set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
+        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect cannot be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
+        :param prefix_redirect: The prefix that replaces the prefixMatch specified in the HttpRouteRuleMatch, retaining the remaining portion of the URL before redirecting the request. prefixRedirect cannot be supplied together with pathRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
+        :param redirect_response_code: The HTTP Status code to use for this RedirectAction. Supported values are:. - MOVED_PERMANENTLY_DEFAULT, which is the default value and corresponds to 301. - FOUND, which corresponds to 302. - SEE_OTHER which corresponds to 303. - TEMPORARY_REDIRECT, which corresponds to 307. In this case, the request method will be retained. - PERMANENT_REDIRECT, which corresponds to 308. In this case, the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
         '''
         value = ComputeRegionUrlMapPathMatcherDefaultUrlRedirect(
             strip_query=strip_query,
@@ -5528,10 +5528,10 @@ class ComputeRegionUrlMapPathMatcherPathRule:
         url_redirect: typing.Optional[typing.Union["ComputeRegionUrlMapPathMatcherPathRuleUrlRedirect", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param paths: The list of path patterns to match. Each must start with / and the only place a * is allowed is at the end following a /. The string fed to the path matcher does not include any text after the first ? or #, and those chars are not allowed here. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#paths ComputeRegionUrlMap#paths}
-        :param route_action: route_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#route_action ComputeRegionUrlMap#route_action}
-        :param service: The region backend service resource to which traffic is directed if this rule is matched. If routeAction is additionally specified, advanced routing actions like URL Rewrites, etc. take effect prior to sending the request to the backend. However, if service is specified, routeAction cannot contain any weightedBackendService s. Conversely, if routeAction specifies any weightedBackendServices, service must not be specified. Only one of urlRedirect, service or routeAction.weightedBackendService must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#service ComputeRegionUrlMap#service}
-        :param url_redirect: url_redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#url_redirect ComputeRegionUrlMap#url_redirect}
+        :param paths: The list of path patterns to match. Each must start with / and the only place a * is allowed is at the end following a /. The string fed to the path matcher does not include any text after the first ? or #, and those chars are not allowed here. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#paths ComputeRegionUrlMap#paths}
+        :param route_action: route_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#route_action ComputeRegionUrlMap#route_action}
+        :param service: The region backend service resource to which traffic is directed if this rule is matched. If routeAction is additionally specified, advanced routing actions like URL Rewrites, etc. take effect prior to sending the request to the backend. However, if service is specified, routeAction cannot contain any weightedBackendService s. Conversely, if routeAction specifies any weightedBackendServices, service must not be specified. Only one of urlRedirect, service or routeAction.weightedBackendService must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#service ComputeRegionUrlMap#service}
+        :param url_redirect: url_redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#url_redirect ComputeRegionUrlMap#url_redirect}
         '''
         if isinstance(route_action, dict):
             route_action = ComputeRegionUrlMapPathMatcherPathRuleRouteAction(**route_action)
@@ -5563,7 +5563,7 @@ class ComputeRegionUrlMapPathMatcherPathRule:
           does not include any text after the first ? or #, and those chars are not
           allowed here.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#paths ComputeRegionUrlMap#paths}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#paths ComputeRegionUrlMap#paths}
         '''
         result = self._values.get("paths")
         assert result is not None, "Required property 'paths' is missing"
@@ -5575,7 +5575,7 @@ class ComputeRegionUrlMapPathMatcherPathRule:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteAction"]:
         '''route_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#route_action ComputeRegionUrlMap#route_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#route_action ComputeRegionUrlMap#route_action}
         '''
         result = self._values.get("route_action")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteAction"], result)
@@ -5591,7 +5591,7 @@ class ComputeRegionUrlMapPathMatcherPathRule:
         weightedBackendServices, service must not be specified. Only one of urlRedirect,
         service or routeAction.weightedBackendService must be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#service ComputeRegionUrlMap#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#service ComputeRegionUrlMap#service}
         '''
         result = self._values.get("service")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5602,7 +5602,7 @@ class ComputeRegionUrlMapPathMatcherPathRule:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleUrlRedirect"]:
         '''url_redirect block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#url_redirect ComputeRegionUrlMap#url_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#url_redirect ComputeRegionUrlMap#url_redirect}
         '''
         result = self._values.get("url_redirect")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleUrlRedirect"], result)
@@ -5751,13 +5751,13 @@ class ComputeRegionUrlMapPathMatcherPathRuleOutputReference(
         weighted_backend_services: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServices", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param cors_policy: cors_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#cors_policy ComputeRegionUrlMap#cors_policy}
-        :param fault_injection_policy: fault_injection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#fault_injection_policy ComputeRegionUrlMap#fault_injection_policy}
-        :param request_mirror_policy: request_mirror_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_mirror_policy ComputeRegionUrlMap#request_mirror_policy}
-        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#retry_policy ComputeRegionUrlMap#retry_policy}
-        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#timeout ComputeRegionUrlMap#timeout}
-        :param url_rewrite: url_rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#url_rewrite ComputeRegionUrlMap#url_rewrite}
-        :param weighted_backend_services: weighted_backend_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#weighted_backend_services ComputeRegionUrlMap#weighted_backend_services}
+        :param cors_policy: cors_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#cors_policy ComputeRegionUrlMap#cors_policy}
+        :param fault_injection_policy: fault_injection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#fault_injection_policy ComputeRegionUrlMap#fault_injection_policy}
+        :param request_mirror_policy: request_mirror_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_mirror_policy ComputeRegionUrlMap#request_mirror_policy}
+        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#retry_policy ComputeRegionUrlMap#retry_policy}
+        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#timeout ComputeRegionUrlMap#timeout}
+        :param url_rewrite: url_rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#url_rewrite ComputeRegionUrlMap#url_rewrite}
+        :param weighted_backend_services: weighted_backend_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#weighted_backend_services ComputeRegionUrlMap#weighted_backend_services}
         '''
         value = ComputeRegionUrlMapPathMatcherPathRuleRouteAction(
             cors_policy=cors_policy,
@@ -5783,12 +5783,12 @@ class ComputeRegionUrlMapPathMatcherPathRuleOutputReference(
         redirect_response_code: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. If set to false, the query portion of the original URL is retained. This field is required to ensure an empty block is not set. The normal default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
-        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
-        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. If set to false, the URL scheme of the redirected request will remain the same as that of the request. This must only be set for UrlMaps used in TargetHttpProxys. Setting this true for TargetHttpsProxy is not permitted. The default is set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
-        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect cannot be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
-        :param prefix_redirect: The prefix that replaces the prefixMatch specified in the HttpRouteRuleMatch, retaining the remaining portion of the URL before redirecting the request. prefixRedirect cannot be supplied together with pathRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
-        :param redirect_response_code: The HTTP Status code to use for this RedirectAction. Supported values are:. - MOVED_PERMANENTLY_DEFAULT, which is the default value and corresponds to 301. - FOUND, which corresponds to 302. - SEE_OTHER which corresponds to 303. - TEMPORARY_REDIRECT, which corresponds to 307. In this case, the request method will be retained. - PERMANENT_REDIRECT, which corresponds to 308. In this case, the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
+        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. If set to false, the query portion of the original URL is retained. This field is required to ensure an empty block is not set. The normal default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
+        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
+        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. If set to false, the URL scheme of the redirected request will remain the same as that of the request. This must only be set for UrlMaps used in TargetHttpProxys. Setting this true for TargetHttpsProxy is not permitted. The default is set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
+        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect cannot be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
+        :param prefix_redirect: The prefix that replaces the prefixMatch specified in the HttpRouteRuleMatch, retaining the remaining portion of the URL before redirecting the request. prefixRedirect cannot be supplied together with pathRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
+        :param redirect_response_code: The HTTP Status code to use for this RedirectAction. Supported values are:. - MOVED_PERMANENTLY_DEFAULT, which is the default value and corresponds to 301. - FOUND, which corresponds to 302. - SEE_OTHER which corresponds to 303. - TEMPORARY_REDIRECT, which corresponds to 307. In this case, the request method will be retained. - PERMANENT_REDIRECT, which corresponds to 308. In this case, the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
         '''
         value = ComputeRegionUrlMapPathMatcherPathRuleUrlRedirect(
             strip_query=strip_query,
@@ -5919,13 +5919,13 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteAction:
         weighted_backend_services: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServices", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param cors_policy: cors_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#cors_policy ComputeRegionUrlMap#cors_policy}
-        :param fault_injection_policy: fault_injection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#fault_injection_policy ComputeRegionUrlMap#fault_injection_policy}
-        :param request_mirror_policy: request_mirror_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_mirror_policy ComputeRegionUrlMap#request_mirror_policy}
-        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#retry_policy ComputeRegionUrlMap#retry_policy}
-        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#timeout ComputeRegionUrlMap#timeout}
-        :param url_rewrite: url_rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#url_rewrite ComputeRegionUrlMap#url_rewrite}
-        :param weighted_backend_services: weighted_backend_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#weighted_backend_services ComputeRegionUrlMap#weighted_backend_services}
+        :param cors_policy: cors_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#cors_policy ComputeRegionUrlMap#cors_policy}
+        :param fault_injection_policy: fault_injection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#fault_injection_policy ComputeRegionUrlMap#fault_injection_policy}
+        :param request_mirror_policy: request_mirror_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_mirror_policy ComputeRegionUrlMap#request_mirror_policy}
+        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#retry_policy ComputeRegionUrlMap#retry_policy}
+        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#timeout ComputeRegionUrlMap#timeout}
+        :param url_rewrite: url_rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#url_rewrite ComputeRegionUrlMap#url_rewrite}
+        :param weighted_backend_services: weighted_backend_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#weighted_backend_services ComputeRegionUrlMap#weighted_backend_services}
         '''
         if isinstance(cors_policy, dict):
             cors_policy = ComputeRegionUrlMapPathMatcherPathRuleRouteActionCorsPolicy(**cors_policy)
@@ -5970,7 +5970,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteAction:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionCorsPolicy"]:
         '''cors_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#cors_policy ComputeRegionUrlMap#cors_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#cors_policy ComputeRegionUrlMap#cors_policy}
         '''
         result = self._values.get("cors_policy")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionCorsPolicy"], result)
@@ -5981,7 +5981,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteAction:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicy"]:
         '''fault_injection_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#fault_injection_policy ComputeRegionUrlMap#fault_injection_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#fault_injection_policy ComputeRegionUrlMap#fault_injection_policy}
         '''
         result = self._values.get("fault_injection_policy")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicy"], result)
@@ -5992,7 +5992,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteAction:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionRequestMirrorPolicy"]:
         '''request_mirror_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_mirror_policy ComputeRegionUrlMap#request_mirror_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_mirror_policy ComputeRegionUrlMap#request_mirror_policy}
         '''
         result = self._values.get("request_mirror_policy")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionRequestMirrorPolicy"], result)
@@ -6003,7 +6003,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteAction:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionRetryPolicy"]:
         '''retry_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#retry_policy ComputeRegionUrlMap#retry_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#retry_policy ComputeRegionUrlMap#retry_policy}
         '''
         result = self._values.get("retry_policy")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionRetryPolicy"], result)
@@ -6014,7 +6014,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteAction:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionTimeout"]:
         '''timeout block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#timeout ComputeRegionUrlMap#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#timeout ComputeRegionUrlMap#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionTimeout"], result)
@@ -6025,7 +6025,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteAction:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionUrlRewrite"]:
         '''url_rewrite block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#url_rewrite ComputeRegionUrlMap#url_rewrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#url_rewrite ComputeRegionUrlMap#url_rewrite}
         '''
         result = self._values.get("url_rewrite")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionUrlRewrite"], result)
@@ -6036,7 +6036,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServices"]]]:
         '''weighted_backend_services block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#weighted_backend_services ComputeRegionUrlMap#weighted_backend_services}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#weighted_backend_services ComputeRegionUrlMap#weighted_backend_services}
         '''
         result = self._values.get("weighted_backend_services")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServices"]]], result)
@@ -6081,14 +6081,14 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionCorsPolicy:
         max_age: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param disabled: If true, specifies the CORS policy is disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#disabled ComputeRegionUrlMap#disabled}
-        :param allow_credentials: In response to a preflight request, setting this to true indicates that the actual request can include user credentials. This translates to the Access- Control-Allow-Credentials header. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_credentials ComputeRegionUrlMap#allow_credentials}
-        :param allow_headers: Specifies the content for the Access-Control-Allow-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_headers ComputeRegionUrlMap#allow_headers}
-        :param allow_methods: Specifies the content for the Access-Control-Allow-Methods header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_methods ComputeRegionUrlMap#allow_methods}
-        :param allow_origin_regexes: Specifies the regular expression patterns that match allowed origins. For regular expression grammar please see en.cppreference.com/w/cpp/regex/ecmascript An origin is allowed if it matches either allow_origins or allow_origin_regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_origin_regexes ComputeRegionUrlMap#allow_origin_regexes}
-        :param allow_origins: Specifies the list of origins that will be allowed to do CORS requests. An origin is allowed if it matches either allow_origins or allow_origin_regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_origins ComputeRegionUrlMap#allow_origins}
-        :param expose_headers: Specifies the content for the Access-Control-Expose-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#expose_headers ComputeRegionUrlMap#expose_headers}
-        :param max_age: Specifies how long the results of a preflight request can be cached. This translates to the content for the Access-Control-Max-Age header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#max_age ComputeRegionUrlMap#max_age}
+        :param disabled: If true, specifies the CORS policy is disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#disabled ComputeRegionUrlMap#disabled}
+        :param allow_credentials: In response to a preflight request, setting this to true indicates that the actual request can include user credentials. This translates to the Access- Control-Allow-Credentials header. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_credentials ComputeRegionUrlMap#allow_credentials}
+        :param allow_headers: Specifies the content for the Access-Control-Allow-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_headers ComputeRegionUrlMap#allow_headers}
+        :param allow_methods: Specifies the content for the Access-Control-Allow-Methods header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_methods ComputeRegionUrlMap#allow_methods}
+        :param allow_origin_regexes: Specifies the regular expression patterns that match allowed origins. For regular expression grammar please see en.cppreference.com/w/cpp/regex/ecmascript An origin is allowed if it matches either allow_origins or allow_origin_regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_origin_regexes ComputeRegionUrlMap#allow_origin_regexes}
+        :param allow_origins: Specifies the list of origins that will be allowed to do CORS requests. An origin is allowed if it matches either allow_origins or allow_origin_regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_origins ComputeRegionUrlMap#allow_origins}
+        :param expose_headers: Specifies the content for the Access-Control-Expose-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#expose_headers ComputeRegionUrlMap#expose_headers}
+        :param max_age: Specifies how long the results of a preflight request can be cached. This translates to the content for the Access-Control-Max-Age header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#max_age ComputeRegionUrlMap#max_age}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__63657e0e87d7ca33838e3d59060baaef900c7e9f25026fa7cdb12b47a4b672b7)
@@ -6122,7 +6122,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionCorsPolicy:
     def disabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''If true, specifies the CORS policy is disabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#disabled ComputeRegionUrlMap#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#disabled ComputeRegionUrlMap#disabled}
         '''
         result = self._values.get("disabled")
         assert result is not None, "Required property 'disabled' is missing"
@@ -6137,7 +6137,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionCorsPolicy:
         This translates to the Access-
         Control-Allow-Credentials header. Defaults to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_credentials ComputeRegionUrlMap#allow_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_credentials ComputeRegionUrlMap#allow_credentials}
         '''
         result = self._values.get("allow_credentials")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6146,7 +6146,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionCorsPolicy:
     def allow_headers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies the content for the Access-Control-Allow-Headers header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_headers ComputeRegionUrlMap#allow_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_headers ComputeRegionUrlMap#allow_headers}
         '''
         result = self._values.get("allow_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6155,7 +6155,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionCorsPolicy:
     def allow_methods(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies the content for the Access-Control-Allow-Methods header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_methods ComputeRegionUrlMap#allow_methods}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_methods ComputeRegionUrlMap#allow_methods}
         '''
         result = self._values.get("allow_methods")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6168,7 +6168,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionCorsPolicy:
         regular expression grammar please see en.cppreference.com/w/cpp/regex/ecmascript
         An origin is allowed if it matches either allow_origins or allow_origin_regex.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_origin_regexes ComputeRegionUrlMap#allow_origin_regexes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_origin_regexes ComputeRegionUrlMap#allow_origin_regexes}
         '''
         result = self._values.get("allow_origin_regexes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6180,7 +6180,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionCorsPolicy:
         An
         origin is allowed if it matches either allow_origins or allow_origin_regex.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_origins ComputeRegionUrlMap#allow_origins}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_origins ComputeRegionUrlMap#allow_origins}
         '''
         result = self._values.get("allow_origins")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6189,7 +6189,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionCorsPolicy:
     def expose_headers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies the content for the Access-Control-Expose-Headers header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#expose_headers ComputeRegionUrlMap#expose_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#expose_headers ComputeRegionUrlMap#expose_headers}
         '''
         result = self._values.get("expose_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6201,7 +6201,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionCorsPolicy:
         This
         translates to the content for the Access-Control-Max-Age header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#max_age ComputeRegionUrlMap#max_age}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#max_age ComputeRegionUrlMap#max_age}
         '''
         result = self._values.get("max_age")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6445,8 +6445,8 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicy:
         delay: typing.Optional[typing.Union["ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyDelay", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param abort: abort block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#abort ComputeRegionUrlMap#abort}
-        :param delay: delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#delay ComputeRegionUrlMap#delay}
+        :param abort: abort block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#abort ComputeRegionUrlMap#abort}
+        :param delay: delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#delay ComputeRegionUrlMap#delay}
         '''
         if isinstance(abort, dict):
             abort = ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyAbort(**abort)
@@ -6468,7 +6468,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicy:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyAbort"]:
         '''abort block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#abort ComputeRegionUrlMap#abort}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#abort ComputeRegionUrlMap#abort}
         '''
         result = self._values.get("abort")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyAbort"], result)
@@ -6479,7 +6479,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicy:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyDelay"]:
         '''delay block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#delay ComputeRegionUrlMap#delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#delay ComputeRegionUrlMap#delay}
         '''
         result = self._values.get("delay")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyDelay"], result)
@@ -6504,8 +6504,8 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicy:
 class ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyAbort:
     def __init__(self, *, http_status: jsii.Number, percentage: jsii.Number) -> None:
         '''
-        :param http_status: The HTTP status code used to abort the request. The value must be between 200 and 599 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#http_status ComputeRegionUrlMap#http_status}
-        :param percentage: The percentage of traffic (connections/operations/requests) which will be aborted as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
+        :param http_status: The HTTP status code used to abort the request. The value must be between 200 and 599 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#http_status ComputeRegionUrlMap#http_status}
+        :param percentage: The percentage of traffic (connections/operations/requests) which will be aborted as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a6cf77246f0118688541c3fa0c9ad830a1d991aec5477836212a347e7c0483c4)
@@ -6520,7 +6520,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyAbort
     def http_status(self) -> jsii.Number:
         '''The HTTP status code used to abort the request. The value must be between 200 and 599 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#http_status ComputeRegionUrlMap#http_status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#http_status ComputeRegionUrlMap#http_status}
         '''
         result = self._values.get("http_status")
         assert result is not None, "Required property 'http_status' is missing"
@@ -6533,7 +6533,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyAbort
         The value must be between 0.0 and 100.0
         inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
         '''
         result = self._values.get("percentage")
         assert result is not None, "Required property 'percentage' is missing"
@@ -6636,8 +6636,8 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyDelay
         percentage: jsii.Number,
     ) -> None:
         '''
-        :param fixed_delay: fixed_delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#fixed_delay ComputeRegionUrlMap#fixed_delay}
-        :param percentage: The percentage of traffic (connections/operations/requests) on which delay will be introduced as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
+        :param fixed_delay: fixed_delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#fixed_delay ComputeRegionUrlMap#fixed_delay}
+        :param percentage: The percentage of traffic (connections/operations/requests) on which delay will be introduced as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
         '''
         if isinstance(fixed_delay, dict):
             fixed_delay = ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyDelayFixedDelay(**fixed_delay)
@@ -6656,7 +6656,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyDelay
     ) -> "ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyDelayFixedDelay":
         '''fixed_delay block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#fixed_delay ComputeRegionUrlMap#fixed_delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#fixed_delay ComputeRegionUrlMap#fixed_delay}
         '''
         result = self._values.get("fixed_delay")
         assert result is not None, "Required property 'fixed_delay' is missing"
@@ -6669,7 +6669,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyDelay
         The value must be between 0.0 and
         100.0 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
         '''
         result = self._values.get("percentage")
         assert result is not None, "Required property 'percentage' is missing"
@@ -6700,8 +6700,8 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyDelay
         nanos: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d1c2b1fe4fe511c03f943d26afb21a8bd42760c4cfe204548de045c409512898)
@@ -6717,7 +6717,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyDelay
     def seconds(self) -> builtins.str:
         '''Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
         '''
         result = self._values.get("seconds")
         assert result is not None, "Required property 'seconds' is missing"
@@ -6731,7 +6731,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyDelay
         less than one second are represented with a 0 'seconds' field and a positive
         'nanos' field. Must be from 0 to 999,999,999 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6852,8 +6852,8 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyDelay
         nanos: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         value = ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyDelayFixedDelay(
             seconds=seconds, nanos=nanos
@@ -6933,8 +6933,8 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyOutpu
     @jsii.member(jsii_name="putAbort")
     def put_abort(self, *, http_status: jsii.Number, percentage: jsii.Number) -> None:
         '''
-        :param http_status: The HTTP status code used to abort the request. The value must be between 200 and 599 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#http_status ComputeRegionUrlMap#http_status}
-        :param percentage: The percentage of traffic (connections/operations/requests) which will be aborted as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
+        :param http_status: The HTTP status code used to abort the request. The value must be between 200 and 599 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#http_status ComputeRegionUrlMap#http_status}
+        :param percentage: The percentage of traffic (connections/operations/requests) which will be aborted as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
         '''
         value = ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyAbort(
             http_status=http_status, percentage=percentage
@@ -6950,8 +6950,8 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyOutpu
         percentage: jsii.Number,
     ) -> None:
         '''
-        :param fixed_delay: fixed_delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#fixed_delay ComputeRegionUrlMap#fixed_delay}
-        :param percentage: The percentage of traffic (connections/operations/requests) on which delay will be introduced as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
+        :param fixed_delay: fixed_delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#fixed_delay ComputeRegionUrlMap#fixed_delay}
+        :param percentage: The percentage of traffic (connections/operations/requests) on which delay will be introduced as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
         '''
         value = ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyDelay(
             fixed_delay=fixed_delay, percentage=percentage
@@ -7047,14 +7047,14 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionOutputReference(
         max_age: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param disabled: If true, specifies the CORS policy is disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#disabled ComputeRegionUrlMap#disabled}
-        :param allow_credentials: In response to a preflight request, setting this to true indicates that the actual request can include user credentials. This translates to the Access- Control-Allow-Credentials header. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_credentials ComputeRegionUrlMap#allow_credentials}
-        :param allow_headers: Specifies the content for the Access-Control-Allow-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_headers ComputeRegionUrlMap#allow_headers}
-        :param allow_methods: Specifies the content for the Access-Control-Allow-Methods header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_methods ComputeRegionUrlMap#allow_methods}
-        :param allow_origin_regexes: Specifies the regular expression patterns that match allowed origins. For regular expression grammar please see en.cppreference.com/w/cpp/regex/ecmascript An origin is allowed if it matches either allow_origins or allow_origin_regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_origin_regexes ComputeRegionUrlMap#allow_origin_regexes}
-        :param allow_origins: Specifies the list of origins that will be allowed to do CORS requests. An origin is allowed if it matches either allow_origins or allow_origin_regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_origins ComputeRegionUrlMap#allow_origins}
-        :param expose_headers: Specifies the content for the Access-Control-Expose-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#expose_headers ComputeRegionUrlMap#expose_headers}
-        :param max_age: Specifies how long the results of a preflight request can be cached. This translates to the content for the Access-Control-Max-Age header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#max_age ComputeRegionUrlMap#max_age}
+        :param disabled: If true, specifies the CORS policy is disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#disabled ComputeRegionUrlMap#disabled}
+        :param allow_credentials: In response to a preflight request, setting this to true indicates that the actual request can include user credentials. This translates to the Access- Control-Allow-Credentials header. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_credentials ComputeRegionUrlMap#allow_credentials}
+        :param allow_headers: Specifies the content for the Access-Control-Allow-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_headers ComputeRegionUrlMap#allow_headers}
+        :param allow_methods: Specifies the content for the Access-Control-Allow-Methods header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_methods ComputeRegionUrlMap#allow_methods}
+        :param allow_origin_regexes: Specifies the regular expression patterns that match allowed origins. For regular expression grammar please see en.cppreference.com/w/cpp/regex/ecmascript An origin is allowed if it matches either allow_origins or allow_origin_regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_origin_regexes ComputeRegionUrlMap#allow_origin_regexes}
+        :param allow_origins: Specifies the list of origins that will be allowed to do CORS requests. An origin is allowed if it matches either allow_origins or allow_origin_regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_origins ComputeRegionUrlMap#allow_origins}
+        :param expose_headers: Specifies the content for the Access-Control-Expose-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#expose_headers ComputeRegionUrlMap#expose_headers}
+        :param max_age: Specifies how long the results of a preflight request can be cached. This translates to the content for the Access-Control-Max-Age header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#max_age ComputeRegionUrlMap#max_age}
         '''
         value = ComputeRegionUrlMapPathMatcherPathRuleRouteActionCorsPolicy(
             disabled=disabled,
@@ -7077,8 +7077,8 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionOutputReference(
         delay: typing.Optional[typing.Union[ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicyDelay, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param abort: abort block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#abort ComputeRegionUrlMap#abort}
-        :param delay: delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#delay ComputeRegionUrlMap#delay}
+        :param abort: abort block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#abort ComputeRegionUrlMap#abort}
+        :param delay: delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#delay ComputeRegionUrlMap#delay}
         '''
         value = ComputeRegionUrlMapPathMatcherPathRuleRouteActionFaultInjectionPolicy(
             abort=abort, delay=delay
@@ -7089,7 +7089,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionOutputReference(
     @jsii.member(jsii_name="putRequestMirrorPolicy")
     def put_request_mirror_policy(self, *, backend_service: builtins.str) -> None:
         '''
-        :param backend_service: The RegionBackendService resource being mirrored to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
+        :param backend_service: The RegionBackendService resource being mirrored to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
         '''
         value = ComputeRegionUrlMapPathMatcherPathRuleRouteActionRequestMirrorPolicy(
             backend_service=backend_service
@@ -7106,9 +7106,9 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionOutputReference(
         retry_conditions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param num_retries: Specifies the allowed number retries. This number must be > 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#num_retries ComputeRegionUrlMap#num_retries}
-        :param per_try_timeout: per_try_timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#per_try_timeout ComputeRegionUrlMap#per_try_timeout}
-        :param retry_conditions: Specifies one or more conditions when this retry rule applies. Valid values are:. - 5xx: Loadbalancer will attempt a retry if the backend service responds with any 5xx response code, or if the backend service does not respond at all, for example: disconnects, reset, read timeout, connection failure, and refused streams. - gateway-error: Similar to 5xx, but only applies to response codes 502, 503 or 504. - connect-failure: Loadbalancer will retry on failures connecting to backend services, for example due to connection timeouts. - retriable-4xx: Loadbalancer will retry for retriable 4xx response codes. Currently the only retriable error supported is 409. - refused-stream: Loadbalancer will retry if the backend service resets the stream with a REFUSED_STREAM error code. This reset type indicates that it is safe to retry. - cancelled: Loadbalancer will retry if the gRPC status code in the response header is set to cancelled - deadline-exceeded: Loadbalancer will retry if the gRPC status code in the response header is set to deadline-exceeded - resource-exhausted: Loadbalancer will retry if the gRPC status code in the response header is set to resource-exhausted - unavailable: Loadbalancer will retry if the gRPC status code in the response header is set to unavailable Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#retry_conditions ComputeRegionUrlMap#retry_conditions}
+        :param num_retries: Specifies the allowed number retries. This number must be > 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#num_retries ComputeRegionUrlMap#num_retries}
+        :param per_try_timeout: per_try_timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#per_try_timeout ComputeRegionUrlMap#per_try_timeout}
+        :param retry_conditions: Specifies one or more conditions when this retry rule applies. Valid values are:. - 5xx: Loadbalancer will attempt a retry if the backend service responds with any 5xx response code, or if the backend service does not respond at all, for example: disconnects, reset, read timeout, connection failure, and refused streams. - gateway-error: Similar to 5xx, but only applies to response codes 502, 503 or 504. - connect-failure: Loadbalancer will retry on failures connecting to backend services, for example due to connection timeouts. - retriable-4xx: Loadbalancer will retry for retriable 4xx response codes. Currently the only retriable error supported is 409. - refused-stream: Loadbalancer will retry if the backend service resets the stream with a REFUSED_STREAM error code. This reset type indicates that it is safe to retry. - cancelled: Loadbalancer will retry if the gRPC status code in the response header is set to cancelled - deadline-exceeded: Loadbalancer will retry if the gRPC status code in the response header is set to deadline-exceeded - resource-exhausted: Loadbalancer will retry if the gRPC status code in the response header is set to resource-exhausted - unavailable: Loadbalancer will retry if the gRPC status code in the response header is set to unavailable Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#retry_conditions ComputeRegionUrlMap#retry_conditions}
         '''
         value = ComputeRegionUrlMapPathMatcherPathRuleRouteActionRetryPolicy(
             num_retries=num_retries,
@@ -7126,8 +7126,8 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionOutputReference(
         nanos: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         value = ComputeRegionUrlMapPathMatcherPathRuleRouteActionTimeout(
             seconds=seconds, nanos=nanos
@@ -7143,8 +7143,8 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionOutputReference(
         path_prefix_rewrite: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host_rewrite: Prior to forwarding the request to the selected service, the request's host header is replaced with contents of hostRewrite. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_rewrite ComputeRegionUrlMap#host_rewrite}
-        :param path_prefix_rewrite: Prior to forwarding the request to the selected backend service, the matching portion of the request's path is replaced by pathPrefixRewrite. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_prefix_rewrite ComputeRegionUrlMap#path_prefix_rewrite}
+        :param host_rewrite: Prior to forwarding the request to the selected service, the request's host header is replaced with contents of hostRewrite. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_rewrite ComputeRegionUrlMap#host_rewrite}
+        :param path_prefix_rewrite: Prior to forwarding the request to the selected backend service, the matching portion of the request's path is replaced by pathPrefixRewrite. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_prefix_rewrite ComputeRegionUrlMap#path_prefix_rewrite}
         '''
         value = ComputeRegionUrlMapPathMatcherPathRuleRouteActionUrlRewrite(
             host_rewrite=host_rewrite, path_prefix_rewrite=path_prefix_rewrite
@@ -7317,7 +7317,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionOutputReference(
 class ComputeRegionUrlMapPathMatcherPathRuleRouteActionRequestMirrorPolicy:
     def __init__(self, *, backend_service: builtins.str) -> None:
         '''
-        :param backend_service: The RegionBackendService resource being mirrored to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
+        :param backend_service: The RegionBackendService resource being mirrored to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eec394cc9fbdb6e92c7f00156701b2722834e530ea8b6026b91d40bc6d35fbf3)
@@ -7330,7 +7330,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionRequestMirrorPolicy:
     def backend_service(self) -> builtins.str:
         '''The RegionBackendService resource being mirrored to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
         '''
         result = self._values.get("backend_service")
         assert result is not None, "Required property 'backend_service' is missing"
@@ -7421,9 +7421,9 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionRetryPolicy:
         retry_conditions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param num_retries: Specifies the allowed number retries. This number must be > 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#num_retries ComputeRegionUrlMap#num_retries}
-        :param per_try_timeout: per_try_timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#per_try_timeout ComputeRegionUrlMap#per_try_timeout}
-        :param retry_conditions: Specifies one or more conditions when this retry rule applies. Valid values are:. - 5xx: Loadbalancer will attempt a retry if the backend service responds with any 5xx response code, or if the backend service does not respond at all, for example: disconnects, reset, read timeout, connection failure, and refused streams. - gateway-error: Similar to 5xx, but only applies to response codes 502, 503 or 504. - connect-failure: Loadbalancer will retry on failures connecting to backend services, for example due to connection timeouts. - retriable-4xx: Loadbalancer will retry for retriable 4xx response codes. Currently the only retriable error supported is 409. - refused-stream: Loadbalancer will retry if the backend service resets the stream with a REFUSED_STREAM error code. This reset type indicates that it is safe to retry. - cancelled: Loadbalancer will retry if the gRPC status code in the response header is set to cancelled - deadline-exceeded: Loadbalancer will retry if the gRPC status code in the response header is set to deadline-exceeded - resource-exhausted: Loadbalancer will retry if the gRPC status code in the response header is set to resource-exhausted - unavailable: Loadbalancer will retry if the gRPC status code in the response header is set to unavailable Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#retry_conditions ComputeRegionUrlMap#retry_conditions}
+        :param num_retries: Specifies the allowed number retries. This number must be > 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#num_retries ComputeRegionUrlMap#num_retries}
+        :param per_try_timeout: per_try_timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#per_try_timeout ComputeRegionUrlMap#per_try_timeout}
+        :param retry_conditions: Specifies one or more conditions when this retry rule applies. Valid values are:. - 5xx: Loadbalancer will attempt a retry if the backend service responds with any 5xx response code, or if the backend service does not respond at all, for example: disconnects, reset, read timeout, connection failure, and refused streams. - gateway-error: Similar to 5xx, but only applies to response codes 502, 503 or 504. - connect-failure: Loadbalancer will retry on failures connecting to backend services, for example due to connection timeouts. - retriable-4xx: Loadbalancer will retry for retriable 4xx response codes. Currently the only retriable error supported is 409. - refused-stream: Loadbalancer will retry if the backend service resets the stream with a REFUSED_STREAM error code. This reset type indicates that it is safe to retry. - cancelled: Loadbalancer will retry if the gRPC status code in the response header is set to cancelled - deadline-exceeded: Loadbalancer will retry if the gRPC status code in the response header is set to deadline-exceeded - resource-exhausted: Loadbalancer will retry if the gRPC status code in the response header is set to resource-exhausted - unavailable: Loadbalancer will retry if the gRPC status code in the response header is set to unavailable Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#retry_conditions ComputeRegionUrlMap#retry_conditions}
         '''
         if isinstance(per_try_timeout, dict):
             per_try_timeout = ComputeRegionUrlMapPathMatcherPathRuleRouteActionRetryPolicyPerTryTimeout(**per_try_timeout)
@@ -7444,7 +7444,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionRetryPolicy:
     def num_retries(self) -> typing.Optional[jsii.Number]:
         '''Specifies the allowed number retries. This number must be > 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#num_retries ComputeRegionUrlMap#num_retries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#num_retries ComputeRegionUrlMap#num_retries}
         '''
         result = self._values.get("num_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7455,7 +7455,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionRetryPolicy:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionRetryPolicyPerTryTimeout"]:
         '''per_try_timeout block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#per_try_timeout ComputeRegionUrlMap#per_try_timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#per_try_timeout ComputeRegionUrlMap#per_try_timeout}
         '''
         result = self._values.get("per_try_timeout")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionRetryPolicyPerTryTimeout"], result)
@@ -7485,7 +7485,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionRetryPolicy:
         - unavailable: Loadbalancer will retry if
           the gRPC status code in the response header is set to unavailable
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#retry_conditions ComputeRegionUrlMap#retry_conditions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#retry_conditions ComputeRegionUrlMap#retry_conditions}
         '''
         result = self._values.get("retry_conditions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -7530,8 +7530,8 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionRetryPolicyOutputReferenc
         nanos: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         value = ComputeRegionUrlMapPathMatcherPathRuleRouteActionRetryPolicyPerTryTimeout(
             seconds=seconds, nanos=nanos
@@ -7630,8 +7630,8 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionRetryPolicyPerTryTimeout:
         nanos: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__388fdb9c2711cfcbb34dc98fe83b1d8de8cce1ccb1c661e9b84543cbc824539a)
@@ -7647,7 +7647,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionRetryPolicyPerTryTimeout:
     def seconds(self) -> builtins.str:
         '''Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
         '''
         result = self._values.get("seconds")
         assert result is not None, "Required property 'seconds' is missing"
@@ -7661,7 +7661,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionRetryPolicyPerTryTimeout:
         less than one second are represented with a 0 'seconds' field and a positive
         'nanos' field. Must be from 0 to 999,999,999 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7767,8 +7767,8 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionTimeout:
         nanos: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1ef5c9594b5011c7d2d115e12f879da23e0242fc2eaa45e3207399994afdf221)
@@ -7784,7 +7784,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionTimeout:
     def seconds(self) -> builtins.str:
         '''Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
         '''
         result = self._values.get("seconds")
         assert result is not None, "Required property 'seconds' is missing"
@@ -7798,7 +7798,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionTimeout:
         less than one second are represented with a 0 'seconds' field and a positive
         'nanos' field. Must be from 0 to 999,999,999 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7907,8 +7907,8 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionUrlRewrite:
         path_prefix_rewrite: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host_rewrite: Prior to forwarding the request to the selected service, the request's host header is replaced with contents of hostRewrite. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_rewrite ComputeRegionUrlMap#host_rewrite}
-        :param path_prefix_rewrite: Prior to forwarding the request to the selected backend service, the matching portion of the request's path is replaced by pathPrefixRewrite. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_prefix_rewrite ComputeRegionUrlMap#path_prefix_rewrite}
+        :param host_rewrite: Prior to forwarding the request to the selected service, the request's host header is replaced with contents of hostRewrite. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_rewrite ComputeRegionUrlMap#host_rewrite}
+        :param path_prefix_rewrite: Prior to forwarding the request to the selected backend service, the matching portion of the request's path is replaced by pathPrefixRewrite. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_prefix_rewrite ComputeRegionUrlMap#path_prefix_rewrite}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e67cbbdd3bdea7053c6ef9215b17ecf30fc0185e23d6a440a66df6adcff264a9)
@@ -7927,7 +7927,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionUrlRewrite:
         The value must be between 1 and
         255 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_rewrite ComputeRegionUrlMap#host_rewrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_rewrite ComputeRegionUrlMap#host_rewrite}
         '''
         result = self._values.get("host_rewrite")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7939,7 +7939,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionUrlRewrite:
         The value must
         be between 1 and 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_prefix_rewrite ComputeRegionUrlMap#path_prefix_rewrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_prefix_rewrite ComputeRegionUrlMap#path_prefix_rewrite}
         '''
         result = self._values.get("path_prefix_rewrite")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8054,9 +8054,9 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServices:
         header_action: typing.Optional[typing.Union["ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHeaderAction", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param backend_service: The default RegionBackendService resource. Before forwarding the request to backendService, the loadbalancer applies any relevant headerActions specified as part of this backendServiceWeight. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
-        :param weight: Specifies the fraction of traffic sent to backendService, computed as weight / (sum of all weightedBackendService weights in routeAction) . The selection of a backend service is determined only for new traffic. Once a user's request has been directed to a backendService, subsequent requests will be sent to the same backendService as determined by the BackendService's session affinity policy. The value must be between 0 and 1000 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#weight ComputeRegionUrlMap#weight}
-        :param header_action: header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_action ComputeRegionUrlMap#header_action}
+        :param backend_service: The default RegionBackendService resource. Before forwarding the request to backendService, the loadbalancer applies any relevant headerActions specified as part of this backendServiceWeight. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
+        :param weight: Specifies the fraction of traffic sent to backendService, computed as weight / (sum of all weightedBackendService weights in routeAction) . The selection of a backend service is determined only for new traffic. Once a user's request has been directed to a backendService, subsequent requests will be sent to the same backendService as determined by the BackendService's session affinity policy. The value must be between 0 and 1000 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#weight ComputeRegionUrlMap#weight}
+        :param header_action: header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_action ComputeRegionUrlMap#header_action}
         '''
         if isinstance(header_action, dict):
             header_action = ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHeaderAction(**header_action)
@@ -8080,7 +8080,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServices:
         forwarding the request to backendService, the loadbalancer applies any relevant
         headerActions specified as part of this backendServiceWeight.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
         '''
         result = self._values.get("backend_service")
         assert result is not None, "Required property 'backend_service' is missing"
@@ -8096,7 +8096,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServices:
         backendService as determined by the BackendService's session affinity policy.
         The value must be between 0 and 1000
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#weight ComputeRegionUrlMap#weight}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#weight ComputeRegionUrlMap#weight}
         '''
         result = self._values.get("weight")
         assert result is not None, "Required property 'weight' is missing"
@@ -8108,7 +8108,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServices:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHeaderAction"]:
         '''header_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_action ComputeRegionUrlMap#header_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_action ComputeRegionUrlMap#header_action}
         '''
         result = self._values.get("header_action")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHeaderAction"], result)
@@ -8145,10 +8145,10 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHe
         response_headers_to_remove: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param request_headers_to_add: request_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
-        :param request_headers_to_remove: A list of header names for headers that need to be removed from the request prior to forwarding the request to the backendService. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
-        :param response_headers_to_add: response_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
-        :param response_headers_to_remove: A list of header names for headers that need to be removed from the response prior to sending the response back to the client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
+        :param request_headers_to_add: request_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
+        :param request_headers_to_remove: A list of header names for headers that need to be removed from the request prior to forwarding the request to the backendService. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
+        :param response_headers_to_add: response_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
+        :param response_headers_to_remove: A list of header names for headers that need to be removed from the response prior to sending the response back to the client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__adbc81f9f1b0b4a68833e4c4efc74005f001a99eaaefa44fb553697e5af63bd8)
@@ -8172,7 +8172,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHe
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHeaderActionRequestHeadersToAdd"]]]:
         '''request_headers_to_add block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
         '''
         result = self._values.get("request_headers_to_add")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHeaderActionRequestHeadersToAdd"]]], result)
@@ -8181,7 +8181,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHe
     def request_headers_to_remove(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of header names for headers that need to be removed from the request prior to forwarding the request to the backendService.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
         '''
         result = self._values.get("request_headers_to_remove")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -8192,7 +8192,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHe
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHeaderActionResponseHeadersToAdd"]]]:
         '''response_headers_to_add block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
         '''
         result = self._values.get("response_headers_to_add")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHeaderActionResponseHeadersToAdd"]]], result)
@@ -8201,7 +8201,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHe
     def response_headers_to_remove(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of header names for headers that need to be removed from the response prior to sending the response back to the client.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
         '''
         result = self._values.get("response_headers_to_remove")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -8382,9 +8382,9 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHe
         replace: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param header_name: The name of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
-        :param header_value: The value of the header to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
-        :param replace: If false, headerValue is appended to any values that already exist for the header. If true, headerValue is set for the header, discarding any values that were set for that header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
+        :param header_name: The name of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
+        :param header_value: The value of the header to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
+        :param replace: If false, headerValue is appended to any values that already exist for the header. If true, headerValue is set for the header, discarding any values that were set for that header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2bacb8755cf58007af0dda403f594ac6b654a92246b269d5303adb895aab9e8e)
@@ -8401,7 +8401,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHe
     def header_name(self) -> builtins.str:
         '''The name of the header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
         '''
         result = self._values.get("header_name")
         assert result is not None, "Required property 'header_name' is missing"
@@ -8411,7 +8411,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHe
     def header_value(self) -> builtins.str:
         '''The value of the header to add.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
         '''
         result = self._values.get("header_value")
         assert result is not None, "Required property 'header_value' is missing"
@@ -8424,7 +8424,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHe
         If true, headerValue is set for the header, discarding any values that
         were set for that header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
         '''
         result = self._values.get("replace")
         assert result is not None, "Required property 'replace' is missing"
@@ -8653,9 +8653,9 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHe
         replace: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param header_name: The name of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
-        :param header_value: The value of the header to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
-        :param replace: If false, headerValue is appended to any values that already exist for the header. If true, headerValue is set for the header, discarding any values that were set for that header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
+        :param header_name: The name of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
+        :param header_value: The value of the header to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
+        :param replace: If false, headerValue is appended to any values that already exist for the header. If true, headerValue is set for the header, discarding any values that were set for that header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c060b39a1bee57955cb36542be7def763cd075d9667fbbc6795afc6a8ebf7fd)
@@ -8672,7 +8672,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHe
     def header_name(self) -> builtins.str:
         '''The name of the header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
         '''
         result = self._values.get("header_name")
         assert result is not None, "Required property 'header_name' is missing"
@@ -8682,7 +8682,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHe
     def header_value(self) -> builtins.str:
         '''The value of the header to add.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
         '''
         result = self._values.get("header_value")
         assert result is not None, "Required property 'header_value' is missing"
@@ -8695,7 +8695,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHe
         If true, headerValue is set for the header, discarding any values that
         were set for that header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
         '''
         result = self._values.get("replace")
         assert result is not None, "Required property 'replace' is missing"
@@ -9035,10 +9035,10 @@ class ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesOu
         response_headers_to_remove: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param request_headers_to_add: request_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
-        :param request_headers_to_remove: A list of header names for headers that need to be removed from the request prior to forwarding the request to the backendService. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
-        :param response_headers_to_add: response_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
-        :param response_headers_to_remove: A list of header names for headers that need to be removed from the response prior to sending the response back to the client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
+        :param request_headers_to_add: request_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
+        :param request_headers_to_remove: A list of header names for headers that need to be removed from the request prior to forwarding the request to the backendService. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
+        :param response_headers_to_add: response_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
+        :param response_headers_to_remove: A list of header names for headers that need to be removed from the response prior to sending the response back to the client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
         '''
         value = ComputeRegionUrlMapPathMatcherPathRuleRouteActionWeightedBackendServicesHeaderAction(
             request_headers_to_add=request_headers_to_add,
@@ -9143,12 +9143,12 @@ class ComputeRegionUrlMapPathMatcherPathRuleUrlRedirect:
         redirect_response_code: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. If set to false, the query portion of the original URL is retained. This field is required to ensure an empty block is not set. The normal default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
-        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
-        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. If set to false, the URL scheme of the redirected request will remain the same as that of the request. This must only be set for UrlMaps used in TargetHttpProxys. Setting this true for TargetHttpsProxy is not permitted. The default is set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
-        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect cannot be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
-        :param prefix_redirect: The prefix that replaces the prefixMatch specified in the HttpRouteRuleMatch, retaining the remaining portion of the URL before redirecting the request. prefixRedirect cannot be supplied together with pathRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
-        :param redirect_response_code: The HTTP Status code to use for this RedirectAction. Supported values are:. - MOVED_PERMANENTLY_DEFAULT, which is the default value and corresponds to 301. - FOUND, which corresponds to 302. - SEE_OTHER which corresponds to 303. - TEMPORARY_REDIRECT, which corresponds to 307. In this case, the request method will be retained. - PERMANENT_REDIRECT, which corresponds to 308. In this case, the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
+        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. If set to false, the query portion of the original URL is retained. This field is required to ensure an empty block is not set. The normal default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
+        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
+        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. If set to false, the URL scheme of the redirected request will remain the same as that of the request. This must only be set for UrlMaps used in TargetHttpProxys. Setting this true for TargetHttpsProxy is not permitted. The default is set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
+        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect cannot be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
+        :param prefix_redirect: The prefix that replaces the prefixMatch specified in the HttpRouteRuleMatch, retaining the remaining portion of the URL before redirecting the request. prefixRedirect cannot be supplied together with pathRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
+        :param redirect_response_code: The HTTP Status code to use for this RedirectAction. Supported values are:. - MOVED_PERMANENTLY_DEFAULT, which is the default value and corresponds to 301. - FOUND, which corresponds to 302. - SEE_OTHER which corresponds to 303. - TEMPORARY_REDIRECT, which corresponds to 307. In this case, the request method will be retained. - PERMANENT_REDIRECT, which corresponds to 308. In this case, the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c60dc0e99910ade50a0b03b4cc14de8a08f45496650b8419d69845528981881d)
@@ -9180,7 +9180,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleUrlRedirect:
         original URL is retained.
         This field is required to ensure an empty block is not set. The normal default value is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
         '''
         result = self._values.get("strip_query")
         assert result is not None, "Required property 'strip_query' is missing"
@@ -9193,7 +9193,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleUrlRedirect:
         The value must be between 1 and 255
         characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
         '''
         result = self._values.get("host_redirect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9209,7 +9209,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleUrlRedirect:
         TargetHttpProxys. Setting this true for TargetHttpsProxy is not
         permitted. The default is set to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
         '''
         result = self._values.get("https_redirect")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -9223,7 +9223,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleUrlRedirect:
         supplied, the path of the original request will be used for the redirect.
         The value must be between 1 and 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
         '''
         result = self._values.get("path_redirect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9237,7 +9237,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleUrlRedirect:
         path of the original request will be used for the redirect. The value
         must be between 1 and 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
         '''
         result = self._values.get("prefix_redirect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9254,7 +9254,7 @@ class ComputeRegionUrlMapPathMatcherPathRuleUrlRedirect:
         - PERMANENT_REDIRECT, which corresponds to 308. In this case,
           the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
         '''
         result = self._values.get("redirect_response_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9467,12 +9467,12 @@ class ComputeRegionUrlMapPathMatcherRouteRules:
         url_redirect: typing.Optional[typing.Union["ComputeRegionUrlMapPathMatcherRouteRulesUrlRedirect", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param priority: For routeRules within a given pathMatcher, priority determines the order in which load balancer will interpret routeRules. RouteRules are evaluated in order of priority, from the lowest to highest number. The priority of a rule decreases as its number increases (1, 2, 3, N+1). The first rule that matches the request is applied. You cannot configure two or more routeRules with the same priority. Priority for each rule must be set to a number between 0 and 2147483647 inclusive. Priority numbers can have gaps, which enable you to add or remove rules in the future without affecting the rest of the rules. For example, 1, 2, 3, 4, 5, 9, 12, 16 is a valid series of priority numbers to which you could add rules numbered from 6 to 8, 10 to 11, and 13 to 15 in the future without any impact on existing rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#priority ComputeRegionUrlMap#priority}
-        :param header_action: header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_action ComputeRegionUrlMap#header_action}
-        :param match_rules: match_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#match_rules ComputeRegionUrlMap#match_rules}
-        :param route_action: route_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#route_action ComputeRegionUrlMap#route_action}
-        :param service: The region backend service resource to which traffic is directed if this rule is matched. If routeAction is additionally specified, advanced routing actions like URL Rewrites, etc. take effect prior to sending the request to the backend. However, if service is specified, routeAction cannot contain any weightedBackendService s. Conversely, if routeAction specifies any weightedBackendServices, service must not be specified. Only one of urlRedirect, service or routeAction.weightedBackendService must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#service ComputeRegionUrlMap#service}
-        :param url_redirect: url_redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#url_redirect ComputeRegionUrlMap#url_redirect}
+        :param priority: For routeRules within a given pathMatcher, priority determines the order in which load balancer will interpret routeRules. RouteRules are evaluated in order of priority, from the lowest to highest number. The priority of a rule decreases as its number increases (1, 2, 3, N+1). The first rule that matches the request is applied. You cannot configure two or more routeRules with the same priority. Priority for each rule must be set to a number between 0 and 2147483647 inclusive. Priority numbers can have gaps, which enable you to add or remove rules in the future without affecting the rest of the rules. For example, 1, 2, 3, 4, 5, 9, 12, 16 is a valid series of priority numbers to which you could add rules numbered from 6 to 8, 10 to 11, and 13 to 15 in the future without any impact on existing rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#priority ComputeRegionUrlMap#priority}
+        :param header_action: header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_action ComputeRegionUrlMap#header_action}
+        :param match_rules: match_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#match_rules ComputeRegionUrlMap#match_rules}
+        :param route_action: route_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#route_action ComputeRegionUrlMap#route_action}
+        :param service: The region backend service resource to which traffic is directed if this rule is matched. If routeAction is additionally specified, advanced routing actions like URL Rewrites, etc. take effect prior to sending the request to the backend. However, if service is specified, routeAction cannot contain any weightedBackendService s. Conversely, if routeAction specifies any weightedBackendServices, service must not be specified. Only one of urlRedirect, service or routeAction.weightedBackendService must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#service ComputeRegionUrlMap#service}
+        :param url_redirect: url_redirect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#url_redirect ComputeRegionUrlMap#url_redirect}
         '''
         if isinstance(header_action, dict):
             header_action = ComputeRegionUrlMapPathMatcherRouteRulesHeaderAction(**header_action)
@@ -9521,7 +9521,7 @@ class ComputeRegionUrlMapPathMatcherRouteRules:
         you could add rules numbered from 6 to 8, 10 to 11, and 13 to 15 in the
         future without any impact on existing rules.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#priority ComputeRegionUrlMap#priority}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#priority ComputeRegionUrlMap#priority}
         '''
         result = self._values.get("priority")
         assert result is not None, "Required property 'priority' is missing"
@@ -9533,7 +9533,7 @@ class ComputeRegionUrlMapPathMatcherRouteRules:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesHeaderAction"]:
         '''header_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_action ComputeRegionUrlMap#header_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_action ComputeRegionUrlMap#header_action}
         '''
         result = self._values.get("header_action")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesHeaderAction"], result)
@@ -9544,7 +9544,7 @@ class ComputeRegionUrlMapPathMatcherRouteRules:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRulesMatchRules"]]]:
         '''match_rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#match_rules ComputeRegionUrlMap#match_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#match_rules ComputeRegionUrlMap#match_rules}
         '''
         result = self._values.get("match_rules")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRulesMatchRules"]]], result)
@@ -9555,7 +9555,7 @@ class ComputeRegionUrlMapPathMatcherRouteRules:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteAction"]:
         '''route_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#route_action ComputeRegionUrlMap#route_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#route_action ComputeRegionUrlMap#route_action}
         '''
         result = self._values.get("route_action")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteAction"], result)
@@ -9571,7 +9571,7 @@ class ComputeRegionUrlMapPathMatcherRouteRules:
         weightedBackendServices, service must not be specified. Only one of urlRedirect,
         service or routeAction.weightedBackendService must be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#service ComputeRegionUrlMap#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#service ComputeRegionUrlMap#service}
         '''
         result = self._values.get("service")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9582,7 +9582,7 @@ class ComputeRegionUrlMapPathMatcherRouteRules:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesUrlRedirect"]:
         '''url_redirect block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#url_redirect ComputeRegionUrlMap#url_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#url_redirect ComputeRegionUrlMap#url_redirect}
         '''
         result = self._values.get("url_redirect")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesUrlRedirect"], result)
@@ -9619,10 +9619,10 @@ class ComputeRegionUrlMapPathMatcherRouteRulesHeaderAction:
         response_headers_to_remove: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param request_headers_to_add: request_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
-        :param request_headers_to_remove: A list of header names for headers that need to be removed from the request prior to forwarding the request to the backendService. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
-        :param response_headers_to_add: response_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
-        :param response_headers_to_remove: A list of header names for headers that need to be removed from the response prior to sending the response back to the client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
+        :param request_headers_to_add: request_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
+        :param request_headers_to_remove: A list of header names for headers that need to be removed from the request prior to forwarding the request to the backendService. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
+        :param response_headers_to_add: response_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
+        :param response_headers_to_remove: A list of header names for headers that need to be removed from the response prior to sending the response back to the client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__50a6bac13f577c46387bea12afaec46723103917dbc01bc81cfd5acc5370a15f)
@@ -9646,7 +9646,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesHeaderAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRulesHeaderActionRequestHeadersToAdd"]]]:
         '''request_headers_to_add block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
         '''
         result = self._values.get("request_headers_to_add")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRulesHeaderActionRequestHeadersToAdd"]]], result)
@@ -9655,7 +9655,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesHeaderAction:
     def request_headers_to_remove(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of header names for headers that need to be removed from the request prior to forwarding the request to the backendService.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
         '''
         result = self._values.get("request_headers_to_remove")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -9666,7 +9666,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesHeaderAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRulesHeaderActionResponseHeadersToAdd"]]]:
         '''response_headers_to_add block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
         '''
         result = self._values.get("response_headers_to_add")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRulesHeaderActionResponseHeadersToAdd"]]], result)
@@ -9675,7 +9675,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesHeaderAction:
     def response_headers_to_remove(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of header names for headers that need to be removed from the response prior to sending the response back to the client.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
         '''
         result = self._values.get("response_headers_to_remove")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -9856,9 +9856,9 @@ class ComputeRegionUrlMapPathMatcherRouteRulesHeaderActionRequestHeadersToAdd:
         replace: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param header_name: The name of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
-        :param header_value: The value of the header to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
-        :param replace: If false, headerValue is appended to any values that already exist for the header. If true, headerValue is set for the header, discarding any values that were set for that header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
+        :param header_name: The name of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
+        :param header_value: The value of the header to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
+        :param replace: If false, headerValue is appended to any values that already exist for the header. If true, headerValue is set for the header, discarding any values that were set for that header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__00a4f19b75c784610a52df20b1b6c5b651b442242cb0460f759ab4de376ce235)
@@ -9875,7 +9875,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesHeaderActionRequestHeadersToAdd:
     def header_name(self) -> builtins.str:
         '''The name of the header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
         '''
         result = self._values.get("header_name")
         assert result is not None, "Required property 'header_name' is missing"
@@ -9885,7 +9885,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesHeaderActionRequestHeadersToAdd:
     def header_value(self) -> builtins.str:
         '''The value of the header to add.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
         '''
         result = self._values.get("header_value")
         assert result is not None, "Required property 'header_value' is missing"
@@ -9898,7 +9898,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesHeaderActionRequestHeadersToAdd:
         If true, headerValue is set for the header, discarding any values that
         were set for that header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
         '''
         result = self._values.get("replace")
         assert result is not None, "Required property 'replace' is missing"
@@ -10127,9 +10127,9 @@ class ComputeRegionUrlMapPathMatcherRouteRulesHeaderActionResponseHeadersToAdd:
         replace: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param header_name: The name of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
-        :param header_value: The value of the header to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
-        :param replace: If false, headerValue is appended to any values that already exist for the header. If true, headerValue is set for the header, discarding any values that were set for that header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
+        :param header_name: The name of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
+        :param header_value: The value of the header to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
+        :param replace: If false, headerValue is appended to any values that already exist for the header. If true, headerValue is set for the header, discarding any values that were set for that header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__76bbb5bc22f852cb537b9de1d173e2628af2b4e2238aa7cdd2d1e7a1c2a37ab4)
@@ -10146,7 +10146,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesHeaderActionResponseHeadersToAdd:
     def header_name(self) -> builtins.str:
         '''The name of the header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
         '''
         result = self._values.get("header_name")
         assert result is not None, "Required property 'header_name' is missing"
@@ -10156,7 +10156,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesHeaderActionResponseHeadersToAdd:
     def header_value(self) -> builtins.str:
         '''The value of the header to add.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
         '''
         result = self._values.get("header_value")
         assert result is not None, "Required property 'header_value' is missing"
@@ -10169,7 +10169,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesHeaderActionResponseHeadersToAdd:
         If true, headerValue is set for the header, discarding any values that
         were set for that header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
         '''
         result = self._values.get("replace")
         assert result is not None, "Required property 'replace' is missing"
@@ -10501,14 +10501,14 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRules:
         regex_match: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param full_path_match: For satisfying the matchRule condition, the path of the request must exactly match the value specified in fullPathMatch after removing any query parameters and anchor that may be part of the original URL. FullPathMatch must be between 1 and 1024 characters. Only one of prefixMatch, fullPathMatch or regexMatch must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#full_path_match ComputeRegionUrlMap#full_path_match}
-        :param header_matches: header_matches block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_matches ComputeRegionUrlMap#header_matches}
-        :param ignore_case: Specifies that prefixMatch and fullPathMatch matches are case sensitive. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#ignore_case ComputeRegionUrlMap#ignore_case}
-        :param metadata_filters: metadata_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#metadata_filters ComputeRegionUrlMap#metadata_filters}
-        :param path_template_match: For satisfying the matchRule condition, the path of the request must match the wildcard pattern specified in pathTemplateMatch after removing any query parameters and anchor that may be part of the original URL. pathTemplateMatch must be between 1 and 255 characters (inclusive). The pattern specified by pathTemplateMatch may have at most 5 wildcard operators and at most 5 variable captures in total. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_template_match ComputeRegionUrlMap#path_template_match}
-        :param prefix_match: For satisfying the matchRule condition, the request's path must begin with the specified prefixMatch. prefixMatch must begin with a /. The value must be between 1 and 1024 characters. Only one of prefixMatch, fullPathMatch or regexMatch must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#prefix_match ComputeRegionUrlMap#prefix_match}
-        :param query_parameter_matches: query_parameter_matches block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#query_parameter_matches ComputeRegionUrlMap#query_parameter_matches}
-        :param regex_match: For satisfying the matchRule condition, the path of the request must satisfy the regular expression specified in regexMatch after removing any query parameters and anchor supplied with the original URL. For regular expression grammar please see en.cppreference.com/w/cpp/regex/ecmascript Only one of prefixMatch, fullPathMatch or regexMatch must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#regex_match ComputeRegionUrlMap#regex_match}
+        :param full_path_match: For satisfying the matchRule condition, the path of the request must exactly match the value specified in fullPathMatch after removing any query parameters and anchor that may be part of the original URL. FullPathMatch must be between 1 and 1024 characters. Only one of prefixMatch, fullPathMatch or regexMatch must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#full_path_match ComputeRegionUrlMap#full_path_match}
+        :param header_matches: header_matches block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_matches ComputeRegionUrlMap#header_matches}
+        :param ignore_case: Specifies that prefixMatch and fullPathMatch matches are case sensitive. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#ignore_case ComputeRegionUrlMap#ignore_case}
+        :param metadata_filters: metadata_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#metadata_filters ComputeRegionUrlMap#metadata_filters}
+        :param path_template_match: For satisfying the matchRule condition, the path of the request must match the wildcard pattern specified in pathTemplateMatch after removing any query parameters and anchor that may be part of the original URL. pathTemplateMatch must be between 1 and 255 characters (inclusive). The pattern specified by pathTemplateMatch may have at most 5 wildcard operators and at most 5 variable captures in total. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_template_match ComputeRegionUrlMap#path_template_match}
+        :param prefix_match: For satisfying the matchRule condition, the request's path must begin with the specified prefixMatch. prefixMatch must begin with a /. The value must be between 1 and 1024 characters. Only one of prefixMatch, fullPathMatch or regexMatch must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#prefix_match ComputeRegionUrlMap#prefix_match}
+        :param query_parameter_matches: query_parameter_matches block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#query_parameter_matches ComputeRegionUrlMap#query_parameter_matches}
+        :param regex_match: For satisfying the matchRule condition, the path of the request must satisfy the regular expression specified in regexMatch after removing any query parameters and anchor supplied with the original URL. For regular expression grammar please see en.cppreference.com/w/cpp/regex/ecmascript Only one of prefixMatch, fullPathMatch or regexMatch must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#regex_match ComputeRegionUrlMap#regex_match}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8088e354670bdecd8a6eb3b968eddbaf99f16388b3a1176790cde8aa36458066)
@@ -10546,7 +10546,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRules:
         and 1024 characters. Only one of prefixMatch, fullPathMatch or regexMatch must
         be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#full_path_match ComputeRegionUrlMap#full_path_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#full_path_match ComputeRegionUrlMap#full_path_match}
         '''
         result = self._values.get("full_path_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10557,7 +10557,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRules:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatches"]]]:
         '''header_matches block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_matches ComputeRegionUrlMap#header_matches}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_matches ComputeRegionUrlMap#header_matches}
         '''
         result = self._values.get("header_matches")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatches"]]], result)
@@ -10568,7 +10568,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Specifies that prefixMatch and fullPathMatch matches are case sensitive. Defaults to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#ignore_case ComputeRegionUrlMap#ignore_case}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#ignore_case ComputeRegionUrlMap#ignore_case}
         '''
         result = self._values.get("ignore_case")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -10579,7 +10579,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRules:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesMetadataFilters"]]]:
         '''metadata_filters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#metadata_filters ComputeRegionUrlMap#metadata_filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#metadata_filters ComputeRegionUrlMap#metadata_filters}
         '''
         result = self._values.get("metadata_filters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesMetadataFilters"]]], result)
@@ -10593,7 +10593,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRules:
         have at most 5 wildcard operators and at most 5 variable
         captures in total.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_template_match ComputeRegionUrlMap#path_template_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_template_match ComputeRegionUrlMap#path_template_match}
         '''
         result = self._values.get("path_template_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10606,7 +10606,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRules:
         between 1 and 1024 characters. Only one of prefixMatch, fullPathMatch or
         regexMatch must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#prefix_match ComputeRegionUrlMap#prefix_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#prefix_match ComputeRegionUrlMap#prefix_match}
         '''
         result = self._values.get("prefix_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10617,7 +10617,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRules:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesQueryParameterMatches"]]]:
         '''query_parameter_matches block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#query_parameter_matches ComputeRegionUrlMap#query_parameter_matches}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#query_parameter_matches ComputeRegionUrlMap#query_parameter_matches}
         '''
         result = self._values.get("query_parameter_matches")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesQueryParameterMatches"]]], result)
@@ -10630,7 +10630,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRules:
         see en.cppreference.com/w/cpp/regex/ecmascript  Only one of prefixMatch,
         fullPathMatch or regexMatch must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#regex_match ComputeRegionUrlMap#regex_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#regex_match ComputeRegionUrlMap#regex_match}
         '''
         result = self._values.get("regex_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10675,14 +10675,14 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatches:
         suffix_match: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param header_name: The name of the HTTP header to match. For matching against the HTTP request's authority, use a headerMatch with the header name ":authority". For matching a request's method, use the headerName ":method". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
-        :param exact_match: The value should exactly match contents of exactMatch. Only one of exactMatch, prefixMatch, suffixMatch, regexMatch, presentMatch or rangeMatch must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#exact_match ComputeRegionUrlMap#exact_match}
-        :param invert_match: If set to false, the headerMatch is considered a match if the match criteria above are met. If set to true, the headerMatch is considered a match if the match criteria above are NOT met. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#invert_match ComputeRegionUrlMap#invert_match}
-        :param prefix_match: The value of the header must start with the contents of prefixMatch. Only one of exactMatch, prefixMatch, suffixMatch, regexMatch, presentMatch or rangeMatch must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#prefix_match ComputeRegionUrlMap#prefix_match}
-        :param present_match: A header with the contents of headerName must exist. The match takes place whether or not the request's header has a value or not. Only one of exactMatch, prefixMatch, suffixMatch, regexMatch, presentMatch or rangeMatch must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#present_match ComputeRegionUrlMap#present_match}
-        :param range_match: range_match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#range_match ComputeRegionUrlMap#range_match}
-        :param regex_match: The value of the header must match the regular expression specified in regexMatch. For regular expression grammar, please see: en.cppreference.com/w/cpp/regex/ecmascript For matching against a port specified in the HTTP request, use a headerMatch with headerName set to PORT and a regular expression that satisfies the RFC2616 Host header's port specifier. Only one of exactMatch, prefixMatch, suffixMatch, regexMatch, presentMatch or rangeMatch must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#regex_match ComputeRegionUrlMap#regex_match}
-        :param suffix_match: The value of the header must end with the contents of suffixMatch. Only one of exactMatch, prefixMatch, suffixMatch, regexMatch, presentMatch or rangeMatch must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#suffix_match ComputeRegionUrlMap#suffix_match}
+        :param header_name: The name of the HTTP header to match. For matching against the HTTP request's authority, use a headerMatch with the header name ":authority". For matching a request's method, use the headerName ":method". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
+        :param exact_match: The value should exactly match contents of exactMatch. Only one of exactMatch, prefixMatch, suffixMatch, regexMatch, presentMatch or rangeMatch must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#exact_match ComputeRegionUrlMap#exact_match}
+        :param invert_match: If set to false, the headerMatch is considered a match if the match criteria above are met. If set to true, the headerMatch is considered a match if the match criteria above are NOT met. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#invert_match ComputeRegionUrlMap#invert_match}
+        :param prefix_match: The value of the header must start with the contents of prefixMatch. Only one of exactMatch, prefixMatch, suffixMatch, regexMatch, presentMatch or rangeMatch must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#prefix_match ComputeRegionUrlMap#prefix_match}
+        :param present_match: A header with the contents of headerName must exist. The match takes place whether or not the request's header has a value or not. Only one of exactMatch, prefixMatch, suffixMatch, regexMatch, presentMatch or rangeMatch must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#present_match ComputeRegionUrlMap#present_match}
+        :param range_match: range_match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#range_match ComputeRegionUrlMap#range_match}
+        :param regex_match: The value of the header must match the regular expression specified in regexMatch. For regular expression grammar, please see: en.cppreference.com/w/cpp/regex/ecmascript For matching against a port specified in the HTTP request, use a headerMatch with headerName set to PORT and a regular expression that satisfies the RFC2616 Host header's port specifier. Only one of exactMatch, prefixMatch, suffixMatch, regexMatch, presentMatch or rangeMatch must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#regex_match ComputeRegionUrlMap#regex_match}
+        :param suffix_match: The value of the header must end with the contents of suffixMatch. Only one of exactMatch, prefixMatch, suffixMatch, regexMatch, presentMatch or rangeMatch must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#suffix_match ComputeRegionUrlMap#suffix_match}
         '''
         if isinstance(range_match, dict):
             range_match = ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatchesRangeMatch(**range_match)
@@ -10722,7 +10722,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatches:
         authority, use a headerMatch with the header name ":authority". For matching a
         request's method, use the headerName ":method".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
         '''
         result = self._values.get("header_name")
         assert result is not None, "Required property 'header_name' is missing"
@@ -10735,7 +10735,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatches:
         Only one of exactMatch,
         prefixMatch, suffixMatch, regexMatch, presentMatch or rangeMatch must be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#exact_match ComputeRegionUrlMap#exact_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#exact_match ComputeRegionUrlMap#exact_match}
         '''
         result = self._values.get("exact_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10749,7 +10749,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatches:
         If set to true, the headerMatch is considered a match if the
         match criteria above are NOT met. Defaults to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#invert_match ComputeRegionUrlMap#invert_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#invert_match ComputeRegionUrlMap#invert_match}
         '''
         result = self._values.get("invert_match")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -10762,7 +10762,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatches:
         exactMatch, prefixMatch, suffixMatch, regexMatch, presentMatch or rangeMatch
         must be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#prefix_match ComputeRegionUrlMap#prefix_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#prefix_match ComputeRegionUrlMap#prefix_match}
         '''
         result = self._values.get("prefix_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10777,7 +10777,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatches:
         whether or not the request's header has a value or not. Only one of exactMatch,
         prefixMatch, suffixMatch, regexMatch, presentMatch or rangeMatch must be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#present_match ComputeRegionUrlMap#present_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#present_match ComputeRegionUrlMap#present_match}
         '''
         result = self._values.get("present_match")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -10788,7 +10788,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatches:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatchesRangeMatch"]:
         '''range_match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#range_match ComputeRegionUrlMap#range_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#range_match ComputeRegionUrlMap#range_match}
         '''
         result = self._values.get("range_match")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatchesRangeMatch"], result)
@@ -10804,7 +10804,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatches:
         Only one of exactMatch, prefixMatch, suffixMatch, regexMatch, presentMatch or
         rangeMatch must be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#regex_match ComputeRegionUrlMap#regex_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#regex_match ComputeRegionUrlMap#regex_match}
         '''
         result = self._values.get("regex_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10817,7 +10817,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatches:
         exactMatch, prefixMatch, suffixMatch, regexMatch, presentMatch or rangeMatch
         must be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#suffix_match ComputeRegionUrlMap#suffix_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#suffix_match ComputeRegionUrlMap#suffix_match}
         '''
         result = self._values.get("suffix_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10961,8 +10961,8 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatchesOutputRefer
         range_start: jsii.Number,
     ) -> None:
         '''
-        :param range_end: The end of the range (exclusive). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#range_end ComputeRegionUrlMap#range_end}
-        :param range_start: The start of the range (inclusive). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#range_start ComputeRegionUrlMap#range_start}
+        :param range_end: The end of the range (exclusive). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#range_end ComputeRegionUrlMap#range_end}
+        :param range_start: The start of the range (inclusive). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#range_start ComputeRegionUrlMap#range_start}
         '''
         value = ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatchesRangeMatch(
             range_end=range_end, range_start=range_start
@@ -11167,8 +11167,8 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatchesOutputRefer
 class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatchesRangeMatch:
     def __init__(self, *, range_end: jsii.Number, range_start: jsii.Number) -> None:
         '''
-        :param range_end: The end of the range (exclusive). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#range_end ComputeRegionUrlMap#range_end}
-        :param range_start: The start of the range (inclusive). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#range_start ComputeRegionUrlMap#range_start}
+        :param range_end: The end of the range (exclusive). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#range_end ComputeRegionUrlMap#range_end}
+        :param range_start: The start of the range (inclusive). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#range_start ComputeRegionUrlMap#range_start}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9e56a47c1234e08f5d2e4cc2aae4ab2aa6f6c3a3b1cbf3c9d6f1045b2aab791a)
@@ -11183,7 +11183,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatchesRangeMatch:
     def range_end(self) -> jsii.Number:
         '''The end of the range (exclusive).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#range_end ComputeRegionUrlMap#range_end}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#range_end ComputeRegionUrlMap#range_end}
         '''
         result = self._values.get("range_end")
         assert result is not None, "Required property 'range_end' is missing"
@@ -11193,7 +11193,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesHeaderMatchesRangeMatch:
     def range_start(self) -> jsii.Number:
         '''The start of the range (inclusive).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#range_start ComputeRegionUrlMap#range_start}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#range_start ComputeRegionUrlMap#range_start}
         '''
         result = self._values.get("range_start")
         assert result is not None, "Required property 'range_start' is missing"
@@ -11392,8 +11392,8 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesMetadataFilters:
         filter_match_criteria: builtins.str,
     ) -> None:
         '''
-        :param filter_labels: filter_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#filter_labels ComputeRegionUrlMap#filter_labels}
-        :param filter_match_criteria: Specifies how individual filterLabel matches within the list of filterLabels contribute towards the overall metadataFilter match. Supported values are:. - MATCH_ANY: At least one of the filterLabels must have a matching label in the provided metadata. - MATCH_ALL: All filterLabels must have matching labels in the provided metadata. Possible values: ["MATCH_ALL", "MATCH_ANY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#filter_match_criteria ComputeRegionUrlMap#filter_match_criteria}
+        :param filter_labels: filter_labels block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#filter_labels ComputeRegionUrlMap#filter_labels}
+        :param filter_match_criteria: Specifies how individual filterLabel matches within the list of filterLabels contribute towards the overall metadataFilter match. Supported values are:. - MATCH_ANY: At least one of the filterLabels must have a matching label in the provided metadata. - MATCH_ALL: All filterLabels must have matching labels in the provided metadata. Possible values: ["MATCH_ALL", "MATCH_ANY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#filter_match_criteria ComputeRegionUrlMap#filter_match_criteria}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__67b1e1e5801af9b92740d9d9d64d1ddb929408c59a7909d173ea3f0ee6089be7)
@@ -11410,7 +11410,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesMetadataFilters:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesMetadataFiltersFilterLabels"]]:
         '''filter_labels block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#filter_labels ComputeRegionUrlMap#filter_labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#filter_labels ComputeRegionUrlMap#filter_labels}
         '''
         result = self._values.get("filter_labels")
         assert result is not None, "Required property 'filter_labels' is missing"
@@ -11425,7 +11425,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesMetadataFilters:
         - MATCH_ALL: All filterLabels must have matching labels in
           the provided metadata. Possible values: ["MATCH_ALL", "MATCH_ANY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#filter_match_criteria ComputeRegionUrlMap#filter_match_criteria}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#filter_match_criteria ComputeRegionUrlMap#filter_match_criteria}
         '''
         result = self._values.get("filter_match_criteria")
         assert result is not None, "Required property 'filter_match_criteria' is missing"
@@ -11451,8 +11451,8 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesMetadataFilters:
 class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesMetadataFiltersFilterLabels:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Name of metadata label. The name can have a maximum length of 1024 characters and must be at least 1 character long. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#name ComputeRegionUrlMap#name}
-        :param value: The value of the label must match the specified value. value can have a maximum length of 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#value ComputeRegionUrlMap#value}
+        :param name: Name of metadata label. The name can have a maximum length of 1024 characters and must be at least 1 character long. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#name ComputeRegionUrlMap#name}
+        :param value: The value of the label must match the specified value. value can have a maximum length of 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#value ComputeRegionUrlMap#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__00687cda5619be85d2a39a8ade06d6fdc9fa11deb2941eb4b98054733cf7a15d)
@@ -11470,7 +11470,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesMetadataFiltersFilterLab
         The name can have a maximum length of 1024 characters
         and must be at least 1 character long.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#name ComputeRegionUrlMap#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#name ComputeRegionUrlMap#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -11480,7 +11480,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesMetadataFiltersFilterLab
     def value(self) -> builtins.str:
         '''The value of the label must match the specified value. value can have a maximum length of 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#value ComputeRegionUrlMap#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#value ComputeRegionUrlMap#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -12117,10 +12117,10 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesQueryParameterMatches:
         regex_match: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the query parameter to match. The query parameter must exist in the request, in the absence of which the request match fails. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#name ComputeRegionUrlMap#name}
-        :param exact_match: The queryParameterMatch matches if the value of the parameter exactly matches the contents of exactMatch. Only one of presentMatch, exactMatch and regexMatch must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#exact_match ComputeRegionUrlMap#exact_match}
-        :param present_match: Specifies that the queryParameterMatch matches if the request contains the query parameter, irrespective of whether the parameter has a value or not. Only one of presentMatch, exactMatch and regexMatch must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#present_match ComputeRegionUrlMap#present_match}
-        :param regex_match: The queryParameterMatch matches if the value of the parameter matches the regular expression specified by regexMatch. For the regular expression grammar, please see en.cppreference.com/w/cpp/regex/ecmascript Only one of presentMatch, exactMatch and regexMatch must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#regex_match ComputeRegionUrlMap#regex_match}
+        :param name: The name of the query parameter to match. The query parameter must exist in the request, in the absence of which the request match fails. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#name ComputeRegionUrlMap#name}
+        :param exact_match: The queryParameterMatch matches if the value of the parameter exactly matches the contents of exactMatch. Only one of presentMatch, exactMatch and regexMatch must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#exact_match ComputeRegionUrlMap#exact_match}
+        :param present_match: Specifies that the queryParameterMatch matches if the request contains the query parameter, irrespective of whether the parameter has a value or not. Only one of presentMatch, exactMatch and regexMatch must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#present_match ComputeRegionUrlMap#present_match}
+        :param regex_match: The queryParameterMatch matches if the value of the parameter matches the regular expression specified by regexMatch. For the regular expression grammar, please see en.cppreference.com/w/cpp/regex/ecmascript Only one of presentMatch, exactMatch and regexMatch must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#regex_match ComputeRegionUrlMap#regex_match}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c0e4a562f7a33310417bbbe0c6b86499d0d68c3f08b58387f85c6b1325712756)
@@ -12145,7 +12145,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesQueryParameterMatches:
         The query parameter must exist in the
         request, in the absence of which the request match fails.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#name ComputeRegionUrlMap#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#name ComputeRegionUrlMap#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -12158,7 +12158,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesQueryParameterMatches:
         Only one of presentMatch, exactMatch and regexMatch
         must be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#exact_match ComputeRegionUrlMap#exact_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#exact_match ComputeRegionUrlMap#exact_match}
         '''
         result = self._values.get("exact_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -12172,7 +12172,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesQueryParameterMatches:
         Only one of
         presentMatch, exactMatch and regexMatch must be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#present_match ComputeRegionUrlMap#present_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#present_match ComputeRegionUrlMap#present_match}
         '''
         result = self._values.get("present_match")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -12185,7 +12185,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesMatchRulesQueryParameterMatches:
         please see en.cppreference.com/w/cpp/regex/ecmascript  Only one of presentMatch,
         exactMatch and regexMatch must be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#regex_match ComputeRegionUrlMap#regex_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#regex_match ComputeRegionUrlMap#regex_match}
         '''
         result = self._values.get("regex_match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -12460,10 +12460,10 @@ class ComputeRegionUrlMapPathMatcherRouteRulesOutputReference(
         response_headers_to_remove: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param request_headers_to_add: request_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
-        :param request_headers_to_remove: A list of header names for headers that need to be removed from the request prior to forwarding the request to the backendService. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
-        :param response_headers_to_add: response_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
-        :param response_headers_to_remove: A list of header names for headers that need to be removed from the response prior to sending the response back to the client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
+        :param request_headers_to_add: request_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
+        :param request_headers_to_remove: A list of header names for headers that need to be removed from the request prior to forwarding the request to the backendService. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
+        :param response_headers_to_add: response_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
+        :param response_headers_to_remove: A list of header names for headers that need to be removed from the response prior to sending the response back to the client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
         '''
         value = ComputeRegionUrlMapPathMatcherRouteRulesHeaderAction(
             request_headers_to_add=request_headers_to_add,
@@ -12500,13 +12500,13 @@ class ComputeRegionUrlMapPathMatcherRouteRulesOutputReference(
         weighted_backend_services: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param cors_policy: cors_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#cors_policy ComputeRegionUrlMap#cors_policy}
-        :param fault_injection_policy: fault_injection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#fault_injection_policy ComputeRegionUrlMap#fault_injection_policy}
-        :param request_mirror_policy: request_mirror_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_mirror_policy ComputeRegionUrlMap#request_mirror_policy}
-        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#retry_policy ComputeRegionUrlMap#retry_policy}
-        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#timeout ComputeRegionUrlMap#timeout}
-        :param url_rewrite: url_rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#url_rewrite ComputeRegionUrlMap#url_rewrite}
-        :param weighted_backend_services: weighted_backend_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#weighted_backend_services ComputeRegionUrlMap#weighted_backend_services}
+        :param cors_policy: cors_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#cors_policy ComputeRegionUrlMap#cors_policy}
+        :param fault_injection_policy: fault_injection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#fault_injection_policy ComputeRegionUrlMap#fault_injection_policy}
+        :param request_mirror_policy: request_mirror_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_mirror_policy ComputeRegionUrlMap#request_mirror_policy}
+        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#retry_policy ComputeRegionUrlMap#retry_policy}
+        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#timeout ComputeRegionUrlMap#timeout}
+        :param url_rewrite: url_rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#url_rewrite ComputeRegionUrlMap#url_rewrite}
+        :param weighted_backend_services: weighted_backend_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#weighted_backend_services ComputeRegionUrlMap#weighted_backend_services}
         '''
         value = ComputeRegionUrlMapPathMatcherRouteRulesRouteAction(
             cors_policy=cors_policy,
@@ -12532,12 +12532,12 @@ class ComputeRegionUrlMapPathMatcherRouteRulesOutputReference(
         strip_query: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
-        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. If set to false, the URL scheme of the redirected request will remain the same as that of the request. This must only be set for UrlMaps used in TargetHttpProxys. Setting this true for TargetHttpsProxy is not permitted. The default is set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
-        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect cannot be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
-        :param prefix_redirect: The prefix that replaces the prefixMatch specified in the HttpRouteRuleMatch, retaining the remaining portion of the URL before redirecting the request. prefixRedirect cannot be supplied together with pathRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
-        :param redirect_response_code: The HTTP Status code to use for this RedirectAction. Supported values are:. - MOVED_PERMANENTLY_DEFAULT, which is the default value and corresponds to 301. - FOUND, which corresponds to 302. - SEE_OTHER which corresponds to 303. - TEMPORARY_REDIRECT, which corresponds to 307. In this case, the request method will be retained. - PERMANENT_REDIRECT, which corresponds to 308. In this case, the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
-        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. If set to false, the query portion of the original URL is retained. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
+        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
+        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. If set to false, the URL scheme of the redirected request will remain the same as that of the request. This must only be set for UrlMaps used in TargetHttpProxys. Setting this true for TargetHttpsProxy is not permitted. The default is set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
+        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect cannot be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
+        :param prefix_redirect: The prefix that replaces the prefixMatch specified in the HttpRouteRuleMatch, retaining the remaining portion of the URL before redirecting the request. prefixRedirect cannot be supplied together with pathRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
+        :param redirect_response_code: The HTTP Status code to use for this RedirectAction. Supported values are:. - MOVED_PERMANENTLY_DEFAULT, which is the default value and corresponds to 301. - FOUND, which corresponds to 302. - SEE_OTHER which corresponds to 303. - TEMPORARY_REDIRECT, which corresponds to 307. In this case, the request method will be retained. - PERMANENT_REDIRECT, which corresponds to 308. In this case, the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
+        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. If set to false, the query portion of the original URL is retained. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
         '''
         value = ComputeRegionUrlMapPathMatcherRouteRulesUrlRedirect(
             host_redirect=host_redirect,
@@ -12702,13 +12702,13 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteAction:
         weighted_backend_services: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param cors_policy: cors_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#cors_policy ComputeRegionUrlMap#cors_policy}
-        :param fault_injection_policy: fault_injection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#fault_injection_policy ComputeRegionUrlMap#fault_injection_policy}
-        :param request_mirror_policy: request_mirror_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_mirror_policy ComputeRegionUrlMap#request_mirror_policy}
-        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#retry_policy ComputeRegionUrlMap#retry_policy}
-        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#timeout ComputeRegionUrlMap#timeout}
-        :param url_rewrite: url_rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#url_rewrite ComputeRegionUrlMap#url_rewrite}
-        :param weighted_backend_services: weighted_backend_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#weighted_backend_services ComputeRegionUrlMap#weighted_backend_services}
+        :param cors_policy: cors_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#cors_policy ComputeRegionUrlMap#cors_policy}
+        :param fault_injection_policy: fault_injection_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#fault_injection_policy ComputeRegionUrlMap#fault_injection_policy}
+        :param request_mirror_policy: request_mirror_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_mirror_policy ComputeRegionUrlMap#request_mirror_policy}
+        :param retry_policy: retry_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#retry_policy ComputeRegionUrlMap#retry_policy}
+        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#timeout ComputeRegionUrlMap#timeout}
+        :param url_rewrite: url_rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#url_rewrite ComputeRegionUrlMap#url_rewrite}
+        :param weighted_backend_services: weighted_backend_services block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#weighted_backend_services ComputeRegionUrlMap#weighted_backend_services}
         '''
         if isinstance(cors_policy, dict):
             cors_policy = ComputeRegionUrlMapPathMatcherRouteRulesRouteActionCorsPolicy(**cors_policy)
@@ -12753,7 +12753,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteAction:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionCorsPolicy"]:
         '''cors_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#cors_policy ComputeRegionUrlMap#cors_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#cors_policy ComputeRegionUrlMap#cors_policy}
         '''
         result = self._values.get("cors_policy")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionCorsPolicy"], result)
@@ -12764,7 +12764,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteAction:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicy"]:
         '''fault_injection_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#fault_injection_policy ComputeRegionUrlMap#fault_injection_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#fault_injection_policy ComputeRegionUrlMap#fault_injection_policy}
         '''
         result = self._values.get("fault_injection_policy")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicy"], result)
@@ -12775,7 +12775,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteAction:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRequestMirrorPolicy"]:
         '''request_mirror_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_mirror_policy ComputeRegionUrlMap#request_mirror_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_mirror_policy ComputeRegionUrlMap#request_mirror_policy}
         '''
         result = self._values.get("request_mirror_policy")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRequestMirrorPolicy"], result)
@@ -12786,7 +12786,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteAction:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRetryPolicy"]:
         '''retry_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#retry_policy ComputeRegionUrlMap#retry_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#retry_policy ComputeRegionUrlMap#retry_policy}
         '''
         result = self._values.get("retry_policy")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRetryPolicy"], result)
@@ -12797,7 +12797,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteAction:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionTimeout"]:
         '''timeout block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#timeout ComputeRegionUrlMap#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#timeout ComputeRegionUrlMap#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionTimeout"], result)
@@ -12808,7 +12808,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteAction:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionUrlRewrite"]:
         '''url_rewrite block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#url_rewrite ComputeRegionUrlMap#url_rewrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#url_rewrite ComputeRegionUrlMap#url_rewrite}
         '''
         result = self._values.get("url_rewrite")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionUrlRewrite"], result)
@@ -12819,7 +12819,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices"]]]:
         '''weighted_backend_services block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#weighted_backend_services ComputeRegionUrlMap#weighted_backend_services}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#weighted_backend_services ComputeRegionUrlMap#weighted_backend_services}
         '''
         result = self._values.get("weighted_backend_services")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices"]]], result)
@@ -12864,14 +12864,14 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionCorsPolicy:
         max_age: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allow_credentials: In response to a preflight request, setting this to true indicates that the actual request can include user credentials. This translates to the Access- Control-Allow-Credentials header. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_credentials ComputeRegionUrlMap#allow_credentials}
-        :param allow_headers: Specifies the content for the Access-Control-Allow-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_headers ComputeRegionUrlMap#allow_headers}
-        :param allow_methods: Specifies the content for the Access-Control-Allow-Methods header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_methods ComputeRegionUrlMap#allow_methods}
-        :param allow_origin_regexes: Specifies the regular expression patterns that match allowed origins. For regular expression grammar please see en.cppreference.com/w/cpp/regex/ecmascript An origin is allowed if it matches either allow_origins or allow_origin_regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_origin_regexes ComputeRegionUrlMap#allow_origin_regexes}
-        :param allow_origins: Specifies the list of origins that will be allowed to do CORS requests. An origin is allowed if it matches either allow_origins or allow_origin_regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_origins ComputeRegionUrlMap#allow_origins}
-        :param disabled: If true, specifies the CORS policy is disabled. which indicates that the CORS policy is in effect. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#disabled ComputeRegionUrlMap#disabled}
-        :param expose_headers: Specifies the content for the Access-Control-Expose-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#expose_headers ComputeRegionUrlMap#expose_headers}
-        :param max_age: Specifies how long the results of a preflight request can be cached. This translates to the content for the Access-Control-Max-Age header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#max_age ComputeRegionUrlMap#max_age}
+        :param allow_credentials: In response to a preflight request, setting this to true indicates that the actual request can include user credentials. This translates to the Access- Control-Allow-Credentials header. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_credentials ComputeRegionUrlMap#allow_credentials}
+        :param allow_headers: Specifies the content for the Access-Control-Allow-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_headers ComputeRegionUrlMap#allow_headers}
+        :param allow_methods: Specifies the content for the Access-Control-Allow-Methods header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_methods ComputeRegionUrlMap#allow_methods}
+        :param allow_origin_regexes: Specifies the regular expression patterns that match allowed origins. For regular expression grammar please see en.cppreference.com/w/cpp/regex/ecmascript An origin is allowed if it matches either allow_origins or allow_origin_regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_origin_regexes ComputeRegionUrlMap#allow_origin_regexes}
+        :param allow_origins: Specifies the list of origins that will be allowed to do CORS requests. An origin is allowed if it matches either allow_origins or allow_origin_regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_origins ComputeRegionUrlMap#allow_origins}
+        :param disabled: If true, specifies the CORS policy is disabled. which indicates that the CORS policy is in effect. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#disabled ComputeRegionUrlMap#disabled}
+        :param expose_headers: Specifies the content for the Access-Control-Expose-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#expose_headers ComputeRegionUrlMap#expose_headers}
+        :param max_age: Specifies how long the results of a preflight request can be cached. This translates to the content for the Access-Control-Max-Age header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#max_age ComputeRegionUrlMap#max_age}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6221875e1018eee4a859f995fe753a72f31dedea933bb41fd2abb6d8c453ab67)
@@ -12910,7 +12910,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionCorsPolicy:
         This translates to the Access-
         Control-Allow-Credentials header. Defaults to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_credentials ComputeRegionUrlMap#allow_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_credentials ComputeRegionUrlMap#allow_credentials}
         '''
         result = self._values.get("allow_credentials")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -12919,7 +12919,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionCorsPolicy:
     def allow_headers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies the content for the Access-Control-Allow-Headers header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_headers ComputeRegionUrlMap#allow_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_headers ComputeRegionUrlMap#allow_headers}
         '''
         result = self._values.get("allow_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -12928,7 +12928,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionCorsPolicy:
     def allow_methods(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies the content for the Access-Control-Allow-Methods header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_methods ComputeRegionUrlMap#allow_methods}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_methods ComputeRegionUrlMap#allow_methods}
         '''
         result = self._values.get("allow_methods")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -12941,7 +12941,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionCorsPolicy:
         regular expression grammar please see en.cppreference.com/w/cpp/regex/ecmascript
         An origin is allowed if it matches either allow_origins or allow_origin_regex.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_origin_regexes ComputeRegionUrlMap#allow_origin_regexes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_origin_regexes ComputeRegionUrlMap#allow_origin_regexes}
         '''
         result = self._values.get("allow_origin_regexes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -12953,7 +12953,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionCorsPolicy:
         An
         origin is allowed if it matches either allow_origins or allow_origin_regex.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_origins ComputeRegionUrlMap#allow_origins}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_origins ComputeRegionUrlMap#allow_origins}
         '''
         result = self._values.get("allow_origins")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -12964,7 +12964,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionCorsPolicy:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, specifies the CORS policy is disabled. which indicates that the CORS policy is in effect. Defaults to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#disabled ComputeRegionUrlMap#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#disabled ComputeRegionUrlMap#disabled}
         '''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -12973,7 +12973,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionCorsPolicy:
     def expose_headers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies the content for the Access-Control-Expose-Headers header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#expose_headers ComputeRegionUrlMap#expose_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#expose_headers ComputeRegionUrlMap#expose_headers}
         '''
         result = self._values.get("expose_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -12985,7 +12985,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionCorsPolicy:
         This
         translates to the content for the Access-Control-Max-Age header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#max_age ComputeRegionUrlMap#max_age}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#max_age ComputeRegionUrlMap#max_age}
         '''
         result = self._values.get("max_age")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -13233,8 +13233,8 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicy:
         delay: typing.Optional[typing.Union["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyDelay", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param abort: abort block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#abort ComputeRegionUrlMap#abort}
-        :param delay: delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#delay ComputeRegionUrlMap#delay}
+        :param abort: abort block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#abort ComputeRegionUrlMap#abort}
+        :param delay: delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#delay ComputeRegionUrlMap#delay}
         '''
         if isinstance(abort, dict):
             abort = ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyAbort(**abort)
@@ -13256,7 +13256,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicy:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyAbort"]:
         '''abort block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#abort ComputeRegionUrlMap#abort}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#abort ComputeRegionUrlMap#abort}
         '''
         result = self._values.get("abort")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyAbort"], result)
@@ -13267,7 +13267,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicy:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyDelay"]:
         '''delay block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#delay ComputeRegionUrlMap#delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#delay ComputeRegionUrlMap#delay}
         '''
         result = self._values.get("delay")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyDelay"], result)
@@ -13297,8 +13297,8 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyAbo
         percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param http_status: The HTTP status code used to abort the request. The value must be between 200 and 599 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#http_status ComputeRegionUrlMap#http_status}
-        :param percentage: The percentage of traffic (connections/operations/requests) which will be aborted as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
+        :param http_status: The HTTP status code used to abort the request. The value must be between 200 and 599 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#http_status ComputeRegionUrlMap#http_status}
+        :param percentage: The percentage of traffic (connections/operations/requests) which will be aborted as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__61ae17502fc220229f8c5e3b71577122c7afd9f6d6d5b16bca89ed33411987cc)
@@ -13314,7 +13314,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyAbo
     def http_status(self) -> typing.Optional[jsii.Number]:
         '''The HTTP status code used to abort the request. The value must be between 200 and 599 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#http_status ComputeRegionUrlMap#http_status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#http_status ComputeRegionUrlMap#http_status}
         '''
         result = self._values.get("http_status")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -13326,7 +13326,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyAbo
         The value must be between 0.0 and 100.0
         inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
         '''
         result = self._values.get("percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -13436,8 +13436,8 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyDel
         percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fixed_delay: fixed_delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#fixed_delay ComputeRegionUrlMap#fixed_delay}
-        :param percentage: The percentage of traffic (connections/operations/requests) on which delay will be introduced as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
+        :param fixed_delay: fixed_delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#fixed_delay ComputeRegionUrlMap#fixed_delay}
+        :param percentage: The percentage of traffic (connections/operations/requests) on which delay will be introduced as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
         '''
         if isinstance(fixed_delay, dict):
             fixed_delay = ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyDelayFixedDelay(**fixed_delay)
@@ -13457,7 +13457,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyDel
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyDelayFixedDelay"]:
         '''fixed_delay block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#fixed_delay ComputeRegionUrlMap#fixed_delay}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#fixed_delay ComputeRegionUrlMap#fixed_delay}
         '''
         result = self._values.get("fixed_delay")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyDelayFixedDelay"], result)
@@ -13469,7 +13469,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyDel
         The value must be between 0.0 and
         100.0 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
         '''
         result = self._values.get("percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -13499,8 +13499,8 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyDel
         nanos: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d5a97e15eaa5ed97a6bd457a421efbd7a11181ab5a3f4f4e6920b1164d9eb4f8)
@@ -13516,7 +13516,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyDel
     def seconds(self) -> builtins.str:
         '''Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
         '''
         result = self._values.get("seconds")
         assert result is not None, "Required property 'seconds' is missing"
@@ -13530,7 +13530,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyDel
         less than one second are represented with a 0 'seconds' field and a positive
         'nanos' field. Must be from 0 to 999,999,999 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -13651,8 +13651,8 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyDel
         nanos: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         value = ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyDelayFixedDelay(
             seconds=seconds, nanos=nanos
@@ -13745,8 +13745,8 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyOut
         percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param http_status: The HTTP status code used to abort the request. The value must be between 200 and 599 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#http_status ComputeRegionUrlMap#http_status}
-        :param percentage: The percentage of traffic (connections/operations/requests) which will be aborted as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
+        :param http_status: The HTTP status code used to abort the request. The value must be between 200 and 599 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#http_status ComputeRegionUrlMap#http_status}
+        :param percentage: The percentage of traffic (connections/operations/requests) which will be aborted as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
         '''
         value = ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyAbort(
             http_status=http_status, percentage=percentage
@@ -13762,8 +13762,8 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyOut
         percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fixed_delay: fixed_delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#fixed_delay ComputeRegionUrlMap#fixed_delay}
-        :param percentage: The percentage of traffic (connections/operations/requests) on which delay will be introduced as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
+        :param fixed_delay: fixed_delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#fixed_delay ComputeRegionUrlMap#fixed_delay}
+        :param percentage: The percentage of traffic (connections/operations/requests) on which delay will be introduced as part of fault injection. The value must be between 0.0 and 100.0 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#percentage ComputeRegionUrlMap#percentage}
         '''
         value = ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyDelay(
             fixed_delay=fixed_delay, percentage=percentage
@@ -13859,14 +13859,14 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionOutputReference(
         max_age: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allow_credentials: In response to a preflight request, setting this to true indicates that the actual request can include user credentials. This translates to the Access- Control-Allow-Credentials header. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_credentials ComputeRegionUrlMap#allow_credentials}
-        :param allow_headers: Specifies the content for the Access-Control-Allow-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_headers ComputeRegionUrlMap#allow_headers}
-        :param allow_methods: Specifies the content for the Access-Control-Allow-Methods header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_methods ComputeRegionUrlMap#allow_methods}
-        :param allow_origin_regexes: Specifies the regular expression patterns that match allowed origins. For regular expression grammar please see en.cppreference.com/w/cpp/regex/ecmascript An origin is allowed if it matches either allow_origins or allow_origin_regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_origin_regexes ComputeRegionUrlMap#allow_origin_regexes}
-        :param allow_origins: Specifies the list of origins that will be allowed to do CORS requests. An origin is allowed if it matches either allow_origins or allow_origin_regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#allow_origins ComputeRegionUrlMap#allow_origins}
-        :param disabled: If true, specifies the CORS policy is disabled. which indicates that the CORS policy is in effect. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#disabled ComputeRegionUrlMap#disabled}
-        :param expose_headers: Specifies the content for the Access-Control-Expose-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#expose_headers ComputeRegionUrlMap#expose_headers}
-        :param max_age: Specifies how long the results of a preflight request can be cached. This translates to the content for the Access-Control-Max-Age header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#max_age ComputeRegionUrlMap#max_age}
+        :param allow_credentials: In response to a preflight request, setting this to true indicates that the actual request can include user credentials. This translates to the Access- Control-Allow-Credentials header. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_credentials ComputeRegionUrlMap#allow_credentials}
+        :param allow_headers: Specifies the content for the Access-Control-Allow-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_headers ComputeRegionUrlMap#allow_headers}
+        :param allow_methods: Specifies the content for the Access-Control-Allow-Methods header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_methods ComputeRegionUrlMap#allow_methods}
+        :param allow_origin_regexes: Specifies the regular expression patterns that match allowed origins. For regular expression grammar please see en.cppreference.com/w/cpp/regex/ecmascript An origin is allowed if it matches either allow_origins or allow_origin_regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_origin_regexes ComputeRegionUrlMap#allow_origin_regexes}
+        :param allow_origins: Specifies the list of origins that will be allowed to do CORS requests. An origin is allowed if it matches either allow_origins or allow_origin_regex. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#allow_origins ComputeRegionUrlMap#allow_origins}
+        :param disabled: If true, specifies the CORS policy is disabled. which indicates that the CORS policy is in effect. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#disabled ComputeRegionUrlMap#disabled}
+        :param expose_headers: Specifies the content for the Access-Control-Expose-Headers header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#expose_headers ComputeRegionUrlMap#expose_headers}
+        :param max_age: Specifies how long the results of a preflight request can be cached. This translates to the content for the Access-Control-Max-Age header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#max_age ComputeRegionUrlMap#max_age}
         '''
         value = ComputeRegionUrlMapPathMatcherRouteRulesRouteActionCorsPolicy(
             allow_credentials=allow_credentials,
@@ -13889,8 +13889,8 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionOutputReference(
         delay: typing.Optional[typing.Union[ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicyDelay, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param abort: abort block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#abort ComputeRegionUrlMap#abort}
-        :param delay: delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#delay ComputeRegionUrlMap#delay}
+        :param abort: abort block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#abort ComputeRegionUrlMap#abort}
+        :param delay: delay block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#delay ComputeRegionUrlMap#delay}
         '''
         value = ComputeRegionUrlMapPathMatcherRouteRulesRouteActionFaultInjectionPolicy(
             abort=abort, delay=delay
@@ -13901,7 +13901,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionOutputReference(
     @jsii.member(jsii_name="putRequestMirrorPolicy")
     def put_request_mirror_policy(self, *, backend_service: builtins.str) -> None:
         '''
-        :param backend_service: The RegionBackendService resource being mirrored to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
+        :param backend_service: The RegionBackendService resource being mirrored to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
         '''
         value = ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRequestMirrorPolicy(
             backend_service=backend_service
@@ -13918,9 +13918,9 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionOutputReference(
         retry_conditions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param num_retries: Specifies the allowed number retries. This number must be > 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#num_retries ComputeRegionUrlMap#num_retries}
-        :param per_try_timeout: per_try_timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#per_try_timeout ComputeRegionUrlMap#per_try_timeout}
-        :param retry_conditions: Specifies one or more conditions when this retry rule applies. Valid values are:. - 5xx: Loadbalancer will attempt a retry if the backend service responds with any 5xx response code, or if the backend service does not respond at all, for example: disconnects, reset, read timeout, connection failure, and refused streams. - gateway-error: Similar to 5xx, but only applies to response codes 502, 503 or 504. - connect-failure: Loadbalancer will retry on failures connecting to backend services, for example due to connection timeouts. - retriable-4xx: Loadbalancer will retry for retriable 4xx response codes. Currently the only retriable error supported is 409. - refused-stream: Loadbalancer will retry if the backend service resets the stream with a REFUSED_STREAM error code. This reset type indicates that it is safe to retry. - cancelled: Loadbalancer will retry if the gRPC status code in the response header is set to cancelled - deadline-exceeded: Loadbalancer will retry if the gRPC status code in the response header is set to deadline-exceeded - resource-exhausted: Loadbalancer will retry if the gRPC status code in the response header is set to resource-exhausted - unavailable: Loadbalancer will retry if the gRPC status code in the response header is set to unavailable Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#retry_conditions ComputeRegionUrlMap#retry_conditions}
+        :param num_retries: Specifies the allowed number retries. This number must be > 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#num_retries ComputeRegionUrlMap#num_retries}
+        :param per_try_timeout: per_try_timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#per_try_timeout ComputeRegionUrlMap#per_try_timeout}
+        :param retry_conditions: Specifies one or more conditions when this retry rule applies. Valid values are:. - 5xx: Loadbalancer will attempt a retry if the backend service responds with any 5xx response code, or if the backend service does not respond at all, for example: disconnects, reset, read timeout, connection failure, and refused streams. - gateway-error: Similar to 5xx, but only applies to response codes 502, 503 or 504. - connect-failure: Loadbalancer will retry on failures connecting to backend services, for example due to connection timeouts. - retriable-4xx: Loadbalancer will retry for retriable 4xx response codes. Currently the only retriable error supported is 409. - refused-stream: Loadbalancer will retry if the backend service resets the stream with a REFUSED_STREAM error code. This reset type indicates that it is safe to retry. - cancelled: Loadbalancer will retry if the gRPC status code in the response header is set to cancelled - deadline-exceeded: Loadbalancer will retry if the gRPC status code in the response header is set to deadline-exceeded - resource-exhausted: Loadbalancer will retry if the gRPC status code in the response header is set to resource-exhausted - unavailable: Loadbalancer will retry if the gRPC status code in the response header is set to unavailable Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#retry_conditions ComputeRegionUrlMap#retry_conditions}
         '''
         value = ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRetryPolicy(
             num_retries=num_retries,
@@ -13938,8 +13938,8 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionOutputReference(
         nanos: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         value = ComputeRegionUrlMapPathMatcherRouteRulesRouteActionTimeout(
             seconds=seconds, nanos=nanos
@@ -13956,9 +13956,9 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionOutputReference(
         path_template_rewrite: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host_rewrite: Prior to forwarding the request to the selected service, the request's host header is replaced with contents of hostRewrite. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_rewrite ComputeRegionUrlMap#host_rewrite}
-        :param path_prefix_rewrite: Prior to forwarding the request to the selected backend service, the matching portion of the request's path is replaced by pathPrefixRewrite. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_prefix_rewrite ComputeRegionUrlMap#path_prefix_rewrite}
-        :param path_template_rewrite: Prior to forwarding the request to the selected origin, if the request matched a pathTemplateMatch, the matching portion of the request's path is replaced re-written using the pattern specified by pathTemplateRewrite. pathTemplateRewrite must be between 1 and 255 characters (inclusive), must start with a '/', and must only use variables captured by the route's pathTemplate matchers. pathTemplateRewrite may only be used when all of a route's MatchRules specify pathTemplate. Only one of pathPrefixRewrite and pathTemplateRewrite may be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_template_rewrite ComputeRegionUrlMap#path_template_rewrite}
+        :param host_rewrite: Prior to forwarding the request to the selected service, the request's host header is replaced with contents of hostRewrite. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_rewrite ComputeRegionUrlMap#host_rewrite}
+        :param path_prefix_rewrite: Prior to forwarding the request to the selected backend service, the matching portion of the request's path is replaced by pathPrefixRewrite. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_prefix_rewrite ComputeRegionUrlMap#path_prefix_rewrite}
+        :param path_template_rewrite: Prior to forwarding the request to the selected origin, if the request matched a pathTemplateMatch, the matching portion of the request's path is replaced re-written using the pattern specified by pathTemplateRewrite. pathTemplateRewrite must be between 1 and 255 characters (inclusive), must start with a '/', and must only use variables captured by the route's pathTemplate matchers. pathTemplateRewrite may only be used when all of a route's MatchRules specify pathTemplate. Only one of pathPrefixRewrite and pathTemplateRewrite may be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_template_rewrite ComputeRegionUrlMap#path_template_rewrite}
         '''
         value = ComputeRegionUrlMapPathMatcherRouteRulesRouteActionUrlRewrite(
             host_rewrite=host_rewrite,
@@ -14133,7 +14133,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionOutputReference(
 class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRequestMirrorPolicy:
     def __init__(self, *, backend_service: builtins.str) -> None:
         '''
-        :param backend_service: The RegionBackendService resource being mirrored to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
+        :param backend_service: The RegionBackendService resource being mirrored to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f053a00987da8c481833cf4c075a3ccc7a51e47bfcd5d5a8d446707cc5b4ca2b)
@@ -14146,7 +14146,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRequestMirrorPolicy:
     def backend_service(self) -> builtins.str:
         '''The RegionBackendService resource being mirrored to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
         '''
         result = self._values.get("backend_service")
         assert result is not None, "Required property 'backend_service' is missing"
@@ -14237,9 +14237,9 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRetryPolicy:
         retry_conditions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param num_retries: Specifies the allowed number retries. This number must be > 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#num_retries ComputeRegionUrlMap#num_retries}
-        :param per_try_timeout: per_try_timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#per_try_timeout ComputeRegionUrlMap#per_try_timeout}
-        :param retry_conditions: Specifies one or more conditions when this retry rule applies. Valid values are:. - 5xx: Loadbalancer will attempt a retry if the backend service responds with any 5xx response code, or if the backend service does not respond at all, for example: disconnects, reset, read timeout, connection failure, and refused streams. - gateway-error: Similar to 5xx, but only applies to response codes 502, 503 or 504. - connect-failure: Loadbalancer will retry on failures connecting to backend services, for example due to connection timeouts. - retriable-4xx: Loadbalancer will retry for retriable 4xx response codes. Currently the only retriable error supported is 409. - refused-stream: Loadbalancer will retry if the backend service resets the stream with a REFUSED_STREAM error code. This reset type indicates that it is safe to retry. - cancelled: Loadbalancer will retry if the gRPC status code in the response header is set to cancelled - deadline-exceeded: Loadbalancer will retry if the gRPC status code in the response header is set to deadline-exceeded - resource-exhausted: Loadbalancer will retry if the gRPC status code in the response header is set to resource-exhausted - unavailable: Loadbalancer will retry if the gRPC status code in the response header is set to unavailable Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#retry_conditions ComputeRegionUrlMap#retry_conditions}
+        :param num_retries: Specifies the allowed number retries. This number must be > 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#num_retries ComputeRegionUrlMap#num_retries}
+        :param per_try_timeout: per_try_timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#per_try_timeout ComputeRegionUrlMap#per_try_timeout}
+        :param retry_conditions: Specifies one or more conditions when this retry rule applies. Valid values are:. - 5xx: Loadbalancer will attempt a retry if the backend service responds with any 5xx response code, or if the backend service does not respond at all, for example: disconnects, reset, read timeout, connection failure, and refused streams. - gateway-error: Similar to 5xx, but only applies to response codes 502, 503 or 504. - connect-failure: Loadbalancer will retry on failures connecting to backend services, for example due to connection timeouts. - retriable-4xx: Loadbalancer will retry for retriable 4xx response codes. Currently the only retriable error supported is 409. - refused-stream: Loadbalancer will retry if the backend service resets the stream with a REFUSED_STREAM error code. This reset type indicates that it is safe to retry. - cancelled: Loadbalancer will retry if the gRPC status code in the response header is set to cancelled - deadline-exceeded: Loadbalancer will retry if the gRPC status code in the response header is set to deadline-exceeded - resource-exhausted: Loadbalancer will retry if the gRPC status code in the response header is set to resource-exhausted - unavailable: Loadbalancer will retry if the gRPC status code in the response header is set to unavailable Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#retry_conditions ComputeRegionUrlMap#retry_conditions}
         '''
         if isinstance(per_try_timeout, dict):
             per_try_timeout = ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRetryPolicyPerTryTimeout(**per_try_timeout)
@@ -14260,7 +14260,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRetryPolicy:
     def num_retries(self) -> jsii.Number:
         '''Specifies the allowed number retries. This number must be > 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#num_retries ComputeRegionUrlMap#num_retries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#num_retries ComputeRegionUrlMap#num_retries}
         '''
         result = self._values.get("num_retries")
         assert result is not None, "Required property 'num_retries' is missing"
@@ -14272,7 +14272,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRetryPolicy:
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRetryPolicyPerTryTimeout"]:
         '''per_try_timeout block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#per_try_timeout ComputeRegionUrlMap#per_try_timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#per_try_timeout ComputeRegionUrlMap#per_try_timeout}
         '''
         result = self._values.get("per_try_timeout")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRetryPolicyPerTryTimeout"], result)
@@ -14302,7 +14302,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRetryPolicy:
         - unavailable: Loadbalancer will retry if the gRPC status code in
           the response header is set to unavailable
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#retry_conditions ComputeRegionUrlMap#retry_conditions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#retry_conditions ComputeRegionUrlMap#retry_conditions}
         '''
         result = self._values.get("retry_conditions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -14347,8 +14347,8 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRetryPolicyOutputRefere
         nanos: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         value = ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRetryPolicyPerTryTimeout(
             seconds=seconds, nanos=nanos
@@ -14443,8 +14443,8 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRetryPolicyPerTryTimeou
         nanos: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__255a64589abea4ed23b1d9c7493a8cc3e26e10fcc71f8d578ddf27e4a9929b89)
@@ -14460,7 +14460,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRetryPolicyPerTryTimeou
     def seconds(self) -> builtins.str:
         '''Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
         '''
         result = self._values.get("seconds")
         assert result is not None, "Required property 'seconds' is missing"
@@ -14474,7 +14474,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionRetryPolicyPerTryTimeou
         less than one second are represented with a 0 'seconds' field and a positive
         'nanos' field. Must be from 0 to 999,999,999 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -14580,8 +14580,8 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionTimeout:
         nanos: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
-        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        :param seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        :param nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 'seconds' field and a positive 'nanos' field. Must be from 0 to 999,999,999 inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b5b5daa18bd6a149f10fe3dac5e46900396999d04864ac745f691270cdb9c1f)
@@ -14597,7 +14597,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionTimeout:
     def seconds(self) -> builtins.str:
         '''Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#seconds ComputeRegionUrlMap#seconds}
         '''
         result = self._values.get("seconds")
         assert result is not None, "Required property 'seconds' is missing"
@@ -14611,7 +14611,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionTimeout:
         less than one second are represented with a 0 'seconds' field and a positive
         'nanos' field. Must be from 0 to 999,999,999 inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#nanos ComputeRegionUrlMap#nanos}
         '''
         result = self._values.get("nanos")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -14722,9 +14722,9 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionUrlRewrite:
         path_template_rewrite: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host_rewrite: Prior to forwarding the request to the selected service, the request's host header is replaced with contents of hostRewrite. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_rewrite ComputeRegionUrlMap#host_rewrite}
-        :param path_prefix_rewrite: Prior to forwarding the request to the selected backend service, the matching portion of the request's path is replaced by pathPrefixRewrite. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_prefix_rewrite ComputeRegionUrlMap#path_prefix_rewrite}
-        :param path_template_rewrite: Prior to forwarding the request to the selected origin, if the request matched a pathTemplateMatch, the matching portion of the request's path is replaced re-written using the pattern specified by pathTemplateRewrite. pathTemplateRewrite must be between 1 and 255 characters (inclusive), must start with a '/', and must only use variables captured by the route's pathTemplate matchers. pathTemplateRewrite may only be used when all of a route's MatchRules specify pathTemplate. Only one of pathPrefixRewrite and pathTemplateRewrite may be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_template_rewrite ComputeRegionUrlMap#path_template_rewrite}
+        :param host_rewrite: Prior to forwarding the request to the selected service, the request's host header is replaced with contents of hostRewrite. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_rewrite ComputeRegionUrlMap#host_rewrite}
+        :param path_prefix_rewrite: Prior to forwarding the request to the selected backend service, the matching portion of the request's path is replaced by pathPrefixRewrite. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_prefix_rewrite ComputeRegionUrlMap#path_prefix_rewrite}
+        :param path_template_rewrite: Prior to forwarding the request to the selected origin, if the request matched a pathTemplateMatch, the matching portion of the request's path is replaced re-written using the pattern specified by pathTemplateRewrite. pathTemplateRewrite must be between 1 and 255 characters (inclusive), must start with a '/', and must only use variables captured by the route's pathTemplate matchers. pathTemplateRewrite may only be used when all of a route's MatchRules specify pathTemplate. Only one of pathPrefixRewrite and pathTemplateRewrite may be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_template_rewrite ComputeRegionUrlMap#path_template_rewrite}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__acae2e08d13530da9a196a9276e2f1f2619b05eb2108253a846814c1bc8c2ef0)
@@ -14746,7 +14746,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionUrlRewrite:
         The value must be between 1 and
         255 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_rewrite ComputeRegionUrlMap#host_rewrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_rewrite ComputeRegionUrlMap#host_rewrite}
         '''
         result = self._values.get("host_rewrite")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -14758,7 +14758,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionUrlRewrite:
         The value must
         be between 1 and 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_prefix_rewrite ComputeRegionUrlMap#path_prefix_rewrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_prefix_rewrite ComputeRegionUrlMap#path_prefix_rewrite}
         '''
         result = self._values.get("path_prefix_rewrite")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -14777,7 +14777,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionUrlRewrite:
         Only one of pathPrefixRewrite and pathTemplateRewrite may be
         specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_template_rewrite ComputeRegionUrlMap#path_template_rewrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_template_rewrite ComputeRegionUrlMap#path_template_rewrite}
         '''
         result = self._values.get("path_template_rewrite")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -14913,9 +14913,9 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices
         header_action: typing.Optional[typing.Union["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServicesHeaderAction", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param backend_service: The default RegionBackendService resource. Before forwarding the request to backendService, the loadbalancer applies any relevant headerActions specified as part of this backendServiceWeight. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
-        :param weight: Specifies the fraction of traffic sent to backendService, computed as weight / (sum of all weightedBackendService weights in routeAction) . The selection of a backend service is determined only for new traffic. Once a user's request has been directed to a backendService, subsequent requests will be sent to the same backendService as determined by the BackendService's session affinity policy. The value must be between 0 and 1000 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#weight ComputeRegionUrlMap#weight}
-        :param header_action: header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_action ComputeRegionUrlMap#header_action}
+        :param backend_service: The default RegionBackendService resource. Before forwarding the request to backendService, the loadbalancer applies any relevant headerActions specified as part of this backendServiceWeight. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
+        :param weight: Specifies the fraction of traffic sent to backendService, computed as weight / (sum of all weightedBackendService weights in routeAction) . The selection of a backend service is determined only for new traffic. Once a user's request has been directed to a backendService, subsequent requests will be sent to the same backendService as determined by the BackendService's session affinity policy. The value must be between 0 and 1000 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#weight ComputeRegionUrlMap#weight}
+        :param header_action: header_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_action ComputeRegionUrlMap#header_action}
         '''
         if isinstance(header_action, dict):
             header_action = ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServicesHeaderAction(**header_action)
@@ -14939,7 +14939,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices
         forwarding the request to backendService, the loadbalancer applies any relevant
         headerActions specified as part of this backendServiceWeight.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#backend_service ComputeRegionUrlMap#backend_service}
         '''
         result = self._values.get("backend_service")
         assert result is not None, "Required property 'backend_service' is missing"
@@ -14955,7 +14955,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices
         backendService as determined by the BackendService's session affinity policy.
         The value must be between 0 and 1000
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#weight ComputeRegionUrlMap#weight}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#weight ComputeRegionUrlMap#weight}
         '''
         result = self._values.get("weight")
         assert result is not None, "Required property 'weight' is missing"
@@ -14967,7 +14967,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices
     ) -> typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServicesHeaderAction"]:
         '''header_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_action ComputeRegionUrlMap#header_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_action ComputeRegionUrlMap#header_action}
         '''
         result = self._values.get("header_action")
         return typing.cast(typing.Optional["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServicesHeaderAction"], result)
@@ -15004,10 +15004,10 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices
         response_headers_to_remove: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param request_headers_to_add: request_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
-        :param request_headers_to_remove: A list of header names for headers that need to be removed from the request prior to forwarding the request to the backendService. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
-        :param response_headers_to_add: response_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
-        :param response_headers_to_remove: A list of header names for headers that need to be removed from the response prior to sending the response back to the client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
+        :param request_headers_to_add: request_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
+        :param request_headers_to_remove: A list of header names for headers that need to be removed from the request prior to forwarding the request to the backendService. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
+        :param response_headers_to_add: response_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
+        :param response_headers_to_remove: A list of header names for headers that need to be removed from the response prior to sending the response back to the client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d079e3a9aa87c9f1dd573d9b6ef7b132083f5a0962a18ac2102a690688f033c6)
@@ -15031,7 +15031,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServicesHeaderActionRequestHeadersToAdd"]]]:
         '''request_headers_to_add block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
         '''
         result = self._values.get("request_headers_to_add")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServicesHeaderActionRequestHeadersToAdd"]]], result)
@@ -15040,7 +15040,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices
     def request_headers_to_remove(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of header names for headers that need to be removed from the request prior to forwarding the request to the backendService.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
         '''
         result = self._values.get("request_headers_to_remove")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -15051,7 +15051,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServicesHeaderActionResponseHeadersToAdd"]]]:
         '''response_headers_to_add block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
         '''
         result = self._values.get("response_headers_to_add")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServicesHeaderActionResponseHeadersToAdd"]]], result)
@@ -15060,7 +15060,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices
     def response_headers_to_remove(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of header names for headers that need to be removed from the response prior to sending the response back to the client.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
         '''
         result = self._values.get("response_headers_to_remove")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -15241,9 +15241,9 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices
         replace: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param header_name: The name of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
-        :param header_value: The value of the header to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
-        :param replace: If false, headerValue is appended to any values that already exist for the header. If true, headerValue is set for the header, discarding any values that were set for that header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
+        :param header_name: The name of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
+        :param header_value: The value of the header to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
+        :param replace: If false, headerValue is appended to any values that already exist for the header. If true, headerValue is set for the header, discarding any values that were set for that header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9828253fc862f4b190ca3ff87ee2af2e152580efec3530e853d16303e7d99eb6)
@@ -15260,7 +15260,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices
     def header_name(self) -> builtins.str:
         '''The name of the header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
         '''
         result = self._values.get("header_name")
         assert result is not None, "Required property 'header_name' is missing"
@@ -15270,7 +15270,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices
     def header_value(self) -> builtins.str:
         '''The value of the header to add.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
         '''
         result = self._values.get("header_value")
         assert result is not None, "Required property 'header_value' is missing"
@@ -15283,7 +15283,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices
         If true, headerValue is set for the header, discarding any values that
         were set for that header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
         '''
         result = self._values.get("replace")
         assert result is not None, "Required property 'replace' is missing"
@@ -15512,9 +15512,9 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices
         replace: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param header_name: The name of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
-        :param header_value: The value of the header to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
-        :param replace: If false, headerValue is appended to any values that already exist for the header. If true, headerValue is set for the header, discarding any values that were set for that header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
+        :param header_name: The name of the header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
+        :param header_value: The value of the header to add. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
+        :param replace: If false, headerValue is appended to any values that already exist for the header. If true, headerValue is set for the header, discarding any values that were set for that header. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__85187e3e3e5eaf808ab8652929b8b0a26fabd72399b00ffe2097e759e43459f5)
@@ -15531,7 +15531,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices
     def header_name(self) -> builtins.str:
         '''The name of the header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_name ComputeRegionUrlMap#header_name}
         '''
         result = self._values.get("header_name")
         assert result is not None, "Required property 'header_name' is missing"
@@ -15541,7 +15541,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices
     def header_value(self) -> builtins.str:
         '''The value of the header to add.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#header_value ComputeRegionUrlMap#header_value}
         '''
         result = self._values.get("header_value")
         assert result is not None, "Required property 'header_value' is missing"
@@ -15554,7 +15554,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices
         If true, headerValue is set for the header, discarding any values that
         were set for that header.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#replace ComputeRegionUrlMap#replace}
         '''
         result = self._values.get("replace")
         assert result is not None, "Required property 'replace' is missing"
@@ -15894,10 +15894,10 @@ class ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServices
         response_headers_to_remove: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param request_headers_to_add: request_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
-        :param request_headers_to_remove: A list of header names for headers that need to be removed from the request prior to forwarding the request to the backendService. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
-        :param response_headers_to_add: response_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
-        :param response_headers_to_remove: A list of header names for headers that need to be removed from the response prior to sending the response back to the client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
+        :param request_headers_to_add: request_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_add ComputeRegionUrlMap#request_headers_to_add}
+        :param request_headers_to_remove: A list of header names for headers that need to be removed from the request prior to forwarding the request to the backendService. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#request_headers_to_remove ComputeRegionUrlMap#request_headers_to_remove}
+        :param response_headers_to_add: response_headers_to_add block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_add ComputeRegionUrlMap#response_headers_to_add}
+        :param response_headers_to_remove: A list of header names for headers that need to be removed from the response prior to sending the response back to the client. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#response_headers_to_remove ComputeRegionUrlMap#response_headers_to_remove}
         '''
         value = ComputeRegionUrlMapPathMatcherRouteRulesRouteActionWeightedBackendServicesHeaderAction(
             request_headers_to_add=request_headers_to_add,
@@ -16002,12 +16002,12 @@ class ComputeRegionUrlMapPathMatcherRouteRulesUrlRedirect:
         strip_query: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
-        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. If set to false, the URL scheme of the redirected request will remain the same as that of the request. This must only be set for UrlMaps used in TargetHttpProxys. Setting this true for TargetHttpsProxy is not permitted. The default is set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
-        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect cannot be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
-        :param prefix_redirect: The prefix that replaces the prefixMatch specified in the HttpRouteRuleMatch, retaining the remaining portion of the URL before redirecting the request. prefixRedirect cannot be supplied together with pathRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
-        :param redirect_response_code: The HTTP Status code to use for this RedirectAction. Supported values are:. - MOVED_PERMANENTLY_DEFAULT, which is the default value and corresponds to 301. - FOUND, which corresponds to 302. - SEE_OTHER which corresponds to 303. - TEMPORARY_REDIRECT, which corresponds to 307. In this case, the request method will be retained. - PERMANENT_REDIRECT, which corresponds to 308. In this case, the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
-        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. If set to false, the query portion of the original URL is retained. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
+        :param host_redirect: The host that will be used in the redirect response instead of the one that was supplied in the request. The value must be between 1 and 255 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
+        :param https_redirect: If set to true, the URL scheme in the redirected request is set to https. If set to false, the URL scheme of the redirected request will remain the same as that of the request. This must only be set for UrlMaps used in TargetHttpProxys. Setting this true for TargetHttpsProxy is not permitted. The default is set to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
+        :param path_redirect: The path that will be used in the redirect response instead of the one that was supplied in the request. pathRedirect cannot be supplied together with prefixRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
+        :param prefix_redirect: The prefix that replaces the prefixMatch specified in the HttpRouteRuleMatch, retaining the remaining portion of the URL before redirecting the request. prefixRedirect cannot be supplied together with pathRedirect. Supply one alone or neither. If neither is supplied, the path of the original request will be used for the redirect. The value must be between 1 and 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
+        :param redirect_response_code: The HTTP Status code to use for this RedirectAction. Supported values are:. - MOVED_PERMANENTLY_DEFAULT, which is the default value and corresponds to 301. - FOUND, which corresponds to 302. - SEE_OTHER which corresponds to 303. - TEMPORARY_REDIRECT, which corresponds to 307. In this case, the request method will be retained. - PERMANENT_REDIRECT, which corresponds to 308. In this case, the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
+        :param strip_query: If set to true, any accompanying query portion of the original URL is removed prior to redirecting the request. If set to false, the query portion of the original URL is retained. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__93a3d3494a6512e0736128e441161e3417775c5331ae27a8746e9e976d541989)
@@ -16038,7 +16038,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesUrlRedirect:
         The value must be between 1 and 255
         characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host_redirect ComputeRegionUrlMap#host_redirect}
         '''
         result = self._values.get("host_redirect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -16054,7 +16054,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesUrlRedirect:
         TargetHttpProxys. Setting this true for TargetHttpsProxy is not
         permitted. The default is set to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#https_redirect ComputeRegionUrlMap#https_redirect}
         '''
         result = self._values.get("https_redirect")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -16068,7 +16068,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesUrlRedirect:
         supplied, the path of the original request will be used for the redirect.
         The value must be between 1 and 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path_redirect ComputeRegionUrlMap#path_redirect}
         '''
         result = self._values.get("path_redirect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -16082,7 +16082,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesUrlRedirect:
         path of the original request will be used for the redirect. The value
         must be between 1 and 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#prefix_redirect ComputeRegionUrlMap#prefix_redirect}
         '''
         result = self._values.get("prefix_redirect")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -16099,7 +16099,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesUrlRedirect:
         - PERMANENT_REDIRECT, which corresponds to 308. In this case,
           the request method will be retained. Possible values: ["FOUND", "MOVED_PERMANENTLY_DEFAULT", "PERMANENT_REDIRECT", "SEE_OTHER", "TEMPORARY_REDIRECT"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#redirect_response_code ComputeRegionUrlMap#redirect_response_code}
         '''
         result = self._values.get("redirect_response_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -16113,7 +16113,7 @@ class ComputeRegionUrlMapPathMatcherRouteRulesUrlRedirect:
         If set to false, the query
         portion of the original URL is retained. The default value is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#strip_query ComputeRegionUrlMap#strip_query}
         '''
         result = self._values.get("strip_query")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -16326,10 +16326,10 @@ class ComputeRegionUrlMapTest:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host: Host portion of the URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host ComputeRegionUrlMap#host}
-        :param path: Path portion of the URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path ComputeRegionUrlMap#path}
-        :param service: A reference to expected RegionBackendService resource the given URL should be mapped to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#service ComputeRegionUrlMap#service}
-        :param description: Description of this test case. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#description ComputeRegionUrlMap#description}
+        :param host: Host portion of the URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host ComputeRegionUrlMap#host}
+        :param path: Path portion of the URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path ComputeRegionUrlMap#path}
+        :param service: A reference to expected RegionBackendService resource the given URL should be mapped to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#service ComputeRegionUrlMap#service}
+        :param description: Description of this test case. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#description ComputeRegionUrlMap#description}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e5098a0335e1ea565ce2f42fb83a911d6da4fc21a8faf0f916228575f21ba837)
@@ -16349,7 +16349,7 @@ class ComputeRegionUrlMapTest:
     def host(self) -> builtins.str:
         '''Host portion of the URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#host ComputeRegionUrlMap#host}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#host ComputeRegionUrlMap#host}
         '''
         result = self._values.get("host")
         assert result is not None, "Required property 'host' is missing"
@@ -16359,7 +16359,7 @@ class ComputeRegionUrlMapTest:
     def path(self) -> builtins.str:
         '''Path portion of the URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#path ComputeRegionUrlMap#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#path ComputeRegionUrlMap#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -16369,7 +16369,7 @@ class ComputeRegionUrlMapTest:
     def service(self) -> builtins.str:
         '''A reference to expected RegionBackendService resource the given URL should be mapped to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#service ComputeRegionUrlMap#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#service ComputeRegionUrlMap#service}
         '''
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
@@ -16379,7 +16379,7 @@ class ComputeRegionUrlMapTest:
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of this test case.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#description ComputeRegionUrlMap#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#description ComputeRegionUrlMap#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -16616,9 +16616,9 @@ class ComputeRegionUrlMapTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#create ComputeRegionUrlMap#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#delete ComputeRegionUrlMap#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#update ComputeRegionUrlMap#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#create ComputeRegionUrlMap#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#delete ComputeRegionUrlMap#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#update ComputeRegionUrlMap#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1bea83e1e49af9f1ee5152d6ee159fb419170759f55febd44f216f323f27a32c)
@@ -16635,19 +16635,19 @@ class ComputeRegionUrlMapTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#create ComputeRegionUrlMap#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#create ComputeRegionUrlMap#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#delete ComputeRegionUrlMap#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#delete ComputeRegionUrlMap#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_region_url_map#update ComputeRegionUrlMap#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_region_url_map#update ComputeRegionUrlMap#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

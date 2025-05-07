@@ -138,7 +138,7 @@ async def _map_invocation(
         idx = inputs_created
         inputs_created += 1
         (args, kwargs) = argskwargs
-        return await _create_input(args, kwargs, client, idx=idx, method_name=function._use_method_name)
+        return await _create_input(args, kwargs, client.stub, idx=idx, method_name=function._use_method_name)
 
     async def input_iter():
         while 1:
@@ -496,9 +496,7 @@ async def _spawn_map_async(self, *input_iterators, kwargs={}) -> None:
         errors, log a warning that the function call is waiting to be created.
         """
 
-        return self._call_function_nowait.aio(
-            args, kwargs, api_pb2.FUNCTION_CALL_INVOCATION_TYPE_ASYNC, from_spawn_map=True
-        )
+        return self._spawn_map_inner.aio(args, kwargs, api_pb2.FUNCTION_CALL_INVOCATION_TYPE_ASYNC)
 
     input_gen = async_zip(*[sync_or_async_iter(it) for it in input_iterators])
 

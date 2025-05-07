@@ -1,7 +1,7 @@
 r'''
 # `google_colab_runtime`
 
-Refer to the Terraform Registry for docs: [`google_colab_runtime`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime).
+Refer to the Terraform Registry for docs: [`google_colab_runtime`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ColabRuntime(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.colabRuntime.ColabRuntime",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime google_colab_runtime}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime google_colab_runtime}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class ColabRuntime(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime google_colab_runtime} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime google_colab_runtime} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: Required. The display name of the Runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#display_name ColabRuntime#display_name}
-        :param location: The location for the resource: https://cloud.google.com/colab/docs/locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#location ColabRuntime#location}
-        :param runtime_user: The user email of the NotebookRuntime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#runtime_user ColabRuntime#runtime_user}
-        :param auto_upgrade: Triggers an upgrade anytime the runtime is started if it is upgradable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#auto_upgrade ColabRuntime#auto_upgrade}
-        :param description: The description of the Runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#description ColabRuntime#description}
-        :param desired_state: Desired state of the Colab Runtime. Set this field to 'RUNNING' to start the runtime, and 'STOPPED' to stop it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#desired_state ColabRuntime#desired_state}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#id ColabRuntime#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: The resource name of the Runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#name ColabRuntime#name}
-        :param notebook_runtime_template_ref: notebook_runtime_template_ref block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#notebook_runtime_template_ref ColabRuntime#notebook_runtime_template_ref}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#project ColabRuntime#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#timeouts ColabRuntime#timeouts}
+        :param display_name: Required. The display name of the Runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#display_name ColabRuntime#display_name}
+        :param location: The location for the resource: https://cloud.google.com/colab/docs/locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#location ColabRuntime#location}
+        :param runtime_user: The user email of the NotebookRuntime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#runtime_user ColabRuntime#runtime_user}
+        :param auto_upgrade: Triggers an upgrade anytime the runtime is started if it is upgradable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#auto_upgrade ColabRuntime#auto_upgrade}
+        :param description: The description of the Runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#description ColabRuntime#description}
+        :param desired_state: Desired state of the Colab Runtime. Set this field to 'RUNNING' to start the runtime, and 'STOPPED' to stop it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#desired_state ColabRuntime#desired_state}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#id ColabRuntime#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The resource name of the Runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#name ColabRuntime#name}
+        :param notebook_runtime_template_ref: notebook_runtime_template_ref block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#notebook_runtime_template_ref ColabRuntime#notebook_runtime_template_ref}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#project ColabRuntime#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#timeouts ColabRuntime#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class ColabRuntime(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ColabRuntime to import.
-        :param import_from_id: The id of the existing ColabRuntime that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ColabRuntime that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ColabRuntime to import is found.
         '''
         if __debug__:
@@ -151,7 +151,7 @@ class ColabRuntime(
         notebook_runtime_template: builtins.str,
     ) -> None:
         '''
-        :param notebook_runtime_template: The resource name of the NotebookRuntimeTemplate based on which a NotebookRuntime will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#notebook_runtime_template ColabRuntime#notebook_runtime_template}
+        :param notebook_runtime_template: The resource name of the NotebookRuntimeTemplate based on which a NotebookRuntime will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#notebook_runtime_template ColabRuntime#notebook_runtime_template}
         '''
         value = ColabRuntimeNotebookRuntimeTemplateRef(
             notebook_runtime_template=notebook_runtime_template
@@ -168,9 +168,9 @@ class ColabRuntime(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#create ColabRuntime#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#delete ColabRuntime#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#update ColabRuntime#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#create ColabRuntime#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#delete ColabRuntime#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#update ColabRuntime#update}.
         '''
         value = ColabRuntimeTimeouts(create=create, delete=delete, update=update)
 
@@ -481,17 +481,17 @@ class ColabRuntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: Required. The display name of the Runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#display_name ColabRuntime#display_name}
-        :param location: The location for the resource: https://cloud.google.com/colab/docs/locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#location ColabRuntime#location}
-        :param runtime_user: The user email of the NotebookRuntime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#runtime_user ColabRuntime#runtime_user}
-        :param auto_upgrade: Triggers an upgrade anytime the runtime is started if it is upgradable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#auto_upgrade ColabRuntime#auto_upgrade}
-        :param description: The description of the Runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#description ColabRuntime#description}
-        :param desired_state: Desired state of the Colab Runtime. Set this field to 'RUNNING' to start the runtime, and 'STOPPED' to stop it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#desired_state ColabRuntime#desired_state}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#id ColabRuntime#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: The resource name of the Runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#name ColabRuntime#name}
-        :param notebook_runtime_template_ref: notebook_runtime_template_ref block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#notebook_runtime_template_ref ColabRuntime#notebook_runtime_template_ref}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#project ColabRuntime#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#timeouts ColabRuntime#timeouts}
+        :param display_name: Required. The display name of the Runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#display_name ColabRuntime#display_name}
+        :param location: The location for the resource: https://cloud.google.com/colab/docs/locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#location ColabRuntime#location}
+        :param runtime_user: The user email of the NotebookRuntime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#runtime_user ColabRuntime#runtime_user}
+        :param auto_upgrade: Triggers an upgrade anytime the runtime is started if it is upgradable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#auto_upgrade ColabRuntime#auto_upgrade}
+        :param description: The description of the Runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#description ColabRuntime#description}
+        :param desired_state: Desired state of the Colab Runtime. Set this field to 'RUNNING' to start the runtime, and 'STOPPED' to stop it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#desired_state ColabRuntime#desired_state}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#id ColabRuntime#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The resource name of the Runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#name ColabRuntime#name}
+        :param notebook_runtime_template_ref: notebook_runtime_template_ref block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#notebook_runtime_template_ref ColabRuntime#notebook_runtime_template_ref}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#project ColabRuntime#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#timeouts ColabRuntime#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -623,7 +623,7 @@ class ColabRuntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''Required. The display name of the Runtime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#display_name ColabRuntime#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#display_name ColabRuntime#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -633,7 +633,7 @@ class ColabRuntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the resource: https://cloud.google.com/colab/docs/locations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#location ColabRuntime#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#location ColabRuntime#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -643,7 +643,7 @@ class ColabRuntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def runtime_user(self) -> builtins.str:
         '''The user email of the NotebookRuntime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#runtime_user ColabRuntime#runtime_user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#runtime_user ColabRuntime#runtime_user}
         '''
         result = self._values.get("runtime_user")
         assert result is not None, "Required property 'runtime_user' is missing"
@@ -655,7 +655,7 @@ class ColabRuntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Triggers an upgrade anytime the runtime is started if it is upgradable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#auto_upgrade ColabRuntime#auto_upgrade}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#auto_upgrade ColabRuntime#auto_upgrade}
         '''
         result = self._values.get("auto_upgrade")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -664,7 +664,7 @@ class ColabRuntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the Runtime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#description ColabRuntime#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#description ColabRuntime#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -675,14 +675,14 @@ class ColabRuntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Set this field to 'RUNNING' to start the runtime, and 'STOPPED' to stop it.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#desired_state ColabRuntime#desired_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#desired_state ColabRuntime#desired_state}
         '''
         result = self._values.get("desired_state")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#id ColabRuntime#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#id ColabRuntime#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -694,7 +694,7 @@ class ColabRuntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''The resource name of the Runtime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#name ColabRuntime#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#name ColabRuntime#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -705,14 +705,14 @@ class ColabRuntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ColabRuntimeNotebookRuntimeTemplateRef"]:
         '''notebook_runtime_template_ref block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#notebook_runtime_template_ref ColabRuntime#notebook_runtime_template_ref}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#notebook_runtime_template_ref ColabRuntime#notebook_runtime_template_ref}
         '''
         result = self._values.get("notebook_runtime_template_ref")
         return typing.cast(typing.Optional["ColabRuntimeNotebookRuntimeTemplateRef"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#project ColabRuntime#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#project ColabRuntime#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -720,7 +720,7 @@ class ColabRuntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ColabRuntimeTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#timeouts ColabRuntime#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#timeouts ColabRuntime#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ColabRuntimeTimeouts"], result)
@@ -745,7 +745,7 @@ class ColabRuntimeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class ColabRuntimeNotebookRuntimeTemplateRef:
     def __init__(self, *, notebook_runtime_template: builtins.str) -> None:
         '''
-        :param notebook_runtime_template: The resource name of the NotebookRuntimeTemplate based on which a NotebookRuntime will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#notebook_runtime_template ColabRuntime#notebook_runtime_template}
+        :param notebook_runtime_template: The resource name of the NotebookRuntimeTemplate based on which a NotebookRuntime will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#notebook_runtime_template ColabRuntime#notebook_runtime_template}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f857a7def1f09b0bc05c6826962a034618c593eb1c0af25b4dca41d6c6e66564)
@@ -758,7 +758,7 @@ class ColabRuntimeNotebookRuntimeTemplateRef:
     def notebook_runtime_template(self) -> builtins.str:
         '''The resource name of the NotebookRuntimeTemplate based on which a NotebookRuntime will be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#notebook_runtime_template ColabRuntime#notebook_runtime_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#notebook_runtime_template ColabRuntime#notebook_runtime_template}
         '''
         result = self._values.get("notebook_runtime_template")
         assert result is not None, "Required property 'notebook_runtime_template' is missing"
@@ -843,9 +843,9 @@ class ColabRuntimeTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#create ColabRuntime#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#delete ColabRuntime#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#update ColabRuntime#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#create ColabRuntime#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#delete ColabRuntime#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#update ColabRuntime#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__93e7c73369a02234881f880cffd8799b93d818dede6edeadf635a30d54e24853)
@@ -862,19 +862,19 @@ class ColabRuntimeTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#create ColabRuntime#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#create ColabRuntime#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#delete ColabRuntime#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#delete ColabRuntime#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/colab_runtime#update ColabRuntime#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/colab_runtime#update ColabRuntime#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

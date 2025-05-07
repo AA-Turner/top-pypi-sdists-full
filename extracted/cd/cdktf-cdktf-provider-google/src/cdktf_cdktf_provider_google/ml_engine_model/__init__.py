@@ -1,7 +1,7 @@
 r'''
 # `google_ml_engine_model`
 
-Refer to the Terraform Registry for docs: [`google_ml_engine_model`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model).
+Refer to the Terraform Registry for docs: [`google_ml_engine_model`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MlEngineModel(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.mlEngineModel.MlEngineModel",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model google_ml_engine_model}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model google_ml_engine_model}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class MlEngineModel(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model google_ml_engine_model} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model google_ml_engine_model} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name specified for the model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#name MlEngineModel#name}
-        :param default_version: default_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#default_version MlEngineModel#default_version}
-        :param description: The description specified for the model when it was created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#description MlEngineModel#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#id MlEngineModel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: One or more labels that you can add, to organize your models. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#labels MlEngineModel#labels}
-        :param online_prediction_console_logging: If true, online prediction nodes send stderr and stdout streams to Stackdriver Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#online_prediction_console_logging MlEngineModel#online_prediction_console_logging}
-        :param online_prediction_logging: If true, online prediction access logs are sent to StackDriver Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#online_prediction_logging MlEngineModel#online_prediction_logging}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#project MlEngineModel#project}.
-        :param regions: The list of regions where the model is going to be deployed. Currently only one region per model is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#regions MlEngineModel#regions}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#timeouts MlEngineModel#timeouts}
+        :param name: The name specified for the model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#name MlEngineModel#name}
+        :param default_version: default_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#default_version MlEngineModel#default_version}
+        :param description: The description specified for the model when it was created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#description MlEngineModel#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#id MlEngineModel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: One or more labels that you can add, to organize your models. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#labels MlEngineModel#labels}
+        :param online_prediction_console_logging: If true, online prediction nodes send stderr and stdout streams to Stackdriver Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#online_prediction_console_logging MlEngineModel#online_prediction_console_logging}
+        :param online_prediction_logging: If true, online prediction access logs are sent to StackDriver Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#online_prediction_logging MlEngineModel#online_prediction_logging}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#project MlEngineModel#project}.
+        :param regions: The list of regions where the model is going to be deployed. Currently only one region per model is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#regions MlEngineModel#regions}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#timeouts MlEngineModel#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class MlEngineModel(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MlEngineModel to import.
-        :param import_from_id: The id of the existing MlEngineModel that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MlEngineModel that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MlEngineModel to import is found.
         '''
         if __debug__:
@@ -144,7 +144,7 @@ class MlEngineModel(
     @jsii.member(jsii_name="putDefaultVersion")
     def put_default_version(self, *, name: builtins.str) -> None:
         '''
-        :param name: The name specified for the version when it was created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#name MlEngineModel#name}
+        :param name: The name specified for the version when it was created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#name MlEngineModel#name}
         '''
         value = MlEngineModelDefaultVersion(name=name)
 
@@ -159,9 +159,9 @@ class MlEngineModel(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#create MlEngineModel#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#delete MlEngineModel#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#update MlEngineModel#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#create MlEngineModel#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#delete MlEngineModel#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#update MlEngineModel#update}.
         '''
         value = MlEngineModelTimeouts(create=create, delete=delete, update=update)
 
@@ -454,16 +454,16 @@ class MlEngineModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name specified for the model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#name MlEngineModel#name}
-        :param default_version: default_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#default_version MlEngineModel#default_version}
-        :param description: The description specified for the model when it was created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#description MlEngineModel#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#id MlEngineModel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: One or more labels that you can add, to organize your models. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#labels MlEngineModel#labels}
-        :param online_prediction_console_logging: If true, online prediction nodes send stderr and stdout streams to Stackdriver Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#online_prediction_console_logging MlEngineModel#online_prediction_console_logging}
-        :param online_prediction_logging: If true, online prediction access logs are sent to StackDriver Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#online_prediction_logging MlEngineModel#online_prediction_logging}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#project MlEngineModel#project}.
-        :param regions: The list of regions where the model is going to be deployed. Currently only one region per model is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#regions MlEngineModel#regions}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#timeouts MlEngineModel#timeouts}
+        :param name: The name specified for the model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#name MlEngineModel#name}
+        :param default_version: default_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#default_version MlEngineModel#default_version}
+        :param description: The description specified for the model when it was created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#description MlEngineModel#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#id MlEngineModel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: One or more labels that you can add, to organize your models. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#labels MlEngineModel#labels}
+        :param online_prediction_console_logging: If true, online prediction nodes send stderr and stdout streams to Stackdriver Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#online_prediction_console_logging MlEngineModel#online_prediction_console_logging}
+        :param online_prediction_logging: If true, online prediction access logs are sent to StackDriver Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#online_prediction_logging MlEngineModel#online_prediction_logging}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#project MlEngineModel#project}.
+        :param regions: The list of regions where the model is going to be deployed. Currently only one region per model is supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#regions MlEngineModel#regions}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#timeouts MlEngineModel#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -594,7 +594,7 @@ class MlEngineModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name specified for the model.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#name MlEngineModel#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#name MlEngineModel#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -604,7 +604,7 @@ class MlEngineModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def default_version(self) -> typing.Optional["MlEngineModelDefaultVersion"]:
         '''default_version block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#default_version MlEngineModel#default_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#default_version MlEngineModel#default_version}
         '''
         result = self._values.get("default_version")
         return typing.cast(typing.Optional["MlEngineModelDefaultVersion"], result)
@@ -613,14 +613,14 @@ class MlEngineModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The description specified for the model when it was created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#description MlEngineModel#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#description MlEngineModel#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#id MlEngineModel#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#id MlEngineModel#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -635,7 +635,7 @@ class MlEngineModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#labels MlEngineModel#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#labels MlEngineModel#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -646,7 +646,7 @@ class MlEngineModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, online prediction nodes send stderr and stdout streams to Stackdriver Logging.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#online_prediction_console_logging MlEngineModel#online_prediction_console_logging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#online_prediction_console_logging MlEngineModel#online_prediction_console_logging}
         '''
         result = self._values.get("online_prediction_console_logging")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -657,14 +657,14 @@ class MlEngineModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, online prediction access logs are sent to StackDriver Logging.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#online_prediction_logging MlEngineModel#online_prediction_logging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#online_prediction_logging MlEngineModel#online_prediction_logging}
         '''
         result = self._values.get("online_prediction_logging")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#project MlEngineModel#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#project MlEngineModel#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -672,7 +672,7 @@ class MlEngineModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def regions(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of regions where the model is going to be deployed. Currently only one region per model is supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#regions MlEngineModel#regions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#regions MlEngineModel#regions}
         '''
         result = self._values.get("regions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -681,7 +681,7 @@ class MlEngineModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MlEngineModelTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#timeouts MlEngineModel#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#timeouts MlEngineModel#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MlEngineModelTimeouts"], result)
@@ -706,7 +706,7 @@ class MlEngineModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class MlEngineModelDefaultVersion:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: The name specified for the version when it was created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#name MlEngineModel#name}
+        :param name: The name specified for the version when it was created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#name MlEngineModel#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c6cf45cf0698bd60a6e2f986a560250e8f540b648109eef1d60ca2c224440e54)
@@ -719,7 +719,7 @@ class MlEngineModelDefaultVersion:
     def name(self) -> builtins.str:
         '''The name specified for the version when it was created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#name MlEngineModel#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#name MlEngineModel#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -804,9 +804,9 @@ class MlEngineModelTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#create MlEngineModel#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#delete MlEngineModel#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#update MlEngineModel#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#create MlEngineModel#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#delete MlEngineModel#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#update MlEngineModel#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d78807cb95fdb836ead920a9371d0bf76dee22b2f67da35d896270e87db9257d)
@@ -823,19 +823,19 @@ class MlEngineModelTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#create MlEngineModel#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#create MlEngineModel#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#delete MlEngineModel#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#delete MlEngineModel#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/ml_engine_model#update MlEngineModel#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/ml_engine_model#update MlEngineModel#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

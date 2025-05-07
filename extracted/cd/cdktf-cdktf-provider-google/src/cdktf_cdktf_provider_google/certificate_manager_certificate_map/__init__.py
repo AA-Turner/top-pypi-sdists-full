@@ -1,7 +1,7 @@
 r'''
 # `google_certificate_manager_certificate_map`
 
-Refer to the Terraform Registry for docs: [`google_certificate_manager_certificate_map`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map).
+Refer to the Terraform Registry for docs: [`google_certificate_manager_certificate_map`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CertificateManagerCertificateMap(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.certificateManagerCertificateMap.CertificateManagerCertificateMap",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map google_certificate_manager_certificate_map}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map google_certificate_manager_certificate_map}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class CertificateManagerCertificateMap(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map google_certificate_manager_certificate_map} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map google_certificate_manager_certificate_map} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: A user-defined name of the Certificate Map. Certificate Map names must be unique globally and match the pattern 'projects/* /locations/* /certificateMaps/*'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#name CertificateManagerCertificateMap#name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param description: A human-readable description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#description CertificateManagerCertificateMap#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#id CertificateManagerCertificateMap#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Set of labels associated with a Certificate Map resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#labels CertificateManagerCertificateMap#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#project CertificateManagerCertificateMap#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#timeouts CertificateManagerCertificateMap#timeouts}
+        :param name: A user-defined name of the Certificate Map. Certificate Map names must be unique globally and match the pattern 'projects/* /locations/* /certificateMaps/*'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#name CertificateManagerCertificateMap#name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param description: A human-readable description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#description CertificateManagerCertificateMap#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#id CertificateManagerCertificateMap#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Set of labels associated with a Certificate Map resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#labels CertificateManagerCertificateMap#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#project CertificateManagerCertificateMap#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#timeouts CertificateManagerCertificateMap#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class CertificateManagerCertificateMap(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CertificateManagerCertificateMap to import.
-        :param import_from_id: The id of the existing CertificateManagerCertificateMap that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CertificateManagerCertificateMap that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CertificateManagerCertificateMap to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class CertificateManagerCertificateMap(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#create CertificateManagerCertificateMap#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#delete CertificateManagerCertificateMap#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#update CertificateManagerCertificateMap#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#create CertificateManagerCertificateMap#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#delete CertificateManagerCertificateMap#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#update CertificateManagerCertificateMap#update}.
         '''
         value = CertificateManagerCertificateMapTimeouts(
             create=create, delete=delete, update=update
@@ -351,12 +351,12 @@ class CertificateManagerCertificateMapConfig(_cdktf_9a9027ec.TerraformMetaArgume
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: A user-defined name of the Certificate Map. Certificate Map names must be unique globally and match the pattern 'projects/* /locations/* /certificateMaps/*'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#name CertificateManagerCertificateMap#name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
-        :param description: A human-readable description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#description CertificateManagerCertificateMap#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#id CertificateManagerCertificateMap#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Set of labels associated with a Certificate Map resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#labels CertificateManagerCertificateMap#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#project CertificateManagerCertificateMap#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#timeouts CertificateManagerCertificateMap#timeouts}
+        :param name: A user-defined name of the Certificate Map. Certificate Map names must be unique globally and match the pattern 'projects/* /locations/* /certificateMaps/*'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#name CertificateManagerCertificateMap#name} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param description: A human-readable description of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#description CertificateManagerCertificateMap#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#id CertificateManagerCertificateMap#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Set of labels associated with a Certificate Map resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#labels CertificateManagerCertificateMap#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#project CertificateManagerCertificateMap#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#timeouts CertificateManagerCertificateMap#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -476,7 +476,7 @@ class CertificateManagerCertificateMapConfig(_cdktf_9a9027ec.TerraformMetaArgume
         Certificate Map names must be unique
         globally and match the pattern 'projects/* /locations/* /certificateMaps/*'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#name CertificateManagerCertificateMap#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#name CertificateManagerCertificateMap#name}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -488,14 +488,14 @@ class CertificateManagerCertificateMapConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def description(self) -> typing.Optional[builtins.str]:
         '''A human-readable description of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#description CertificateManagerCertificateMap#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#description CertificateManagerCertificateMap#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#id CertificateManagerCertificateMap#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#id CertificateManagerCertificateMap#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -510,14 +510,14 @@ class CertificateManagerCertificateMapConfig(_cdktf_9a9027ec.TerraformMetaArgume
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#labels CertificateManagerCertificateMap#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#labels CertificateManagerCertificateMap#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#project CertificateManagerCertificateMap#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#project CertificateManagerCertificateMap#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -525,7 +525,7 @@ class CertificateManagerCertificateMapConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def timeouts(self) -> typing.Optional["CertificateManagerCertificateMapTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#timeouts CertificateManagerCertificateMap#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#timeouts CertificateManagerCertificateMap#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CertificateManagerCertificateMapTimeouts"], result)
@@ -863,9 +863,9 @@ class CertificateManagerCertificateMapTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#create CertificateManagerCertificateMap#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#delete CertificateManagerCertificateMap#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#update CertificateManagerCertificateMap#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#create CertificateManagerCertificateMap#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#delete CertificateManagerCertificateMap#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#update CertificateManagerCertificateMap#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__de64f9bcf7b01569e60dfb9dc3ad7bc562d609a0513cf6fa614482f13170d3a1)
@@ -882,19 +882,19 @@ class CertificateManagerCertificateMapTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#create CertificateManagerCertificateMap#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#create CertificateManagerCertificateMap#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#delete CertificateManagerCertificateMap#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#delete CertificateManagerCertificateMap#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/certificate_manager_certificate_map#update CertificateManagerCertificateMap#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/certificate_manager_certificate_map#update CertificateManagerCertificateMap#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

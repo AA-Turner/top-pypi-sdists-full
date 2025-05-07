@@ -71,6 +71,7 @@ class Ty(_message.Message):
         "date",
         "tuple",
         "dict",
+        "bytes",
     )
     NULLABLE_FIELD_NUMBER: _ClassVar[int]
     INT_FIELD_NUMBER: _ClassVar[int]
@@ -87,6 +88,7 @@ class Ty(_message.Message):
     DATE_FIELD_NUMBER: _ClassVar[int]
     TUPLE_FIELD_NUMBER: _ClassVar[int]
     DICT_FIELD_NUMBER: _ClassVar[int]
+    BYTES_FIELD_NUMBER: _ClassVar[int]
     nullable: bool
     int: EmptyMessage
     str: EmptyMessage
@@ -102,6 +104,7 @@ class Ty(_message.Message):
     date: EmptyMessage
     tuple: TyTuple
     dict: TyDict
+    bytes: EmptyMessage
     def __init__(
         self,
         nullable: bool = ...,
@@ -119,6 +122,7 @@ class Ty(_message.Message):
         date: _Optional[_Union[EmptyMessage, _Mapping]] = ...,
         tuple: _Optional[_Union[TyTuple, _Mapping]] = ...,
         dict: _Optional[_Union[TyDict, _Mapping]] = ...,
+        bytes: _Optional[_Union[EmptyMessage, _Mapping]] = ...,
     ) -> None: ...
 
 class EmptyMessage(_message.Message):

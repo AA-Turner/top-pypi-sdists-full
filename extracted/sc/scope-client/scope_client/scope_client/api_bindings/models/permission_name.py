@@ -93,6 +93,7 @@ class PermissionName(str, Enum):
     MODEL_LIST_METRIC_VERSIONS = 'model_list_metric_versions'
     MODEL_CREATE_METRIC_VERSION = 'model_create_metric_version'
     MODEL_ADD_METRICS_FOR_VERSION = 'model_add_metrics_for_version'
+    MODEL_EDIT_DASHBOARD = 'model_edit_dashboard'
     MODEL_CREATE_ALERT = 'model_create_alert'
     MODEL_LIST_ALERTS = 'model_list_alerts'
     MODEL_CREATE_ALERT_RULE = 'model_create_alert_rule'

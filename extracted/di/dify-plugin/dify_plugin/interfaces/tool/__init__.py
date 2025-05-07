@@ -25,7 +25,7 @@ class ToolLike(ABC, Generic[T]):
             message=ToolInvokeMessage.TextMessage(text=text),
         )
 
-    def create_json_message(self, json: Mapping) -> T:
+    def create_json_message(self, json: Mapping | list) -> T:
         return self.response_type(
             type=ToolInvokeMessage.MessageType.JSON,
             message=ToolInvokeMessage.JsonMessage(json_object=json),
@@ -121,6 +121,22 @@ class ToolLike(ABC, Generic[T]):
                 if parent and isinstance(parent.message, ToolInvokeMessage.LogMessage)
                 else None,
                 metadata=metadata,
+            ),
+        )
+
+    def create_retriever_resource_message(
+        self,
+        retriever_resources: list[ToolInvokeMessage.RetrieverResourceMessage.RetrieverResource],
+        context: str,
+    ) -> T:
+        """
+        create a retriever resource message
+        """
+        return self.response_type(
+            type=ToolInvokeMessage.MessageType.RETRIEVER_RESOURCES,
+            message=ToolInvokeMessage.RetrieverResourceMessage(
+                retriever_resources=retriever_resources,
+                context=context,
             ),
         )
 

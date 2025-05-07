@@ -1,7 +1,7 @@
 r'''
 # `google_compute_attached_disk`
 
-Refer to the Terraform Registry for docs: [`google_compute_attached_disk`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk).
+Refer to the Terraform Registry for docs: [`google_compute_attached_disk`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeAttachedDisk(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeAttachedDisk.ComputeAttachedDisk",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk google_compute_attached_disk}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk google_compute_attached_disk}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class ComputeAttachedDisk(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk google_compute_attached_disk} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk google_compute_attached_disk} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param disk: name or self_link of the disk that will be attached. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#disk ComputeAttachedDisk#disk}
-        :param instance: name or self_link of the compute instance that the disk will be attached to. If the self_link is provided then zone and project are extracted from the self link. If only the name is used then zone and project must be defined as properties on the resource or provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#instance ComputeAttachedDisk#instance}
-        :param device_name: Specifies a unique device name of your choice that is reflected into the /dev/disk/by-id/google-* tree of a Linux operating system running within the instance. This name can be used to reference the device for mounting, resizing, and so on, from within the instance. If not specified, the server chooses a default device name to apply to this disk, in the form persistent-disks-x, where x is a number assigned by Google Compute Engine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#device_name ComputeAttachedDisk#device_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#id ComputeAttachedDisk#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param interface: The disk interface used for attaching this disk. One of SCSI or NVME. (This field is only used for specific cases, please don't specify this field without advice from Google.) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#interface ComputeAttachedDisk#interface}
-        :param mode: The mode in which to attach this disk, either READ_WRITE or READ_ONLY. If not specified, the default is to attach the disk in READ_WRITE mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#mode ComputeAttachedDisk#mode}
-        :param project: The project that the referenced compute instance is a part of. If instance is referenced by its self_link the project defined in the link will take precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#project ComputeAttachedDisk#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#timeouts ComputeAttachedDisk#timeouts}
-        :param zone: The zone that the referenced compute instance is located within. If instance is referenced by its self_link the zone defined in the link will take precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#zone ComputeAttachedDisk#zone}
+        :param disk: name or self_link of the disk that will be attached. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#disk ComputeAttachedDisk#disk}
+        :param instance: name or self_link of the compute instance that the disk will be attached to. If the self_link is provided then zone and project are extracted from the self link. If only the name is used then zone and project must be defined as properties on the resource or provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#instance ComputeAttachedDisk#instance}
+        :param device_name: Specifies a unique device name of your choice that is reflected into the /dev/disk/by-id/google-* tree of a Linux operating system running within the instance. This name can be used to reference the device for mounting, resizing, and so on, from within the instance. If not specified, the server chooses a default device name to apply to this disk, in the form persistent-disks-x, where x is a number assigned by Google Compute Engine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#device_name ComputeAttachedDisk#device_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#id ComputeAttachedDisk#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param interface: The disk interface used for attaching this disk. One of SCSI or NVME. (This field is only used for specific cases, please don't specify this field without advice from Google.) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#interface ComputeAttachedDisk#interface}
+        :param mode: The mode in which to attach this disk, either READ_WRITE or READ_ONLY. If not specified, the default is to attach the disk in READ_WRITE mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#mode ComputeAttachedDisk#mode}
+        :param project: The project that the referenced compute instance is a part of. If instance is referenced by its self_link the project defined in the link will take precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#project ComputeAttachedDisk#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#timeouts ComputeAttachedDisk#timeouts}
+        :param zone: The zone that the referenced compute instance is located within. If instance is referenced by its self_link the zone defined in the link will take precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#zone ComputeAttachedDisk#zone}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class ComputeAttachedDisk(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeAttachedDisk to import.
-        :param import_from_id: The id of the existing ComputeAttachedDisk that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeAttachedDisk that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeAttachedDisk to import is found.
         '''
         if __debug__:
@@ -146,8 +146,8 @@ class ComputeAttachedDisk(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#create ComputeAttachedDisk#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#delete ComputeAttachedDisk#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#create ComputeAttachedDisk#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#delete ComputeAttachedDisk#delete}.
         '''
         value = ComputeAttachedDiskTimeouts(create=create, delete=delete)
 
@@ -394,15 +394,15 @@ class ComputeAttachedDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param disk: name or self_link of the disk that will be attached. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#disk ComputeAttachedDisk#disk}
-        :param instance: name or self_link of the compute instance that the disk will be attached to. If the self_link is provided then zone and project are extracted from the self link. If only the name is used then zone and project must be defined as properties on the resource or provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#instance ComputeAttachedDisk#instance}
-        :param device_name: Specifies a unique device name of your choice that is reflected into the /dev/disk/by-id/google-* tree of a Linux operating system running within the instance. This name can be used to reference the device for mounting, resizing, and so on, from within the instance. If not specified, the server chooses a default device name to apply to this disk, in the form persistent-disks-x, where x is a number assigned by Google Compute Engine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#device_name ComputeAttachedDisk#device_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#id ComputeAttachedDisk#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param interface: The disk interface used for attaching this disk. One of SCSI or NVME. (This field is only used for specific cases, please don't specify this field without advice from Google.) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#interface ComputeAttachedDisk#interface}
-        :param mode: The mode in which to attach this disk, either READ_WRITE or READ_ONLY. If not specified, the default is to attach the disk in READ_WRITE mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#mode ComputeAttachedDisk#mode}
-        :param project: The project that the referenced compute instance is a part of. If instance is referenced by its self_link the project defined in the link will take precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#project ComputeAttachedDisk#project}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#timeouts ComputeAttachedDisk#timeouts}
-        :param zone: The zone that the referenced compute instance is located within. If instance is referenced by its self_link the zone defined in the link will take precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#zone ComputeAttachedDisk#zone}
+        :param disk: name or self_link of the disk that will be attached. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#disk ComputeAttachedDisk#disk}
+        :param instance: name or self_link of the compute instance that the disk will be attached to. If the self_link is provided then zone and project are extracted from the self link. If only the name is used then zone and project must be defined as properties on the resource or provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#instance ComputeAttachedDisk#instance}
+        :param device_name: Specifies a unique device name of your choice that is reflected into the /dev/disk/by-id/google-* tree of a Linux operating system running within the instance. This name can be used to reference the device for mounting, resizing, and so on, from within the instance. If not specified, the server chooses a default device name to apply to this disk, in the form persistent-disks-x, where x is a number assigned by Google Compute Engine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#device_name ComputeAttachedDisk#device_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#id ComputeAttachedDisk#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param interface: The disk interface used for attaching this disk. One of SCSI or NVME. (This field is only used for specific cases, please don't specify this field without advice from Google.) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#interface ComputeAttachedDisk#interface}
+        :param mode: The mode in which to attach this disk, either READ_WRITE or READ_ONLY. If not specified, the default is to attach the disk in READ_WRITE mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#mode ComputeAttachedDisk#mode}
+        :param project: The project that the referenced compute instance is a part of. If instance is referenced by its self_link the project defined in the link will take precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#project ComputeAttachedDisk#project}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#timeouts ComputeAttachedDisk#timeouts}
+        :param zone: The zone that the referenced compute instance is located within. If instance is referenced by its self_link the zone defined in the link will take precedence. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#zone ComputeAttachedDisk#zone}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -527,7 +527,7 @@ class ComputeAttachedDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def disk(self) -> builtins.str:
         '''name or self_link of the disk that will be attached.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#disk ComputeAttachedDisk#disk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#disk ComputeAttachedDisk#disk}
         '''
         result = self._values.get("disk")
         assert result is not None, "Required property 'disk' is missing"
@@ -539,7 +539,7 @@ class ComputeAttachedDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If the self_link is provided then zone and project are extracted from the self link. If only the name is used then zone and project must be defined as properties on the resource or provider.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#instance ComputeAttachedDisk#instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#instance ComputeAttachedDisk#instance}
         '''
         result = self._values.get("instance")
         assert result is not None, "Required property 'instance' is missing"
@@ -551,14 +551,14 @@ class ComputeAttachedDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This name can be used to reference the device for mounting, resizing, and so on, from within the instance. If not specified, the server chooses a default device name to apply to this disk, in the form persistent-disks-x, where x is a number assigned by Google Compute Engine.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#device_name ComputeAttachedDisk#device_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#device_name ComputeAttachedDisk#device_name}
         '''
         result = self._values.get("device_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#id ComputeAttachedDisk#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#id ComputeAttachedDisk#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -572,7 +572,7 @@ class ComputeAttachedDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         One of SCSI or NVME. (This field is only used for specific cases, please don't specify this field without advice from Google.)
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#interface ComputeAttachedDisk#interface}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#interface ComputeAttachedDisk#interface}
         '''
         result = self._values.get("interface")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -583,7 +583,7 @@ class ComputeAttachedDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If not specified, the default is to attach the disk in READ_WRITE mode.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#mode ComputeAttachedDisk#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#mode ComputeAttachedDisk#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -594,7 +594,7 @@ class ComputeAttachedDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If instance is referenced by its self_link the project defined in the link will take precedence.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#project ComputeAttachedDisk#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#project ComputeAttachedDisk#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -603,7 +603,7 @@ class ComputeAttachedDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeAttachedDiskTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#timeouts ComputeAttachedDisk#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#timeouts ComputeAttachedDisk#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeAttachedDiskTimeouts"], result)
@@ -614,7 +614,7 @@ class ComputeAttachedDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If instance is referenced by its self_link the zone defined in the link will take precedence.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#zone ComputeAttachedDisk#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#zone ComputeAttachedDisk#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -644,8 +644,8 @@ class ComputeAttachedDiskTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#create ComputeAttachedDisk#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#delete ComputeAttachedDisk#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#create ComputeAttachedDisk#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#delete ComputeAttachedDisk#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__88bf71acf520dd7987ce5e68eaeb487339fd263692e8c016280a59ac318db938)
@@ -659,13 +659,13 @@ class ComputeAttachedDiskTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#create ComputeAttachedDisk#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#create ComputeAttachedDisk#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/compute_attached_disk#delete ComputeAttachedDisk#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/compute_attached_disk#delete ComputeAttachedDisk#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

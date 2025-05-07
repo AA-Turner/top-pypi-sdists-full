@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: openlineage-airflow
-Version: 1.32.0
+Version: 1.32.1
 Summary: OpenLineage integration with Airflow
 Author: OpenLineage
 Keywords: openlineage
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 Requires-Dist: attrs>=20.0
-Requires-Dist: openlineage-integration-common[sql]==1.32.0
-Requires-Dist: openlineage-python==1.32.0
+Requires-Dist: openlineage-integration-common[sql]==1.32.1
+Requires-Dist: openlineage-python==1.32.1
 Provides-Extra: tests
 Requires-Dist: aiohttp; extra == "tests"
 Requires-Dist: pytest; extra == "tests"

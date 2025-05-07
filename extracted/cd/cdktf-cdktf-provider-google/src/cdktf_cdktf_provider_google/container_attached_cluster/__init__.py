@@ -1,7 +1,7 @@
 r'''
 # `google_container_attached_cluster`
 
-Refer to the Terraform Registry for docs: [`google_container_attached_cluster`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster).
+Refer to the Terraform Registry for docs: [`google_container_attached_cluster`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ContainerAttachedCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.containerAttachedCluster.ContainerAttachedCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster google_container_attached_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster google_container_attached_cluster}.'''
 
     def __init__(
         self,
@@ -77,28 +77,28 @@ class ContainerAttachedCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster google_container_attached_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster google_container_attached_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param distribution: The Kubernetes distribution of the underlying attached cluster. Supported values: "eks", "aks", "generic". The generic distribution provides the ability to register or migrate any CNCF conformant cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#distribution ContainerAttachedCluster#distribution}
-        :param fleet: fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#fleet ContainerAttachedCluster#fleet}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#location ContainerAttachedCluster#location}
-        :param name: The name of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#name ContainerAttachedCluster#name}
-        :param oidc_config: oidc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#oidc_config ContainerAttachedCluster#oidc_config}
-        :param platform_version: The platform version for the cluster (e.g. '1.23.0-gke.1'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#platform_version ContainerAttachedCluster#platform_version}
-        :param annotations: Optional. Annotations on the cluster. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Key can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#annotations ContainerAttachedCluster#annotations}
-        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#authorization ContainerAttachedCluster#authorization}
-        :param binary_authorization: binary_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#binary_authorization ContainerAttachedCluster#binary_authorization}
-        :param deletion_policy: Policy to determine what flags to send on delete. Possible values: DELETE, DELETE_IGNORE_ERRORS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#deletion_policy ContainerAttachedCluster#deletion_policy}
-        :param description: A human readable description of this attached cluster. Cannot be longer than 255 UTF-8 encoded bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#description ContainerAttachedCluster#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#id ContainerAttachedCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#logging_config ContainerAttachedCluster#logging_config}
-        :param monitoring_config: monitoring_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#monitoring_config ContainerAttachedCluster#monitoring_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#project ContainerAttachedCluster#project}.
-        :param proxy_config: proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#proxy_config ContainerAttachedCluster#proxy_config}
-        :param security_posture_config: security_posture_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#security_posture_config ContainerAttachedCluster#security_posture_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#timeouts ContainerAttachedCluster#timeouts}
+        :param distribution: The Kubernetes distribution of the underlying attached cluster. Supported values: "eks", "aks", "generic". The generic distribution provides the ability to register or migrate any CNCF conformant cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#distribution ContainerAttachedCluster#distribution}
+        :param fleet: fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#fleet ContainerAttachedCluster#fleet}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#location ContainerAttachedCluster#location}
+        :param name: The name of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#name ContainerAttachedCluster#name}
+        :param oidc_config: oidc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#oidc_config ContainerAttachedCluster#oidc_config}
+        :param platform_version: The platform version for the cluster (e.g. '1.23.0-gke.1'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#platform_version ContainerAttachedCluster#platform_version}
+        :param annotations: Optional. Annotations on the cluster. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Key can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#annotations ContainerAttachedCluster#annotations}
+        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#authorization ContainerAttachedCluster#authorization}
+        :param binary_authorization: binary_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#binary_authorization ContainerAttachedCluster#binary_authorization}
+        :param deletion_policy: Policy to determine what flags to send on delete. Possible values: DELETE, DELETE_IGNORE_ERRORS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#deletion_policy ContainerAttachedCluster#deletion_policy}
+        :param description: A human readable description of this attached cluster. Cannot be longer than 255 UTF-8 encoded bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#description ContainerAttachedCluster#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#id ContainerAttachedCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#logging_config ContainerAttachedCluster#logging_config}
+        :param monitoring_config: monitoring_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#monitoring_config ContainerAttachedCluster#monitoring_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#project ContainerAttachedCluster#project}.
+        :param proxy_config: proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#proxy_config ContainerAttachedCluster#proxy_config}
+        :param security_posture_config: security_posture_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#security_posture_config ContainerAttachedCluster#security_posture_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#timeouts ContainerAttachedCluster#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -154,7 +154,7 @@ class ContainerAttachedCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ContainerAttachedCluster to import.
-        :param import_from_id: The id of the existing ContainerAttachedCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ContainerAttachedCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ContainerAttachedCluster to import is found.
         '''
         if __debug__:
@@ -173,8 +173,8 @@ class ContainerAttachedCluster(
         admin_users: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param admin_groups: Groups that can perform operations as a cluster admin. A managed ClusterRoleBinding will be created to grant the 'cluster-admin' ClusterRole to the groups. Up to ten admin groups can be provided. For more info on RBAC, see https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#admin_groups ContainerAttachedCluster#admin_groups}
-        :param admin_users: Users that can perform operations as a cluster admin. A managed ClusterRoleBinding will be created to grant the 'cluster-admin' ClusterRole to the users. Up to ten admin users can be provided. For more info on RBAC, see https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#admin_users ContainerAttachedCluster#admin_users}
+        :param admin_groups: Groups that can perform operations as a cluster admin. A managed ClusterRoleBinding will be created to grant the 'cluster-admin' ClusterRole to the groups. Up to ten admin groups can be provided. For more info on RBAC, see https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#admin_groups ContainerAttachedCluster#admin_groups}
+        :param admin_users: Users that can perform operations as a cluster admin. A managed ClusterRoleBinding will be created to grant the 'cluster-admin' ClusterRole to the users. Up to ten admin users can be provided. For more info on RBAC, see https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#admin_users ContainerAttachedCluster#admin_users}
         '''
         value = ContainerAttachedClusterAuthorization(
             admin_groups=admin_groups, admin_users=admin_users
@@ -189,7 +189,7 @@ class ContainerAttachedCluster(
         evaluation_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param evaluation_mode: Configure Binary Authorization evaluation mode. Possible values: ["DISABLED", "PROJECT_SINGLETON_POLICY_ENFORCE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#evaluation_mode ContainerAttachedCluster#evaluation_mode}
+        :param evaluation_mode: Configure Binary Authorization evaluation mode. Possible values: ["DISABLED", "PROJECT_SINGLETON_POLICY_ENFORCE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#evaluation_mode ContainerAttachedCluster#evaluation_mode}
         '''
         value = ContainerAttachedClusterBinaryAuthorization(
             evaluation_mode=evaluation_mode
@@ -200,7 +200,7 @@ class ContainerAttachedCluster(
     @jsii.member(jsii_name="putFleet")
     def put_fleet(self, *, project: builtins.str) -> None:
         '''
-        :param project: The number of the Fleet host project where this cluster will be registered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#project ContainerAttachedCluster#project}
+        :param project: The number of the Fleet host project where this cluster will be registered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#project ContainerAttachedCluster#project}
         '''
         value = ContainerAttachedClusterFleet(project=project)
 
@@ -213,7 +213,7 @@ class ContainerAttachedCluster(
         component_config: typing.Optional[typing.Union["ContainerAttachedClusterLoggingConfigComponentConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param component_config: component_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#component_config ContainerAttachedCluster#component_config}
+        :param component_config: component_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#component_config ContainerAttachedCluster#component_config}
         '''
         value = ContainerAttachedClusterLoggingConfig(
             component_config=component_config
@@ -228,7 +228,7 @@ class ContainerAttachedCluster(
         managed_prometheus_config: typing.Optional[typing.Union["ContainerAttachedClusterMonitoringConfigManagedPrometheusConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param managed_prometheus_config: managed_prometheus_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#managed_prometheus_config ContainerAttachedCluster#managed_prometheus_config}
+        :param managed_prometheus_config: managed_prometheus_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#managed_prometheus_config ContainerAttachedCluster#managed_prometheus_config}
         '''
         value = ContainerAttachedClusterMonitoringConfig(
             managed_prometheus_config=managed_prometheus_config
@@ -244,8 +244,8 @@ class ContainerAttachedCluster(
         jwks: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param issuer_url: A JSON Web Token (JWT) issuer URI. 'issuer' must start with 'https://'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#issuer_url ContainerAttachedCluster#issuer_url}
-        :param jwks: OIDC verification keys in JWKS format (RFC 7517). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#jwks ContainerAttachedCluster#jwks}
+        :param issuer_url: A JSON Web Token (JWT) issuer URI. 'issuer' must start with 'https://'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#issuer_url ContainerAttachedCluster#issuer_url}
+        :param jwks: OIDC verification keys in JWKS format (RFC 7517). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#jwks ContainerAttachedCluster#jwks}
         '''
         value = ContainerAttachedClusterOidcConfig(issuer_url=issuer_url, jwks=jwks)
 
@@ -258,7 +258,7 @@ class ContainerAttachedCluster(
         kubernetes_secret: typing.Optional[typing.Union["ContainerAttachedClusterProxyConfigKubernetesSecret", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param kubernetes_secret: kubernetes_secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#kubernetes_secret ContainerAttachedCluster#kubernetes_secret}
+        :param kubernetes_secret: kubernetes_secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#kubernetes_secret ContainerAttachedCluster#kubernetes_secret}
         '''
         value = ContainerAttachedClusterProxyConfig(
             kubernetes_secret=kubernetes_secret
@@ -269,7 +269,7 @@ class ContainerAttachedCluster(
     @jsii.member(jsii_name="putSecurityPostureConfig")
     def put_security_posture_config(self, *, vulnerability_mode: builtins.str) -> None:
         '''
-        :param vulnerability_mode: Sets the mode of the Kubernetes security posture API's workload vulnerability scanning. Possible values: ["VULNERABILITY_DISABLED", "VULNERABILITY_ENTERPRISE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#vulnerability_mode ContainerAttachedCluster#vulnerability_mode}
+        :param vulnerability_mode: Sets the mode of the Kubernetes security posture API's workload vulnerability scanning. Possible values: ["VULNERABILITY_DISABLED", "VULNERABILITY_ENTERPRISE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#vulnerability_mode ContainerAttachedCluster#vulnerability_mode}
         '''
         value = ContainerAttachedClusterSecurityPostureConfig(
             vulnerability_mode=vulnerability_mode
@@ -286,9 +286,9 @@ class ContainerAttachedCluster(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#create ContainerAttachedCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#delete ContainerAttachedCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#update ContainerAttachedCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#create ContainerAttachedCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#delete ContainerAttachedCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#update ContainerAttachedCluster#update}.
         '''
         value = ContainerAttachedClusterTimeouts(
             create=create, delete=delete, update=update
@@ -690,8 +690,8 @@ class ContainerAttachedClusterAuthorization:
         admin_users: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param admin_groups: Groups that can perform operations as a cluster admin. A managed ClusterRoleBinding will be created to grant the 'cluster-admin' ClusterRole to the groups. Up to ten admin groups can be provided. For more info on RBAC, see https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#admin_groups ContainerAttachedCluster#admin_groups}
-        :param admin_users: Users that can perform operations as a cluster admin. A managed ClusterRoleBinding will be created to grant the 'cluster-admin' ClusterRole to the users. Up to ten admin users can be provided. For more info on RBAC, see https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#admin_users ContainerAttachedCluster#admin_users}
+        :param admin_groups: Groups that can perform operations as a cluster admin. A managed ClusterRoleBinding will be created to grant the 'cluster-admin' ClusterRole to the groups. Up to ten admin groups can be provided. For more info on RBAC, see https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#admin_groups ContainerAttachedCluster#admin_groups}
+        :param admin_users: Users that can perform operations as a cluster admin. A managed ClusterRoleBinding will be created to grant the 'cluster-admin' ClusterRole to the users. Up to ten admin users can be provided. For more info on RBAC, see https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#admin_users ContainerAttachedCluster#admin_users}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__80f99900324de47d090408cec3c25daed41224e0a6a11a5bae0021b86335e0a6)
@@ -714,7 +714,7 @@ class ContainerAttachedClusterAuthorization:
         For more info on RBAC, see
         https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#admin_groups ContainerAttachedCluster#admin_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#admin_groups ContainerAttachedCluster#admin_groups}
         '''
         result = self._values.get("admin_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -730,7 +730,7 @@ class ContainerAttachedClusterAuthorization:
         For more info on RBAC, see
         https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#admin_users ContainerAttachedCluster#admin_users}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#admin_users ContainerAttachedCluster#admin_users}
         '''
         result = self._values.get("admin_users")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -837,7 +837,7 @@ class ContainerAttachedClusterBinaryAuthorization:
         evaluation_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param evaluation_mode: Configure Binary Authorization evaluation mode. Possible values: ["DISABLED", "PROJECT_SINGLETON_POLICY_ENFORCE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#evaluation_mode ContainerAttachedCluster#evaluation_mode}
+        :param evaluation_mode: Configure Binary Authorization evaluation mode. Possible values: ["DISABLED", "PROJECT_SINGLETON_POLICY_ENFORCE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#evaluation_mode ContainerAttachedCluster#evaluation_mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__01a46a44887952d85ec3adcdc990e3ba002d8cbe7e342d516f6a47a2b1a24d78)
@@ -850,7 +850,7 @@ class ContainerAttachedClusterBinaryAuthorization:
     def evaluation_mode(self) -> typing.Optional[builtins.str]:
         '''Configure Binary Authorization evaluation mode. Possible values: ["DISABLED", "PROJECT_SINGLETON_POLICY_ENFORCE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#evaluation_mode ContainerAttachedCluster#evaluation_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#evaluation_mode ContainerAttachedCluster#evaluation_mode}
         '''
         result = self._values.get("evaluation_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -995,24 +995,24 @@ class ContainerAttachedClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param distribution: The Kubernetes distribution of the underlying attached cluster. Supported values: "eks", "aks", "generic". The generic distribution provides the ability to register or migrate any CNCF conformant cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#distribution ContainerAttachedCluster#distribution}
-        :param fleet: fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#fleet ContainerAttachedCluster#fleet}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#location ContainerAttachedCluster#location}
-        :param name: The name of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#name ContainerAttachedCluster#name}
-        :param oidc_config: oidc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#oidc_config ContainerAttachedCluster#oidc_config}
-        :param platform_version: The platform version for the cluster (e.g. '1.23.0-gke.1'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#platform_version ContainerAttachedCluster#platform_version}
-        :param annotations: Optional. Annotations on the cluster. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Key can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#annotations ContainerAttachedCluster#annotations}
-        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#authorization ContainerAttachedCluster#authorization}
-        :param binary_authorization: binary_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#binary_authorization ContainerAttachedCluster#binary_authorization}
-        :param deletion_policy: Policy to determine what flags to send on delete. Possible values: DELETE, DELETE_IGNORE_ERRORS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#deletion_policy ContainerAttachedCluster#deletion_policy}
-        :param description: A human readable description of this attached cluster. Cannot be longer than 255 UTF-8 encoded bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#description ContainerAttachedCluster#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#id ContainerAttachedCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#logging_config ContainerAttachedCluster#logging_config}
-        :param monitoring_config: monitoring_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#monitoring_config ContainerAttachedCluster#monitoring_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#project ContainerAttachedCluster#project}.
-        :param proxy_config: proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#proxy_config ContainerAttachedCluster#proxy_config}
-        :param security_posture_config: security_posture_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#security_posture_config ContainerAttachedCluster#security_posture_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#timeouts ContainerAttachedCluster#timeouts}
+        :param distribution: The Kubernetes distribution of the underlying attached cluster. Supported values: "eks", "aks", "generic". The generic distribution provides the ability to register or migrate any CNCF conformant cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#distribution ContainerAttachedCluster#distribution}
+        :param fleet: fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#fleet ContainerAttachedCluster#fleet}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#location ContainerAttachedCluster#location}
+        :param name: The name of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#name ContainerAttachedCluster#name}
+        :param oidc_config: oidc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#oidc_config ContainerAttachedCluster#oidc_config}
+        :param platform_version: The platform version for the cluster (e.g. '1.23.0-gke.1'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#platform_version ContainerAttachedCluster#platform_version}
+        :param annotations: Optional. Annotations on the cluster. This field has the same restrictions as Kubernetes annotations. The total size of all keys and values combined is limited to 256k. Key can have 2 segments: prefix (optional) and name (required), separated by a slash (/). Prefix must be a DNS subdomain. Name must be 63 characters or less, begin and end with alphanumerics, with dashes (-), underscores (_), dots (.), and alphanumerics between. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#annotations ContainerAttachedCluster#annotations}
+        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#authorization ContainerAttachedCluster#authorization}
+        :param binary_authorization: binary_authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#binary_authorization ContainerAttachedCluster#binary_authorization}
+        :param deletion_policy: Policy to determine what flags to send on delete. Possible values: DELETE, DELETE_IGNORE_ERRORS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#deletion_policy ContainerAttachedCluster#deletion_policy}
+        :param description: A human readable description of this attached cluster. Cannot be longer than 255 UTF-8 encoded bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#description ContainerAttachedCluster#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#id ContainerAttachedCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#logging_config ContainerAttachedCluster#logging_config}
+        :param monitoring_config: monitoring_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#monitoring_config ContainerAttachedCluster#monitoring_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#project ContainerAttachedCluster#project}.
+        :param proxy_config: proxy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#proxy_config ContainerAttachedCluster#proxy_config}
+        :param security_posture_config: security_posture_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#security_posture_config ContainerAttachedCluster#security_posture_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#timeouts ContainerAttachedCluster#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1180,7 +1180,7 @@ class ContainerAttachedClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         "eks", "aks", "generic". The generic distribution provides the ability to register
         or migrate any CNCF conformant cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#distribution ContainerAttachedCluster#distribution}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#distribution ContainerAttachedCluster#distribution}
         '''
         result = self._values.get("distribution")
         assert result is not None, "Required property 'distribution' is missing"
@@ -1190,7 +1190,7 @@ class ContainerAttachedClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def fleet(self) -> "ContainerAttachedClusterFleet":
         '''fleet block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#fleet ContainerAttachedCluster#fleet}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#fleet ContainerAttachedCluster#fleet}
         '''
         result = self._values.get("fleet")
         assert result is not None, "Required property 'fleet' is missing"
@@ -1200,7 +1200,7 @@ class ContainerAttachedClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#location ContainerAttachedCluster#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#location ContainerAttachedCluster#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1210,7 +1210,7 @@ class ContainerAttachedClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#name ContainerAttachedCluster#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#name ContainerAttachedCluster#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1220,7 +1220,7 @@ class ContainerAttachedClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def oidc_config(self) -> "ContainerAttachedClusterOidcConfig":
         '''oidc_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#oidc_config ContainerAttachedCluster#oidc_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#oidc_config ContainerAttachedCluster#oidc_config}
         '''
         result = self._values.get("oidc_config")
         assert result is not None, "Required property 'oidc_config' is missing"
@@ -1230,7 +1230,7 @@ class ContainerAttachedClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def platform_version(self) -> builtins.str:
         '''The platform version for the cluster (e.g. '1.23.0-gke.1').
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#platform_version ContainerAttachedCluster#platform_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#platform_version ContainerAttachedCluster#platform_version}
         '''
         result = self._values.get("platform_version")
         assert result is not None, "Required property 'platform_version' is missing"
@@ -1252,7 +1252,7 @@ class ContainerAttachedClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
         Please refer to the field 'effective_annotations' for all of the annotations present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#annotations ContainerAttachedCluster#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#annotations ContainerAttachedCluster#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1261,7 +1261,7 @@ class ContainerAttachedClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def authorization(self) -> typing.Optional[ContainerAttachedClusterAuthorization]:
         '''authorization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#authorization ContainerAttachedCluster#authorization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#authorization ContainerAttachedCluster#authorization}
         '''
         result = self._values.get("authorization")
         return typing.cast(typing.Optional[ContainerAttachedClusterAuthorization], result)
@@ -1272,7 +1272,7 @@ class ContainerAttachedClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[ContainerAttachedClusterBinaryAuthorization]:
         '''binary_authorization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#binary_authorization ContainerAttachedCluster#binary_authorization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#binary_authorization ContainerAttachedCluster#binary_authorization}
         '''
         result = self._values.get("binary_authorization")
         return typing.cast(typing.Optional[ContainerAttachedClusterBinaryAuthorization], result)
@@ -1281,7 +1281,7 @@ class ContainerAttachedClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def deletion_policy(self) -> typing.Optional[builtins.str]:
         '''Policy to determine what flags to send on delete. Possible values: DELETE, DELETE_IGNORE_ERRORS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#deletion_policy ContainerAttachedCluster#deletion_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#deletion_policy ContainerAttachedCluster#deletion_policy}
         '''
         result = self._values.get("deletion_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1290,14 +1290,14 @@ class ContainerAttachedClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A human readable description of this attached cluster. Cannot be longer than 255 UTF-8 encoded bytes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#description ContainerAttachedCluster#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#description ContainerAttachedCluster#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#id ContainerAttachedCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#id ContainerAttachedCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1311,7 +1311,7 @@ class ContainerAttachedClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ContainerAttachedClusterLoggingConfig"]:
         '''logging_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#logging_config ContainerAttachedCluster#logging_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#logging_config ContainerAttachedCluster#logging_config}
         '''
         result = self._values.get("logging_config")
         return typing.cast(typing.Optional["ContainerAttachedClusterLoggingConfig"], result)
@@ -1322,14 +1322,14 @@ class ContainerAttachedClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ContainerAttachedClusterMonitoringConfig"]:
         '''monitoring_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#monitoring_config ContainerAttachedCluster#monitoring_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#monitoring_config ContainerAttachedCluster#monitoring_config}
         '''
         result = self._values.get("monitoring_config")
         return typing.cast(typing.Optional["ContainerAttachedClusterMonitoringConfig"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#project ContainerAttachedCluster#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#project ContainerAttachedCluster#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1337,7 +1337,7 @@ class ContainerAttachedClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def proxy_config(self) -> typing.Optional["ContainerAttachedClusterProxyConfig"]:
         '''proxy_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#proxy_config ContainerAttachedCluster#proxy_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#proxy_config ContainerAttachedCluster#proxy_config}
         '''
         result = self._values.get("proxy_config")
         return typing.cast(typing.Optional["ContainerAttachedClusterProxyConfig"], result)
@@ -1348,7 +1348,7 @@ class ContainerAttachedClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ContainerAttachedClusterSecurityPostureConfig"]:
         '''security_posture_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#security_posture_config ContainerAttachedCluster#security_posture_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#security_posture_config ContainerAttachedCluster#security_posture_config}
         '''
         result = self._values.get("security_posture_config")
         return typing.cast(typing.Optional["ContainerAttachedClusterSecurityPostureConfig"], result)
@@ -1357,7 +1357,7 @@ class ContainerAttachedClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ContainerAttachedClusterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#timeouts ContainerAttachedCluster#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#timeouts ContainerAttachedCluster#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ContainerAttachedClusterTimeouts"], result)
@@ -1526,7 +1526,7 @@ class ContainerAttachedClusterErrorsOutputReference(
 class ContainerAttachedClusterFleet:
     def __init__(self, *, project: builtins.str) -> None:
         '''
-        :param project: The number of the Fleet host project where this cluster will be registered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#project ContainerAttachedCluster#project}
+        :param project: The number of the Fleet host project where this cluster will be registered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#project ContainerAttachedCluster#project}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b7bd744d62b9a6ef16045fd118a3b77831ba94291e5841a0db21fc689b9327c3)
@@ -1539,7 +1539,7 @@ class ContainerAttachedClusterFleet:
     def project(self) -> builtins.str:
         '''The number of the Fleet host project where this cluster will be registered.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#project ContainerAttachedCluster#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#project ContainerAttachedCluster#project}
         '''
         result = self._values.get("project")
         assert result is not None, "Required property 'project' is missing"
@@ -1627,7 +1627,7 @@ class ContainerAttachedClusterLoggingConfig:
         component_config: typing.Optional[typing.Union["ContainerAttachedClusterLoggingConfigComponentConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param component_config: component_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#component_config ContainerAttachedCluster#component_config}
+        :param component_config: component_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#component_config ContainerAttachedCluster#component_config}
         '''
         if isinstance(component_config, dict):
             component_config = ContainerAttachedClusterLoggingConfigComponentConfig(**component_config)
@@ -1644,7 +1644,7 @@ class ContainerAttachedClusterLoggingConfig:
     ) -> typing.Optional["ContainerAttachedClusterLoggingConfigComponentConfig"]:
         '''component_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#component_config ContainerAttachedCluster#component_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#component_config ContainerAttachedCluster#component_config}
         '''
         result = self._values.get("component_config")
         return typing.cast(typing.Optional["ContainerAttachedClusterLoggingConfigComponentConfig"], result)
@@ -1673,7 +1673,7 @@ class ContainerAttachedClusterLoggingConfigComponentConfig:
         enable_components: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param enable_components: The components to be enabled. Possible values: ["SYSTEM_COMPONENTS", "WORKLOADS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#enable_components ContainerAttachedCluster#enable_components}
+        :param enable_components: The components to be enabled. Possible values: ["SYSTEM_COMPONENTS", "WORKLOADS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#enable_components ContainerAttachedCluster#enable_components}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1e9a2fda3d8cc3794544c251031b5ed432d5e2edc3c3a28fdd4e1ab4709484bd)
@@ -1686,7 +1686,7 @@ class ContainerAttachedClusterLoggingConfigComponentConfig:
     def enable_components(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The components to be enabled. Possible values: ["SYSTEM_COMPONENTS", "WORKLOADS"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#enable_components ContainerAttachedCluster#enable_components}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#enable_components ContainerAttachedCluster#enable_components}
         '''
         result = self._values.get("enable_components")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1789,7 +1789,7 @@ class ContainerAttachedClusterLoggingConfigOutputReference(
         enable_components: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param enable_components: The components to be enabled. Possible values: ["SYSTEM_COMPONENTS", "WORKLOADS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#enable_components ContainerAttachedCluster#enable_components}
+        :param enable_components: The components to be enabled. Possible values: ["SYSTEM_COMPONENTS", "WORKLOADS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#enable_components ContainerAttachedCluster#enable_components}
         '''
         value = ContainerAttachedClusterLoggingConfigComponentConfig(
             enable_components=enable_components
@@ -1843,7 +1843,7 @@ class ContainerAttachedClusterMonitoringConfig:
         managed_prometheus_config: typing.Optional[typing.Union["ContainerAttachedClusterMonitoringConfigManagedPrometheusConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param managed_prometheus_config: managed_prometheus_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#managed_prometheus_config ContainerAttachedCluster#managed_prometheus_config}
+        :param managed_prometheus_config: managed_prometheus_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#managed_prometheus_config ContainerAttachedCluster#managed_prometheus_config}
         '''
         if isinstance(managed_prometheus_config, dict):
             managed_prometheus_config = ContainerAttachedClusterMonitoringConfigManagedPrometheusConfig(**managed_prometheus_config)
@@ -1860,7 +1860,7 @@ class ContainerAttachedClusterMonitoringConfig:
     ) -> typing.Optional["ContainerAttachedClusterMonitoringConfigManagedPrometheusConfig"]:
         '''managed_prometheus_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#managed_prometheus_config ContainerAttachedCluster#managed_prometheus_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#managed_prometheus_config ContainerAttachedCluster#managed_prometheus_config}
         '''
         result = self._values.get("managed_prometheus_config")
         return typing.cast(typing.Optional["ContainerAttachedClusterMonitoringConfigManagedPrometheusConfig"], result)
@@ -1889,7 +1889,7 @@ class ContainerAttachedClusterMonitoringConfigManagedPrometheusConfig:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Enable Managed Collection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#enabled ContainerAttachedCluster#enabled}
+        :param enabled: Enable Managed Collection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#enabled ContainerAttachedCluster#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2878f2cfcea86046d53e1dcd7399e86fe77d27c6d4f6beb54de1cfa87127762e)
@@ -1904,7 +1904,7 @@ class ContainerAttachedClusterMonitoringConfigManagedPrometheusConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable Managed Collection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#enabled ContainerAttachedCluster#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#enabled ContainerAttachedCluster#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2012,7 +2012,7 @@ class ContainerAttachedClusterMonitoringConfigOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Enable Managed Collection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#enabled ContainerAttachedCluster#enabled}
+        :param enabled: Enable Managed Collection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#enabled ContainerAttachedCluster#enabled}
         '''
         value = ContainerAttachedClusterMonitoringConfigManagedPrometheusConfig(
             enabled=enabled
@@ -2069,8 +2069,8 @@ class ContainerAttachedClusterOidcConfig:
         jwks: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param issuer_url: A JSON Web Token (JWT) issuer URI. 'issuer' must start with 'https://'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#issuer_url ContainerAttachedCluster#issuer_url}
-        :param jwks: OIDC verification keys in JWKS format (RFC 7517). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#jwks ContainerAttachedCluster#jwks}
+        :param issuer_url: A JSON Web Token (JWT) issuer URI. 'issuer' must start with 'https://'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#issuer_url ContainerAttachedCluster#issuer_url}
+        :param jwks: OIDC verification keys in JWKS format (RFC 7517). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#jwks ContainerAttachedCluster#jwks}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6e627a7a13d8542be1454f37dfa9d155760e6978483eaac55b99e957c2682006)
@@ -2086,7 +2086,7 @@ class ContainerAttachedClusterOidcConfig:
     def issuer_url(self) -> builtins.str:
         '''A JSON Web Token (JWT) issuer URI. 'issuer' must start with 'https://'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#issuer_url ContainerAttachedCluster#issuer_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#issuer_url ContainerAttachedCluster#issuer_url}
         '''
         result = self._values.get("issuer_url")
         assert result is not None, "Required property 'issuer_url' is missing"
@@ -2096,7 +2096,7 @@ class ContainerAttachedClusterOidcConfig:
     def jwks(self) -> typing.Optional[builtins.str]:
         '''OIDC verification keys in JWKS format (RFC 7517).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#jwks ContainerAttachedCluster#jwks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#jwks ContainerAttachedCluster#jwks}
         '''
         result = self._values.get("jwks")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2199,7 +2199,7 @@ class ContainerAttachedClusterProxyConfig:
         kubernetes_secret: typing.Optional[typing.Union["ContainerAttachedClusterProxyConfigKubernetesSecret", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param kubernetes_secret: kubernetes_secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#kubernetes_secret ContainerAttachedCluster#kubernetes_secret}
+        :param kubernetes_secret: kubernetes_secret block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#kubernetes_secret ContainerAttachedCluster#kubernetes_secret}
         '''
         if isinstance(kubernetes_secret, dict):
             kubernetes_secret = ContainerAttachedClusterProxyConfigKubernetesSecret(**kubernetes_secret)
@@ -2216,7 +2216,7 @@ class ContainerAttachedClusterProxyConfig:
     ) -> typing.Optional["ContainerAttachedClusterProxyConfigKubernetesSecret"]:
         '''kubernetes_secret block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#kubernetes_secret ContainerAttachedCluster#kubernetes_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#kubernetes_secret ContainerAttachedCluster#kubernetes_secret}
         '''
         result = self._values.get("kubernetes_secret")
         return typing.cast(typing.Optional["ContainerAttachedClusterProxyConfigKubernetesSecret"], result)
@@ -2241,8 +2241,8 @@ class ContainerAttachedClusterProxyConfig:
 class ContainerAttachedClusterProxyConfigKubernetesSecret:
     def __init__(self, *, name: builtins.str, namespace: builtins.str) -> None:
         '''
-        :param name: Name of the kubernetes secret containing the proxy config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#name ContainerAttachedCluster#name}
-        :param namespace: Namespace of the kubernetes secret containing the proxy config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#namespace ContainerAttachedCluster#namespace}
+        :param name: Name of the kubernetes secret containing the proxy config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#name ContainerAttachedCluster#name}
+        :param namespace: Namespace of the kubernetes secret containing the proxy config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#namespace ContainerAttachedCluster#namespace}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8f664f10e2daea050cce544474e4a214a87032c0683bd5a89cbd945e4985685e)
@@ -2257,7 +2257,7 @@ class ContainerAttachedClusterProxyConfigKubernetesSecret:
     def name(self) -> builtins.str:
         '''Name of the kubernetes secret containing the proxy config.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#name ContainerAttachedCluster#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#name ContainerAttachedCluster#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -2267,7 +2267,7 @@ class ContainerAttachedClusterProxyConfigKubernetesSecret:
     def namespace(self) -> builtins.str:
         '''Namespace of the kubernetes secret containing the proxy config.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#namespace ContainerAttachedCluster#namespace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#namespace ContainerAttachedCluster#namespace}
         '''
         result = self._values.get("namespace")
         assert result is not None, "Required property 'namespace' is missing"
@@ -2385,8 +2385,8 @@ class ContainerAttachedClusterProxyConfigOutputReference(
         namespace: builtins.str,
     ) -> None:
         '''
-        :param name: Name of the kubernetes secret containing the proxy config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#name ContainerAttachedCluster#name}
-        :param namespace: Namespace of the kubernetes secret containing the proxy config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#namespace ContainerAttachedCluster#namespace}
+        :param name: Name of the kubernetes secret containing the proxy config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#name ContainerAttachedCluster#name}
+        :param namespace: Namespace of the kubernetes secret containing the proxy config. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#namespace ContainerAttachedCluster#namespace}
         '''
         value = ContainerAttachedClusterProxyConfigKubernetesSecret(
             name=name, namespace=namespace
@@ -2436,7 +2436,7 @@ class ContainerAttachedClusterProxyConfigOutputReference(
 class ContainerAttachedClusterSecurityPostureConfig:
     def __init__(self, *, vulnerability_mode: builtins.str) -> None:
         '''
-        :param vulnerability_mode: Sets the mode of the Kubernetes security posture API's workload vulnerability scanning. Possible values: ["VULNERABILITY_DISABLED", "VULNERABILITY_ENTERPRISE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#vulnerability_mode ContainerAttachedCluster#vulnerability_mode}
+        :param vulnerability_mode: Sets the mode of the Kubernetes security posture API's workload vulnerability scanning. Possible values: ["VULNERABILITY_DISABLED", "VULNERABILITY_ENTERPRISE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#vulnerability_mode ContainerAttachedCluster#vulnerability_mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__94c359ab9fbac31cb18a597c667a9f061075e38800f0ac4c2d1c6cf2f88c7bcf)
@@ -2449,7 +2449,7 @@ class ContainerAttachedClusterSecurityPostureConfig:
     def vulnerability_mode(self) -> builtins.str:
         '''Sets the mode of the Kubernetes security posture API's workload vulnerability scanning. Possible values: ["VULNERABILITY_DISABLED", "VULNERABILITY_ENTERPRISE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#vulnerability_mode ContainerAttachedCluster#vulnerability_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#vulnerability_mode ContainerAttachedCluster#vulnerability_mode}
         '''
         result = self._values.get("vulnerability_mode")
         assert result is not None, "Required property 'vulnerability_mode' is missing"
@@ -2536,9 +2536,9 @@ class ContainerAttachedClusterTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#create ContainerAttachedCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#delete ContainerAttachedCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#update ContainerAttachedCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#create ContainerAttachedCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#delete ContainerAttachedCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#update ContainerAttachedCluster#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1ea25963ea57429533019de34755d82f633aa4f62be71528cf4ddb1c82d536c8)
@@ -2555,19 +2555,19 @@ class ContainerAttachedClusterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#create ContainerAttachedCluster#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#create ContainerAttachedCluster#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#delete ContainerAttachedCluster#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#delete ContainerAttachedCluster#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/container_attached_cluster#update ContainerAttachedCluster#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/container_attached_cluster#update ContainerAttachedCluster#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

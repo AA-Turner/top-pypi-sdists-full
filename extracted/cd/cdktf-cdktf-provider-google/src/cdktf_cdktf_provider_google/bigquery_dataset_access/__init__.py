@@ -1,7 +1,7 @@
 r'''
 # `google_bigquery_dataset_access`
 
-Refer to the Terraform Registry for docs: [`google_bigquery_dataset_access`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access).
+Refer to the Terraform Registry for docs: [`google_bigquery_dataset_access`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BigqueryDatasetAccessA(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.bigqueryDatasetAccess.BigqueryDatasetAccessA",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access google_bigquery_dataset_access}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access google_bigquery_dataset_access}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class BigqueryDatasetAccessA(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access google_bigquery_dataset_access} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access google_bigquery_dataset_access} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param dataset_id: A unique ID for this dataset, without the project name. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 1,024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#condition BigqueryDatasetAccessA#condition}
-        :param dataset: dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#dataset BigqueryDatasetAccessA#dataset}
-        :param domain: A domain to grant access to. Any users signed in with the domain specified will be granted the specified access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#domain BigqueryDatasetAccessA#domain}
-        :param group_by_email: An email address of a Google Group to grant access to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#group_by_email BigqueryDatasetAccessA#group_by_email}
-        :param iam_member: Some other type of member that appears in the IAM Policy but isn't a user, group, domain, or special group. For example: 'allUsers' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#iam_member BigqueryDatasetAccessA#iam_member}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#id BigqueryDatasetAccessA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#project BigqueryDatasetAccessA#project}.
-        :param role: Describes the rights granted to the user specified by the other member of the access object. Basic, predefined, and custom roles are supported. Predefined roles that have equivalent basic roles are swapped by the API to their basic counterparts, and will show a diff post-create. See `official docs <https://cloud.google.com/bigquery/docs/access-control>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#role BigqueryDatasetAccessA#role}
-        :param routine: routine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#routine BigqueryDatasetAccessA#routine}
-        :param special_group: A special group to grant access to. Possible values include: - 'projectOwners': Owners of the enclosing project. - 'projectReaders': Readers of the enclosing project. - 'projectWriters': Writers of the enclosing project. - 'allAuthenticatedUsers': All authenticated BigQuery users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#special_group BigqueryDatasetAccessA#special_group}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#timeouts BigqueryDatasetAccessA#timeouts}
-        :param user_by_email: An email address of a user to grant access to. For example: fred@example.com. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#user_by_email BigqueryDatasetAccessA#user_by_email}
-        :param view: view block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#view BigqueryDatasetAccessA#view}
+        :param dataset_id: A unique ID for this dataset, without the project name. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 1,024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#condition BigqueryDatasetAccessA#condition}
+        :param dataset: dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#dataset BigqueryDatasetAccessA#dataset}
+        :param domain: A domain to grant access to. Any users signed in with the domain specified will be granted the specified access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#domain BigqueryDatasetAccessA#domain}
+        :param group_by_email: An email address of a Google Group to grant access to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#group_by_email BigqueryDatasetAccessA#group_by_email}
+        :param iam_member: Some other type of member that appears in the IAM Policy but isn't a user, group, domain, or special group. For example: 'allUsers' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#iam_member BigqueryDatasetAccessA#iam_member}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#id BigqueryDatasetAccessA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#project BigqueryDatasetAccessA#project}.
+        :param role: Describes the rights granted to the user specified by the other member of the access object. Basic, predefined, and custom roles are supported. Predefined roles that have equivalent basic roles are swapped by the API to their basic counterparts, and will show a diff post-create. See `official docs <https://cloud.google.com/bigquery/docs/access-control>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#role BigqueryDatasetAccessA#role}
+        :param routine: routine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#routine BigqueryDatasetAccessA#routine}
+        :param special_group: A special group to grant access to. Possible values include: - 'projectOwners': Owners of the enclosing project. - 'projectReaders': Readers of the enclosing project. - 'projectWriters': Writers of the enclosing project. - 'allAuthenticatedUsers': All authenticated BigQuery users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#special_group BigqueryDatasetAccessA#special_group}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#timeouts BigqueryDatasetAccessA#timeouts}
+        :param user_by_email: An email address of a user to grant access to. For example: fred@example.com. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#user_by_email BigqueryDatasetAccessA#user_by_email}
+        :param view: view block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#view BigqueryDatasetAccessA#view}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class BigqueryDatasetAccessA(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BigqueryDatasetAccessA to import.
-        :param import_from_id: The id of the existing BigqueryDatasetAccessA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BigqueryDatasetAccessA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BigqueryDatasetAccessA to import is found.
         '''
         if __debug__:
@@ -163,10 +163,10 @@ class BigqueryDatasetAccessA(
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#expression BigqueryDatasetAccessA#expression}
-        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#description BigqueryDatasetAccessA#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#location BigqueryDatasetAccessA#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#title BigqueryDatasetAccessA#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#expression BigqueryDatasetAccessA#expression}
+        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#description BigqueryDatasetAccessA#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#location BigqueryDatasetAccessA#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#title BigqueryDatasetAccessA#title}
         '''
         value = BigqueryDatasetAccessConditionA(
             expression=expression,
@@ -185,8 +185,8 @@ class BigqueryDatasetAccessA(
         target_types: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param dataset: dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#dataset BigqueryDatasetAccessA#dataset}
-        :param target_types: Which resources in the dataset this entry applies to. Currently, only views are supported, but additional target types may be added in the future. Possible values: VIEWS Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#target_types BigqueryDatasetAccessA#target_types}
+        :param dataset: dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#dataset BigqueryDatasetAccessA#dataset}
+        :param target_types: Which resources in the dataset this entry applies to. Currently, only views are supported, but additional target types may be added in the future. Possible values: VIEWS Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#target_types BigqueryDatasetAccessA#target_types}
         '''
         value = BigqueryDatasetAccessDatasetA(
             dataset=dataset, target_types=target_types
@@ -203,9 +203,9 @@ class BigqueryDatasetAccessA(
         routine_id: builtins.str,
     ) -> None:
         '''
-        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#project_id BigqueryDatasetAccessA#project_id}
-        :param routine_id: The ID of the routine. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#routine_id BigqueryDatasetAccessA#routine_id}
+        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#project_id BigqueryDatasetAccessA#project_id}
+        :param routine_id: The ID of the routine. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#routine_id BigqueryDatasetAccessA#routine_id}
         '''
         value = BigqueryDatasetAccessRoutineA(
             dataset_id=dataset_id, project_id=project_id, routine_id=routine_id
@@ -221,8 +221,8 @@ class BigqueryDatasetAccessA(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#create BigqueryDatasetAccessA#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#delete BigqueryDatasetAccessA#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#create BigqueryDatasetAccessA#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#delete BigqueryDatasetAccessA#delete}.
         '''
         value = BigqueryDatasetAccessTimeouts(create=create, delete=delete)
 
@@ -237,9 +237,9 @@ class BigqueryDatasetAccessA(
         table_id: builtins.str,
     ) -> None:
         '''
-        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#project_id BigqueryDatasetAccessA#project_id}
-        :param table_id: The ID of the table. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 1,024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#table_id BigqueryDatasetAccessA#table_id}
+        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#project_id BigqueryDatasetAccessA#project_id}
+        :param table_id: The ID of the table. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 1,024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#table_id BigqueryDatasetAccessA#table_id}
         '''
         value = BigqueryDatasetAccessViewA(
             dataset_id=dataset_id, project_id=project_id, table_id=table_id
@@ -584,20 +584,20 @@ class BigqueryDatasetAccessAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param dataset_id: A unique ID for this dataset, without the project name. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 1,024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#condition BigqueryDatasetAccessA#condition}
-        :param dataset: dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#dataset BigqueryDatasetAccessA#dataset}
-        :param domain: A domain to grant access to. Any users signed in with the domain specified will be granted the specified access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#domain BigqueryDatasetAccessA#domain}
-        :param group_by_email: An email address of a Google Group to grant access to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#group_by_email BigqueryDatasetAccessA#group_by_email}
-        :param iam_member: Some other type of member that appears in the IAM Policy but isn't a user, group, domain, or special group. For example: 'allUsers' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#iam_member BigqueryDatasetAccessA#iam_member}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#id BigqueryDatasetAccessA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#project BigqueryDatasetAccessA#project}.
-        :param role: Describes the rights granted to the user specified by the other member of the access object. Basic, predefined, and custom roles are supported. Predefined roles that have equivalent basic roles are swapped by the API to their basic counterparts, and will show a diff post-create. See `official docs <https://cloud.google.com/bigquery/docs/access-control>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#role BigqueryDatasetAccessA#role}
-        :param routine: routine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#routine BigqueryDatasetAccessA#routine}
-        :param special_group: A special group to grant access to. Possible values include: - 'projectOwners': Owners of the enclosing project. - 'projectReaders': Readers of the enclosing project. - 'projectWriters': Writers of the enclosing project. - 'allAuthenticatedUsers': All authenticated BigQuery users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#special_group BigqueryDatasetAccessA#special_group}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#timeouts BigqueryDatasetAccessA#timeouts}
-        :param user_by_email: An email address of a user to grant access to. For example: fred@example.com. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#user_by_email BigqueryDatasetAccessA#user_by_email}
-        :param view: view block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#view BigqueryDatasetAccessA#view}
+        :param dataset_id: A unique ID for this dataset, without the project name. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 1,024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#condition BigqueryDatasetAccessA#condition}
+        :param dataset: dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#dataset BigqueryDatasetAccessA#dataset}
+        :param domain: A domain to grant access to. Any users signed in with the domain specified will be granted the specified access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#domain BigqueryDatasetAccessA#domain}
+        :param group_by_email: An email address of a Google Group to grant access to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#group_by_email BigqueryDatasetAccessA#group_by_email}
+        :param iam_member: Some other type of member that appears in the IAM Policy but isn't a user, group, domain, or special group. For example: 'allUsers' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#iam_member BigqueryDatasetAccessA#iam_member}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#id BigqueryDatasetAccessA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#project BigqueryDatasetAccessA#project}.
+        :param role: Describes the rights granted to the user specified by the other member of the access object. Basic, predefined, and custom roles are supported. Predefined roles that have equivalent basic roles are swapped by the API to their basic counterparts, and will show a diff post-create. See `official docs <https://cloud.google.com/bigquery/docs/access-control>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#role BigqueryDatasetAccessA#role}
+        :param routine: routine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#routine BigqueryDatasetAccessA#routine}
+        :param special_group: A special group to grant access to. Possible values include: - 'projectOwners': Owners of the enclosing project. - 'projectReaders': Readers of the enclosing project. - 'projectWriters': Writers of the enclosing project. - 'allAuthenticatedUsers': All authenticated BigQuery users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#special_group BigqueryDatasetAccessA#special_group}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#timeouts BigqueryDatasetAccessA#timeouts}
+        :param user_by_email: An email address of a user to grant access to. For example: fred@example.com. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#user_by_email BigqueryDatasetAccessA#user_by_email}
+        :param view: view block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#view BigqueryDatasetAccessA#view}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -750,7 +750,7 @@ class BigqueryDatasetAccessAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         must contain only letters (a-z, A-Z), numbers (0-9), or
         underscores (_). The maximum length is 1,024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
         '''
         result = self._values.get("dataset_id")
         assert result is not None, "Required property 'dataset_id' is missing"
@@ -760,7 +760,7 @@ class BigqueryDatasetAccessAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def condition(self) -> typing.Optional["BigqueryDatasetAccessConditionA"]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#condition BigqueryDatasetAccessA#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#condition BigqueryDatasetAccessA#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional["BigqueryDatasetAccessConditionA"], result)
@@ -769,7 +769,7 @@ class BigqueryDatasetAccessAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dataset(self) -> typing.Optional["BigqueryDatasetAccessDatasetA"]:
         '''dataset block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#dataset BigqueryDatasetAccessA#dataset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#dataset BigqueryDatasetAccessA#dataset}
         '''
         result = self._values.get("dataset")
         return typing.cast(typing.Optional["BigqueryDatasetAccessDatasetA"], result)
@@ -778,7 +778,7 @@ class BigqueryDatasetAccessAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def domain(self) -> typing.Optional[builtins.str]:
         '''A domain to grant access to. Any users signed in with the domain specified will be granted the specified access.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#domain BigqueryDatasetAccessA#domain}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#domain BigqueryDatasetAccessA#domain}
         '''
         result = self._values.get("domain")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -787,7 +787,7 @@ class BigqueryDatasetAccessAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def group_by_email(self) -> typing.Optional[builtins.str]:
         '''An email address of a Google Group to grant access to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#group_by_email BigqueryDatasetAccessA#group_by_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#group_by_email BigqueryDatasetAccessA#group_by_email}
         '''
         result = self._values.get("group_by_email")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -798,14 +798,14 @@ class BigqueryDatasetAccessAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For example: 'allUsers'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#iam_member BigqueryDatasetAccessA#iam_member}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#iam_member BigqueryDatasetAccessA#iam_member}
         '''
         result = self._values.get("iam_member")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#id BigqueryDatasetAccessA#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#id BigqueryDatasetAccessA#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -815,7 +815,7 @@ class BigqueryDatasetAccessAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#project BigqueryDatasetAccessA#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#project BigqueryDatasetAccessA#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -829,7 +829,7 @@ class BigqueryDatasetAccessAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         post-create. See
         `official docs <https://cloud.google.com/bigquery/docs/access-control>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#role BigqueryDatasetAccessA#role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#role BigqueryDatasetAccessA#role}
         '''
         result = self._values.get("role")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -838,7 +838,7 @@ class BigqueryDatasetAccessAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def routine(self) -> typing.Optional["BigqueryDatasetAccessRoutineA"]:
         '''routine block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#routine BigqueryDatasetAccessA#routine}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#routine BigqueryDatasetAccessA#routine}
         '''
         result = self._values.get("routine")
         return typing.cast(typing.Optional["BigqueryDatasetAccessRoutineA"], result)
@@ -854,7 +854,7 @@ class BigqueryDatasetAccessAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - 'projectWriters': Writers of the enclosing project.
         - 'allAuthenticatedUsers': All authenticated BigQuery users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#special_group BigqueryDatasetAccessA#special_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#special_group BigqueryDatasetAccessA#special_group}
         '''
         result = self._values.get("special_group")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -863,7 +863,7 @@ class BigqueryDatasetAccessAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BigqueryDatasetAccessTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#timeouts BigqueryDatasetAccessA#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#timeouts BigqueryDatasetAccessA#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BigqueryDatasetAccessTimeouts"], result)
@@ -872,7 +872,7 @@ class BigqueryDatasetAccessAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user_by_email(self) -> typing.Optional[builtins.str]:
         '''An email address of a user to grant access to. For example: fred@example.com.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#user_by_email BigqueryDatasetAccessA#user_by_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#user_by_email BigqueryDatasetAccessA#user_by_email}
         '''
         result = self._values.get("user_by_email")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -881,7 +881,7 @@ class BigqueryDatasetAccessAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def view(self) -> typing.Optional["BigqueryDatasetAccessViewA"]:
         '''view block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#view BigqueryDatasetAccessA#view}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#view BigqueryDatasetAccessA#view}
         '''
         result = self._values.get("view")
         return typing.cast(typing.Optional["BigqueryDatasetAccessViewA"], result)
@@ -918,10 +918,10 @@ class BigqueryDatasetAccessConditionA:
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#expression BigqueryDatasetAccessA#expression}
-        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#description BigqueryDatasetAccessA#description}
-        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#location BigqueryDatasetAccessA#location}
-        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#title BigqueryDatasetAccessA#title}
+        :param expression: Textual representation of an expression in Common Expression Language syntax. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#expression BigqueryDatasetAccessA#expression}
+        :param description: Description of the expression. This is a longer text which describes the expression, e.g. when hovered over it in a UI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#description BigqueryDatasetAccessA#description}
+        :param location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#location BigqueryDatasetAccessA#location}
+        :param title: Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#title BigqueryDatasetAccessA#title}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__33729e1f88f6731f856aa9b1b03c54f61b7eb73814d705ee09690cbf9606fbd1)
@@ -943,7 +943,7 @@ class BigqueryDatasetAccessConditionA:
     def expression(self) -> builtins.str:
         '''Textual representation of an expression in Common Expression Language syntax.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#expression BigqueryDatasetAccessA#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#expression BigqueryDatasetAccessA#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -956,7 +956,7 @@ class BigqueryDatasetAccessConditionA:
         This is a longer text which describes the expression,
         e.g. when hovered over it in a UI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#description BigqueryDatasetAccessA#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#description BigqueryDatasetAccessA#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -965,7 +965,7 @@ class BigqueryDatasetAccessConditionA:
     def location(self) -> typing.Optional[builtins.str]:
         '''String indicating the location of the expression for error reporting, e.g. a file name and a position in the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#location BigqueryDatasetAccessA#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#location BigqueryDatasetAccessA#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -974,7 +974,7 @@ class BigqueryDatasetAccessConditionA:
     def title(self) -> typing.Optional[builtins.str]:
         '''Title for the expression, i.e. a short string describing its purpose. This can be used e.g. in UIs which allow to enter the expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#title BigqueryDatasetAccessA#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#title BigqueryDatasetAccessA#title}
         '''
         result = self._values.get("title")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1120,8 +1120,8 @@ class BigqueryDatasetAccessDatasetA:
         target_types: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param dataset: dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#dataset BigqueryDatasetAccessA#dataset}
-        :param target_types: Which resources in the dataset this entry applies to. Currently, only views are supported, but additional target types may be added in the future. Possible values: VIEWS Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#target_types BigqueryDatasetAccessA#target_types}
+        :param dataset: dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#dataset BigqueryDatasetAccessA#dataset}
+        :param target_types: Which resources in the dataset this entry applies to. Currently, only views are supported, but additional target types may be added in the future. Possible values: VIEWS Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#target_types BigqueryDatasetAccessA#target_types}
         '''
         if isinstance(dataset, dict):
             dataset = BigqueryDatasetAccessDatasetDatasetA(**dataset)
@@ -1138,7 +1138,7 @@ class BigqueryDatasetAccessDatasetA:
     def dataset(self) -> "BigqueryDatasetAccessDatasetDatasetA":
         '''dataset block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#dataset BigqueryDatasetAccessA#dataset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#dataset BigqueryDatasetAccessA#dataset}
         '''
         result = self._values.get("dataset")
         assert result is not None, "Required property 'dataset' is missing"
@@ -1151,7 +1151,7 @@ class BigqueryDatasetAccessDatasetA:
         Currently, only views are supported,
         but additional target types may be added in the future. Possible values: VIEWS
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#target_types BigqueryDatasetAccessA#target_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#target_types BigqueryDatasetAccessA#target_types}
         '''
         result = self._values.get("target_types")
         assert result is not None, "Required property 'target_types' is missing"
@@ -1197,8 +1197,8 @@ class BigqueryDatasetAccessDatasetAOutputReference(
         project_id: builtins.str,
     ) -> None:
         '''
-        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#project_id BigqueryDatasetAccessA#project_id}
+        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#project_id BigqueryDatasetAccessA#project_id}
         '''
         value = BigqueryDatasetAccessDatasetDatasetA(
             dataset_id=dataset_id, project_id=project_id
@@ -1257,8 +1257,8 @@ class BigqueryDatasetAccessDatasetAOutputReference(
 class BigqueryDatasetAccessDatasetDatasetA:
     def __init__(self, *, dataset_id: builtins.str, project_id: builtins.str) -> None:
         '''
-        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#project_id BigqueryDatasetAccessA#project_id}
+        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#project_id BigqueryDatasetAccessA#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__089fa717f9d5f51f125714da55b35483ae39eb62906da9d65c464b771039dbfb)
@@ -1273,7 +1273,7 @@ class BigqueryDatasetAccessDatasetDatasetA:
     def dataset_id(self) -> builtins.str:
         '''The ID of the dataset containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
         '''
         result = self._values.get("dataset_id")
         assert result is not None, "Required property 'dataset_id' is missing"
@@ -1283,7 +1283,7 @@ class BigqueryDatasetAccessDatasetDatasetA:
     def project_id(self) -> builtins.str:
         '''The ID of the project containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#project_id BigqueryDatasetAccessA#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#project_id BigqueryDatasetAccessA#project_id}
         '''
         result = self._values.get("project_id")
         assert result is not None, "Required property 'project_id' is missing"
@@ -1389,9 +1389,9 @@ class BigqueryDatasetAccessRoutineA:
         routine_id: builtins.str,
     ) -> None:
         '''
-        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#project_id BigqueryDatasetAccessA#project_id}
-        :param routine_id: The ID of the routine. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#routine_id BigqueryDatasetAccessA#routine_id}
+        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#project_id BigqueryDatasetAccessA#project_id}
+        :param routine_id: The ID of the routine. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#routine_id BigqueryDatasetAccessA#routine_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2d5f22999a96f7f3a3471a49f74ea6f4cc16d1b1ff659720a4fe1c20757e23c1)
@@ -1408,7 +1408,7 @@ class BigqueryDatasetAccessRoutineA:
     def dataset_id(self) -> builtins.str:
         '''The ID of the dataset containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
         '''
         result = self._values.get("dataset_id")
         assert result is not None, "Required property 'dataset_id' is missing"
@@ -1418,7 +1418,7 @@ class BigqueryDatasetAccessRoutineA:
     def project_id(self) -> builtins.str:
         '''The ID of the project containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#project_id BigqueryDatasetAccessA#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#project_id BigqueryDatasetAccessA#project_id}
         '''
         result = self._values.get("project_id")
         assert result is not None, "Required property 'project_id' is missing"
@@ -1432,7 +1432,7 @@ class BigqueryDatasetAccessRoutineA:
         A-Z), numbers (0-9), or underscores (_). The maximum length
         is 256 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#routine_id BigqueryDatasetAccessA#routine_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#routine_id BigqueryDatasetAccessA#routine_id}
         '''
         result = self._values.get("routine_id")
         assert result is not None, "Required property 'routine_id' is missing"
@@ -1550,8 +1550,8 @@ class BigqueryDatasetAccessTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#create BigqueryDatasetAccessA#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#delete BigqueryDatasetAccessA#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#create BigqueryDatasetAccessA#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#delete BigqueryDatasetAccessA#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d910eaba22265398880ca87a7e34633038ef2bcd724207e3ecf220edfda67bf9)
@@ -1565,13 +1565,13 @@ class BigqueryDatasetAccessTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#create BigqueryDatasetAccessA#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#create BigqueryDatasetAccessA#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#delete BigqueryDatasetAccessA#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#delete BigqueryDatasetAccessA#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1685,9 +1685,9 @@ class BigqueryDatasetAccessViewA:
         table_id: builtins.str,
     ) -> None:
         '''
-        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#project_id BigqueryDatasetAccessA#project_id}
-        :param table_id: The ID of the table. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 1,024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#table_id BigqueryDatasetAccessA#table_id}
+        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#project_id BigqueryDatasetAccessA#project_id}
+        :param table_id: The ID of the table. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 1,024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#table_id BigqueryDatasetAccessA#table_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__195d6323d3428ad600f76169ff9e06c7c15b8d1945f5dcb241d9b95fb6433c27)
@@ -1704,7 +1704,7 @@ class BigqueryDatasetAccessViewA:
     def dataset_id(self) -> builtins.str:
         '''The ID of the dataset containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#dataset_id BigqueryDatasetAccessA#dataset_id}
         '''
         result = self._values.get("dataset_id")
         assert result is not None, "Required property 'dataset_id' is missing"
@@ -1714,7 +1714,7 @@ class BigqueryDatasetAccessViewA:
     def project_id(self) -> builtins.str:
         '''The ID of the project containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#project_id BigqueryDatasetAccessA#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#project_id BigqueryDatasetAccessA#project_id}
         '''
         result = self._values.get("project_id")
         assert result is not None, "Required property 'project_id' is missing"
@@ -1728,7 +1728,7 @@ class BigqueryDatasetAccessViewA:
         A-Z), numbers (0-9), or underscores (_). The maximum length
         is 1,024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/bigquery_dataset_access#table_id BigqueryDatasetAccessA#table_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/bigquery_dataset_access#table_id BigqueryDatasetAccessA#table_id}
         '''
         result = self._values.get("table_id")
         assert result is not None, "Required property 'table_id' is missing"

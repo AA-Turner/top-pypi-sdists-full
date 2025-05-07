@@ -1,7 +1,7 @@
 r'''
 # `google_healthcare_workspace`
 
-Refer to the Terraform Registry for docs: [`google_healthcare_workspace`](https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace).
+Refer to the Terraform Registry for docs: [`google_healthcare_workspace`](https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class HealthcareWorkspace(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.healthcareWorkspace.HealthcareWorkspace",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace google_healthcare_workspace}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace google_healthcare_workspace}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class HealthcareWorkspace(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace google_healthcare_workspace} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace google_healthcare_workspace} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param dataset: Identifies the dataset addressed by this request. Must be in the format 'projects/{project}/locations/{location}/datasets/{dataset}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#dataset HealthcareWorkspace#dataset}
-        :param name: The name of the workspace, in the format 'projects/{projectId}/locations/{location}/datasets/{datasetId}/dataMapperWorkspaces/{workspaceId}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#name HealthcareWorkspace#name}
-        :param settings: settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#settings HealthcareWorkspace#settings}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#id HealthcareWorkspace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: The user labels. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" } **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#labels HealthcareWorkspace#labels}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#timeouts HealthcareWorkspace#timeouts}
+        :param dataset: Identifies the dataset addressed by this request. Must be in the format 'projects/{project}/locations/{location}/datasets/{dataset}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#dataset HealthcareWorkspace#dataset}
+        :param name: The name of the workspace, in the format 'projects/{projectId}/locations/{location}/datasets/{datasetId}/dataMapperWorkspaces/{workspaceId}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#name HealthcareWorkspace#name}
+        :param settings: settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#settings HealthcareWorkspace#settings}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#id HealthcareWorkspace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: The user labels. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" } **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#labels HealthcareWorkspace#labels}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#timeouts HealthcareWorkspace#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class HealthcareWorkspace(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the HealthcareWorkspace to import.
-        :param import_from_id: The id of the existing HealthcareWorkspace that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing HealthcareWorkspace that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the HealthcareWorkspace to import is found.
         '''
         if __debug__:
@@ -132,7 +132,7 @@ class HealthcareWorkspace(
     @jsii.member(jsii_name="putSettings")
     def put_settings(self, *, data_project_ids: typing.Sequence[builtins.str]) -> None:
         '''
-        :param data_project_ids: Project IDs for data projects hosted in a workspace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#data_project_ids HealthcareWorkspace#data_project_ids}
+        :param data_project_ids: Project IDs for data projects hosted in a workspace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#data_project_ids HealthcareWorkspace#data_project_ids}
         '''
         value = HealthcareWorkspaceSettings(data_project_ids=data_project_ids)
 
@@ -147,9 +147,9 @@ class HealthcareWorkspace(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#create HealthcareWorkspace#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#delete HealthcareWorkspace#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#update HealthcareWorkspace#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#create HealthcareWorkspace#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#delete HealthcareWorkspace#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#update HealthcareWorkspace#update}.
         '''
         value = HealthcareWorkspaceTimeouts(
             create=create, delete=delete, update=update
@@ -330,12 +330,12 @@ class HealthcareWorkspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param dataset: Identifies the dataset addressed by this request. Must be in the format 'projects/{project}/locations/{location}/datasets/{dataset}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#dataset HealthcareWorkspace#dataset}
-        :param name: The name of the workspace, in the format 'projects/{projectId}/locations/{location}/datasets/{datasetId}/dataMapperWorkspaces/{workspaceId}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#name HealthcareWorkspace#name}
-        :param settings: settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#settings HealthcareWorkspace#settings}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#id HealthcareWorkspace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: The user labels. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" } **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#labels HealthcareWorkspace#labels}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#timeouts HealthcareWorkspace#timeouts}
+        :param dataset: Identifies the dataset addressed by this request. Must be in the format 'projects/{project}/locations/{location}/datasets/{dataset}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#dataset HealthcareWorkspace#dataset}
+        :param name: The name of the workspace, in the format 'projects/{projectId}/locations/{location}/datasets/{datasetId}/dataMapperWorkspaces/{workspaceId}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#name HealthcareWorkspace#name}
+        :param settings: settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#settings HealthcareWorkspace#settings}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#id HealthcareWorkspace#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: The user labels. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" } **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#labels HealthcareWorkspace#labels}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#timeouts HealthcareWorkspace#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -452,7 +452,7 @@ class HealthcareWorkspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dataset(self) -> builtins.str:
         '''Identifies the dataset addressed by this request. Must be in the format 'projects/{project}/locations/{location}/datasets/{dataset}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#dataset HealthcareWorkspace#dataset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#dataset HealthcareWorkspace#dataset}
         '''
         result = self._values.get("dataset")
         assert result is not None, "Required property 'dataset' is missing"
@@ -462,7 +462,7 @@ class HealthcareWorkspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the workspace, in the format 'projects/{projectId}/locations/{location}/datasets/{datasetId}/dataMapperWorkspaces/{workspaceId}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#name HealthcareWorkspace#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#name HealthcareWorkspace#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -472,7 +472,7 @@ class HealthcareWorkspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def settings(self) -> "HealthcareWorkspaceSettings":
         '''settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#settings HealthcareWorkspace#settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#settings HealthcareWorkspace#settings}
         '''
         result = self._values.get("settings")
         assert result is not None, "Required property 'settings' is missing"
@@ -480,7 +480,7 @@ class HealthcareWorkspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#id HealthcareWorkspace#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#id HealthcareWorkspace#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -497,7 +497,7 @@ class HealthcareWorkspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#labels HealthcareWorkspace#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#labels HealthcareWorkspace#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -506,7 +506,7 @@ class HealthcareWorkspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["HealthcareWorkspaceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#timeouts HealthcareWorkspace#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#timeouts HealthcareWorkspace#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["HealthcareWorkspaceTimeouts"], result)
@@ -531,7 +531,7 @@ class HealthcareWorkspaceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class HealthcareWorkspaceSettings:
     def __init__(self, *, data_project_ids: typing.Sequence[builtins.str]) -> None:
         '''
-        :param data_project_ids: Project IDs for data projects hosted in a workspace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#data_project_ids HealthcareWorkspace#data_project_ids}
+        :param data_project_ids: Project IDs for data projects hosted in a workspace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#data_project_ids HealthcareWorkspace#data_project_ids}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__37190f778fbdc64e82f58367418260fe696f8bd7f1a5868a5b8fe74bd51c97d9)
@@ -544,7 +544,7 @@ class HealthcareWorkspaceSettings:
     def data_project_ids(self) -> typing.List[builtins.str]:
         '''Project IDs for data projects hosted in a workspace.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#data_project_ids HealthcareWorkspace#data_project_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#data_project_ids HealthcareWorkspace#data_project_ids}
         '''
         result = self._values.get("data_project_ids")
         assert result is not None, "Required property 'data_project_ids' is missing"
@@ -629,9 +629,9 @@ class HealthcareWorkspaceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#create HealthcareWorkspace#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#delete HealthcareWorkspace#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#update HealthcareWorkspace#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#create HealthcareWorkspace#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#delete HealthcareWorkspace#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#update HealthcareWorkspace#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3b2c831f87217b1816df2ba6119d8406dd9bf848d1702df60128db87206fb11a)
@@ -648,19 +648,19 @@ class HealthcareWorkspaceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#create HealthcareWorkspace#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#create HealthcareWorkspace#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#delete HealthcareWorkspace#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#delete HealthcareWorkspace#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.33.0/docs/resources/healthcare_workspace#update HealthcareWorkspace#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.34.0/docs/resources/healthcare_workspace#update HealthcareWorkspace#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -370,6 +370,13 @@ class HTMLPictureSerializer(BasePictureSerializer):
         **kwargs: Any,
     ) -> SerializationResult:
         """Export picture to HTML format."""
+
+        def get_img_row(imgb64: str, ind: int) -> str:
+            row = '<tr><td style="border: 2px solid black; padding: 8px;">'
+            row += f'<img src="data:image/png;base64,{imgb64}" alt="image {ind}">'
+            row += "</td></tr>\n"
+            return row
+
         params = HTMLParams(**kwargs)
 
         res_parts: list[SerializationResult] = []
@@ -393,6 +400,22 @@ class HTMLPictureSerializer(BasePictureSerializer):
                     and item.image.uri.scheme == "data"
                 ):
                     img_text = f'<img src="{item.image.uri}">'
+                elif len(item.prov) > 1:  # more than 1 provenance
+
+                    img_text = (
+                        '<table style="border-collapse: collapse; width: 100%;">\n'
+                    )
+                    for ind, prov in enumerate(item.prov):
+                        img = item.get_image(doc, prov_index=ind)
+
+                        if img is not None:
+                            imgb64 = item._image_to_base64(img)
+                            img_text += get_img_row(imgb64=imgb64, ind=ind)
+                        else:
+                            _logger.warning("Could not get image")
+
+                    img_text += "</table>\n"
+
                 else:
                     # get the item.image._pil or crop it out of the page-image
                     img = item.get_image(doc)
@@ -400,6 +423,9 @@ class HTMLPictureSerializer(BasePictureSerializer):
                     if img is not None:
                         imgb64 = item._image_to_base64(img)
                         img_text = f'<img src="data:image/png;base64,{imgb64}">'
+                    else:
+                        _logger.warning("Could not get image")
+
             elif params.image_mode == ImageRefMode.REFERENCED:
                 if isinstance(item.image, ImageRef) and not (
                     isinstance(item.image.uri, AnyUrl)

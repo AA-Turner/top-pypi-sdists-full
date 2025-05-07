@@ -153,7 +153,7 @@ class OccMetricsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/ocicontrolcenter/list_metric_properties.py.html>`__ to see an example of how to use list_metric_properties API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/ocicontrolcenter/list_metric_properties.py.html>`__ to see an example of how to use list_metric_properties API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespaceName', 'compartmentId']
@@ -269,7 +269,7 @@ class OccMetricsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/ocicontrolcenter/list_namespaces.py.html>`__ to see an example of how to use list_namespaces API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/ocicontrolcenter/list_namespaces.py.html>`__ to see an example of how to use list_namespaces API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -375,7 +375,7 @@ class OccMetricsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.150.3/ocicontrolcenter/request_summarized_metric_data.py.html>`__ to see an example of how to use request_summarized_metric_data API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.151.0/ocicontrolcenter/request_summarized_metric_data.py.html>`__ to see an example of how to use request_summarized_metric_data API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []

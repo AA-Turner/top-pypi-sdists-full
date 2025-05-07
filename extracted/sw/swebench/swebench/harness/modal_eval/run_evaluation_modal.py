@@ -224,6 +224,7 @@ def get_log_dir(pred: dict, run_id: str, instance_id: str) -> Path:
     ),
     timeout=120
     * 60,  # Much larger than default timeout to account for image build time
+    include_source=True,
 )
 def run_instance_modal(
     test_spec: TestSpec,

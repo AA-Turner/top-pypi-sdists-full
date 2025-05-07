@@ -790,7 +790,9 @@ class DocItem(
 
         return location
 
-    def get_image(self, doc: "DoclingDocument") -> Optional[PILImage.Image]:
+    def get_image(
+        self, doc: "DoclingDocument", prov_index: int = 0
+    ) -> Optional[PILImage.Image]:
         """Returns the image of this DocItem.
 
         The function returns None if this DocItem has no valid provenance or
@@ -800,7 +802,7 @@ class DocItem(
         if not len(self.prov):
             return None
 
-        page = doc.pages.get(self.prov[0].page_no)
+        page = doc.pages.get(self.prov[prov_index].page_no)
         if page is None or page.size is None or page.image is None:
             return None
 
@@ -808,7 +810,7 @@ class DocItem(
         if not page_image:
             return None
         crop_bbox = (
-            self.prov[0]
+            self.prov[prov_index]
             .bbox.to_top_left_origin(page_height=page.size.height)
             .scale_to_size(old_size=page.size, new_size=page.image.size)
             # .scaled(scale=page_image.height / page.size.height)
@@ -973,7 +975,9 @@ class FloatingItem(DocItem):
             text += cap.resolve(doc).text
         return text
 
-    def get_image(self, doc: "DoclingDocument") -> Optional[PILImage.Image]:
+    def get_image(
+        self, doc: "DoclingDocument", prov_index: int = 0
+    ) -> Optional[PILImage.Image]:
         """Returns the image corresponding to this FloatingItem.
 
         This function returns the PIL image from self.image if one is available.
@@ -985,7 +989,7 @@ class FloatingItem(DocItem):
         """
         if self.image is not None:
             return self.image.pil_image
-        return super().get_image(doc=doc)
+        return super().get_image(doc=doc, prov_index=prov_index)
 
 
 class CodeItem(FloatingItem, TextItem):
@@ -1073,7 +1077,7 @@ class PictureItem(FloatingItem):
             image_bytes = self.image._pil.tobytes()
 
             # Create a hash object (e.g., SHA-256)
-            hasher = hashlib.sha256()
+            hasher = hashlib.sha256(usedforsecurity=False)
 
             # Feed the image bytes into the hash object
             hasher.update(image_bytes)
@@ -2657,16 +2661,25 @@ class DoclingDocument(BaseModel):
         if should_yield:
             yield root, my_stack
 
-        # Handle picture traversal - only traverse children if requested
-        if isinstance(root, PictureItem) and not traverse_pictures:
-            return
-
         my_stack.append(-1)
+
+        allowed_pic_refs: set[str] = (
+            {r.cref for r in root.captions}
+            if (root_is_picture := isinstance(root, PictureItem))
+            else set()
+        )
 
         # Traverse children
         for child_ind, child_ref in enumerate(root.children):
-            my_stack[-1] = child_ind
             child = child_ref.resolve(self)
+            if (
+                root_is_picture
+                and not traverse_pictures
+                and isinstance(child, DocItem)
+                and child.self_ref not in allowed_pic_refs
+            ):
+                continue
+            my_stack[-1] = child_ind
 
             if isinstance(child, NodeItem):
                 yield from self._iterate_items_with_stack(
@@ -3597,7 +3610,9 @@ class DoclingDocument(BaseModel):
                 rf"{DocumentToken.UNORDERED_LIST.value}|"
                 rf"{DocItemLabel.KEY_VALUE_REGION}|"
                 rf"{DocumentToken.CHART.value}|"
-                rf"{DocumentToken.OTSL.value})>.*?</(?P=tag)>"
+                rf"{DocumentToken.OTSL.value})>"
+                rf"(?P<content>.*?)"
+                rf"(?:(?P<closed></(?P=tag)>)|(?P<eof>$))"
             )
             pattern = re.compile(tag_pattern, re.DOTALL)
 
@@ -3607,6 +3622,10 @@ class DoclingDocument(BaseModel):
                 tag_name = match.group("tag")
 
                 bbox = extract_bounding_box(full_chunk)  # Extracts first bbox
+                if not match.group("closed"):
+                    # no closing tag; only the existence of the item is recovered
+                    full_chunk = f"<{tag_name}></{tag_name}>"
+
                 doc_label = tag_to_doclabel.get(tag_name, DocItemLabel.PARAGRAPH)
 
                 if tag_name == DocumentToken.OTSL.value:

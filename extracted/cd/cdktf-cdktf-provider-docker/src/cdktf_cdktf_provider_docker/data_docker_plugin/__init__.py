@@ -1,7 +1,7 @@
 r'''
 # `data_docker_plugin`
 
-Refer to the Terraform Registry for docs: [`data_docker_plugin`](https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/data-sources/plugin).
+Refer to the Terraform Registry for docs: [`data_docker_plugin`](https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/data-sources/plugin).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataDockerPlugin(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-docker.dataDockerPlugin.DataDockerPlugin",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/data-sources/plugin docker_plugin}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/data-sources/plugin docker_plugin}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataDockerPlugin(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/data-sources/plugin docker_plugin} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/data-sources/plugin docker_plugin} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param alias: The alias of the Docker plugin. If the tag is omitted, ``:latest`` is complemented to the attribute value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/data-sources/plugin#alias DataDockerPlugin#alias}
-        :param id: The ID of the plugin, which has precedence over the ``alias`` of both are given. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/data-sources/plugin#id DataDockerPlugin#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param alias: The alias of the Docker plugin. If the tag is omitted, ``:latest`` is complemented to the attribute value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/data-sources/plugin#alias DataDockerPlugin#alias}
+        :param id: The ID of the plugin, which has precedence over the ``alias`` of both are given. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/data-sources/plugin#id DataDockerPlugin#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataDockerPlugin(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDockerPlugin to import.
-        :param import_from_id: The id of the existing DataDockerPlugin that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/data-sources/plugin#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDockerPlugin that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/data-sources/plugin#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDockerPlugin to import is found.
         '''
         if __debug__:
@@ -235,8 +235,8 @@ class DataDockerPluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param alias: The alias of the Docker plugin. If the tag is omitted, ``:latest`` is complemented to the attribute value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/data-sources/plugin#alias DataDockerPlugin#alias}
-        :param id: The ID of the plugin, which has precedence over the ``alias`` of both are given. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/data-sources/plugin#id DataDockerPlugin#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param alias: The alias of the Docker plugin. If the tag is omitted, ``:latest`` is complemented to the attribute value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/data-sources/plugin#alias DataDockerPlugin#alias}
+        :param id: The ID of the plugin, which has precedence over the ``alias`` of both are given. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/data-sources/plugin#id DataDockerPlugin#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -339,7 +339,7 @@ class DataDockerPluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def alias(self) -> typing.Optional[builtins.str]:
         '''The alias of the Docker plugin. If the tag is omitted, ``:latest`` is complemented to the attribute value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/data-sources/plugin#alias DataDockerPlugin#alias}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/data-sources/plugin#alias DataDockerPlugin#alias}
         '''
         result = self._values.get("alias")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -348,7 +348,7 @@ class DataDockerPluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def id(self) -> typing.Optional[builtins.str]:
         '''The ID of the plugin, which has precedence over the ``alias`` of both are given.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.4.0/docs/data-sources/plugin#id DataDockerPlugin#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.5.0/docs/data-sources/plugin#id DataDockerPlugin#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

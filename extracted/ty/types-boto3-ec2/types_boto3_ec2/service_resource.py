@@ -4459,6 +4459,7 @@ class Volume(ServiceResource):
     throughput: int
     sse_type: SSETypeType
     operator: OperatorResponseTypeDef
+    volume_initialization_rate: int
     volume_id: str
     size: int
     snapshot_id: str

@@ -1,22 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: docspec
-Version: 2.2.1
+Version: 2.2.2
 Summary: Docspec is a JSON object specification for representing API documentation of programming languages.
-Home-page: https://github.com/NiklasRosenstein/docspec/
-License: MIT
-Author: Niklas Rosenstein
-Author-email: rosensteinniklas@gmail.com
-Requires-Python: >=3.7,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Requires-Dist: Deprecated (>=1.2.12,<2.0.0)
-Requires-Dist: databind.core (>=4.2.6,<5.0.0)
-Requires-Dist: databind.json (>=4.2.6,<5.0.0)
+Author-email: Niklas Rosenstein <rosensteinniklas@gmail.com>
+Requires-Python: >=3.8
+Requires-Dist: databind-core>=4.2.6
+Requires-Dist: databind-json>=4.2.6
+Requires-Dist: deprecated>=1.2.12
 Description-Content-Type: text/markdown
 
 # docspec
@@ -51,4 +41,3 @@ The `docspec` Python module requires Python 3.5 or newer.
 ---
 
 <p align="center">Copyright &copy; 2020, Niklas Rosenstein</p>
-

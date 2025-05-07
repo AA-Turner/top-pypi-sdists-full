@@ -119,6 +119,10 @@ class PacketType(Enum):
 
     BUILD_WARNING = 49
 
+    LANGUAGE_MODEL_FUNCTION_CALL = 50
+
+    LANGUAGE_MODEL_AGENT_MESSAGE = 51
+
 
 class Packet(System.Object):
     """Base class for packet messaging system"""
